@@ -89,6 +89,7 @@ export const dict = {
   "palette.empty": "未找到结果",
   "palette.group.commands": "命令",
   "palette.group.files": "文件",
+  "palette.group.allFiles": "全部文件",
 
   "dialog.provider.search.placeholder": "搜索提供商",
   "dialog.provider.empty": "未找到提供商",

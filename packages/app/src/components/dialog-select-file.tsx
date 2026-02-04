@@ -3,6 +3,7 @@ import { Dialog } from "@opencode-ai/ui/dialog"
 import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { Keybind } from "@opencode-ai/ui/keybind"
 import { List } from "@opencode-ai/ui/list"
+import { Select } from "@opencode-ai/ui/select"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
 import { useParams } from "@solidjs/router"
 import { createMemo, createSignal, onCleanup, Show } from "solid-js"
@@ -10,6 +11,8 @@ import { formatKeybind, useCommand, type CommandOption } from "@/context/command
 import { useLayout } from "@/context/layout"
 import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
+
+type Extensions = string[]
 
 type EntryType = "command" | "file"
 
@@ -24,7 +27,11 @@ type Entry = {
   path?: string
 }
 
-export function DialogSelectFile() {
+interface DialogSelectFileProps {
+  extensions?: Extensions
+}
+
+export function DialogSelectFile(props: DialogSelectFileProps = {}) {
   const command = useCommand()
   const language = useLanguage()
   const layout = useLayout()
@@ -36,6 +43,7 @@ export function DialogSelectFile() {
   const view = createMemo(() => layout.view(sessionKey))
   const state = { cleanup: undefined as (() => void) | void, committed: false }
   const [grouped, setGrouped] = createSignal(false)
+  const [selectedExtension, setSelectedExtension] = createSignal<string | null>(props.extensions?.[0] ?? null)
   const common = [
     "session.new",
     "workspace.new",
@@ -103,7 +111,11 @@ export function DialogSelectFile() {
     const query = filter.trim()
     setGrouped(query.length > 0)
     if (!query) return [...picks(), ...recent()]
-    const files = await file.searchFiles(query)
+    let files = await file.searchFiles(query)
+    const ext = selectedExtension()
+    if (ext) {
+      files = files.filter(path => getFilename(path).endsWith(`.${ext}`))
+    }
     const entries = files.map(fileItem)
     return [...list(), ...entries]
   }
@@ -144,6 +156,22 @@ export function DialogSelectFile() {
 
   return (
     <Dialog class="pt-3 pb-0 !max-h-[480px]" transition>
+      <Show when={props.extensions}>
+        <div class="px-3 pb-2">
+          <Select
+            options={[
+              { value: null, label: language.t("palette.group.allFiles") },
+              ...props.extensions.map(ext => ({ value: ext, label: `.${ext}` }))
+            ]}
+            current={selectedExtension()}
+            value={(option) => option.value}
+            label={(option) => option.label}
+            onSelect={(option) => setSelectedExtension(option?.value ?? null)}
+            variant="secondary"
+            size="small"
+          />
+        </div>
+      </Show>
       <List
         search={{
           placeholder: language.t("palette.search.placeholder"),
