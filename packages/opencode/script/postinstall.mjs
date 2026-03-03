@@ -49,8 +49,8 @@ function detectPlatformAndArch() {
 
 function findBinary() {
   const { platform, arch } = detectPlatformAndArch()
-  const packageName = `opencode-${platform}-${arch}`
-  const binaryName = platform === "windows" ? "opencode.exe" : "opencode"
+  const packageName = `@costrict/cs-${platform}-${arch}`
+  const binaryName = platform === "windows" ? "cs.exe" : "cs"
 
   try {
     // Use require.resolve to find the package
@@ -89,7 +89,7 @@ function symlinkBinary(sourcePath, binaryName) {
   const { targetPath } = prepareBinDirectory(binaryName)
 
   fs.symlinkSync(sourcePath, targetPath)
-  console.log(`opencode binary symlinked: ${targetPath} -> ${sourcePath}`)
+  console.log(`cs binary symlinked: ${targetPath} -> ${sourcePath}`)
 
   // Verify the file exists after operation
   if (!fs.existsSync(targetPath)) {
@@ -99,20 +99,36 @@ function symlinkBinary(sourcePath, binaryName) {
 
 async function main() {
   try {
+    console.log(`[DEBUG] Platform: ${os.platform()}, Arch: ${os.arch()}`)
+    
     if (os.platform() === "win32") {
-      // On Windows, the .exe is already included in the package and bin field points to it
-      // No postinstall setup needed
-      console.log("Windows detected: binary setup not needed (using packaged .exe)")
+      // On Windows, verify the platform-specific package is installed
+      try {
+        const { binaryPath } = findBinary()
+        console.log(`[DEBUG] Windows binary found at: ${binaryPath}`)
+        console.log("Windows: Platform binary verified successfully")
+      } catch (error) {
+        console.error(`[ERROR] Failed to find Windows binary: ${error.message}`)
+        console.error("[ERROR] This usually means @costrict/cs-windows-x64 was not installed")
+        console.error("[ERROR] Try: npm install @costrict/cs-windows-x64 --save-optional")
+        // Don't exit with error for Windows - let the wrapper handle it
+      }
       return
     }
 
     // On non-Windows platforms, just verify the binary package exists
     // Don't replace the wrapper script - it handles binary execution
     const { binaryPath } = findBinary()
-    console.log(`Platform binary verified at: ${binaryPath}`)
-    console.log("Wrapper script will handle binary execution")
+    const target = path.join(__dirname, "bin", ".opencode")
+    if (fs.existsSync(target)) fs.unlinkSync(target)
+    try {
+      fs.linkSync(binaryPath, target)
+    } catch {
+      fs.copyFileSync(binaryPath, target)
+    }
+    fs.chmodSync(target, 0o755)
   } catch (error) {
-    console.error("Failed to setup opencode binary:", error.message)
+    console.error("Failed to setup cs binary:", error.message)
     process.exit(1)
   }
 }

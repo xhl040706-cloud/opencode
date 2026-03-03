@@ -3,7 +3,7 @@ import { createMemo, Match, onMount, Show, Switch } from "solid-js"
 import { useTheme } from "@tui/context/theme"
 import { useKeybind } from "@tui/context/keybind"
 import { Logo } from "../component/logo"
-import { Tips } from "../component/tips"
+import { SessionNavTips } from "../component/session-nav-tips"
 import { Locale } from "@/util/locale"
 import { useSync } from "../context/sync"
 import { Toast } from "../ui/toast"
@@ -14,6 +14,7 @@ import { usePromptRef } from "../context/prompt"
 import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
+import { useSDK } from "../context/sdk"
 
 // TODO: what is the best way to do this?
 let once = false
@@ -25,6 +26,7 @@ export function Home() {
   const route = useRouteData("home")
   const promptRef = usePromptRef()
   const command = useCommandDialog()
+  const sdk = useSDK()
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
   const mcpError = createMemo(() => {
     return Object.values(sync.data.mcp).some((x) => x.status === "failed")
@@ -50,6 +52,26 @@ export function Home() {
       category: "System",
       onSelect: (dialog) => {
         kv.set("tips_hidden", !tipsHidden())
+        dialog.clear()
+      },
+    },
+    {
+      title: kv.get("yolo_mode", false) ? "Disable YOLO mode" : "Enable YOLO mode",
+      value: "session.yolo.toggle",
+      keybind: "yolo_mode",
+      category: "Session",
+      onSelect: async (dialog) => {
+        await sdk.client.tui.executeCommand({ command: "yolo_toggle" })
+        dialog.clear()
+      },
+    },
+    {
+      title: kv.get("notification_mode", true) ? "Disable notifications" : "Enable notifications",
+      value: "session.notification.toggle",
+      keybind: "notification_mode",
+      category: "Session",
+      onSelect: async (dialog) => {
+        await sdk.client.tui.executeCommand({ command: "notification_toggle" })
         dialog.clear()
       },
     },
@@ -93,10 +115,14 @@ export function Home() {
 
   return (
     <>
-      <box flexGrow={1} justifyContent="center" alignItems="center" paddingLeft={2} paddingRight={2} gap={1}>
-        <box height={3} />
-        <Logo />
-        <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1}>
+      <box flexGrow={1} alignItems="center" paddingLeft={2} paddingRight={2}>
+        <box flexGrow={1} minHeight={0} />
+        <box height={4} minHeight={0} flexShrink={1} />
+        <box flexShrink={0}>
+          <Logo />
+        </box>
+        <box height={1} minHeight={0} flexShrink={1} />
+        <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0}>
           <Prompt
             ref={(r) => {
               prompt = r
@@ -105,11 +131,12 @@ export function Home() {
             hint={Hint}
           />
         </box>
-        <box height={3} width="100%" maxWidth={75} alignItems="center" paddingTop={2}>
+        <box height={4} minHeight={0} width="100%" maxWidth={75} alignItems="center" paddingTop={3} flexShrink={1}>
           <Show when={showTips()}>
-            <Tips />
+            <SessionNavTips />
           </Show>
         </box>
+        <box flexGrow={1} minHeight={0} />
         <Toast />
       </box>
       <box paddingTop={1} paddingBottom={1} paddingLeft={2} paddingRight={2} flexDirection="row" flexShrink={0} gap={2}>

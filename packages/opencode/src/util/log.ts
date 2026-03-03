@@ -1,7 +1,9 @@
 import path from "path"
 import fs from "fs/promises"
+import { createWriteStream } from "fs"
 import { Global } from "../global"
 import z from "zod"
+import { Glob } from "./glob"
 
 export namespace Log {
   export const Level = z.enum(["DEBUG", "INFO", "WARN", "ERROR"]).meta({ ref: "LogLevel", description: "Log level" })
@@ -57,26 +59,29 @@ export namespace Log {
     if (options.level) level = options.level
     await cleanup(Global.Path.log)
     if (options.print) return
-    const date = new Date().toISOString().split("T")[0]
-    logpath = path.join(Global.Path.log, options.dev ? "dev.log" : date + ".log")
-    const logfile = Bun.file(logpath)
-    const writer = logfile.writer()
+    logpath = path.join(
+      Global.Path.log,
+      options.dev ? "dev.log" : new Date().toISOString().split(".")[0].replace(/:/g, "") + ".log",
+    )
+    await fs.truncate(logpath).catch(() => {})
+    const stream = createWriteStream(logpath, { flags: "a" })
     write = async (msg: any) => {
-      const num = writer.write(msg)
-      writer.flush()
-      return num
+      return new Promise((resolve, reject) => {
+        stream.write(msg, (err) => {
+          if (err) reject(err)
+          else resolve(msg.length)
+        })
+      })
     }
   }
 
   async function cleanup(dir: string) {
-    const glob = new Bun.Glob("????-??-??.log")
-    const files = await Array.fromAsync(
-      glob.scan({
-        cwd: dir,
-        absolute: true,
-      }),
-    )
-    if (files.length <= 10) return
+    const files = await Glob.scan("????-??-??T??????.log", {
+      cwd: dir,
+      absolute: true,
+      include: "file",
+    })
+    if (files.length <= 5) return
 
     const filesToDelete = files.slice(0, -10)
     await Promise.all(filesToDelete.map((file) => fs.unlink(file).catch(() => {})))

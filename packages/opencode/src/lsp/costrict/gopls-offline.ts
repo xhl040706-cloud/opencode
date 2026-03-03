@@ -123,7 +123,7 @@ export namespace GOPLS_OFFLINE {
     }
 
     // 检查是否禁用 LSP 下载
-    if (Flag.COSTRICT_DISABLE_LSP_DOWNLOAD) {
+    if (Flag.OPENCODE_DISABLE_LSP_DOWNLOAD) {
       log.info("LSP download is disabled, skipping gopls installation")
       return false
     }

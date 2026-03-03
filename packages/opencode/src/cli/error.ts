@@ -12,7 +12,7 @@ export function FormatError(input: unknown) {
     return [
       `Model not found: ${providerID}/${modelID}`,
       ...(Array.isArray(suggestions) && suggestions.length ? ["Did you mean: " + suggestions.join(", ")] : []),
-      `Try: \`costrict-cli models\` to list available models`,
+      `Try: \`cs models\` to list available models`,
       `Or check your config (opencode.json) provider/model names`,
     ].join("\n")
   }

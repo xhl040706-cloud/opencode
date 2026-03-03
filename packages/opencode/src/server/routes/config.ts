@@ -83,8 +83,16 @@ export const ConfigRoutes = lazy(() =>
       async (c) => {
         using _ = log.time("providers")
         const providers = await Provider.list().then((x) => mapValues(x, (item) => item))
+
+        // Sort providers: costrict first, then others
+        const providerArray = Object.values(providers).sort((a, b) => {
+          if (a.id === "costrict") return -1
+          if (b.id === "costrict") return 1
+          return 0
+        })
+
         return c.json({
-          providers: Object.values(providers),
+          providers: providerArray,
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
         })
       },

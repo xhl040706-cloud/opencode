@@ -137,7 +137,12 @@ export const rpc = {
   async shutdown() {
     Log.Default.info("worker shutting down")
     if (eventStream.abort) eventStream.abort.abort()
-    await Instance.disposeAll()
+    await Promise.race([
+      Instance.disposeAll(),
+      new Promise((resolve) => {
+        setTimeout(resolve, 5000)
+      }),
+    ])
     if (server) server.stop(true)
   },
 }
@@ -145,7 +150,7 @@ export const rpc = {
 Rpc.listen(rpc)
 
 function getAuthorizationHeader(): string | undefined {
-  const password = Flag.COSTRICT_SERVER_PASSWORD
+  const password = Flag.OPENCODE_SERVER_PASSWORD
   if (!password) return undefined
   const username = Flag.COSTRICT_SERVER_USERNAME ?? "opencode"
   return `Basic ${btoa(`${username}:${password}`)}`

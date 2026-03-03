@@ -10,7 +10,7 @@ registerCustomTheme("CoStrict", () => {
   return Promise.resolve({
     name: "CoStrict",
     colors: {
-      "editor.background": "transparent",
+      "editor.background": "var(--color-background-stronger)",
       "editor.foreground": "var(--text-base)",
       "gitDecoration.addedResourceForeground": "var(--syntax-diff-add)",
       "gitDecoration.deletedResourceForeground": "var(--syntax-diff-delete)",
@@ -475,6 +475,7 @@ export const { use: useMarked, provider: MarkedProvider } = createSimpleContext(
       },
       markedKatex({
         throwOnError: false,
+        nonStandard: true,
       }),
       markedShiki({
         async highlight(code, lang) {

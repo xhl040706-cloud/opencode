@@ -15,11 +15,19 @@ const TRANSIENT_MESSAGES = [
   "econnrefused",
   "etimedout",
   "socket hang up",
+  "connection error",
 ]
 
 function isTransientError(error: unknown): boolean {
   if (!error) return false
   const message = String(error instanceof Error ? error.message : error).toLowerCase()
+
+  // Check for connection error messages (always retry, like network error codes)
+  // This handles errors from OpenAI SDK and other clients that throw generic "Connection error."
+  if (message.includes("connection error")) {
+    return true
+  }
+
   return TRANSIENT_MESSAGES.some((m) => message.includes(m))
 }
 

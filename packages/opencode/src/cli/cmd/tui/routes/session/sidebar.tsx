@@ -80,7 +80,15 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
         paddingRight={2}
         position={props.overlay ? "absolute" : "relative"}
       >
-        <scrollbox flexGrow={1}>
+        <scrollbox
+          flexGrow={1}
+          verticalScrollbarOptions={{
+            trackOptions: {
+              backgroundColor: theme.background,
+              foregroundColor: theme.borderActive,
+            },
+          }}
+        >
           <box flexShrink={0} gap={1} paddingRight={1}>
             <box paddingRight={1}>
               <text fg={theme.text}>
@@ -300,9 +308,9 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
             <span style={{ fg: theme.text }}>{directory().split("/").at(-1)}</span>
           </text>
           <text fg={theme.textMuted}>
-            <span style={{ fg: theme.success }}>•</span> <b>Open</b>
+            <span style={{ fg: theme.success }}>•</span> <b>Co</b>
             <span style={{ fg: theme.text }}>
-              <b>Code</b>
+              <b>Strict</b>
             </span>{" "}
             <span>{Installation.VERSION}</span>
           </text>

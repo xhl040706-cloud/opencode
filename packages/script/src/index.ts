@@ -20,6 +20,7 @@ const env = {
   COSTRICT_CHANNEL: process.env["COSTRICT_CHANNEL"],
   COSTRICT_BUMP: process.env["COSTRICT_BUMP"],
   COSTRICT_VERSION: process.env["COSTRICT_VERSION"],
+  OPENCODE_RELEASE: process.env["OPENCODE_RELEASE"],
 }
 const CHANNEL = await (async () => {
   if (env.COSTRICT_CHANNEL) return env.COSTRICT_CHANNEL
@@ -45,6 +46,43 @@ const VERSION = await (async () => {
   return `${major}.${minor}.${patch + 1}`
 })()
 
+const COMMIT_HASH = await (async () => {
+  try {
+    return await $`git rev-parse --short HEAD`.text().then((x) => x.trim())
+  } catch {
+    return "unknown"
+  }
+})()
+
+const BUILD_TIME = new Date().toLocaleString("zh-CN", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+})
+
+const team = [
+  "actions-user",
+  "opencode",
+  "rekram1-node",
+  "thdxr",
+  "kommander",
+  "jayair",
+  "fwang",
+  "MrMushrooooom",
+  "adamdotdevin",
+  "iamdavidhill",
+  "Brendonovich",
+  "nexxeln",
+  "Hona",
+  "jlongster",
+  "opencode-agent[bot]",
+  "R44VC0RP",
+]
+
 export const Script = {
   get channel() {
     return CHANNEL
@@ -54,6 +92,18 @@ export const Script = {
   },
   get preview() {
     return IS_PREVIEW
+  },
+  get release(): boolean {
+    return !!env.OPENCODE_RELEASE
+  },
+  get team() {
+    return team
+  },
+  get commitHash() {
+    return COMMIT_HASH
+  },
+  get buildTime() {
+    return BUILD_TIME
   },
 }
 console.log(`opencode script`, JSON.stringify(Script, null, 2))

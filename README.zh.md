@@ -29,7 +29,11 @@
   <a href="README.ru.md">Русский</a> |
   <a href="README.ar.md">العربية</a> |
   <a href="README.no.md">Norsk</a> |
-  <a href="README.br.md">Português (Brasil)</a>
+  <a href="README.br.md">Português (Brasil)</a> |
+  <a href="README.th.md">ไทย</a> |
+  <a href="README.tr.md">Türkçe</a> |
+  <a href="README.uk.md">Українська</a> |
+  <a href="README.bn.md">বাংলা</a>
 </p>
 
 [![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
@@ -44,13 +48,14 @@ curl -fsSL https://costrict.ai/install | bash
 
 # 软件包管理器
 npm i -g costrict-ai@latest        # 也可使用 bun/pnpm/yarn
-scoop bucket add extras; scoop install extras/costrict-cli  # Windows
-choco install costrict-cli             # Windows
-brew install anomalyco/tap/costrict-cli # macOS 和 Linux（推荐，始终保持最新）
-brew install costrict-cli              # macOS 和 Linux（官方 brew formula，更新频率较低）
-paru -S opencode-bin               # Arch Linux
-mise use -g costrict-cli               # 任意系统
-nix run nixpkgs#costrict-cli           # 或用 github:anomalyco/costrict-cli 获取最新 dev 分支
+scoop install costrict             # Windows
+choco install costrict             # Windows
+brew install anomalyco/tap/costrict # macOS 和 Linux（推荐，始终保持最新）
+brew install costrict              # macOS 和 Linux（官方 brew formula，更新频率较低）
+sudo pacman -S costrict            # Arch Linux (Stable)
+paru -S costrict-bin               # Arch Linux (Latest from AUR)
+mise use -g costrict               # 任意系统
+nix run nixpkgs#costrict           # 或用 github:anomalyco/costrict 获取最新 dev 分支
 ```
 
 > [!TIP]

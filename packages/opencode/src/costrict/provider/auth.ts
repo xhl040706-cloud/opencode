@@ -11,6 +11,7 @@ import {
 } from "./credentials"
 import { extractExpiryFromJWT } from "./token"
 import { Log } from "../../util/log"
+import { buildOAuthParams } from "./oauth-params"
 
 const log = Log.create({ service: "costrict" })
 
@@ -65,15 +66,7 @@ export function buildCoStrictLoginURL(
   state: string,
   machineId: string,
 ): string {
-  const params = [
-    ["machine_code", machineId],
-    ["state", state],
-    ["provider", "casdoor"],
-    ["plugin_version", "opencode-1.0.0"],
-    ["vscode_version", "opencode-1.0.0"],
-    ["uri_scheme", "opencode"],
-  ]
-
+  const params = buildOAuthParams(true, machineId, state)
   const queryString = params
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join("&")
@@ -102,15 +95,7 @@ export async function pollLoginToken(
   abortSignal?: AbortSignal,
 ): Promise<TokenResponse> {
   // 构建查询参数 (保留 machine_code)
-  const params = [
-    ["machine_code", machineId],
-    ["state", state],
-    ["provider", "casdoor"],
-    ["plugin_version", "opencode-1.0.0"],
-    ["vscode_version", "opencode-1.0.0"],
-    ["uri_scheme", "opencode"],
-  ]
-
+  const params = buildOAuthParams(true, machineId, state)
   const queryString = params
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join("&")

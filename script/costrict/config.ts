@@ -9,7 +9,7 @@ export const BRAND_CONFIG = {
   new: {
     appName: "costrict",
     productName: "CoStrict",
-    cliName: "costrict-cli",        // CLI 命令名 (用户执行的命令)
+    cliName: "cs",        // CLI 命令名 (用户执行的命令)
     npmPackageName: "costrict-ai",    // npm 发布包名 (用户安装: npm i -g costrict-ai)
     repo: "zgsm-ai/costrict-cli",
     domain: "costrict.ai",

@@ -13,6 +13,7 @@ import { Installation } from "../../installation"
 import path from "path"
 import { Global } from "../../global"
 import { modify, applyEdits } from "jsonc-parser"
+import { Filesystem } from "../../util/filesystem"
 import { Bus } from "../../bus"
 
 function getAuthStatusIcon(status: MCP.AuthStatus): string {
@@ -84,7 +85,7 @@ export const McpListCommand = cmd({
 
         if (servers.length === 0) {
           prompts.log.warn("No MCP servers configured")
-          prompts.outro("Add servers with: costrict-cli mcp add")
+          prompts.outro("Add servers with: cs mcp add")
           return
         }
 
@@ -161,7 +162,7 @@ export const McpAuthCommand = cmd({
 
         if (oauthServers.length === 0) {
           prompts.log.warn("No OAuth-capable MCP servers configured")
-          prompts.log.info("Remote MCP servers support OAuth by default. Add a remote server in opencode.json:")
+          prompts.log.info("Remote MCP servers support OAuth by default. Add a remote server in costrict.json:")
           prompts.log.info(`
   "mcp": {
     "my-server": {
@@ -380,15 +381,27 @@ export const McpLogoutCommand = cmd({
 })
 
 async function resolveConfigPath(baseDir: string, global = false) {
-  return Config.resolveConfigFile(baseDir, global)
+  // Check for existing config files (prefer .jsonc over .json, check .costrict/ subdirectory too)
+  const candidates = [path.join(baseDir, "costrict.json"), path.join(baseDir, "costrict.jsonc")]
+
+  if (!global) {
+    candidates.push(path.join(baseDir, ".costrict", "costrict.json"), path.join(baseDir, ".costrict", "costrict.jsonc"))
+  }
+
+  for (const candidate of candidates) {
+    if (await Filesystem.exists(candidate)) {
+      return candidate
+    }
+  }
+
+  // Default to costrict.json if none exist
+  return candidates[0]
 }
 
 async function addMcpToConfig(name: string, mcpConfig: Config.Mcp, configPath: string) {
-  const file = Bun.file(configPath)
-
   let text = "{}"
-  if (await file.exists()) {
-    text = await file.text()
+  if (await Filesystem.exists(configPath)) {
+    text = await Filesystem.readText(configPath)
   }
 
   // Use jsonc-parser to modify while preserving comments
@@ -397,7 +410,7 @@ async function addMcpToConfig(name: string, mcpConfig: Config.Mcp, configPath: s
   })
   const result = applyEdits(text, edits)
 
-  await Bun.write(configPath, result)
+  await Filesystem.write(configPath, result)
 
   return configPath
 }
@@ -468,7 +481,7 @@ export const McpAddCommand = cmd({
         if (type === "local") {
           const command = await prompts.text({
             message: "Enter command to run",
-            placeholder: "e.g., costrict-cli x @modelcontextprotocol/server-filesystem",
+            placeholder: "e.g., cs x @modelcontextprotocol/server-filesystem",
             validate: (x) => (x && x.length > 0 ? undefined : "Required"),
           })
           if (prompts.isCancel(command)) throw new UI.CancelledError()

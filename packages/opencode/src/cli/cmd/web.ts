@@ -31,9 +31,9 @@ function getNetworkIPs() {
 export const WebCommand = cmd({
   command: "web",
   builder: (yargs) => withNetworkOptions(yargs),
-  describe: "start costrict-cli server and open web interface",
+  describe: "start cs server and open web interface",
   handler: async (args) => {
-    if (!Flag.COSTRICT_SERVER_PASSWORD) {
+    if (!Flag.OPENCODE_SERVER_PASSWORD) {
       UI.println(UI.Style.TEXT_WARNING_BOLD + "!  " + "COSTRICT_SERVER_PASSWORD is not set; server is unsecured.")
     }
     const opts = await resolveNetworkOptions(args)
@@ -60,7 +60,11 @@ export const WebCommand = cmd({
       }
 
       if (opts.mdns) {
-        UI.println(UI.Style.TEXT_INFO_BOLD + "  mDNS:              ", UI.Style.TEXT_NORMAL, "costrict.local")
+        UI.println(
+          UI.Style.TEXT_INFO_BOLD + "  mDNS:              ",
+          UI.Style.TEXT_NORMAL,
+          `${opts.mdnsDomain}:${server.port}`,
+        )
       }
 
       // Open localhost in browser

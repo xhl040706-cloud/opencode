@@ -56,6 +56,9 @@ export namespace SessionProcessor {
           try {
             let currentText: MessageV2.TextPart | undefined
             let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
+            let hasTextContent = false
+            let hasToolCalls = false
+            let hasReasoningContent = false
             const stream = await LLM.stream({
               ...streamInput,
               messages: state.messages,
@@ -72,17 +75,19 @@ export namespace SessionProcessor {
                   if (value.id in reasoningMap) {
                     continue
                   }
-                  reasoningMap[value.id] = {
+                  const reasoningPart = {
                     id: Identifier.ascending("part"),
                     messageID: input.assistantMessage.id,
                     sessionID: input.assistantMessage.sessionID,
-                    type: "reasoning",
+                    type: "reasoning" as const,
                     text: "",
                     time: {
                       start: Date.now(),
                     },
                     metadata: value.providerMetadata,
                   }
+                  reasoningMap[value.id] = reasoningPart
+                  await Session.updatePart(reasoningPart)
                   break
 
                 case "reasoning-delta":
@@ -90,7 +95,13 @@ export namespace SessionProcessor {
                     const part = reasoningMap[value.id]
                     part.text += value.text
                     if (value.providerMetadata) part.metadata = value.providerMetadata
-                    if (part.text) await Session.updatePart({ part, delta: value.text })
+                    await Session.updatePartDelta({
+                      sessionID: part.sessionID,
+                      messageID: part.messageID,
+                      partID: part.id,
+                      field: "text",
+                      delta: value.text,
+                    })
                   }
                   break
 
@@ -106,6 +117,7 @@ export namespace SessionProcessor {
                     if (value.providerMetadata) part.metadata = value.providerMetadata
                     await Session.updatePart(part)
                     delete reasoningMap[value.id]
+                    hasReasoningContent = true
                   }
                   break
 
@@ -133,6 +145,7 @@ export namespace SessionProcessor {
                   break
 
                 case "tool-call": {
+                  hasToolCalls = true
                   const match = toolcalls[value.toolCallId]
                   if (match) {
                     const cleanedToolName = toolNameFormatter(value.toolName, availableTools) // costrict change
@@ -299,9 +312,18 @@ export namespace SessionProcessor {
                   if (await SessionCompaction.isOverflow({ tokens: usage.tokens, model: input.model })) {
                     needsCompaction = true
                   }
+
+                  // Check if response only contains reasoning content (no text or tool calls)
+                  // This is an exception scenario that requires retry with thinking disabled
+                  const isReasoningOnly = !hasTextContent && !hasToolCalls && hasReasoningContent
+                  if (isReasoningOnly) {
+                    throw new MessageV2.ReasoningOnlyError({}).toObject()
+                  }
+
                   break
 
                 case "text-start":
+                  hasTextContent = true
                   currentText = {
                     id: Identifier.ascending("part"),
                     messageID: input.assistantMessage.id,
@@ -313,17 +335,20 @@ export namespace SessionProcessor {
                     },
                     metadata: value.providerMetadata,
                   }
+                  await Session.updatePart(currentText)
                   break
 
                 case "text-delta":
                   if (currentText) {
                     currentText.text += value.text
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
-                    if (currentText.text)
-                      await Session.updatePart({
-                        part: currentText,
-                        delta: value.text,
-                      })
+                    await Session.updatePartDelta({
+                      sessionID: currentText.sessionID,
+                      messageID: currentText.messageID,
+                      partID: currentText.id,
+                      field: "text",
+                      delta: value.text,
+                    })
                   }
                   break
 
@@ -379,6 +404,9 @@ export namespace SessionProcessor {
             })
 
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
+            if (MessageV2.ContextOverflowError.isInstance(error)) {
+              // TODO: Handle context overflow error
+            }
             const retry = SessionRetry.retryable(error, { providerID: input.model.providerID })
             if (retry !== undefined) {
               attempt++
@@ -390,6 +418,15 @@ export namespace SessionProcessor {
                 next: Date.now() + delay,
               })
               await SessionRetry.sleep(delay, input.abort).catch(() => {})
+
+              // If error is ReasoningOnlyError, disable thinking for retry
+              if (MessageV2.ReasoningOnlyError.isInstance(error)) {
+                streamInput.providerOptions = {
+                  ...streamInput.providerOptions,
+                  enableThinking: false,
+                }
+              }
+
               continue
             }
             input.assistantMessage.error = error
@@ -397,6 +434,7 @@ export namespace SessionProcessor {
               sessionID: input.assistantMessage.sessionID,
               error: input.assistantMessage.error,
             })
+            SessionStatus.set(input.sessionID, { type: "idle" })
           }
           if (snapshot) {
             const patch = await Snapshot.patch(snapshot)

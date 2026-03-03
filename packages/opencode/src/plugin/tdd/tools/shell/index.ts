@@ -36,7 +36,7 @@ export {
 } from "./shell-execution"
 
 // Re-export everything from shell-tool
-export { ShellTool, ShellToolInvocation, getShellToolDescription } from "./shell-tool"
+export { ShellToolInvocation } from "./shell-tool"
 
 export type { ShellToolParams } from "./shell-tool"
 

@@ -185,8 +185,12 @@ export interface Hooks {
     input: { tool: string; sessionID: string; callID: string },
     output: { args: any },
   ) => Promise<void>
+  "shell.env"?: (
+    input: { cwd: string; sessionID?: string; callID?: string },
+    output: { env: Record<string, string> },
+  ) => Promise<void>
   "tool.execute.after"?: (
-    input: { tool: string; sessionID: string; callID: string },
+    input: { tool: string; sessionID: string; callID: string; args: any },
     output: {
       title: string
       output: string
@@ -222,5 +226,28 @@ export interface Hooks {
   "experimental.text.complete"?: (
     input: { sessionID: string; messageID: string; partID: string },
     output: { text: string },
+  ) => Promise<void>
+  /**
+   * Modify tool definitions (description and parameters) sent to LLM
+   */
+  "tool.definition"?: (input: { toolID: string }, output: { description: string; parameters: any }) => Promise<void>
+  /**
+   * Called when user intervention is required.
+   * Triggers in three scenarios:
+   * 1. Permission request (permission.ask)
+   * 2. Question asked (question.asked)
+   * 3. Session idle (session.idle)
+   *
+   * - `type`: Type of notification ("permission" | "question" | "idle")
+   * - `sessionID`: Session ID that requires intervention
+   * - `data`: Type-specific data (permission info, question info, or idle context)
+   */
+  "intervention.required"?: (
+    input: {
+      type: "permission" | "question" | "idle"
+      sessionID: string
+      data: any
+    },
+    output: { handled: boolean },
   ) => Promise<void>
 }

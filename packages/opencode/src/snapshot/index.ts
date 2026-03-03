@@ -2,16 +2,101 @@ import { $ } from "bun"
 import path from "path"
 import fs from "fs/promises"
 import { Log } from "../util/log"
+import { Flag } from "../flag/flag"
 import { Global } from "../global"
 import z from "zod"
 import { Config } from "../config/config"
 import { Instance } from "../project/instance"
 import { Scheduler } from "../scheduler"
+import { Disk } from "../util/disk"
+import { Bus } from "@/bus"
+import { TuiEvent } from "../cli/cmd/tui/event"
 
 export namespace Snapshot {
   const log = Log.create({ service: "snapshot" })
   const hour = 60 * 60 * 1000
   const prune = "7.days"
+  const DEFAULT_MIN_FREE_SPACE = "5GB"
+  const DEFAULT_CHECK_INTERVAL = 60
+
+  interface SnapshotConfig {
+    enabled?: boolean
+    minFreeSpace?: string | number
+    checkInterval?: number
+  }
+
+  let lastCheckTime = 0
+  let lastCheckResult: boolean | null = null
+
+  async function getConfig(): Promise<SnapshotConfig> {
+    const cfg = await Config.get()
+    const snapshotConfig = cfg.snapshot
+
+    if (typeof snapshotConfig === "boolean") {
+      return {
+        enabled: snapshotConfig,
+        minFreeSpace: DEFAULT_MIN_FREE_SPACE,
+        checkInterval: DEFAULT_CHECK_INTERVAL,
+      }
+    }
+
+    return {
+      enabled: snapshotConfig?.enabled ?? true,
+      minFreeSpace: snapshotConfig?.minFreeSpace ?? DEFAULT_MIN_FREE_SPACE,
+      checkInterval: snapshotConfig?.checkInterval ?? DEFAULT_CHECK_INTERVAL,
+    }
+  }
+
+  async function checkDiskSpace(): Promise<boolean> {
+    const now = Date.now()
+    const config = await getConfig()
+    const checkInterval = (config.checkInterval ?? DEFAULT_CHECK_INTERVAL) * 1000
+
+    if (lastCheckResult !== null && now - lastCheckTime < checkInterval) {
+      return lastCheckResult
+    }
+
+    // 检查 costrict 数据目录,该目录肯定存在,避免检查不存在的 snapshot 子目录
+    const result = await Disk.checkDiskSpace(Global.Path.data, config.minFreeSpace ?? DEFAULT_MIN_FREE_SPACE)
+
+    lastCheckTime = now
+    lastCheckResult = result.hasEnoughSpace
+
+    const diskLocation = process.platform === "win32" ? result.path.split(":")[0] + ":" : result.path
+
+    log.info("Disk space check result", {
+      free: Disk.formatBytes(result.free),
+      threshold: Disk.formatBytes(result.threshold),
+      hasEnoughSpace: result.hasEnoughSpace,
+      path: result.path,
+    })
+
+    if (!result.hasEnoughSpace) {
+      log.warn("Snapshot disabled due to insufficient disk space", {
+        free: Disk.formatBytes(result.free),
+        threshold: Disk.formatBytes(result.threshold),
+        path: result.path,
+      })
+
+      Bus.publish(TuiEvent.ToastShow, {
+        title: "快照已禁用",
+        message: `磁盘空间不足（${diskLocation}）。当前剩余: ${Disk.formatBytes(result.free)}，所需空间: ${Disk.formatBytes(result.threshold)}`,
+        variant: "warning",
+        duration: 8000,
+      }).catch((e) => log.debug("failed to show toast", { error: e }))
+    }
+
+    return result.hasEnoughSpace
+  }
+
+  async function isSnapshotEnabled(): Promise<boolean> {
+    const config = await getConfig()
+    if (config.enabled === false) return false
+
+    if (Instance.project.vcs !== "git") return false
+
+    return checkDiskSpace()
+  }
 
   export function init() {
     Scheduler.register({
@@ -23,7 +108,7 @@ export namespace Snapshot {
   }
 
   export async function cleanup() {
-    if (Instance.project.vcs !== "git") return
+    if (Instance.project.vcs !== "git" || Flag.OPENCODE_CLIENT === "acp") return
     const cfg = await Config.get()
     if (cfg.snapshot === false) return
     const git = gitdir()
@@ -48,7 +133,8 @@ export namespace Snapshot {
   }
 
   export async function track() {
-    if (Instance.project.vcs !== "git") return
+    if (!(await isSnapshotEnabled())) return
+    if (Instance.project.vcs !== "git" || Flag.OPENCODE_CLIENT === "acp") return
     const cfg = await Config.get()
     if (cfg.snapshot === false) return
     const git = gitdir()
@@ -61,11 +147,13 @@ export namespace Snapshot {
         })
         .quiet()
         .nothrow()
-      // Configure git to not convert line endings on Windows
       await $`git --git-dir ${git} config core.autocrlf false`.quiet().nothrow()
+      await $`git --git-dir ${git} config core.longpaths true`.quiet().nothrow()
+      await $`git --git-dir ${git} config core.symlinks true`.quiet().nothrow()
+      await $`git --git-dir ${git} config core.fsmonitor false`.quiet().nothrow()
       log.info("initialized")
     }
-    await $`git --git-dir ${git} --work-tree ${Instance.worktree} add .`.quiet().cwd(Instance.directory).nothrow()
+    await add(git)
     const hash = await $`git --git-dir ${git} --work-tree ${Instance.worktree} write-tree`
       .quiet()
       .cwd(Instance.directory)
@@ -83,9 +171,9 @@ export namespace Snapshot {
 
   export async function patch(hash: string): Promise<Patch> {
     const git = gitdir()
-    await $`git --git-dir ${git} --work-tree ${Instance.worktree} add .`.quiet().cwd(Instance.directory).nothrow()
+    await add(git)
     const result =
-      await $`git -c core.autocrlf=false -c core.quotepath=false --git-dir ${git} --work-tree ${Instance.worktree} diff --no-ext-diff --name-only ${hash} -- .`
+      await $`git -c core.autocrlf=false -c core.longpaths=true -c core.symlinks=true -c core.quotepath=false --git-dir ${git} --work-tree ${Instance.worktree} diff --no-ext-diff --name-only ${hash} -- .`
         .quiet()
         .cwd(Instance.directory)
         .nothrow()
@@ -104,7 +192,7 @@ export namespace Snapshot {
         .split("\n")
         .map((x) => x.trim())
         .filter(Boolean)
-        .map((x) => path.join(Instance.worktree, x)),
+        .map((x) => path.join(Instance.worktree, x).replaceAll("\\", "/")),
     }
   }
 
@@ -112,7 +200,7 @@ export namespace Snapshot {
     log.info("restore", { commit: snapshot })
     const git = gitdir()
     const result =
-      await $`git --git-dir ${git} --work-tree ${Instance.worktree} read-tree ${snapshot} && git --git-dir ${git} --work-tree ${Instance.worktree} checkout-index -a -f`
+      await $`git -c core.longpaths=true -c core.symlinks=true --git-dir ${git} --work-tree ${Instance.worktree} read-tree ${snapshot} && git -c core.longpaths=true -c core.symlinks=true --git-dir ${git} --work-tree ${Instance.worktree} checkout-index -a -f`
         .quiet()
         .cwd(Instance.worktree)
         .nothrow()
@@ -134,14 +222,15 @@ export namespace Snapshot {
       for (const file of item.files) {
         if (files.has(file)) continue
         log.info("reverting", { file, hash: item.hash })
-        const result = await $`git --git-dir ${git} --work-tree ${Instance.worktree} checkout ${item.hash} -- ${file}`
-          .quiet()
-          .cwd(Instance.worktree)
-          .nothrow()
+        const result =
+          await $`git -c core.longpaths=true -c core.symlinks=true --git-dir ${git} --work-tree ${Instance.worktree} checkout ${item.hash} -- ${file}`
+            .quiet()
+            .cwd(Instance.worktree)
+            .nothrow()
         if (result.exitCode !== 0) {
           const relativePath = path.relative(Instance.worktree, file)
           const checkTree =
-            await $`git --git-dir ${git} --work-tree ${Instance.worktree} ls-tree ${item.hash} -- ${relativePath}`
+            await $`git -c core.longpaths=true -c core.symlinks=true --git-dir ${git} --work-tree ${Instance.worktree} ls-tree ${item.hash} -- ${relativePath}`
               .quiet()
               .cwd(Instance.worktree)
               .nothrow()
@@ -161,9 +250,9 @@ export namespace Snapshot {
 
   export async function diff(hash: string) {
     const git = gitdir()
-    await $`git --git-dir ${git} --work-tree ${Instance.worktree} add .`.quiet().cwd(Instance.directory).nothrow()
+    await add(git)
     const result =
-      await $`git -c core.autocrlf=false -c core.quotepath=false --git-dir ${git} --work-tree ${Instance.worktree} diff --no-ext-diff ${hash} -- .`
+      await $`git -c core.autocrlf=false -c core.longpaths=true -c core.symlinks=true -c core.quotepath=false --git-dir ${git} --work-tree ${Instance.worktree} diff --no-ext-diff ${hash} -- .`
         .quiet()
         .cwd(Instance.worktree)
         .nothrow()
@@ -188,6 +277,7 @@ export namespace Snapshot {
       after: z.string(),
       additions: z.number(),
       deletions: z.number(),
+      status: z.enum(["added", "deleted", "modified"]).optional(),
     })
     .meta({
       ref: "FileDiff",
@@ -196,7 +286,24 @@ export namespace Snapshot {
   export async function diffFull(from: string, to: string): Promise<FileDiff[]> {
     const git = gitdir()
     const result: FileDiff[] = []
-    for await (const line of $`git -c core.autocrlf=false -c core.quotepath=false --git-dir ${git} --work-tree ${Instance.worktree} diff --no-ext-diff --no-renames --numstat ${from} ${to} -- .`
+    const status = new Map<string, "added" | "deleted" | "modified">()
+
+    const statuses =
+      await $`git -c core.autocrlf=false -c core.longpaths=true -c core.symlinks=true -c core.quotepath=false --git-dir ${git} --work-tree ${Instance.worktree} diff --no-ext-diff --name-status --no-renames ${from} ${to} -- .`
+        .quiet()
+        .cwd(Instance.directory)
+        .nothrow()
+        .text()
+
+    for (const line of statuses.trim().split("\n")) {
+      if (!line) continue
+      const [code, file] = line.split("\t")
+      if (!code || !file) continue
+      const kind = code.startsWith("A") ? "added" : code.startsWith("D") ? "deleted" : "modified"
+      status.set(file, kind)
+    }
+
+    for await (const line of $`git -c core.autocrlf=false -c core.longpaths=true -c core.symlinks=true -c core.quotepath=false --git-dir ${git} --work-tree ${Instance.worktree} diff --no-ext-diff --no-renames --numstat ${from} ${to} -- .`
       .quiet()
       .cwd(Instance.directory)
       .nothrow()
@@ -206,13 +313,13 @@ export namespace Snapshot {
       const isBinaryFile = additions === "-" && deletions === "-"
       const before = isBinaryFile
         ? ""
-        : await $`git -c core.autocrlf=false --git-dir ${git} --work-tree ${Instance.worktree} show ${from}:${file}`
+        : await $`git -c core.autocrlf=false -c core.longpaths=true -c core.symlinks=true --git-dir ${git} --work-tree ${Instance.worktree} show ${from}:${file}`
             .quiet()
             .nothrow()
             .text()
       const after = isBinaryFile
         ? ""
-        : await $`git -c core.autocrlf=false --git-dir ${git} --work-tree ${Instance.worktree} show ${to}:${file}`
+        : await $`git -c core.autocrlf=false -c core.longpaths=true -c core.symlinks=true --git-dir ${git} --work-tree ${Instance.worktree} show ${to}:${file}`
             .quiet()
             .nothrow()
             .text()
@@ -224,6 +331,7 @@ export namespace Snapshot {
         after,
         additions: Number.isFinite(added) ? added : 0,
         deletions: Number.isFinite(deleted) ? deleted : 0,
+        status: status.get(file) ?? "modified",
       })
     }
     return result
@@ -232,5 +340,42 @@ export namespace Snapshot {
   function gitdir() {
     const project = Instance.project
     return path.join(Global.Path.data, "snapshot", project.id)
+  }
+
+  async function add(git: string) {
+    await syncExclude(git)
+    await $`git -c core.autocrlf=false -c core.longpaths=true -c core.symlinks=true --git-dir ${git} --work-tree ${Instance.worktree} add .`
+      .quiet()
+      .cwd(Instance.directory)
+      .nothrow()
+  }
+
+  async function syncExclude(git: string) {
+    const file = await excludes()
+    const target = path.join(git, "info", "exclude")
+    await fs.mkdir(path.join(git, "info"), { recursive: true })
+    if (!file) {
+      await Bun.write(target, "")
+      return
+    }
+    const text = await Bun.file(file)
+      .text()
+      .catch(() => "")
+    await Bun.write(target, text)
+  }
+
+  async function excludes() {
+    const file = await $`git rev-parse --path-format=absolute --git-path info/exclude`
+      .quiet()
+      .cwd(Instance.worktree)
+      .nothrow()
+      .text()
+    if (!file.trim()) return
+    const exists = await fs
+      .stat(file.trim())
+      .then(() => true)
+      .catch(() => false)
+    if (!exists) return
+    return file.trim()
   }
 }

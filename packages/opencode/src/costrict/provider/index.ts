@@ -15,6 +15,121 @@ import { Installation } from "../../installation"
 const log = Log.create({ service: "costrict-loader" })
 
 /**
+ * 创建自定义 fetch 函数，用于 CoStrict API 请求
+ *
+ * 功能:
+ * 1. 动态读取凭证
+ * 2. Token 验证和刷新（预防性）
+ * 3. 构建自定义 headers
+ * 4. 处理 401 错误并自动重试（反应性）
+ *
+ * @returns 自定义 fetch 函数
+ */
+function createCoStrictFetch() {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    // ========== 步骤 1: 动态读取凭证 ==========
+    let creds = await loadCoStrictCredentials()
+
+    if (!creds) {
+      throw new APICallError({
+        message: "CoStrict credentials not found",
+        url: "",
+        requestBodyValues: undefined,
+        statusCode: 401,
+        isRetryable: false,
+      })
+    }
+
+    // ========== 步骤 2: Token 验证和刷新 (预防性) ==========
+    // 只有在 refresh_token 存在且 token 无效时才刷新
+    if (creds.refresh_token && !isCoStrictTokenValid(creds)) {
+      log.debug("Token expired, refreshing...", { hasState: !!creds.state })
+
+      try {
+        const refreshed = await refreshCoStrictToken({
+          baseUrl: creds.base_url,
+          refreshToken: creds.refresh_token,
+          state: creds.state, // 可选参数
+        })
+
+        // 更新凭证
+        await saveCoStrictCredentials({
+          ...creds,
+          access_token: refreshed.access_token,
+          refresh_token: refreshed.refresh_token,
+          expiry_date: extractExpiryFromJWT(refreshed.access_token),
+          updated_at: new Date().toISOString(),
+          expired_at: new Date(extractExpiryFromJWT(refreshed.access_token)).toISOString(),
+        })
+
+        // 使用新 token
+        creds.access_token = refreshed.access_token
+      } catch (refreshError: any) {
+        log.error("Token refresh failed", { error: refreshError.message })
+        // 重新抛出原始错误，保留 statusCode 等元数据
+        throw refreshError
+      }
+    } else if (!creds.refresh_token) {
+      log.debug("No refresh_token available, skipping token refresh")
+    }
+
+    // ========== 步骤 3: 构建 headers ==========
+    const headers = new Headers(init?.headers)
+    headers.set("Authorization", `Bearer ${creds.access_token}`)
+    headers.set("HTTP-Referer", "https://github.com/zgsm-ai/costrict-cli")
+    headers.set("X-Title", "CoStrict-CLI")
+    headers.set("X-Costrict-Version", `costrict-cli-${Installation.VERSION}`)
+    headers.set("X-Request-ID", uuidv7()) // 每次请求生成新 UUID
+    // headers.set("Accept-Language", "zh-CN")
+
+    // ✅ CoStrict 特有的请求头（与 costrict-cli 保持一致）
+    headers.set("zgsm-client-id", Installation.getInstallationId())
+    headers.set("zgsm-client-ide", "cli")
+
+    // ========== 步骤 4: 发起请求 ==========
+    const response = await fetch(input, { ...init, headers })
+
+    // ========== 步骤 5: 处理 401 错误 (反应性) ==========
+    // 只有在 refresh_token 存在时才尝试刷新
+    if (response.status === 401 && creds.refresh_token) {
+      log.warn("401 error, force refreshing token...", { hasState: !!creds.state })
+
+      try {
+        // 强制刷新 token
+        const refreshed = await refreshCoStrictToken({
+          baseUrl: creds.base_url,
+          refreshToken: creds.refresh_token,
+          state: creds.state, // 可选参数
+        })
+
+        // 保存新 token
+        await saveCoStrictCredentials({
+          ...creds,
+          access_token: refreshed.access_token,
+          refresh_token: refreshed.refresh_token,
+          expiry_date: extractExpiryFromJWT(refreshed.access_token),
+          updated_at: new Date().toISOString(),
+          expired_at: new Date(extractExpiryFromJWT(refreshed.access_token)).toISOString(),
+        })
+
+        // 重试请求 (使用新 token 和新 Request ID)
+        headers.set("Authorization", `Bearer ${refreshed.access_token}`)
+        headers.set("X-Request-ID", uuidv7()) // 生成新的 Request ID
+        return fetch(input, { ...init, headers })
+      } catch (retryError: any) {
+        log.error("401 recovery failed", { error: retryError.message })
+        // 重新抛出原始错误，保留 statusCode 等元数据
+        throw retryError
+      }
+    } else if (response.status === 401 && !creds.refresh_token) {
+      log.warn("401 error but no refresh_token available, cannot refresh")
+    }
+
+    return response
+  }
+}
+
+/**
  * CoStrict CUSTOM_LOADER
  *
  * 核心功能:
@@ -42,6 +157,7 @@ export async function createCoStrictCustomLoader(provider: any) {
       autoload: true,
       options: {
         baseURL: `${baseUrl}/chat-rag/api/v1`,
+        fetch: createCoStrictFetch(),
       },
     }
   }
@@ -92,109 +208,7 @@ export async function createCoStrictCustomLoader(provider: any) {
     autoload: true,
     options: {
       baseURL: `${baseUrl}/chat-rag/api/v1`,
-
-      // ✅ 核心: 自定义 fetch 函数
-      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-        // ========== 步骤 1: 动态读取凭证 ==========
-        let creds = await loadCoStrictCredentials()
-
-        if (!creds) {
-          throw new APICallError({
-            message: "CoStrict credentials not found",
-            url: "",
-            requestBodyValues: undefined,
-            statusCode: 401,
-            isRetryable: false,
-          })
-        }
-
-        // ========== 步骤 2: Token 验证和刷新 (预防性) ==========
-        // 只有在 refresh_token 存在且 token 无效时才刷新
-        if (creds.refresh_token && !isCoStrictTokenValid(creds)) {
-          log.debug("Token expired, refreshing...", { hasState: !!creds.state })
-
-          try {
-            const refreshed = await refreshCoStrictToken({
-              baseUrl: creds.base_url,
-              refreshToken: creds.refresh_token,
-              state: creds.state, // 可选参数
-            })
-
-            // 更新凭证
-            await saveCoStrictCredentials({
-              ...creds,
-              access_token: refreshed.access_token,
-              refresh_token: refreshed.refresh_token,
-              expiry_date: extractExpiryFromJWT(refreshed.access_token),
-              updated_at: new Date().toISOString(),
-              expired_at: new Date(extractExpiryFromJWT(refreshed.access_token)).toISOString(),
-            })
-
-            // 使用新 token
-            creds.access_token = refreshed.access_token
-          } catch (refreshError: any) {
-            log.error("Token refresh failed", { error: refreshError.message })
-            // 重新抛出原始错误，保留 statusCode 等元数据
-            throw refreshError
-          }
-        } else if (!creds.refresh_token) {
-          log.debug("No refresh_token available, skipping token refresh")
-        }
-
-        // ========== 步骤 3: 构建 headers ==========
-        const headers = new Headers(init?.headers)
-        headers.set("Authorization", `Bearer ${creds.access_token}`)
-        headers.set("HTTP-Referer", "https://github.com/zgsm-ai/costrict-cli")
-        headers.set("X-Title", "CoStrict-CLI")
-        headers.set("X-Costrict-Version", `costrict-cli-${Installation.VERSION}`)
-        headers.set("X-Request-ID", uuidv7()) // 每次请求生成新 UUID
-        headers.set("Accept-Language", "zh-CN")
-
-        // ✅ CoStrict 特有的请求头（与 costrict-cli 保持一致）
-        headers.set("zgsm-client-id", Installation.getInstallationId())
-        headers.set("zgsm-client-ide", "cli")
-
-        // ========== 步骤 4: 发起请求 ==========
-        const response = await fetch(input, { ...init, headers })
-
-        // ========== 步骤 5: 处理 401 错误 (反应性) ==========
-        // 只有在 refresh_token 存在时才尝试刷新
-        if (response.status === 401 && creds.refresh_token) {
-          log.warn("401 error, force refreshing token...", { hasState: !!creds.state })
-
-          try {
-            // 强制刷新 token
-            const refreshed = await refreshCoStrictToken({
-              baseUrl: creds.base_url,
-              refreshToken: creds.refresh_token,
-              state: creds.state, // 可选参数
-            })
-
-            // 保存新 token
-            await saveCoStrictCredentials({
-              ...creds,
-              access_token: refreshed.access_token,
-              refresh_token: refreshed.refresh_token,
-              expiry_date: extractExpiryFromJWT(refreshed.access_token),
-              updated_at: new Date().toISOString(),
-              expired_at: new Date(extractExpiryFromJWT(refreshed.access_token)).toISOString(),
-            })
-
-            // 重试请求 (使用新 token 和新 Request ID)
-            headers.set("Authorization", `Bearer ${refreshed.access_token}`)
-            headers.set("X-Request-ID", uuidv7()) // 生成新的 Request ID
-            return fetch(input, { ...init, headers })
-          } catch (retryError: any) {
-            log.error("401 recovery failed", { error: retryError.message })
-            // 重新抛出原始错误，保留 statusCode 等元数据
-            throw retryError
-          }
-        } else if (response.status === 401 && !creds.refresh_token) {
-          log.warn("401 error but no refresh_token available, cannot refresh")
-        }
-
-        return response
-      },
+      fetch: createCoStrictFetch(),
     },
   }
 

@@ -26,8 +26,7 @@ describe("TDD Plugin", () => {
       expect(hooks.config).toBeDefined()
       expect(hooks["experimental.chat.system.transform"]).toBeDefined()
       expect(hooks.tool).toBeDefined()
-      expect(hooks["tool.execute.before"]).toBeDefined()
-      expect(hooks["tool.execute.after"]).toBeDefined()
+      expect(hooks.event).toBeDefined()
     })
 
     test("config hook should be an async function", async () => {
@@ -52,22 +51,6 @@ describe("TDD Plugin", () => {
 
       expect(typeof hooks.tool).toBe("object")
       expect(hooks.tool).toBeDefined()
-    })
-
-    test("tool.execute.before hook should be an async function", async () => {
-      const input = createMockPluginInput()
-      const hooks = await TDDPlugin(input)
-
-      expect(typeof hooks["tool.execute.before"]).toBe("function")
-      expect(hooks["tool.execute.before"]!.constructor.name).toBe("AsyncFunction")
-    })
-
-    test("tool.execute.after hook should be an async function", async () => {
-      const input = createMockPluginInput()
-      const hooks = await TDDPlugin(input)
-
-      expect(typeof hooks["tool.execute.after"]).toBe("function")
-      expect(hooks["tool.execute.after"]!.constructor.name).toBe("AsyncFunction")
     })
 
     test("config hook should process config object", async () => {
@@ -133,6 +116,7 @@ describe("TDD Plugin", () => {
         tool: "test-tool",
         sessionID: "session-123",
         callID: "call-456",
+        args: "",
       }
 
       const output = {
@@ -153,6 +137,7 @@ describe("TDD Plugin", () => {
         tool: "test-tool",
         sessionID: "session-123",
         callID: "call-456",
+        args: "",
       }
 
       const longString = "a".repeat(200)
@@ -174,6 +159,7 @@ describe("TDD Plugin", () => {
         tool: "test-tool",
         sessionID: "session-123",
         callID: "call-456",
+        args: "",
       }
 
       const objectOutput = { result: "success", data: [1, 2, 3] }

@@ -159,6 +159,38 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
   return false
 }
 
+/**
+ * Build a deduplicated list of plugin-registered auth providers that are not
+ * already present in models.dev, respecting enabled/disabled provider lists.
+ * Pure function with no side effects; safe to test without mocking.
+ */
+export function resolvePluginProviders(input: {
+  hooks: Hooks[]
+  existingProviders: Record<string, unknown>
+  disabled: Set<string>
+  enabled?: Set<string>
+  providerNames: Record<string, string | undefined>
+}): Array<{ id: string; name: string }> {
+  const seen = new Set<string>()
+  const result: Array<{ id: string; name: string }> = []
+
+  for (const hook of input.hooks) {
+    if (!hook.auth) continue
+    const id = hook.auth.provider
+    if (seen.has(id)) continue
+    seen.add(id)
+    if (Object.hasOwn(input.existingProviders, id)) continue
+    if (input.disabled.has(id)) continue
+    if (input.enabled && !input.enabled.has(id)) continue
+    result.push({
+      id,
+      name: input.providerNames[id] ?? id,
+    })
+  }
+
+  return result
+}
+
 export const AuthCommand = cmd({
   command: "auth",
   describe: "manage credentials",
@@ -219,7 +251,7 @@ export const AuthLoginCommand = cmd({
   describe: "log in to a provider",
   builder: (yargs) =>
     yargs.positional("url", {
-      describe: "costrict-cli auth provider",
+      describe: "auth provider",
       type: "string",
     }),
   async handler(args) {
@@ -289,6 +321,13 @@ export const AuthLoginCommand = cmd({
           openrouter: 6,
           vercel: 7,
         }
+        const pluginProviders = resolvePluginProviders({
+          hooks: await Plugin.list(),
+          existingProviders: providers,
+          disabled,
+          enabled,
+          providerNames: Object.fromEntries(Object.entries(config.provider ?? {}).map(([id, p]) => [id, p.name])),
+        })
         let provider = await prompts.autocomplete({
           message: "Select provider",
           maxItems: 8,
@@ -310,6 +349,11 @@ export const AuthLoginCommand = cmd({
                 }[x.id],
               })),
             ),
+            ...pluginProviders.map((x) => ({
+              label: x.name,
+              value: x.id,
+              hint: "plugin",
+            })),
             {
               value: "other",
               label: "Other",
@@ -319,7 +363,7 @@ export const AuthLoginCommand = cmd({
 
         if (prompts.isCancel(provider)) throw new UI.CancelledError()
 
-        const plugin = await Plugin.list().then((x) => x.find((x) => x.auth?.provider === provider))
+        const plugin = await Plugin.list().then((x) => x.findLast((x) => x.auth?.provider === provider))
         if (plugin && plugin.auth) {
           const handled = await handlePluginAuth({ auth: plugin.auth }, provider)
           if (handled) return
@@ -335,14 +379,14 @@ export const AuthLoginCommand = cmd({
           if (prompts.isCancel(provider)) throw new UI.CancelledError()
 
           // Check if a plugin provides auth for this custom provider
-          const customPlugin = await Plugin.list().then((x) => x.find((x) => x.auth?.provider === provider))
+          const customPlugin = await Plugin.list().then((x) => x.findLast((x) => x.auth?.provider === provider))
           if (customPlugin && customPlugin.auth) {
             const handled = await handlePluginAuth({ auth: customPlugin.auth }, provider)
             if (handled) return
           }
 
           prompts.log.warn(
-            `This only stores a credential for ${provider} - you will need configure it in opencode.json, check the docs for examples.`,
+            `This only stores a credential for ${provider} - you will need configure it in costrict.json, check the docs for examples.`,
           )
         }
 
@@ -351,7 +395,7 @@ export const AuthLoginCommand = cmd({
             "Amazon Bedrock authentication priority:\n" +
               "  1. Bearer token (AWS_BEARER_TOKEN_BEDROCK or /connect)\n" +
               "  2. AWS credential chain (profile, access keys, IAM roles, EKS IRSA)\n\n" +
-              "Configure via opencode.json options (profile, region, endpoint) or\n" +
+              "Configure via costrict.json options (profile, region, endpoint) or\n" +
               "AWS environment variables (AWS_PROFILE, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_WEB_IDENTITY_TOKEN_FILE).",
           )
         }

@@ -6,6 +6,7 @@
 import type { CoStrictCredentials } from "./credentials"
 import { Log } from "../../util/log"
 import { APICallError } from "ai"
+import { buildOAuthParams } from "./oauth-params"
 
 const log = Log.create({ service: "costrict-token" })
 
@@ -140,17 +141,7 @@ export async function refreshCoStrictToken(
   log.info("Token refresh started", { baseUrl: params.baseUrl })
 
   // 构建查询参数 (排除 machine_code，state 为可选)
-  const queryParams: [string, string][] = [
-    ["provider", "casdoor"],
-    ["plugin_version", "opencode-1.0.0"],
-    ["vscode_version", "opencode-1.0.0"],
-    ["uri_scheme", "opencode"],
-  ]
-
-  // 只有当 state 存在时才添加到查询参数
-  if (params.state) {
-    queryParams.unshift(["state", params.state])
-  }
+  const queryParams = buildOAuthParams(false, undefined, params.state)
 
   const queryString = queryParams
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)

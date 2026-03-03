@@ -20,6 +20,7 @@ export const AcpCommand = cmd({
     })
   },
   handler: async (args) => {
+    process.env.COSTRICT_CLIENT = "acp"
     await bootstrap(process.cwd(), async () => {
       const opts = await resolveNetworkOptions(args)
       const server = Server.listen(opts)

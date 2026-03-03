@@ -1,8 +1,10 @@
 import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
-import { TextAttributes } from "@opentui/core"
+import { Selection } from "@tui/util/selection"
+import { MouseButton, TextAttributes } from "@opentui/core"
 import { RouteProvider, useRoute } from "@tui/context/route"
 import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on } from "solid-js"
+import { win32DisableProcessedInput, win32FlushInputBuffer, win32InstallCtrlCGuard } from "./win32"
 import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
@@ -13,6 +15,7 @@ import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { DialogMcp } from "@tui/component/dialog-mcp"
 import { DialogStatus } from "@tui/component/dialog-status"
+import { DialogCredit } from "@tui/component/dialog-credit"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
@@ -104,13 +107,23 @@ export function tui(input: {
   args: Args
   directory?: string
   fetch?: typeof fetch
+  headers?: RequestInit["headers"]
   events?: EventSource
   onExit?: () => Promise<void>
 }) {
   // promise to prevent immediate exit
   return new Promise<void>(async (resolve) => {
+    const unguard = win32InstallCtrlCGuard()
+    win32DisableProcessedInput()
+
     const mode = await getTerminalBackgroundColor()
+
+    // Re-clear after getTerminalBackgroundColor() — setRawMode(false) restores
+    // the original console mode which re-enables ENABLE_PROCESSED_INPUT.
+    win32DisableProcessedInput()
+
     const onExit = async () => {
+      unguard?.()
       await input.onExit?.()
       resolve()
     }
@@ -130,6 +143,7 @@ export function tui(input: {
                         url={input.url}
                         directory={input.directory}
                         fetch={input.fetch}
+                        headers={input.headers}
                         events={input.events}
                       >
                         <SyncProvider>
@@ -167,6 +181,8 @@ export function tui(input: {
         gatherStats: false,
         exitOnCtrlC: false,
         useKittyKeyboard: {},
+        autoFocus: false,
+        openConsoleOnError: false,
         consoleOptions: {
           keyBindings: [{ name: "y", ctrl: true, action: "copy-selection" }],
           onCopySelection: (text) => {
@@ -196,6 +212,35 @@ function App() {
   const exit = useExit()
   const promptRef = usePromptRef()
 
+  useKeyboard((evt) => {
+    if (!Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
+    if (!renderer.getSelection()) return
+
+    // Windows Terminal-like behavior:
+    // - Ctrl+C copies and dismisses selection
+    // - Esc dismisses selection
+    // - Most other key input dismisses selection and is passed through
+    if (evt.ctrl && evt.name === "c") {
+      if (!Selection.copy(renderer, toast)) {
+        renderer.clearSelection()
+        return
+      }
+
+      evt.preventDefault()
+      evt.stopPropagation()
+      return
+    }
+
+    if (evt.name === "escape") {
+      renderer.clearSelection()
+      evt.preventDefault()
+      evt.stopPropagation()
+      return
+    }
+
+    renderer.clearSelection()
+  })
+
   // Wire up console copy-to-clipboard via opentui's onCopySelection callback
   renderer.console.onCopySelection = async (text: string) => {
     if (!text || text.length === 0) return
@@ -203,6 +248,7 @@ function App() {
     await Clipboard.copy(text)
       .then(() => toast.show({ message: "Copied to clipboard", variant: "info" }))
       .catch(toast.error)
+
     renderer.clearSelection()
   }
   const [terminalTitleEnabled, setTerminalTitleEnabled] = createSignal(kv.get("terminal_title_enabled", true))
@@ -247,7 +293,8 @@ function App() {
           })
         local.model.set({ providerID, modelID }, { recent: true })
       }
-      if (args.sessionID) {
+      // Handle --session without --fork immediately (fork is handled in createEffect below)
+      if (args.sessionID && !args.fork) {
         route.navigate({
           type: "session",
           sessionID: args.sessionID,
@@ -265,8 +312,34 @@ function App() {
       .find((x) => x.parentID === undefined)?.id
     if (match) {
       continued = true
-      route.navigate({ type: "session", sessionID: match })
+      if (args.fork) {
+        sdk.client.session.fork({ sessionID: match }).then((result) => {
+          if (result.data?.id) {
+            route.navigate({ type: "session", sessionID: result.data.id })
+          } else {
+            toast.show({ message: "Failed to fork session", variant: "error" })
+          }
+        })
+      } else {
+        route.navigate({ type: "session", sessionID: match })
+      }
     }
+  })
+
+  // Handle --session with --fork: wait for sync to be fully complete before forking
+  // (session list loads in non-blocking phase for --session, so we must wait for "complete"
+  // to avoid a race where reconcile overwrites the newly forked session)
+  let forked = false
+  createEffect(() => {
+    if (forked || sync.status !== "complete" || !args.sessionID || !args.fork) return
+    forked = true
+    sdk.client.session.fork({ sessionID: args.sessionID }).then((result) => {
+      if (result.data?.id) {
+        route.navigate({ type: "session", sessionID: result.data.id })
+      } else {
+        toast.show({ message: "Failed to fork session", variant: "error" })
+      }
+    })
   })
 
   createEffect(
@@ -327,8 +400,7 @@ function App() {
         name: "models",
       },
       onSelect: () => {
-        const currentModel = local.model.current()
-        dialog.replace(() => <DialogModel providerID={currentModel?.providerID} />)
+        dialog.replace(() => <DialogModel />)
       },
     },
     {
@@ -445,6 +517,17 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogStatus />)
+      },
+      category: "System",
+    },
+    {
+      title: "View Credit",
+      value: "credit.show",
+      slash: {
+        name: "credit",
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogCredit />)
       },
       category: "System",
     },
@@ -617,6 +700,14 @@ function App() {
     })
   })
 
+  sdk.event.on("yolo.toggled", (evt) => {
+    kv.set("yolo_mode", evt.properties.enabled)
+  })
+
+  sdk.event.on("notification.toggled", (evt) => {
+    kv.set("notification_mode", evt.properties.enabled)
+  })
+
   sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
     if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
       route.navigate({ type: "home" })
@@ -653,7 +744,7 @@ function App() {
     toast.show({
       variant: "info",
       title: "Update Available",
-      message: `CoStrict v${evt.properties.version} is available. Run 'costrict-cli upgrade' to update manually.`,
+      message: `CoStrict v${evt.properties.version} is available. Run 'cs upgrade' to update manually.`,
       duration: 10000,
     })
   })
@@ -663,19 +754,15 @@ function App() {
       width={dimensions().width}
       height={dimensions().height}
       backgroundColor={theme.background}
-      onMouseUp={async () => {
-        if (Flag.COSTRICT_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) {
-          renderer.clearSelection()
-          return
-        }
-        const text = renderer.getSelection()?.getSelectedText()
-        if (text && text.length > 0) {
-          await Clipboard.copy(text)
-            .then(() => toast.show({ message: "Copied to clipboard", variant: "info" }))
-            .catch(toast.error)
-          renderer.clearSelection()
-        }
+      onMouseDown={(evt) => {
+        if (!Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
+        if (evt.button !== MouseButton.RIGHT) return
+
+        if (!Selection.copy(renderer, toast)) return
+        evt.preventDefault()
+        evt.stopPropagation()
       }}
+      onMouseUp={Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
     >
       <Switch>
         <Match when={route.data.type === "home"}>
@@ -701,7 +788,8 @@ function ErrorComponent(props: {
   const handleExit = async () => {
     renderer.setTerminalTitle("")
     renderer.destroy()
-    props.onExit()
+    win32FlushInputBuffer()
+    await props.onExit()
   }
 
   useKeyboard((evt) => {

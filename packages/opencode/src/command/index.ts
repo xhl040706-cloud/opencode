@@ -5,6 +5,7 @@ import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "../costrict/command/template/enhanced-initialize.txt" // costrict change
 import PROMPT_REVIEW from "./template/review.txt"
+import PROMPT_PROJECT_WIKI from "../costrict/command/template/project-wiki.txt" // project-wiki command
 import { MCP } from "../mcp"
 import { getCommands } from "../plugin/tdd"
 
@@ -33,6 +34,7 @@ export namespace Command {
       template: z.promise(z.string()).or(z.string()),
       subtask: z.boolean().optional(),
       hints: z.array(z.string()),
+      source: z.string().optional(),
     })
     .meta({
       ref: "Command",
@@ -55,6 +57,7 @@ export namespace Command {
     INIT: "init",
     REVIEW: "review",
     TEST: "test",
+    PROJECT_WIKI: "project-wiki",
   } as const
 
   const state = Instance.state(async () => {
@@ -64,6 +67,7 @@ export namespace Command {
       [Default.INIT]: {
         name: Default.INIT,
         description: "create/update AGENTS.md",
+        source: "command",
         get template() {
           return PROMPT_INITIALIZE.replace("${path}", Instance.worktree)
         },
@@ -72,11 +76,20 @@ export namespace Command {
       [Default.REVIEW]: {
         name: Default.REVIEW,
         description: "review changes [commit|branch|pr], defaults to uncommitted",
+        source: "command",
         get template() {
           return PROMPT_REVIEW.replace("${path}", Instance.worktree)
         },
         subtask: true,
         hints: hints(PROMPT_REVIEW),
+      },
+      [Default.PROJECT_WIKI]: {
+        name: Default.PROJECT_WIKI,
+        description: "generate comprehensive project wiki documentation",
+        get template() {
+          return PROMPT_PROJECT_WIKI.replace(/\$\{path\}/g, Instance.worktree)
+        },
+        hints: hints(PROMPT_PROJECT_WIKI),
       },
     }
 
@@ -91,6 +104,7 @@ export namespace Command {
         agent: command.agent,
         model: command.model,
         description: command.description,
+        source: "command",
         get template() {
           return command.template
         },

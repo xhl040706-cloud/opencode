@@ -1,4 +1,3 @@
-import os from "os"
 import { Installation } from "@/installation"
 import { Provider } from "@/provider/provider"
 import { Log } from "@/util/log"
@@ -11,11 +10,10 @@ import {
   type StreamTextResult,
   type Tool,
   type ToolSet,
-  extractReasoningMiddleware,
   tool,
   jsonSchema,
 } from "ai"
-import { clone, mergeDeep, pipe } from "remeda"
+import { mergeDeep, pipe } from "remeda"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
@@ -26,11 +24,11 @@ import { SystemPrompt } from "./system"
 import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
+import os from "node:os"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
-
-  export const OUTPUT_TOKEN_MAX = Flag.COSTRICT_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
+  export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
 
   export type StreamInput = {
     user: MessageV2.User
@@ -43,6 +41,8 @@ export namespace LLM {
     small?: boolean
     tools: Record<string, Tool>
     retries?: number
+    providerOptions?: Record<string, any>
+    toolChoice?: "auto" | "required" | "none"
   }
 
   export type StreamOutput = StreamTextResult<ToolSet, unknown>
@@ -85,15 +85,11 @@ export namespace LLM {
     )
 
     const header = system[0]
-    const original = clone(system)
     await Plugin.trigger(
       "experimental.chat.system.transform",
       { sessionID: input.sessionID, model: input.model },
       { system },
     )
-    if (system.length === 0) {
-      system.push(...original)
-    }
     // rejoin to maintain 2-part structure for caching if header unchanged
     if (system.length > 2 && system[0] === header) {
       const rest = system.slice(1)
@@ -108,7 +104,7 @@ export namespace LLM {
       : ProviderTransform.options({
           model: input.model,
           sessionID: input.sessionID,
-          providerOptions: provider.options,
+          providerOptions: { ...provider.options, ...input.providerOptions },
         })
     const options: Record<string, any> = pipe(
       base,
@@ -153,23 +149,11 @@ export namespace LLM {
       },
     )
 
-    let maxOutputTokens: number | undefined = isCodex ? undefined : undefined
+    let maxOutputTokens =
+      isCodex || provider.id.includes("github-copilot") ? undefined : ProviderTransform.maxOutputTokens(input.model)
     if (isCostrict) {
       maxOutputTokens = input.model.limit.output
     }
-    log.info("max_output_tokens", {
-      tokens: ProviderTransform.maxOutputTokens(
-        input.model.api.npm,
-        params.options,
-        input.model.limit.output,
-        OUTPUT_TOKEN_MAX,
-      ),
-      modelOptions: params.options,
-      outputLimit: input.model.limit.output,
-    })
-    // tokens = 32000
-    // outputLimit = 64000
-    // modelOptions={"reasoningEffort":"minimal"}
 
     const tools = await resolveTools(input)
 
@@ -206,7 +190,7 @@ export namespace LLM {
             "x-opencode-project": Instance.project.id,
             "x-opencode-session": input.sessionID,
             "x-opencode-request": input.user.id,
-            "x-opencode-client": Flag.COSTRICT_CLIENT,
+            "x-opencode-client": Flag.OPENCODE_CLIENT,
           }
         : undefined),
       ...input.model.headers,
@@ -265,8 +249,8 @@ export namespace LLM {
         const lower = failed.toolCall.toolName.toLowerCase()
         let toolCall = failed.toolCall
         if (lower === "todowrite" || lower === "question") {
-          let input = toolCall.input.replace(/'/g, '"').replace(/\b(False|True)\b/g, (match) => match.toLowerCase());
-          toolCall.input = input;
+          let input = toolCall.input.replace(/'/g, '"').replace(/\b(False|True)\b/g, (match) => match.toLowerCase())
+          toolCall.input = input
           return {
             ...failed.toolCall,
             toolName: lower,
@@ -297,6 +281,7 @@ export namespace LLM {
       providerOptions: ProviderTransform.providerOptions(input.model, params.options),
       activeTools: Object.keys(tools).filter((x) => x !== "invalid"),
       tools,
+      toolChoice: input.toolChoice,
       maxOutputTokens,
       abortSignal: input.abort,
       headers: {
@@ -312,7 +297,7 @@ export namespace LLM {
               "x-opencode-project": Instance.project.id,
               "x-opencode-session": input.sessionID,
               "x-opencode-request": input.user.id,
-              "x-opencode-client": Flag.COSTRICT_CLIENT,
+              "x-opencode-client": Flag.OPENCODE_CLIENT,
             }
           : input.model.providerID !== "anthropic"
             ? {
@@ -336,10 +321,15 @@ export namespace LLM {
               return args.params
             },
           },
-          extractReasoningMiddleware({ tagName: "think", startWithReasoning: false }),
         ],
       }),
-      experimental_telemetry: { isEnabled: cfg.experimental?.openTelemetry },
+      experimental_telemetry: {
+        isEnabled: cfg.experimental?.openTelemetry,
+        metadata: {
+          userId: cfg.username ?? "unknown",
+          sessionId: input.sessionID,
+        },
+      },
     })
   }
 

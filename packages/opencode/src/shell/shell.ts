@@ -1,5 +1,6 @@
 import { Flag } from "@/flag/flag"
 import { lazy } from "@/util/lazy"
+import { Filesystem } from "@/util/filesystem"
 import path from "path"
 import { spawn, type ChildProcess } from "child_process"
 
@@ -37,13 +38,13 @@ export namespace Shell {
 
   function fallback() {
     if (process.platform === "win32") {
-      if (Flag.COSTRICT_GIT_BASH_PATH) return Flag.COSTRICT_GIT_BASH_PATH
+      if (Flag.OPENCODE_GIT_BASH_PATH) return Flag.OPENCODE_GIT_BASH_PATH
       const git = Bun.which("git")
       if (git) {
         // git.exe is typically at: C:\Program Files\Git\cmd\git.exe
         // bash.exe is at: C:\Program Files\Git\bin\bash.exe
         const bash = path.join(git, "..", "..", "bin", "bash.exe")
-        if (Bun.file(bash).size) return bash
+        if (Filesystem.stat(bash)?.size) return bash
       }
       return process.env.COMSPEC || "cmd.exe"
     }

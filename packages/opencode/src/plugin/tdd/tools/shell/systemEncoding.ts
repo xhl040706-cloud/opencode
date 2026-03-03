@@ -74,10 +74,11 @@ export function getCachedEncodingForBuffer(buffer: Buffer): string {
   })
 
   if (isWindows) {
-    // 先检查是否是有效的 UTF-8，如果是则直接使用 UTF-8
+    // 先检查是否是有效的 UTF-8
     if (isValidUtf8(buffer)) {
       const utf8Decoder = new TextDecoder("utf-8")
       const decoded = utf8Decoder.decode(buffer)
+      // 检查是否包含中文字符
       if (containsChineseText(decoded)) {
         debugLogger.debug("Valid UTF-8 with Chinese detected on Windows", { encoding: "utf-8" })
         return "utf-8"
@@ -85,6 +86,7 @@ export function getCachedEncodingForBuffer(buffer: Buffer): string {
     }
 
     // 如果不是 UTF-8，或者 UTF-8 中没有检测到中文，尝试其他中文编码
+    // 优先尝试 GBK，因为 Python 在 Windows 上默认使用 GBK
     const encodingsToTry = ["gbk", "gb2312", "gb18030"]
     for (const encoding of encodingsToTry) {
       try {
@@ -101,6 +103,19 @@ export function getCachedEncodingForBuffer(buffer: Buffer): string {
         continue
       }
     }
+
+    // 如果没有检测到中文，使用系统编码
+    if (cachedSystemEncoding === undefined) {
+      cachedSystemEncoding = getSystemEncoding()
+    }
+    if (cachedSystemEncoding) {
+      debugLogger.debug("No Chinese detected, using system encoding", { encoding: cachedSystemEncoding })
+      return cachedSystemEncoding
+    }
+
+    // 系统编码检测失败 - 默认使用 GBK（Windows 中文系统常见）
+    debugLogger.debug("System encoding detection failed, falling back to GBK")
+    return "gbk"
   }
 
   // Not Windows or Chinese encodings failed, check if valid UTF-8
@@ -150,7 +165,8 @@ function containsChineseText(text: string): boolean {
     }
   }
 
-  return chineseCharCount > 0 && chineseCharCount / Math.max(1, totalChars) > 0.01
+  // 只要有中文字符就返回 true（降低阈值）
+  return chineseCharCount > 0
 }
 
 /**

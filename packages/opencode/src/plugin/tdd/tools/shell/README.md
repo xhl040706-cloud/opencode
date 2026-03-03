@@ -127,6 +127,47 @@ const params: ShellToolParams = {
 命令链：支持 && 和 || 操作符（pwsh/PowerShell 7+）"
 ```
 
+### 5. Git 操作注意事项
+
+**重要：Git 操作和换行符转换**
+
+在 Windows 环境下执行 git 命令时，必须添加 `-c core.autocrlf=false` 参数以防止意外的换行符转换。
+
+**需要添加此参数的 git 操作：**
+
+- `git add` - 添加文件到暂存区
+- `git commit` - 提交更改
+- `git checkout` - 切换分支或检出文件
+- `git reset --hard` - 重置工作目录
+- `git clone` - 克隆仓库
+
+**正确用法示例：**
+
+```bash
+# 添加文件到暂存区
+git -c core.autocrlf=false add .
+
+# 提交更改
+git -c core.autocrlf=false commit -m "message"
+
+# 切换分支
+git -c core.autocrlf=false checkout main
+
+# 重置工作目录
+git -c core.autocrlf=false reset --hard HEAD
+
+# 克隆仓库
+git -c core.autocrlf=false clone https://github.com/user/repo.git
+```
+
+**为什么需要这样做？**
+
+- Windows 系统默认使用 CRLF (`\r\n`) 作为换行符
+- Linux/macOS 系统使用 LF (`\n`) 作为换行符
+- Git 的 `core.autocrlf` 配置会在文件被 git 操作处理时自动转换换行符
+- 添加 `-c core.autocrlf=false` 参数可以禁用此转换，确保文件内容不被修改
+- 这对于跨平台协作和保持文件一致性非常重要
+
 ## 使用方法
 
 ### 基本命令执行

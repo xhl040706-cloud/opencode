@@ -222,96 +222,6 @@ describe("ShellToolInvocation", () => {
     clearShellConfigurationCache()
   })
 
-  describe("Description Generation", () => {
-    it("should generate description with command only", () => {
-      const params: ShellToolParams = { command: "ls -la" }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const desc = invocation.getDescription()
-      expect(desc).toContain("ls -la")
-      expect(desc).toContain("current working directory")
-    })
-
-    it("should generate description with background flag", () => {
-      const params: ShellToolParams = { command: "npm run dev", is_background: true }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const desc = invocation.getDescription()
-      expect(desc).toContain("[background]")
-    })
-
-    it("should generate description with custom directory", () => {
-      const params: ShellToolParams = { command: "ls", dir_path: "/custom/path" }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const desc = invocation.getDescription()
-      expect(desc).toContain("/custom/path")
-    })
-
-    it("should include user description when provided", () => {
-      const params: ShellToolParams = {
-        command: "npm install",
-        description: "Install project dependencies",
-      }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const desc = invocation.getDescription()
-      expect(desc).toContain("Install project dependencies")
-    })
-
-    it("should replace newlines in description", () => {
-      const params: ShellToolParams = {
-        command: "npm install",
-        description: "Line 1\nLine 2\nLine 3",
-      }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const desc = invocation.getDescription()
-      expect(desc).not.toContain("\n")
-      expect(desc).toContain("Line 1 Line 2 Line 3")
-    })
-
-    it("should show timeout in description when provided (minutes)", () => {
-      const params: ShellToolParams = { command: "npm install", timeout: 120000 }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const desc = invocation.getDescription()
-      expect(desc).toContain("[timeout: 2.0m]")
-    })
-
-    it("should show no timeout in description when timeout is 0", () => {
-      const params: ShellToolParams = { command: "npm install", timeout: 0 }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const desc = invocation.getDescription()
-      expect(desc).toContain("[no timeout]")
-    })
-
-    it("should not show timeout in description when not provided", () => {
-      const params: ShellToolParams = { command: "npm install" }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const desc = invocation.getDescription()
-      expect(desc).not.toContain("[timeout:")
-      expect(desc).not.toContain("[no timeout]")
-    })
-  })
-
-  describe("Command Root Extraction", () => {
-    it("should extract single command root", () => {
-      const params: ShellToolParams = { command: "npm install" }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const roots = invocation.getCommandRoots()
-      expect(roots).toEqual(["npm"])
-    })
-
-    it("should extract multiple command roots", () => {
-      const params: ShellToolParams = { command: "npm install && npm run build" }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const roots = invocation.getCommandRoots()
-      expect(roots).toEqual(["npm", "npm"])
-    })
-
-    it("should return empty array for empty command", () => {
-      const params: ShellToolParams = { command: "" }
-      const invocation = new ShellToolInvocation(params, TEST_CWD)
-      const roots = invocation.getCommandRoots()
-      expect(roots).toEqual([])
-    })
-  })
-
   describe("Command Execution", () => {
     it("should return aborted result when signal is already aborted", async () => {
       const params: ShellToolParams = { command: "ls" }
@@ -494,29 +404,6 @@ describe("ShellToolInvocation", () => {
   })
 
   describe("Background Process Management", () => {
-    it("should set is_background flag in description", async () => {
-      const params: ShellToolParams = {
-        command: process.platform === "win32" ? "echo test" : "echo test",
-        description: "Background test",
-        is_background: true,
-      }
-      const invocation = new ShellToolInvocation(params, process.cwd())
-      const desc = invocation.getDescription()
-      expect(desc).toContain("[background]")
-    })
-
-    it("should add background syntax when is_background is true", async () => {
-      const config = getShellConfiguration()
-      const params: ShellToolParams = {
-        command: process.platform === "win32" ? "echo test" : "echo test",
-        is_background: true,
-      }
-      const invocation = new ShellToolInvocation(params, process.cwd())
-      const desc = invocation.getDescription()
-      // Should show background flag
-      expect(desc).toContain("[background]")
-      // Should not show timeout for background processes (or show configured timeout)
-    }, 5000)
 
     it("should not add background syntax when command already has it", async () => {
       const config = getShellConfiguration()
@@ -580,20 +467,6 @@ describe("ShellToolInvocation", () => {
       expect(result.exitCode).toBe(0)
       expect(result.aborted).toBe(false)
     }, 5000)
-
-    it("should combine is_background with timeout correctly", async () => {
-      const params: ShellToolParams = {
-        command: process.platform === "win32" ? "echo test" : "echo test",
-        is_background: true,
-        timeout: 5000,
-        description: "Background with timeout",
-      }
-      const invocation = new ShellToolInvocation(params, process.cwd())
-      const desc = invocation.getDescription()
-      // Should show both background and timeout in description
-      expect(desc).toContain("[background]")
-      expect(desc).toContain("[timeout:")
-    })
   })
 })
 

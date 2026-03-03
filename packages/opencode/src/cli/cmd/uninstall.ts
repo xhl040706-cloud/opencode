@@ -7,6 +7,7 @@ import { $ } from "bun"
 import fs from "fs/promises"
 import path from "path"
 import os from "os"
+import { Filesystem } from "../../util/filesystem"
 
 interface UninstallArgs {
   keepConfig: boolean
@@ -23,7 +24,7 @@ interface RemovalTargets {
 
 export const UninstallCommand = {
   command: "uninstall",
-  describe: "uninstall costrict-cli and remove all related files",
+  describe: "uninstall cs and remove all related files",
   builder: (yargs: Argv) =>
     yargs
       .option("keep-config", {
@@ -128,13 +129,13 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
 
   if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string> = {
-      npm: "npm uninstall -g costrict-ai",
-      pnpm: "pnpm uninstall -g costrict-ai",
-      bun: "bun remove -g costrict-ai",
-      yarn: "yarn global remove costrict-ai",
-      brew: "brew uninstall opencode",
-      choco: "choco uninstall opencode",
-      scoop: "scoop uninstall opencode",
+      npm: "npm uninstall -g @costrict/cs",
+      pnpm: "pnpm uninstall -g @costrict/cs",
+      bun: "bun remove -g @costrict/cs",
+      yarn: "yarn global remove @costrict/cs",
+      // brew: "brew uninstall @costrict/cs",
+      // choco: "choco uninstall @costrict/cs",
+      // scoop: "scoop uninstall @costrict/cs",
     }
     prompts.log.info(`  ✓ Package: ${cmds[method] || method}`)
   }
@@ -179,13 +180,13 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 
   if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string[]> = {
-      npm: ["npm", "uninstall", "-g", "opencode-ai"],
-      pnpm: ["pnpm", "uninstall", "-g", "opencode-ai"],
-      bun: ["bun", "remove", "-g", "opencode-ai"],
-      yarn: ["yarn", "global", "remove", "opencode-ai"],
-      brew: ["brew", "uninstall", "opencode"],
-      choco: ["choco", "uninstall", "opencode"],
-      scoop: ["scoop", "uninstall", "opencode"],
+      npm: ["npm", "uninstall", "-g", "@costrict/cs"],
+      pnpm: ["pnpm", "uninstall", "-g", "@costrict/cs"],
+      bun: ["bun", "remove", "-g", "@costrict/cs"],
+      yarn: ["yarn", "global", "remove", "@costrict/cs"],
+      // brew: ["brew", "uninstall", "@costrict/cs"],
+      // choco: ["choco", "uninstall", "@costrict/cs"],
+      // scoop: ["scoop", "uninstall", "@costrict/cs"],
     }
 
     const cmd = cmds[method]
@@ -267,9 +268,7 @@ async function getShellConfigFile(): Promise<string | null> {
       .catch(() => false)
     if (!exists) continue
 
-    const content = await Bun.file(file)
-      .text()
-      .catch(() => "")
+    const content = await Filesystem.readText(file).catch(() => "")
     if (content.includes("# costrict") || content.includes(".costrict/bin")) {
       return file
     }
@@ -279,7 +278,7 @@ async function getShellConfigFile(): Promise<string | null> {
 }
 
 async function cleanShellConfig(file: string) {
-  const content = await Bun.file(file).text()
+  const content = await Filesystem.readText(file)
   const lines = content.split("\n")
 
   const filtered: string[] = []
@@ -315,7 +314,7 @@ async function cleanShellConfig(file: string) {
   }
 
   const output = filtered.join("\n") + "\n"
-  await Bun.write(file, output)
+  await Filesystem.write(file, output)
 }
 
 async function getDirectorySize(dir: string): Promise<number> {
