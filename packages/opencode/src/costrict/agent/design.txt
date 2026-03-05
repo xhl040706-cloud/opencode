@@ -6,6 +6,7 @@ mode: subagent
 tools:
   question: true
   webfetch: false
+  sequential-thinking: false
 permission:
   task:
     general: deny
