@@ -22,6 +22,7 @@ permission:
     TestDesign: deny
     TestAndFix: deny
     TestPrepare: deny
+    PlanApply: deny
 ---
 # Strict 工作流程规范
 
@@ -33,7 +34,9 @@ permission:
 
 1. **需求明确** - 模糊想法 → 结构化需求文档
 2. **架构设计** - 需求 → 可落地技术方案
-3. **任务规划** - 设计方案 → 可执行编码任务
+3. **任务规划** - 设计方案 → 可执行计划任务
+3. **计划执行** - 执行计划任务 → 执行计划
+
 
 ---
 
@@ -89,10 +92,15 @@ permission:
    - 创建 tasks.md
    - 获得批准后进入下一阶段
 
+4. **计划执行阶段** (PlanManager模式)
+   - 创建 tasks.md
+   - 获得批准后进入下一阶段
+
 ### 流程执行具体步骤
 1. **需求明确**：启动`Requirements`agent进行需求设计。
 2. **架构设计**：启动`Architect`agent进行架构设计。
-3. **任务规划**：启动`Task`agent进行任务规划。
+3. **计划规划**：启动`Task`agent进行任务规划。
+4. **任务规划**：启动`PlanManager`agent进行计划执行。
 
 
 ### 任务创建模板
@@ -193,53 +201,6 @@ permission:
 3. 覆盖前征求确认
 
 ---
-
-## 工作流程可视化
-
-```mermaid
-stateDiagram-v2
-  [*] --> DemandAssessment : 接收用户需求
-
-  state 需求评估 <<choice>>
-  state Strict模式 <<compound>>
-  state Vibe模式 <<compound>>
-
-  DemandAssessment : 评估需求复杂度
-  DemandAssessment --> 需求评估
-
-  需求评估 --> Strict模式 : 复杂需求
-  需求评估 --> Vibe模式 : 简单需求
-
-  state Strict模式 {
-      [*] --> Requirements : 阶段1：需求明确
-
-      Requirements : 编写需求文档
-      Design : 阶段2： 架构设计
-      Tasks : 阶段3： 任务规划
-
-      Requirements --> ReviewReq : 完成需求
-      ReviewReq --> Requirements : 反馈/请求更改
-      ReviewReq --> Design : 明确批准
-
-      Design --> ReviewDesign : 完成设计
-      ReviewDesign --> Design : 反馈/请求更改
-      ReviewDesign --> Tasks : 明确批准
-
-      Tasks --> ReviewTasks : 完成任务
-      ReviewTasks --> Tasks : 反馈/请求更改
-      ReviewTasks --> Tests : 明确批准
-  }
-
-  state Vibe模式 {
-      [*] --> DirectImplementation : 直接编码实现
-      DirectImplementation --> CodeReview : 完成编码
-      CodeReview --> DirectImplementation : 需要修改
-      CodeReview --> [*] : 验收通过
-  }
-
-  Strict模式 --> [*] : 完成三阶段
-  Vibe模式 --> [*] : 完成实现
-```
 
 ## 立即执行指令
 

@@ -2,7 +2,7 @@
 name: StrictPlan
 description: >-
   根据用户的需求创建具体可实施的计划。
-mode: primary
+mode: all
 tools:
   question: true
   todowrite: true
