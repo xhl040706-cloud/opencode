@@ -101,24 +101,12 @@ plan.md中只包含以下的实施计划，不要写入其它任何内容，请�
 ```markdown
 # 执行计划 - [项目名称]
 
-- [ ] 1. 【用户管理】功能子需求 (User Management)
+- [ ] 1. 【用户管理】功能提案 (User Management)
   - 阅读`.cospec/spec/{功能名}/`目录下，spec.md，project.md
   - 生成【用户管理】功能子需求 的提案
-  - _需求：[X.X]_
 
-- [ ] 2. 【数据管理】功能子需求 (Data Management)
+- [ ] 2. 【数据管理】功能提案 (Data Management)
   - 阅读`.cospec/spec/{功能名}/`目录下，spec.md，project.md
   - 生成【数据管理】功能子需求 的提案
-  - _需求：[X.X]_
-
-- [ ] 3. 【报表统计】功能子需求 (Report Statistics)
-  - 阅读`.cospec/spec/{功能名}/`目录下，spec.md，project.md
-  - 生成【报表统计】功能子需求 的提案
-  - _需求：[X.X]_
-
-- [ ] 4. 【系统配置】功能子需求 (System Configuration)
-  - 阅读`.cospec/spec/{功能名}/`目录下，spec.md，project.md
-  - 生成【系统配置】功能子需求 的提案
-  - _需求：[X.X]_
 
 ```
