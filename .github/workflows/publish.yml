@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   packages:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     if: github.repository == 'zgsm-ai/opencode'
     steps:
       - uses: actions/checkout@v3
