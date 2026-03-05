@@ -40,7 +40,7 @@ permissions:
 
 jobs:
   cli:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     if: github.repository == 'zgsm-ai/opencode'
     steps:
       - uses: actions/checkout@v3
@@ -88,11 +88,11 @@ jobs:
             target: x86_64-apple-darwin
           - host: macos-latest
             target: aarch64-apple-darwin
-          - host: blacksmith-4vcpu-windows-2025
+          - host: windows-latest
             target: x86_64-pc-windows-msvc
-          - host: blacksmith-4vcpu-ubuntu-2404
+          - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - host: blacksmith-8vcpu-ubuntu-2404-arm
+          - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.settings.host }}
     steps:
