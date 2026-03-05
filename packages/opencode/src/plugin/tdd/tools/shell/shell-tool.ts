@@ -68,19 +68,21 @@ export class ShellToolInvocation {
     const tempFileName = `shell_pgrep_${crypto.randomBytes(6).toString("hex")}.tmp`
     const tempFilePath = path.join(os.tmpdir(), tempFileName)
 
-    let timeoutMs = this.params.timeout
-    if (timeoutMs === undefined) {
-      const timeoutString = process.env["COSTRICT_SHELL_TIMEOUT"]
-      if (timeoutString !== undefined) {
-        if (timeoutString.toLowerCase() === "no" || timeoutString === "none" || timeoutString === "off") {
-          timeoutMs = 0
-        } else {
-          const timeoutNum = Number(timeoutString)
-          if (!isNaN(timeoutNum)) {
-            timeoutMs = timeoutNum * 60 * 1000
-          }
+    let timeoutMs: number | undefined
+
+    const timeoutString = process.env["COSTRICT_SHELL_TIMEOUT"]
+    if (timeoutString !== undefined) {
+      if (timeoutString.toLowerCase() === "no" || timeoutString === "none" || timeoutString === "off") {
+        timeoutMs = 0
+      } else {
+        const timeoutNum = Number(timeoutString)
+        if (!isNaN(timeoutNum)) {
+          timeoutMs = timeoutNum * 60 * 1000
         }
       }
+    }
+    if (timeoutMs === undefined) {
+      timeoutMs = this.params.timeout
     }
     if (timeoutMs === undefined) {
       timeoutMs = 5 * 60 * 1000
