@@ -24,7 +24,7 @@ import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
 import { Installation } from "@/installation"
 import { ConfigMarkdown } from "./markdown"
-import { BUILTIN_AGENTS } from "../costrict/agent/builtin"
+import { BUILTIN_AGENTS, type AgentEntry } from "../costrict/agent/builtin"
 import { constants, existsSync } from "fs"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
@@ -405,19 +405,41 @@ export namespace Config {
     return result
   }
 
+  function getLocale(): string {
+    const lang = process.env.COSTRICT_LOCALE ?? process.env.LANG ?? process.env.LC_ALL ?? ""
+    // Normalize: "zh_CN.UTF-8" -> "zh-CN", "en_US.UTF-8" -> "en"
+    const tag = lang.split(".")[0].replace("_", "-")
+    if (tag.startsWith("zh")) return "zh-CN"
+    if (tag && tag !== "") return tag.split("-")[0]
+    return "zh-CN"
+  }
+
+  async function resolveBuiltinContent(entry: AgentEntry, locale: string): Promise<string | undefined> {
+    return entry.locales[locale] ?? Object.values(entry.locales)[0]
+  }
+
   async function loadAgent(dir: string) {
     const result: Record<string, Agent> = {}
+    const locale = getLocale()
 
     // Load built-in agents from imported modules
-    for (const agentContent of BUILTIN_AGENTS) {
+    for (const [filename, entry] of Object.entries(BUILTIN_AGENTS)) {
       try {
-        const md = await ConfigMarkdown.parseString(agentContent)
+        const content = await resolveBuiltinContent(entry, locale)
+        if (!content) continue
+
+        const md = await ConfigMarkdown.parseString(content)
         if (!md.data) continue
 
         const config = {
-          name: "unknown",
+          name: filename,
           ...(md.data as Record<string, any>),
           prompt: md.content.trim(),
+          model_prompts: entry.models
+            ? Object.fromEntries(
+                await Promise.all(Object.entries(entry.models).map(async ([family, body]) => [family, body.trim()])),
+              )
+            : undefined,
         }
         const parsed = Agent.safeParse(config)
         if (parsed.success) {
