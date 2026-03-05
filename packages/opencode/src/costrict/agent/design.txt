@@ -5,8 +5,13 @@ description: >-
 mode: subagent
 tools:
   question: true
+  todowrite: true
+  todoread: true
   webfetch: false
-  sequential-thinking: false
+  checkpoint: false
+  file-outline: false
+  list_user_commands: false
+  skill: false
 permission:
   task:
     general: deny
