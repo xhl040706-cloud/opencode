@@ -1,28 +1,29 @@
 name: publish
+run-name: "${{ format('release {0}', inputs.bump) }}"
 
 on:
-  workflow_call:
-    inputs:
-      version:
-        type: string
-        required: true
-      release:
-        type: string
-        required: true
-      repo:
-        type: string
-        required: true
+  push:
+    branches:
+      - ci
+      - dev
+      - beta
+      - snapshot-*
   workflow_dispatch:
     inputs:
+      bump:
+        description: "Bump major, minor, or patch"
+        required: false
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
       version:
-        type: string
+        description: "Override version (optional)"
         required: false
-      release:
         type: string
-        required: false
-      repo:
-        type: string
-        required: false
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.version || inputs.bump }}
 
 permissions:
   id-token: write
@@ -30,20 +31,233 @@ permissions:
   packages: write
 
 jobs:
-  packages:
+  version:
     runs-on: ubuntu-latest
     if: github.repository == 'zgsm-ai/opencode'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Setup git committer
+        id: committer
+        uses: ./.github/actions/setup-git-committer
+        with:
+          opencode-app-id: ${{ vars.OPENCODE_APP_ID }}
+          opencode-app-secret: ${{ secrets.OPENCODE_APP_SECRET }}
+
+      - name: Install OpenCode
+        if: inputs.bump || inputs.version
+        run: bun i -g opencode-ai
+
+      - id: version
+        run: |
+          ./script/version.ts
+        env:
+          GH_TOKEN: ${{ steps.committer.outputs.token }}
+          OPENCODE_BUMP: ${{ inputs.bump }}
+          OPENCODE_VERSION: ${{ inputs.version }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GH_REPO: ${{ (github.ref_name == 'beta' && 'anomalyco/opencode-beta') || github.repository }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
+      tag: ${{ steps.version.outputs.tag }}
+      repo: ${{ steps.version.outputs.repo }}
+
+  build-cli:
+    needs: version
+    runs-on: ubuntu-latest
+    if: github.repository == 'zgsm-ai/opencode'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-tags: true
+
+      - uses: ./.github/actions/setup-bun
+        with:
+          cross-compile: "true"
+
+      - name: Setup git committer
+        id: committer
+        uses: ./.github/actions/setup-git-committer
+        with:
+          opencode-app-id: ${{ vars.OPENCODE_APP_ID }}
+          opencode-app-secret: ${{ secrets.OPENCODE_APP_SECRET }}
+
+      - name: Build
+        id: build
+        run: |
+          ./packages/opencode/script/build.ts --all
+        env:
+          OPENCODE_VERSION: ${{ needs.version.outputs.version }}
+          OPENCODE_RELEASE: ${{ needs.version.outputs.release }}
+          GH_REPO: ${{ needs.version.outputs.repo }}
+          GH_TOKEN: ${{ steps.committer.outputs.token }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opencode-cli
+          path: packages/opencode/dist
+
+    outputs:
+      version: ${{ needs.version.outputs.version }}
+
+  build-tauri:
+    needs:
+      - build-cli
+      - version
+    continue-on-error: false
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-latest
+            target: x86_64-apple-darwin
+          - host: macos-latest
+            target: aarch64-apple-darwin
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - host: blacksmith-8vcpu-ubuntu-2404-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.settings.host }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-tags: true
+
+      - uses: apple-actions/import-codesign-certs@v2
+        if: ${{ runner.os == 'macOS' }}
+        with:
+          keychain: build
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Verify Certificate
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate imported."
+
+      - name: Setup Apple API Key
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          echo "${{ secrets.APPLE_API_KEY_PATH }}" > $RUNNER_TEMP/apple-api-key.p8
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Cache apt packages
+        if: contains(matrix.settings.host, 'ubuntu')
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-cache
+          key: ${{ runner.os }}-${{ matrix.settings.target }}-apt-${{ hashFiles('.github/workflows/publish.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.settings.target }}-apt-
+
+      - name: install dependencies (ubuntu only)
+        if: contains(matrix.settings.host, 'ubuntu')
+        run: |
+          mkdir -p ~/apt-cache && chmod -R a+rw ~/apt-cache
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends -o dir::cache::archives="$HOME/apt-cache" libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo chmod -R a+rw ~/apt-cache
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.settings.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/desktop/src-tauri
+          shared-key: ${{ matrix.settings.target }}
+
+      - name: Prepare
+        run: |
+          cd packages/desktop
+          bun ./scripts/prepare.ts
+        env:
+          OPENCODE_VERSION: ${{ needs.version.outputs.version }}
+          GITHUB_TOKEN: ${{ steps.committer.outputs.token }}
+          RUST_TARGET: ${{ matrix.settings.target }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+
+      - name: Resolve tauri portable SHA
+        if: contains(matrix.settings.host, 'ubuntu')
+        run: echo "TAURI_PORTABLE_SHA=$(git ls-remote https://github.com/tauri-apps/tauri.git refs/heads/feat/truly-portable-appimage | cut -f1)" >> "$GITHUB_ENV"
+
+      # Fixes AppImage build issues, can be removed when https://github.com/tauri-apps/tauri/pull/12491 is released
+      - name: Install tauri-cli from portable appimage branch
+        uses: taiki-e/cache-cargo-install-action@v3
+        if: contains(matrix.settings.host, 'ubuntu')
+        with:
+          tool: tauri-cli
+          git: https://github.com/tauri-apps/tauri
+          # branch: feat/truly-portable-appimage
+          rev: ${{ env.TAURI_PORTABLE_SHA }}
+
+      - name: Show tauri-cli version
+        if: contains(matrix.settings.host, 'ubuntu')
+        run: cargo tauri --version
+
+      - name: Setup git committer
+        id: committer
+        uses: ./.github/actions/setup-git-committer
+        with:
+          opencode-app-id: ${{ vars.OPENCODE_APP_ID }}
+          opencode-app-secret: ${{ secrets.OPENCODE_APP_SECRET }}
+
+      - name: Build and upload artifacts
+        uses: tauri-apps/tauri-action@390cbe447412ced1303d35abe75287949e43437a
+        timeout-minutes: 60
+        with:
+          projectPath: packages/desktop
+          uploadWorkflowArtifacts: true
+          tauriScript: ${{ (contains(matrix.settings.host, 'ubuntu') && 'cargo tauri') || '' }}
+          args: --target ${{ matrix.settings.target }} --config ${{ (github.ref_name == 'beta' && './src-tauri/tauri.beta.conf.json') || './src-tauri/tauri.prod.conf.json' }} --verbose
+          updaterJsonPreferNsis: true
+          releaseId: ${{ needs.version.outputs.release }}
+          tagName: ${{ needs.version.outputs.tag }}
+          releaseDraft: true
+          releaseAssetNamePattern: opencode-desktop-[platform]-[arch][ext]
+          repo: ${{ (github.ref_name == 'beta' && 'opencode-beta') || '' }}
+          releaseCommitish: ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ steps.committer.outputs.token }}
+          TAURI_BUNDLER_NEW_APPIMAGE_FORMAT: true
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ runner.temp }}/apple-api-key.p8
+
+  publish:
+    needs:
+      - version
+      - build-cli
+      - build-tauri
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
       - uses: ./.github/actions/setup-bun
 
-      - name: Login to GitHub Container Registry
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -89,72 +303,9 @@ jobs:
 
       - run: ./script/publish.ts
         env:
-          OPENCODE_VERSION: ${{ inputs.version }}
-          OPENCODE_RELEASE: ${{ inputs.release }}
+          OPENCODE_VERSION: ${{ needs.version.outputs.version }}
+          OPENCODE_RELEASE: ${{ needs.version.outputs.release }}
           AUR_KEY: ${{ secrets.AUR_KEY }}
           GITHUB_TOKEN: ${{ steps.committer.outputs.token }}
-          GH_REPO: ${{ inputs.repo }}
+          GH_REPO: ${{ needs.version.outputs.repo }}
           NPM_CONFIG_PROVENANCE: false
-
-      - name: Publish to Homebrew tap
-        continue-on-error: true
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          OPENCODE_VERSION: ${{ inputs.version }}
-        run: |
-          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/zgsm-ai/homebrew-tap.git /tmp/homebrew-tap
-          cd /tmp/homebrew-tap
-          git config user.email "opencode@sst.dev"
-          git config user.name "opencode"
-
-          # Calculate SHA256 for macOS binaries
-          ARM64_SHA=$(sha256sum $GITHUB_WORKSPACE/packages/opencode/dist/opencode-aarch64-apple-darwin.tar.gz | awk '{print $1}')
-          X64_SHA=$(sha256sum $GITHUB_WORKSPACE/packages/opencode/dist/opencode-x86_64-apple-darwin.tar.gz | awk '{print $1}')
-
-          # Update formula
-          FORMULA_FILE=$(find . -name "*.rb" | head -1)
-          sed -i "s|url \".*aarch64-apple-darwin.*\"|url \"https://github.com/zgsm-ai/opencode/releases/download/v${OPENCODE_VERSION}/opencode-aarch64-apple-darwin.tar.gz\"|g" "$FORMULA_FILE"
-          sed -i "/aarch64-apple-darwin/{n; s/sha256 \".*\"/sha256 \"${ARM64_SHA}\"/}" "$FORMULA_FILE"
-          sed -i "s|url \".*x86_64-apple-darwin.*\"|url \"https://github.com/zgsm-ai/opencode/releases/download/v${OPENCODE_VERSION}/opencode-x86_64-apple-darwin.tar.gz\"|g" "$FORMULA_FILE"
-          sed -i "/x86_64-apple-darwin/{n; s/sha256 \".*\"/sha256 \"${X64_SHA}\"/}" "$FORMULA_FILE"
-
-          git add -A
-          git diff --staged --quiet || git commit -m "update opencode to v${OPENCODE_VERSION}"
-          git push
-
-      - name: Publish to Scoop bucket
-        continue-on-error: true
-        env:
-          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
-          OPENCODE_VERSION: ${{ inputs.version }}
-        run: |
-          git clone https://x-access-token:${SCOOP_BUCKET_TOKEN}@github.com/zgsm-ai/scoop-bucket.git /tmp/scoop-bucket
-          cd /tmp/scoop-bucket
-          git config user.email "opencode@sst.dev"
-          git config user.name "opencode"
-
-          # Calculate SHA256 for Windows binary
-          WIN_SHA=$(sha256sum $GITHUB_WORKSPACE/packages/opencode/dist/opencode-x86_64-pc-windows-msvc.zip | awk '{print $1}')
-
-          # Update manifest
-          MANIFEST_FILE=$(find . -name "opencode.json" | head -1)
-          if [ -z "$MANIFEST_FILE" ]; then
-            MANIFEST_FILE="bucket/opencode.json"
-            mkdir -p bucket
-            echo '{}' > "$MANIFEST_FILE"
-          fi
-
-          # Update version and hash in manifest
-          cat "$MANIFEST_FILE" | \
-            python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          data['version'] = '${OPENCODE_VERSION}'
-          data['url'] = 'https://github.com/zgsm-ai/opencode/releases/download/v${OPENCODE_VERSION}/opencode-x86_64-pc-windows-msvc.zip'
-          data['hash'] = '${WIN_SHA}'
-          print(json.dumps(data, indent=2))
-          " > "$MANIFEST_FILE.tmp" && mv "$MANIFEST_FILE.tmp" "$MANIFEST_FILE"
-
-          git add -A
-          git diff --staged --quiet || git commit -m "update opencode to v${OPENCODE_VERSION}"
-          git push

@@ -118,5 +118,5 @@ if (!Script.preview) {
   const platforms = "linux/amd64,linux/arm64"
   const imageTags = [`${image}:${Script.version}`, `${image}:latest`]
   const tagFlags = imageTags.flatMap((t) => ["-t", t])
-  // await $`docker buildx build --platform=${platforms} ${tagFlags} --push .`
+  await $`docker buildx build --platform=${platforms} ${tagFlags} --push .`
 }
