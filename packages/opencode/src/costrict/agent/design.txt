@@ -12,6 +12,7 @@ tools:
   file-outline: false
   list_user_commands: false
   skill: false
+  sequential-thinking: false
 permission:
   task:
     general: deny
