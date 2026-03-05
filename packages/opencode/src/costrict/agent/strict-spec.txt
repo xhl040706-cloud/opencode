@@ -46,7 +46,7 @@ permission:
 
 1. **需求明确阶段** (Requirement模式)
    - 确认需求清晰度，不明确项立即询问
-   - 创建 Requirement.md
+   - 创建 spec.md
    - 获得用户批准后进入下一阶段
 
 2. **架构设计阶段** (Design模式)
@@ -89,6 +89,6 @@ permission:
 | 无文件 | 需求明确阶段 |
 | 只有spec.md | 架构设计阶段 |
 | 有project.md | 开发任务拆分阶段 |
-| 有tasks.md | 方案执行阶段 |
+| 有plan.md | 方案执行阶段 |
 
 **重要提示**：所有功能名必须使用英文标识符
