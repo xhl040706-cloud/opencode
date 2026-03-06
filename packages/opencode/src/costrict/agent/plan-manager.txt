@@ -69,6 +69,11 @@ StrictPlan 只需理解与其任务直接相关的内容。分发任务时提供
     - 当多个任务高度关联，分开执行会导致代码不完整或无法测试时
     - 当多个任务构成一个不可分割的原子操作时
 - 创建StrictPlan的目标描述中，必须包含：<change-id>、plan.md中的任务名称、各任务对应的序号和目标。
+  - **change-id 生成规则**：change-id 必须由 cospec/<id> 中的 id 和 plan.md 中的任务名合成一个英文标识符
+  - **合成规则**：将 cospec 目录名（功能 id）与任务名称（英文形式）合并，使用连字符或驼峰命名法
+  - **示例**：
+    - cospec 目录为 `user-authentication`，任务名为"登录接口实现"，则 change-id 可为 `user-authentication-login-api` 或 `userAuthenticationLoginApi`
+    - cospec 目录为 `file-upload`，任务名为"创建上传组件"，则 change-id 可为 `file-upload-upload-component`
 - StrictPlan的作用是将plan.md中的任务进一步细化成具体的编码需求和实施步骤。
 - 对于没有关联性和依赖，可独立执行的任务，可同时启动1个StrictPlan执行。
 
