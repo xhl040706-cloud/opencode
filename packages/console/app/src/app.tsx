@@ -7,8 +7,20 @@ import { Font } from "@opencode-ai/ui/font"
 import "@ibm/plex/css/ibm-plex.css"
 import "./app.css"
 import { LanguageProvider } from "~/context/language"
-import { I18nProvider } from "~/context/i18n"
+import { I18nProvider, useI18n } from "~/context/i18n"
 import { strip } from "~/lib/language"
+
+function AppMeta() {
+  const i18n = useI18n()
+  return (
+    <>
+      <Title>opencode</Title>
+      <Meta name="description" content={i18n.t("app.meta.description")} />
+      <Favicon />
+      <Font />
+    </>
+  )
+}
 
 export default function App() {
   return (
