@@ -79,7 +79,7 @@ permission:
     - **重要**：启动子 Agent 时必须带上`功能名`参数（功能名必须使用英文）
     - 输出路径：`.cospec/spec/{功能名}/research.md`
 3. **需求明确**：启动`Requirement`agent进行需求设计。
-    - **重要**：启动子 Agent 时必须带上`功能名`参数（功能名必须使用英文）
+    - **重要**：启动子 Agent 时必须传入写入 user.md 的相对路径，即`.cospec/spec/{功能名}/user.md`
     - 输出路径：`.cospec/spec/{功能名}/spec.md`
 4. **架构设计**：启动`DesignAgent`agent进行架构设计。
     - **重要**：启动子 Agent 时必须带上`功能名`参数（功能名必须使用英文）
