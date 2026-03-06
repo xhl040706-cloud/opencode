@@ -3,11 +3,8 @@ run-name: "${{ format('release {0}', inputs.bump) }}"
 
 on:
   push:
-    branches:
-      - ci
-      - dev
-      - beta
-      - snapshot-*
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
       bump:
