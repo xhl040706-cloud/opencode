@@ -11,12 +11,13 @@ import AGENT_6 from "./fix-agent.txt"
 import AGENT_7 from "./plan-manager.txt"
 import AGENT_8 from "./quick-explore.txt"
 import AGENT_9 from "./requirement.txt"
-import AGENT_10 from "./spec-task.txt"
-import AGENT_11 from "./strict-plan.txt"
-import AGENT_12 from "./strict-spec.txt"
-import AGENT_13 from "./sub-coding.txt"
-import AGENT_14 from "./task-check.txt"
-import AGENT_15 from "./tdd.txt"
+import AGENT_10 from "./spec-search.txt"
+import AGENT_11 from "./spec-task.txt"
+import AGENT_12 from "./strict-plan.txt"
+import AGENT_13 from "./strict-spec.txt"
+import AGENT_14 from "./sub-coding.txt"
+import AGENT_15 from "./task-check.txt"
+import AGENT_16 from "./tdd.txt"
 
 export const BUILTIN_AGENTS = [
   AGENT_0,
@@ -34,5 +35,6 @@ export const BUILTIN_AGENTS = [
   AGENT_12,
   AGENT_13,
   AGENT_14,
-  AGENT_15
+  AGENT_15,
+  AGENT_16
 ]
