@@ -78,4 +78,5 @@ export namespace Locale {
     const template = count === 1 ? singular : plural
     return template.replace("{}", count.toString())
   }
+
 }

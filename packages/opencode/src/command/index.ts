@@ -3,9 +3,8 @@ import z from "zod"
 import { Config } from "../config/config"
 import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
-import PROMPT_INITIALIZE from "../costrict/command/template/enhanced-initialize.txt" // costrict change
+import { CostrictCommand } from "../costrict/command"
 import PROMPT_REVIEW from "./template/review.txt"
-import PROMPT_PROJECT_WIKI from "../costrict/command/template/project-wiki.txt" // project-wiki command
 import { MCP } from "../mcp"
 import { getCommands } from "../plugin/tdd"
 
@@ -62,6 +61,7 @@ export namespace Command {
 
   const state = Instance.state(async () => {
     const cfg = await Config.get()
+    const lang = cfg.promptLanguage
 
     const result: Record<string, Info> = {
       [Default.INIT]: {
@@ -69,9 +69,9 @@ export namespace Command {
         description: "create/update AGENTS.md",
         source: "command",
         get template() {
-          return PROMPT_INITIALIZE.replace("${path}", Instance.worktree)
+          return CostrictCommand.get("enhanced-initialize", lang).replace("${path}", Instance.worktree)
         },
-        hints: hints(PROMPT_INITIALIZE),
+        hints: hints(CostrictCommand.get("enhanced-initialize", lang)),
       },
       [Default.REVIEW]: {
         name: Default.REVIEW,
@@ -87,9 +87,9 @@ export namespace Command {
         name: Default.PROJECT_WIKI,
         description: "generate comprehensive project wiki documentation",
         get template() {
-          return PROMPT_PROJECT_WIKI.replace(/\$\{path\}/g, Instance.worktree)
+          return CostrictCommand.get("project-wiki", lang).replace(/\$\{path\}/g, Instance.worktree)
         },
-        hints: hints(PROMPT_PROJECT_WIKI),
+        hints: hints(CostrictCommand.get("project-wiki", lang)),
       },
     }
 

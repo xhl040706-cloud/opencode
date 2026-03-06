@@ -33,6 +33,7 @@ import { Glob } from "../util/glob"
 import { PackageRegistry } from "@/bun/registry"
 import { proxied } from "@/util/proxied"
 import { iife } from "@/util/iife"
+
 import { Control } from "@/control"
 import { ConfigPaths } from "./paths"
 import { Filesystem } from "@/util/filesystem"
@@ -193,7 +194,7 @@ export namespace Config {
       )
 
       result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
-      result.agent = mergeDeep(result.agent, await loadAgent(dir))
+      result.agent = mergeDeep(result.agent, await loadAgent(dir, result.promptLanguage))
       result.agent = mergeDeep(result.agent, await loadMode(dir))
       result.plugin.push(...(await loadPlugin(dir)))
     }
@@ -405,27 +406,18 @@ export namespace Config {
     return result
   }
 
-  function getLocale(): string {
-    const lang = process.env.COSTRICT_LOCALE ?? process.env.LANG ?? process.env.LC_ALL ?? ""
-    // Normalize: "zh_CN.UTF-8" -> "zh-CN", "en_US.UTF-8" -> "en"
-    const tag = lang.split(".")[0].replace("_", "-")
-    if (tag.startsWith("zh")) return "zh-CN"
-    if (tag && tag !== "") return tag.split("-")[0]
-    return "zh-CN"
-  }
-
   async function resolveBuiltinContent(entry: AgentEntry, locale: string): Promise<string | undefined> {
     return entry.locales[locale] ?? Object.values(entry.locales)[0]
   }
 
-  async function loadAgent(dir: string) {
+  async function loadAgent(dir: string, locale?: string) {
     const result: Record<string, Agent> = {}
-    const locale = getLocale()
+    const lang = locale ?? "zh-CN"
 
     // Load built-in agents from imported modules
     for (const [filename, entry] of Object.entries(BUILTIN_AGENTS)) {
       try {
-        const content = await resolveBuiltinContent(entry, locale)
+        const content = await resolveBuiltinContent(entry, lang)
         if (!content) continue
 
         const md = await ConfigMarkdown.parseString(content)
@@ -1129,6 +1121,10 @@ export namespace Config {
         .string()
         .optional()
         .describe("Custom username to display in conversations instead of system username"),
+      promptLanguage: z
+        .string()
+        .optional()
+        .describe("Language for built-in agent prompts (e.g. 'zh-CN', 'en'). Overrides COSTRICT_LOCALE env var"),
       mode: z
         .object({
           build: Agent.optional(),
