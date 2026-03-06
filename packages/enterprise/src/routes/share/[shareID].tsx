@@ -305,138 +305,133 @@ export default function () {
                         </div>
                       )
 
-                        return (
-                          <div class="relative bg-background-stronger w-screen h-screen overflow-hidden flex flex-col">
-                            <header class="h-12 px-6 py-2 flex items-center justify-between self-stretch bg-background-base border-b border-border-weak-base">
-                              <div class="">
-                                <a href="https://costrict.ai">
-                                  <Mark />
-                                </a>
-                              </div>
-                              <div class="flex gap-3 items-center">
-                                <IconButton
-                                  as={"a"}
-                                  href="https://github.com/zgsm-ai/costrict-cli"
-                                  target="_blank"
-                                  icon="github"
-                                  variant="ghost"
-                                />
-                                <IconButton
-                                  as={"a"}
-                                  href="https://costrict.ai/discord"
-                                  target="_blank"
-                                  icon="discord"
-                                  variant="ghost"
-                                />
-                              </div>
-                            </header>
-                            <div class="select-text flex flex-col flex-1 min-h-0">
+                      const wide = createMemo(() => diffs().length === 0)
+
+                      return (
+                        <div class="relative bg-background-stronger w-screen h-screen overflow-hidden flex flex-col">
+                          <header class="h-12 px-6 py-2 flex items-center justify-between self-stretch bg-background-base border-b border-border-weak-base">
+                            <div class="">
+                              <a href="https://costrict.ai">
+                                <Mark />
+                              </a>
+                            </div>
+                            <div class="flex gap-3 items-center">
+                              <IconButton
+                                as={"a"}
+                                href="https://github.com/zgsm-ai/costrict-cli"
+                                target="_blank"
+                                icon="github"
+                                variant="ghost"
+                              />
+                              <IconButton
+                                as={"a"}
+                                href="https://costrict.ai/discord"
+                                target="_blank"
+                                icon="discord"
+                                variant="ghost"
+                              />
+                            </div>
+                          </header>
+                          <div class="select-text flex flex-col flex-1 min-h-0">
+                            <div
+                              classList={{
+                                "@container relative shrink-0 pt-14 flex flex-col gap-10 min-h-0 w-full": true,
+                              }}
+                            >
                               <div
                                 classList={{
-                                  "@container relative shrink-0 pt-14 flex flex-col gap-10 min-h-0 w-full": true,
+                                  "w-full flex justify-start items-start min-w-0 px-6": true,
                                 }}
                               >
-                                <div
-                                  classList={{
-                                    "w-full flex justify-start items-start min-w-0 px-6": true,
+                                {title()}
+                              </div>
+                              <div class="flex items-start justify-start h-full min-h-0">
+                                <Show when={messages().length > 1}>
+                                  <MessageNav
+                                    class="sticky top-0 shrink-0 py-2 pl-4"
+                                    messages={messages()}
+                                    current={activeMessage()}
+                                    size="compact"
+                                    onMessageSelect={setActiveMessage}
+                                  />
+                                </Show>
+                                <SessionTurn
+                                  sessionID={data().sessionID}
+                                  messageID={store.messageId ?? firstUserMessage()!.id!}
+                                  classes={{
+                                    root: "grow",
+                                    content: "flex flex-col justify-between",
+                                    container: "w-full pb-20 px-6",
                                   }}
                                 >
-                                  {title()}
-                                </div>
-                                <div class="flex items-start justify-start h-full min-h-0">
-                                  <Show when={messages().length > 1}>
-                                    <MessageNav
-                                      class="sticky top-0 shrink-0 py-2 pl-4"
-                                      messages={messages()}
-                                      current={activeMessage()}
-                                      size="compact"
-                                      onMessageSelect={setActiveMessage}
-                                    />
-                                  </Show>
-                                  <SessionTurn
-                                    sessionID={data().sessionID}
-                                    messageID={store.messageId ?? firstUserMessage()!.id!}
-                                    classes={{
-                                      root: "grow",
-                                      content: "flex flex-col justify-between",
-                                      container: "w-full pb-20 px-6",
-                                    }}
-                                  >
-                                    <div classList={{ "w-full flex items-center justify-center pb-8 shrink-0": true }}>
-                                      <Logo class="w-58.5 opacity-12" />
-                                    </div>
-                                  </SessionTurn>
-                                </div>
+                                  <div classList={{ "w-full flex items-center justify-center pb-8 shrink-0": true }}>
+                                    <Logo class="w-58.5 opacity-12" />
+                                  </div>
+                                </SessionTurn>
                               </div>
-                              <Show when={diffs().length > 0}>
-                                <div class="@container relative grow pt-14 flex-1 min-h-0 border-l border-border-weak-base">
-                                  <SessionReview
-                                    class="@4xl:hidden"
-                                    diffs={diffs()}
-                                    classes={{
-                                      root: "pb-20",
-                                      header: "px-6",
-                                      container: "px-6",
-                                    }}
-                                  />
-                                  <SessionReview
-                                    split
-                                    class="hidden @4xl:flex"
-                                    diffs={splitDiffs()}
-                                    classes={{
-                                      root: "pb-20",
-                                      header: "px-6",
-                                      container: "px-6",
-                                    }}
-                                  />
-                                </div>
-                              </Show>
                             </div>
-                            <Switch>
-                              <Match when={diffs().length > 0}>
-                                <Tabs classList={{ "md:hidden": wide(), "lg:hidden": !wide() }}>
-                                  <Tabs.List>
-                                    <Tabs.Trigger value="session" class="w-1/2" classes={{ button: "w-full" }}>
-                                      Session
-                                    </Tabs.Trigger>
-                                    <Tabs.Trigger
-                                      value="review"
-                                      class="w-1/2 !border-r-0"
-                                      classes={{ button: "w-full" }}
-                                    >
-                                      {diffs().length} Files Changed
-                                    </Tabs.Trigger>
-                                  </Tabs.List>
-                                  <Tabs.Content value="session" class="!overflow-hidden">
-                                    {turns()}
-                                  </Tabs.Content>
-                                  <Tabs.Content
-                                    forceMount
-                                    value="review"
-                                    class="!overflow-hidden hidden data-[selected]:block"
-                                  >
-                                    <div class="relative h-full pt-8 overflow-y-auto no-scrollbar">
-                                      <SessionReview
-                                        diffs={diffs()}
-                                        classes={{
-                                          root: "pb-20",
-                                          header: "px-4",
-                                          container: "px-4",
-                                        }}
-                                      />
-                                    </div>
-                                  </Tabs.Content>
-                                </Tabs>
-                              </Match>
-                              <Match when={true}>
-                                <div
-                                  classList={{ "!overflow-hidden": true, "md:hidden": wide(), "lg:hidden": !wide() }}
-                                >
-                                  {turns()}
-                                </div>
-                              </Match>
-                            </Switch>
+                            <Show when={diffs().length > 0}>
+                              <div class="@container relative grow pt-14 flex-1 min-h-0 border-l border-border-weak-base">
+                                <SessionReview
+                                  class="@4xl:hidden"
+                                  diffs={diffs()}
+                                  classes={{
+                                    root: "pb-20",
+                                    header: "px-6",
+                                    container: "px-6",
+                                  }}
+                                />
+                                <SessionReview
+                                  split
+                                  class="hidden @4xl:flex"
+                                  diffs={splitDiffs()}
+                                  classes={{
+                                    root: "pb-20",
+                                    header: "px-6",
+                                    container: "px-6",
+                                  }}
+                                />
+                              </div>
+                            </Show>
                           </div>
+                          <Switch>
+                            <Match when={diffs().length > 0}>
+                              <Tabs classList={{ "md:hidden": wide(), "lg:hidden": !wide() }}>
+                                <Tabs.List>
+                                  <Tabs.Trigger value="session" class="w-1/2" classes={{ button: "w-full" }}>
+                                    Session
+                                  </Tabs.Trigger>
+                                  <Tabs.Trigger value="review" class="w-1/2 !border-r-0" classes={{ button: "w-full" }}>
+                                    {diffs().length} Files Changed
+                                  </Tabs.Trigger>
+                                </Tabs.List>
+                                <Tabs.Content value="session" class="!overflow-hidden">
+                                  {turns()}
+                                </Tabs.Content>
+                                <Tabs.Content
+                                  forceMount
+                                  value="review"
+                                  class="!overflow-hidden hidden data-[selected]:block"
+                                >
+                                  <div class="relative h-full pt-8 overflow-y-auto no-scrollbar">
+                                    <SessionReview
+                                      diffs={diffs()}
+                                      classes={{
+                                        root: "pb-20",
+                                        header: "px-4",
+                                        container: "px-4",
+                                      }}
+                                    />
+                                  </div>
+                                </Tabs.Content>
+                              </Tabs>
+                            </Match>
+                            <Match when={true}>
+                              <div classList={{ "!overflow-hidden": true, "md:hidden": wide(), "lg:hidden": !wide() }}>
+                                {turns()}
+                              </div>
+                            </Match>
+                          </Switch>
                         </div>
                       )
                     })}
