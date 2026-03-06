@@ -64,6 +64,8 @@ const BUILD_TIME = new Date().toLocaleString("zh-CN", {
   hour12: false,
 })
 
+const bot = ["actions-user", "opencode", "opencode-agent[bot]"]
+const teamPath = path.resolve(import.meta.dir, "../../../.github/TEAM_MEMBERS")
 const team = [
   ...(await Bun.file(teamPath)
     .text()
