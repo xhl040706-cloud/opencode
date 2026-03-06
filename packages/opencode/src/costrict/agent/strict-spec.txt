@@ -60,7 +60,7 @@ permission:
    - 获得批准后进入下一阶段
 
 4. **开发任务拆分阶段** (Task模式)
-   - 创建 tasks.md，进行开发任务拆分
+   - 创建 plan.md，进行开发任务拆分
    - 获得批准后进入下一阶段
 
 5. **方案执行阶段** (PlanManager模式)
@@ -79,10 +79,9 @@ permission:
     - 输出路径：`.cospec/spec/{功能名}/project.md`
 4. **开发任务拆分**：启动`Task`agent进行开发任务拆分。
     - **重要**：启动子 Agent 时必须带上`功能名`参数（功能名必须使用英文）
-    - 输出路径：`.cospec/spec/{功能名}/tasks.md`
+    - 输出路径：`.cospec/spec/{功能名}/plan.md`
 5. **方案执行**：启动`PlanManager`agent进行方案执行。
     - **重要**：启动子 Agent 时必须带上`功能名`参数（功能名必须使用英文）
-    - 输出路径：`.cospec/spec/{功能名}/plan.md`
 
 ## 文件系统逻辑
 
