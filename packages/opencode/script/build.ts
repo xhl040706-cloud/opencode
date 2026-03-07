@@ -9,6 +9,7 @@ import solidPlugin from "../node_modules/@opentui/solid/scripts/solid-plugin"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const dir = path.resolve(__dirname, "..")
+const rootDir = path.resolve(__dirname, "../../..")
 
 process.chdir(dir)
 
@@ -217,6 +218,9 @@ for (const item of targets) {
       2,
     ),
   )
+  const readmeSrc = path.join(rootDir, "README.md")
+  const readmeDest = path.join(dir, `dist/${name}/README.md`)
+  await $`cp ${readmeSrc} ${readmeDest}`
   binaries[name] = Script.version
 }
 
