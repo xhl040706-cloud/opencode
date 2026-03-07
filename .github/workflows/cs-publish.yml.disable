@@ -69,6 +69,7 @@ jobs:
           COSTRICT_VERSION: ${{ inputs.version || github.ref_name }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GH_REPO: ${{ (github.ref_name == 'beta' && 'anomalyco/opencode-beta') || github.repository }}
+          SKIP_CHANGELOG: "true"
     outputs:
       version: ${{ steps.version.outputs.version }}
       release: ${{ steps.version.outputs.release }}
