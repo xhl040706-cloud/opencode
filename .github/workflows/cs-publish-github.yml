@@ -1,0 +1,115 @@
+name: publish-github
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    if: github.repository == 'zgsm-ai/opencode'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Setup git committer
+        id: committer
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          OWNER: zgsm-ai
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git remote set-url origin https://${OWNER}:${PAT_TOKEN}@github.com/${OWNER}/$(basename $GITHUB_REPOSITORY).git
+          echo "token=${PAT_TOKEN}" >> $GITHUB_OUTPUT
+
+      - id: version
+        run: |
+          ./script/version.ts
+        env:
+          GH_TOKEN: ${{ steps.committer.outputs.token }}
+          COSTRICT_VERSION: ${{ inputs.version }}
+          GH_REPO: ${{ github.repository }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
+      tag: ${{ steps.version.outputs.tag }}
+      repo: ${{ steps.version.outputs.repo }}
+
+  build-cli:
+    needs: version
+    runs-on: ubuntu-latest
+    if: github.repository == 'zgsm-ai/opencode'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Setup git committer
+        id: committer
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          OWNER: zgsm-ai
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git remote set-url origin https://${OWNER}:${PAT_TOKEN}@github.com/${OWNER}/$(basename $GITHUB_REPOSITORY).git
+          echo "token=${PAT_TOKEN}" >> $GITHUB_OUTPUT
+
+      - name: Build
+        id: build
+        run: |
+          ./packages/opencode/script/build.ts
+        env:
+          COSTRICT_VERSION: ${{ needs.version.outputs.version }}
+          COSTRICT_RELEASE: ${{ needs.version.outputs.release }}
+          GH_REPO: ${{ needs.version.outputs.repo }}
+          GH_TOKEN: ${{ steps.committer.outputs.token }}
+
+      - name: Create archives for GitHub release
+        run: |
+          cd packages/opencode
+          for key in dist/@costrict/cs-*/; do
+            key=$(basename "$key")
+            if [[ "$key" == *"linux"* ]]; then
+              (cd "dist/@costrict/${key}/bin" && tar -czf "../../${key}.tar.gz" *)
+            else
+              (cd "dist/@costrict/${key}/bin" && zip -r "../../${key}.zip" *)
+            fi
+          done
+          ls -lh dist/@costrict/*.tar.gz dist/@costrict/*.zip
+
+      - name: Upload to GitHub Release
+        if: ${{ needs.version.outputs.release != '' }}
+        env:
+          GH_TOKEN: ${{ steps.committer.outputs.token }}
+          GH_REPO: ${{ needs.version.outputs.repo }}
+        run: |
+          gh release upload ${{ needs.version.outputs.tag }} packages/opencode/dist/@costrict/*.zip packages/opencode/dist/@costrict/*.tar.gz --clobber --repo $GH_REPO
+
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "## 🎉 CoStrict CLI Published to GitHub" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Successfully built and uploaded CLI binaries to GitHub Release!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Release Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ needs.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository**: ${{ needs.version.outputs.repo }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📥 Download" >> $GITHUB_STEP_SUMMARY
+          echo "Visit the [Release Page](https://github.com/${{ needs.version.outputs.repo }}/releases/tag/${{ needs.version.outputs.tag }}) to download the binaries." >> $GITHUB_STEP_SUMMARY
