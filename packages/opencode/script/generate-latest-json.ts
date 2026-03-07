@@ -62,7 +62,7 @@ export async function generateLatestJson() {
     
     // Filter for .zip and .tar.gz files
     const artifactNames = entries.filter((name) =>
-      name.endsWith(".zip") || name.endsWith(".tar.gz")
+      name.endsWith(".zip") || name.endsWith(".tgz")
     )
     
     if (artifactNames.length === 0) {
