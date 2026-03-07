@@ -19,13 +19,16 @@ if (!semver.satisfies(process.versions.bun, expectedBunVersionRange)) {
 const env = {
   COSTRICT_CHANNEL: process.env["COSTRICT_CHANNEL"],
   COSTRICT_BUMP: process.env["COSTRICT_BUMP"],
-  COSTRICT_VERSION: process.env["COSTRICT_VERSION"] || process.env["OPENCODE_VERSION"],
+  COSTRICT_VERSION: process.env["COSTRICT_VERSION"],
   OPENCODE_RELEASE: process.env["OPENCODE_RELEASE"],
 }
 const CHANNEL = await (async () => {
   if (env.COSTRICT_CHANNEL) return env.COSTRICT_CHANNEL
   if (env.COSTRICT_BUMP) return "latest"
-  if (env.COSTRICT_VERSION && !env.COSTRICT_VERSION.startsWith("0.0.0-")) return "latest"
+  if (env.COSTRICT_VERSION) {
+    if (env.COSTRICT_VERSION.startsWith("dev")) return "dev"
+    if (!env.COSTRICT_VERSION.startsWith("0.0.0-")) return "latest"
+  }
   const branch = await $`git branch --show-current`.text().then((x) => x.trim())
   return branch || "latest"
 })()
