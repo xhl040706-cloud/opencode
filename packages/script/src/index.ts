@@ -25,12 +25,8 @@ const env = {
 const CHANNEL = await (async () => {
   if (env.COSTRICT_CHANNEL) return env.COSTRICT_CHANNEL
   if (env.COSTRICT_BUMP) return "latest"
-  if (env.COSTRICT_VERSION) {
-    if (env.COSTRICT_VERSION.startsWith("dev")) return "dev"
-    if (!env.COSTRICT_VERSION.startsWith("0.0.0-")) return "latest"
-  }
-  const branch = await $`git branch --show-current`.text().then((x) => x.trim())
-  return branch || "latest"
+  if (env.COSTRICT_VERSION && !env.COSTRICT_VERSION.startsWith("0.0.0-")) return "latest"
+  return await $`git branch --show-current`.text().then((x) => x.trim())
 })()
 const IS_PREVIEW = CHANNEL !== "latest"
 

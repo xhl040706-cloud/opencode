@@ -2,10 +2,9 @@ name: publish
 run-name: "${{ format('release {0}', inputs.bump) }}"
 
 on:
-  push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
-      - "dev*"
+  # push:
+  #   tags:
+  #     - "[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
       bump:
@@ -110,6 +109,8 @@ jobs:
         env:
           OPENCODE_VERSION: ${{ needs.version.outputs.version }}
           OPENCODE_RELEASE: ${{ needs.version.outputs.release }}
+          COSTRICT_VERSION: ${{ needs.version.outputs.version }}
+          COSTRICT_RELEASE: ${{ needs.version.outputs.release }}
           GH_REPO: ${{ needs.version.outputs.repo }}
           GH_TOKEN: ${{ steps.committer.outputs.token }}
 
@@ -467,11 +468,11 @@ jobs:
           name: costrict-cli
           path: packages/opencode/dist
 
-      - uses: actions/download-artifact@v4
-        if: needs.version.outputs.release
-        with:
-          pattern: latest-yml-*
-          path: /tmp/latest-yml
+      # - uses: actions/download-artifact@v4
+      #   if: needs.version.outputs.release
+      #   with:
+      #     pattern: latest-yml-*
+      #     path: /tmp/latest-yml
 
       - name: Cache apt packages (AUR)
         uses: actions/cache@v4
@@ -500,4 +501,4 @@ jobs:
           GITHUB_TOKEN: ${{ steps.committer.outputs.token }}
           GH_REPO: ${{ needs.version.outputs.repo }}
           NPM_CONFIG_PROVENANCE: false
-          LATEST_YML_DIR: /tmp/latest-yml
+          # LATEST_YML_DIR: /tmp/latest-yml
