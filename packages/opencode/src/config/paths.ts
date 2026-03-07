@@ -31,6 +31,16 @@ export namespace ConfigPaths {
             }),
           )
         : []),
+      // CoStrict project discovery (overrides OpenCode)
+      ...(!Flag.COSTRICT_DISABLE_PROJECT_CONFIG
+        ? await Array.fromAsync(
+            Filesystem.up({
+              targets: [".costrict"],
+              start: directory,
+              stop: worktree,
+            }),
+          )
+        : []),
       ...(await Array.fromAsync(
         Filesystem.up({
           targets: [".opencode"],
@@ -38,7 +48,15 @@ export namespace ConfigPaths {
           stop: Global.Path.home,
         }),
       )),
+      ...(await Array.fromAsync(
+        Filesystem.up({
+          targets: [".costrict"],
+          start: Global.Path.home,
+          stop: Global.Path.home,
+        }),
+      )),
       ...(Flag.OPENCODE_CONFIG_DIR ? [Flag.OPENCODE_CONFIG_DIR] : []),
+      ...(Flag.COSTRICT_CONFIG_DIR ? [Flag.COSTRICT_CONFIG_DIR] : []),
     ]
   }
 

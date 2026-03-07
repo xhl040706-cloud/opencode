@@ -4,7 +4,7 @@
 #
 # Workflow Steps:
 # 1. Manual trigger with version input (e.g., "1.0.0")
-# 2. Create git tag with "v" prefix (e.g., "v1.0.0")
+# 2. Create git tag (e.g., "1.0.0")
 # 3. Push tag to remote repository
 # 4. Initialize GitHub Release in draft state
 # 5. Build CLI binaries for multiple platforms
@@ -47,7 +47,7 @@ jobs:
           COSTRICT_VERSION: ${{ inputs.version }}
         run: |
           VERSION="${{ inputs.version }}"
-          TAG="v${VERSION}"
+          TAG="${VERSION}"
           REPO="${{ github.repository }}"
 
           echo "Checking if tag ${TAG} already exists..."

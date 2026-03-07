@@ -349,9 +349,22 @@ export namespace Session {
   }
 
   export function plan(input: { slug: string; time: { created: number } }) {
-    const base = Instance.project.vcs
-      ? path.join(Instance.worktree, ".opencode", "plans")
-      : path.join(Global.Path.data, "plans")
+    const getPlansDir = () => {
+      if (!Instance.project.vcs) return path.join(Global.Path.data, "plans")
+
+      const costrictPath = path.join(Instance.worktree, ".costrict")
+      const opencodePath = path.join(Instance.worktree, ".opencode")
+
+      try {
+        if (Bun.file(costrictPath).size !== undefined) {
+          return path.join(costrictPath, "plans")
+        }
+      } catch {}
+
+      return path.join(opencodePath, "plans")
+    }
+
+    const base = getPlansDir()
     return path.join(base, [input.time.created, input.slug].join("-") + ".md")
   }
 
