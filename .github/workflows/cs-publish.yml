@@ -116,10 +116,33 @@ jobs:
       #   run: |
       #     cd packages/opencode/dist/@costrict/cs && npm publish --dry-run --access public
 
+      - name: Create archives for GitHub release
+        run: |
+          cd packages/opencode
+          for key in dist/@costrict/cs-*/; do
+            key=$(basename "$key")
+            if [[ "$key" == *"linux"* ]]; then
+              (cd "dist/@costrict/${key}/bin" && tar -czf "../../${key}.tar.gz" *)
+            else
+              (cd "dist/@costrict/${key}/bin" && zip -r "../../${key}.zip" *)
+            fi
+          done
+          ls -lh dist/@costrict/*.tar.gz dist/@costrict/*.zip
+
+      - name: Upload to GitHub Release
+        if: ${{ needs.version.outputs.release != '' }}
+        env:
+          GH_TOKEN: ${{ steps.committer.outputs.token }}
+          GH_REPO: ${{ needs.version.outputs.repo }}
+        run: |
+          gh release upload ${{ needs.version.outputs.tag }} packages/opencode/dist/@costrict/*.zip packages/opencode/dist/@costrict/*.tar.gz --clobber --repo $GH_REPO
+
       - uses: actions/upload-artifact@v4
         with:
           name: costrict-cli
-          path: packages/opencode/dist
+          path: |
+            packages/opencode/dist/@costrict/*.tar.gz
+            packages/opencode/dist/@costrict/*.zip
     outputs:
       version: ${{ needs.version.outputs.version }}
 
