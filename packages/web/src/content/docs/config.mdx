@@ -18,6 +18,9 @@ CoStrict supports both **JSON** and **JSONC** (JSON with Comments) formats.
   "theme": "costrict-cli",
   "model": "anthropic/claude-sonnet-4-5",
   "autoupdate": true,
+  "server": {
+    "port": 4096,
+  },
 }
 ```
 
@@ -34,7 +37,11 @@ Configuration files are **merged together**, not replaced.
 
 Configuration files are merged together, not replaced. Settings from the following config locations are combined. Later configs override earlier ones only for conflicting keys. Non-conflicting settings from all configs are preserved.
 
+<<<<<<< HEAD
 For example, if your global config sets `theme: "costrict-cli"` and `autoupdate: true`, and your project config sets `model: "anthropic/claude-sonnet-4-5"`, the final configuration will include all three settings.
+=======
+For example, if your global config sets `autoupdate: true` and your project config sets `model: "anthropic/claude-sonnet-4-5"`, the final configuration will include both settings.
+>>>>>>> v1.2.20
 
 ---
 
@@ -95,7 +102,13 @@ You can enable specific servers in your local config:
 
 ### Global
 
+<<<<<<< HEAD
 Place your global CoStrict config in `~/.config/costrict-cli/opencode.json`. Use global config for user-wide preferences like themes, providers, or keybinds.
+=======
+Place your global OpenCode config in `~/.config/opencode/opencode.json`. Use global config for user-wide server/runtime preferences like providers, models, and permissions.
+
+For TUI-specific settings, use `~/.config/opencode/tui.json`.
+>>>>>>> v1.2.20
 
 Global config overrides remote organizational defaults.
 
@@ -104,6 +117,8 @@ Global config overrides remote organizational defaults.
 ### Per project
 
 Add `opencode.json` in your project root. Project config has the highest precedence among standard config files - it overrides both global and remote configs.
+
+For project-specific TUI settings, add `tui.json` alongside it.
 
 :::tip
 Place project specific config in the root of your project.
@@ -146,7 +161,13 @@ The custom directory is loaded after the global config and `.costrict-cli` direc
 
 ## Schema
 
+<<<<<<< HEAD
 The config file has a schema that's defined in [**`costrict.ai/config.json`**](https://costrict.ai/config.json).
+=======
+The server/runtime config schema is defined in [**`opencode.ai/config.json`**](https://opencode.ai/config.json).
+
+TUI config uses [**`opencode.ai/tui.json`**](https://opencode.ai/tui.json).
+>>>>>>> v1.2.20
 
 Your editor should be able to validate and autocomplete based on the schema.
 
@@ -154,10 +175,11 @@ Your editor should be able to validate and autocomplete based on the schema.
 
 ### TUI
 
-You can configure TUI-specific settings through the `tui` option.
+Use a dedicated `tui.json` (or `tui.jsonc`) file for TUI-specific settings.
 
-```json title="opencode.json"
+```json title="tui.json"
 {
+<<<<<<< HEAD
   "$schema": "https://costrict.ai/config.json",
   "tui": {
     "scroll_speed": 3,
@@ -166,16 +188,22 @@ You can configure TUI-specific settings through the `tui` option.
     },
     "diff_style": "auto"
   }
+=======
+  "$schema": "https://opencode.ai/tui.json",
+  "scroll_speed": 3,
+  "scroll_acceleration": {
+    "enabled": true
+  },
+  "diff_style": "auto"
+>>>>>>> v1.2.20
 }
 ```
 
-Available options:
+Use `OPENCODE_TUI_CONFIG` to point to a custom TUI config file.
 
-- `scroll_acceleration.enabled` - Enable macOS-style scroll acceleration. **Takes precedence over `scroll_speed`.**
-- `scroll_speed` - Custom scroll speed multiplier (default: `3`, minimum: `1`). Ignored if `scroll_acceleration.enabled` is `true`.
-- `diff_style` - Control diff rendering. `"auto"` adapts to terminal width, `"stacked"` always shows single column.
+Legacy `theme`, `keybinds`, and `tui` keys in `opencode.json` are deprecated and automatically migrated when possible.
 
-[Learn more about using the TUI here](/docs/tui).
+[Learn more about TUI configuration here](/docs/tui#configure).
 
 ---
 
@@ -301,12 +329,21 @@ Bearer tokens (`AWS_BEARER_TOKEN_BEDROCK` or `/connect`) take precedence over pr
 
 ### Themes
 
+<<<<<<< HEAD
 You can configure the theme you want to use in your CoStrict config through the `theme` option.
+=======
+Set your UI theme in `tui.json`.
+>>>>>>> v1.2.20
 
-```json title="opencode.json"
+```json title="tui.json"
 {
+<<<<<<< HEAD
   "$schema": "https://costrict.ai/config.json",
   "theme": ""
+=======
+  "$schema": "https://opencode.ai/tui.json",
+  "theme": "tokyonight"
+>>>>>>> v1.2.20
 }
 ```
 
@@ -406,11 +443,15 @@ You can also define commands using markdown files in `~/.config/opencode/command
 
 ### Keybinds
 
-You can customize your keybinds through the `keybinds` option.
+Customize keybinds in `tui.json`.
 
-```json title="opencode.json"
+```json title="tui.json"
 {
+<<<<<<< HEAD
   "$schema": "https://costrict.ai/config.json",
+=======
+  "$schema": "https://opencode.ai/tui.json",
+>>>>>>> v1.2.20
   "keybinds": {}
 }
 ```

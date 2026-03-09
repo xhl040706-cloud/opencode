@@ -9,6 +9,7 @@ import solidPlugin from "../node_modules/@opentui/solid/scripts/solid-plugin"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const dir = path.resolve(__dirname, "..")
+const rootDir = path.resolve(__dirname, "../../..")
 
 process.chdir(dir)
 
@@ -56,7 +57,7 @@ const migrations = await Promise.all(
 )
 console.log(`Loaded ${migrations.length} migrations`)
 
-const singleFlag = process.argv.includes("--single") || (!!process.env.CI && !process.argv.includes("--all"))
+const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
 const skipInstall = process.argv.includes("--skip-install")
 
@@ -102,6 +103,11 @@ const allTargets: {
   {
     os: "darwin",
     arch: "x64",
+  },
+  {
+    os: "darwin",
+    arch: "x64",
+    avx2: false,
   },
   {
     os: "win32",
@@ -181,7 +187,7 @@ for (const item of targets) {
       autoloadPackageJson: true,
       target: name.replace(pkg.name, "bun") as any,
       outfile: `dist/${name}/bin/cs`,
-      execArgv: [`--smol`,`--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
+      execArgv: [`--smol`, `--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
       windows: {},
     },
     entrypoints: ["./src/index.ts", parserWorker, workerPath, callGraphWorkerPath, fileImportanceWorkerPath],
@@ -212,18 +218,10 @@ for (const item of targets) {
       2,
     ),
   )
+  const readmeSrc = path.join(rootDir, "README.md")
+  const readmeDest = path.join(dir, `dist/${name}/README.md`)
+  await $`cp ${readmeSrc} ${readmeDest}`
   binaries[name] = Script.version
-}
-
-if (Script.release) {
-  for (const key of Object.keys(binaries)) {
-    if (key.includes("linux")) {
-      await $`tar -czf ../../${key}.tar.gz *`.cwd(`dist/${key}/bin`)
-    } else {
-      await $`zip -r ../../${key}.zip *`.cwd(`dist/${key}/bin`)
-    }
-  }
-  await $`gh release upload v${Script.version} ./dist/*.zip ./dist/*.tar.gz --clobber --repo ${process.env.GH_REPO}`
 }
 
 export { binaries }
