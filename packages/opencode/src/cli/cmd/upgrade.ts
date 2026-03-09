@@ -42,18 +42,33 @@ export const UpgradeCommand = {
       }
     }
     prompts.log.info("Using method: " + method)
-    const target = args.target ? args.target.replace(/^v/, "") : await Installation.latest()
-    
+    let target: string
+    try {
+      target = args.target ? args.target.replace(/^v/, "") : await Installation.latest()
+    } catch (err) {
+      prompts.log.error("Failed to fetch latest version from registry")
+      if (err instanceof Error) {
+        prompts.log.error(err.message)
+      }
+      prompts.log.info(
+        "Please check your network connection or try specifying a version manually with: opencode upgrade <version>",
+      )
+      prompts.outro("Done")
+      return
+    }
+
     if (Installation.VERSION === target) {
       prompts.log.warn(`opencode upgrade skipped: ${target} is already installed`)
       prompts.outro("Done")
       return
     }
-    
+
     // Prevent downgrade using shared version comparison function
     const versionComparison = Installation.compareVersions(target, Installation.VERSION)
     if (versionComparison < 0) {
-      prompts.log.warn(`opencode upgrade skipped: current version ${Installation.VERSION} is newer than target ${target}`)
+      prompts.log.warn(
+        `opencode upgrade skipped: current version ${Installation.VERSION} is newer than target ${target}`,
+      )
       prompts.log.info("You are already using the latest available version")
       prompts.outro("Done")
       return

@@ -78,3 +78,49 @@ beforeAll(() => {
     delete process.env.COSTRICT_CLIENT_ID
   }
 })
+
+test("Installation.compareVersions handles normal version comparisons", () => {
+  expect(Installation.compareVersions("1.0.0", "1.0.0")).toBe(0)
+  expect(Installation.compareVersions("1.0.1", "1.0.0")).toBe(1)
+  expect(Installation.compareVersions("1.0.0", "1.0.1")).toBe(-1)
+  expect(Installation.compareVersions("2.0.0", "1.9.9")).toBe(1)
+  expect(Installation.compareVersions("1.2.3", "1.2.4")).toBe(-1)
+})
+
+test("Installation.compareVersions handles versions with different lengths", () => {
+  expect(Installation.compareVersions("1.0", "1.0.0")).toBe(0)
+  expect(Installation.compareVersions("1.0.0.0", "1.0")).toBe(0)
+  expect(Installation.compareVersions("1.0.1", "1.0")).toBe(1)
+  expect(Installation.compareVersions("1.0", "1.0.1")).toBe(-1)
+})
+
+test("Installation.compareVersions throws error for undefined or null inputs", () => {
+  expect(() => Installation.compareVersions(undefined as any, "1.0.0")).toThrow(
+    "Version string cannot be null or undefined",
+  )
+  expect(() => Installation.compareVersions("1.0.0", undefined as any)).toThrow(
+    "Version string cannot be null or undefined",
+  )
+  expect(() => Installation.compareVersions(null as any, "1.0.0")).toThrow("Version string cannot be null or undefined")
+  expect(() => Installation.compareVersions("1.0.0", null as any)).toThrow("Version string cannot be null or undefined")
+})
+
+test("Installation.compareVersions correctly finds latest version from version list", () => {
+  const versions = ["3.0.1", "3.0.2", "3.0.3", "3.0.4", "3.0.0", "3.0.5", "3.0.6", "3.0.7", "3.0.8", "3.0.9"]
+
+  const latestVersion = versions.sort((a, b) => Installation.compareVersions(b, a))[0]
+
+  expect(latestVersion).toBe("3.0.9")
+})
+
+test("Installation.compareVersions filters out pre-release versions correctly", () => {
+  const versions = ["3.0.9", "0.0.0-refactor-workflow-202603060823", "0.0.0-refactor-workflow-202603060904", "3.0.8"]
+
+  const stableVersions = versions.filter((v) => /^\d+\.\d+\.\d+$/.test(v))
+  const latestVersion = stableVersions.sort((a, b) => Installation.compareVersions(b, a))[0]
+
+  expect(stableVersions).toHaveLength(2)
+  expect(stableVersions).toContain("3.0.9")
+  expect(stableVersions).toContain("3.0.8")
+  expect(latestVersion).toBe("3.0.9")
+})

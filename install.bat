@@ -112,7 +112,7 @@ set "ARCH=x64"
 
 :: Detect AVX2 support using PowerShell
 :: Default to baseline for safety
-set "TARGET=opencode-windows-!ARCH!-baseline"
+set "TARGET=costrict-cs-windows-!ARCH!-baseline"
 
 echo Detecting CPU features...
 for /f "usebackq delims=" %%A in (`powershell -NoProfile -Command "try { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class CPUID { [DllImport(\"kernel32.dll\")] public static extern IntPtr GetModuleHandle(string lpModuleName); [DllImport(\"kernel32.dll\")] public static extern IntPtr GetProcAddress(IntPtr hModule, string lpProcName); public static bool IsProcessorFeaturePresent(int feature) { IntPtr hKernel32 = GetModuleHandle(\"kernel32.dll\"); if (hKernel32 == IntPtr.Zero) return false; IntPtr pIsProcessorFeaturePresent = GetProcAddress(hKernel32, \"IsProcessorFeaturePresent\"); if (pIsProcessorFeaturePresent == IntPtr.Zero) return false; var func = (Func<int, bool>)Marshal.GetDelegateForFunctionPointer(pIsProcessorFeaturePresent, typeof(Func<int, bool>)); return func(feature); } }'; if ([CPUID]::IsProcessorFeaturePresent(40)) { Write-Output 'AVX2' } else { Write-Output 'BASELINE' } } catch { Write-Output 'BASELINE' }"`) do (

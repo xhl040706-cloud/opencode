@@ -103,7 +103,7 @@ if [ "$os" = "darwin" ] && [ "$arch" = "x64" ]; then
   fi
 fi
 
-target="opencode-$os-$arch"
+target="costrict-cs-$os-$arch"
 
 if [ "$os" = "linux" ] && [ "$arch" = "x64" ]; then
   if ! grep -qi avx2 /proc/cpuinfo 2>/dev/null; then
