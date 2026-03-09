@@ -106,10 +106,17 @@ export namespace Installation {
     for (const check of checks) {
       const output = await check.command()
       // Check for multiple possible package names
-      const possibleNames = check.name === "brew" || check.name === "choco" || check.name === "scoop"
-        ? ["opencode"]
-        : ["@costrict/cs", "opencode-ai", "@costrict/cs-darwin-arm64", "@costrict/cs-linux-x64", "@costrict/cs-darwin-x64"]
-      
+      const possibleNames =
+        check.name === "brew" || check.name === "choco" || check.name === "scoop"
+          ? ["opencode"]
+          : [
+              "@costrict/cs",
+              "opencode-ai",
+              "@costrict/cs-darwin-arm64",
+              "@costrict/cs-linux-x64",
+              "@costrict/cs-darwin-x64",
+            ]
+
       for (const name of possibleNames) {
         if (output.includes(name)) {
           return check.name
@@ -120,7 +127,7 @@ export namespace Installation {
     // Only use curl as fallback if installed in specific curl-based installation paths
     if (process.execPath.includes(path.join(".costrict", "bin"))) return "curl"
     if (process.execPath.includes(path.join(".local", "bin"))) return "curl"
-    
+
     // Check for npm-like installation paths (e.g., node_modules/@costrict/...)
     if (process.execPath.includes("node_modules/@costrict")) return "npm"
 
@@ -259,7 +266,10 @@ export namespace Installation {
    * @param v2 - Second version string (e.g., "1.2.0")
    * @returns 1 if v1 > v2, -1 if v1 < v2, 0 if equal
    */
-  export function compareVersions(v1: string, v2: string): number {
+  export function compareVersions(v1: string | undefined | null, v2: string | undefined | null): number {
+    if (!v1 || !v2) {
+      throw new Error("Version string cannot be null or undefined")
+    }
     const parts1 = v1.split(".").map(Number)
     const parts2 = v2.split(".").map(Number)
     for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
@@ -298,24 +308,43 @@ export namespace Installation {
         return reg.endsWith("/") ? reg.slice(0, -1) : reg
       })
       const channel = CHANNEL
-      // Try to get channel-specific version first, fallback to latest
       const channelVersion = await fetch(`${registry}/@costrict/cs/${channel}`)
         .then((res) => {
           if (!res.ok) throw new Error(res.statusText)
           return res.json()
         })
-        .then((data: any) => data.version)
+        .then((data: any) => {
+          if (!data.version) throw new Error("Invalid response: missing version field")
+          return data.version
+        })
         .catch(() => null)
-      
+
       if (channelVersion) return channelVersion
-      
-      // Fallback to latest dist-tag
+
       return fetch(`${registry}/@costrict/cs`)
         .then((res) => {
           if (!res.ok) throw new Error(res.statusText)
           return res.json()
         })
-        .then((data: any) => data["dist-tags"].latest)
+        .then((data: any) => {
+          if (data["dist-tags"]?.latest) {
+            return data["dist-tags"].latest
+          }
+
+          if (data.time && data.versions) {
+            const stableVersions = Object.keys(data.versions).filter((v: string) => /^\d+\.\d+\.\d+$/.test(v))
+
+            if (stableVersions.length === 0) {
+              throw new Error("No stable versions found in package registry")
+            }
+
+            const latestVersion = stableVersions.sort((a: string, b: string) => compareVersions(b, a))[0]
+
+            return latestVersion
+          }
+
+          throw new Error("Invalid response: unable to determine latest version")
+        })
     }
 
     if (detectedMethod === "choco") {
