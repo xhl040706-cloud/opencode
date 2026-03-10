@@ -109,20 +109,6 @@ export namespace Skill {
         })
     }
 
-    // Scan builtin skills from cache directory (initialized from embedded content)
-    const builtinCacheDir = Discovery.dir()
-    if (await Filesystem.isDir(builtinCacheDir)) {
-      const matches = await Glob.scan(SKILL_PATTERN, {
-        cwd: builtinCacheDir,
-        absolute: true,
-        include: "file",
-        symlink: true,
-      })
-      for (const match of matches) {
-        await addSkill(match)
-      }
-    }
-
     // Scan external skill directories (.claude/skills/, .agents/skills/, etc.)
     // Load global (home) first, then project-level (so project-level overwrites)
     if (!Flag.OPENCODE_DISABLE_EXTERNAL_SKILLS) {
@@ -154,7 +140,7 @@ export namespace Skill {
       }
     }
 
-    // Scan CoStrict builtin skills from cache directory
+    // Scan CoStrict builtin skills (embedded in binary, extracted to cache on first run)
     const costrictSkillsDir = CoStrictSkill.Extension.getBuiltinSkillsDir()
     if (await Filesystem.isDir(costrictSkillsDir)) {
       const matches = await Glob.scan(SKILL_PATTERN, {
