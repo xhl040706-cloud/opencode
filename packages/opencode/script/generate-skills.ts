@@ -106,15 +106,16 @@ async function generateBuiltinSkills() {
         fileEntries.push(`    "${filePath}": \`${escapedContent}\``)
       }
 
-      entries.push(
-        `  "${name}": {`,
-        `    name: "${skill.name}",`,
-        `    description: "${skill.description.replace(/"/g, '\\"')}",`,
-        `    files: {`,
-        ...fileEntries,
-        `    }`,
-        `  }`
-      )
+      // Build complete skill entry as a single string
+      const skillEntry = `  "${name}": {
+    name: "${skill.name}",
+    description: "${skill.description.replace(/"/g, '\\"')}",
+    files: {
+${fileEntries.join(",\n")}
+    }
+  }`
+
+      entries.push(skillEntry)
 
       console.log(`✓ Downloaded ${name} with ${Object.keys(skill.files).length} files`)
     } catch (err) {
