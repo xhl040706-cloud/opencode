@@ -18,6 +18,9 @@ jobs:
       - name: Fetch tags
         run: git fetch --force --tags
 
+      - name: Generate builtin agents
+        run: bun run --cwd packages/opencode build:builtin-agents
+
       - name: Setup Bun and install dependencies
         uses: ./.github/actions/setup-bun
         with:

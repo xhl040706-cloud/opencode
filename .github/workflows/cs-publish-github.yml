@@ -41,6 +41,9 @@ jobs:
 
       - uses: ./.github/actions/setup-bun
 
+      - name: Generate builtin agents
+        run: bun run --cwd packages/opencode build:builtin-agents
+
       - id: version
         env:
           GH_TOKEN: ${{ github.token }}
