@@ -24,7 +24,7 @@ import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
 import { Installation } from "@/installation"
 import { ConfigMarkdown } from "./markdown"
-import { BUILTIN_AGENTS } from "../costrict/agent/builtin"
+import { BUILTIN_AGENTS, type AgentEntry } from "../costrict/agent/builtin"
 import { constants, existsSync } from "fs"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
@@ -33,6 +33,7 @@ import { Glob } from "../util/glob"
 import { PackageRegistry } from "@/bun/registry"
 import { proxied } from "@/util/proxied"
 import { iife } from "@/util/iife"
+
 import { Control } from "@/control"
 import { ConfigPaths } from "./paths"
 import { Filesystem } from "@/util/filesystem"
@@ -193,7 +194,7 @@ export namespace Config {
       )
 
       result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
-      result.agent = mergeDeep(result.agent, await loadAgent(dir))
+      result.agent = mergeDeep(result.agent, await loadAgent(dir, result.promptLanguage))
       result.agent = mergeDeep(result.agent, await loadMode(dir))
       result.plugin.push(...(await loadPlugin(dir)))
     }
@@ -405,19 +406,32 @@ export namespace Config {
     return result
   }
 
-  async function loadAgent(dir: string) {
+  async function resolveBuiltinContent(entry: AgentEntry, locale: string): Promise<string | undefined> {
+    return entry.locales[locale] ?? Object.values(entry.locales)[0]
+  }
+
+  async function loadAgent(dir: string, locale?: string) {
     const result: Record<string, Agent> = {}
+    const lang = locale ?? "zh-CN"
 
     // Load built-in agents from imported modules
-    for (const agentContent of BUILTIN_AGENTS) {
+    for (const [filename, entry] of Object.entries(BUILTIN_AGENTS)) {
       try {
-        const md = await ConfigMarkdown.parseString(agentContent)
+        const content = await resolveBuiltinContent(entry, lang)
+        if (!content) continue
+
+        const md = await ConfigMarkdown.parseString(content)
         if (!md.data) continue
 
         const config = {
-          name: "unknown",
+          name: filename,
           ...(md.data as Record<string, any>),
           prompt: md.content.trim(),
+          model_prompts: entry.models
+            ? Object.fromEntries(
+                await Promise.all(Object.entries(entry.models).map(async ([family, body]) => [family, body.trim()])),
+              )
+            : undefined,
         }
         const parsed = Agent.safeParse(config)
         if (parsed.success) {
@@ -1107,6 +1121,10 @@ export namespace Config {
         .string()
         .optional()
         .describe("Custom username to display in conversations instead of system username"),
+      promptLanguage: z
+        .string()
+        .optional()
+        .describe("Language for built-in agent prompts (e.g. 'zh-CN', 'en'). Overrides COSTRICT_LOCALE env var"),
       mode: z
         .object({
           build: Agent.optional(),

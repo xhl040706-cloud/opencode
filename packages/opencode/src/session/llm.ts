@@ -70,11 +70,13 @@ export namespace LLM {
     const isCostrict = provider.id === "costrict"
 
     const system = []
+    // model-specific prompt takes priority over locale-selected agent prompt
+    const agentPrompt = input.agent.model_prompts?.[input.model.providerID] ?? input.agent.prompt
     system.push(
       [
         // use agent prompt otherwise provider prompt
         // For Codex sessions, skip SystemPrompt.provider() since it's sent via options.instructions
-        ...(input.agent.prompt ? [input.agent.prompt] : isCodex ? [] : SystemPrompt.provider(input.model)),
+        ...(agentPrompt ? [agentPrompt] : isCodex ? [] : SystemPrompt.provider(input.model)),
         // any custom prompt passed into this call
         ...input.system,
         // any custom prompt from last user message

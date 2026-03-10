@@ -41,6 +41,7 @@ export namespace Agent {
         .optional(),
       variant: z.string().optional(),
       prompt: z.string().optional(),
+      model_prompts: z.record(z.string(), z.string()).optional(),
       options: z.record(z.string(), z.any()),
       steps: z.number().int().positive().optional(),
     })

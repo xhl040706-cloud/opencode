@@ -4,7 +4,6 @@ import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Keybind } from "@opencode-ai/ui/keybind"
 import { List } from "@opencode-ai/ui/list"
-import { base64Encode } from "@opencode-ai/util/encode"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
 import { useNavigate, useParams } from "@solidjs/router"
 import { createMemo, createSignal, Match, onCleanup, Show, Switch } from "solid-js"
@@ -14,8 +13,6 @@ import { useGlobalSync } from "@/context/global-sync"
 import { useLayout } from "@/context/layout"
 import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
-import { decode64 } from "@/utils/base64"
-import { getRelativeTime } from "@/utils/time"
 
 type EntryType = "command" | "file" | "session"
 
@@ -28,44 +25,45 @@ type Entry = {
   category: string
   option?: CommandOption
   path?: string
-  directory?: string
-  sessionID?: string
-  archived?: number
-  updated?: number
 }
 
-type DialogSelectFileMode = "all" | "files"
+export function DialogSelectFile() {
+  const command = useCommand()
+  const language = useLanguage()
+  const layout = useLayout()
+  const file = useFile()
+  const dialog = useDialog()
+  const params = useParams()
+  const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
+  const tabs = createMemo(() => layout.tabs(sessionKey))
+  const view = createMemo(() => layout.view(sessionKey))
+  const state = { cleanup: undefined as (() => void) | void, committed: false }
+  const [grouped, setGrouped] = createSignal(false)
+  const common = [
+    "session.new",
+    "workspace.new",
+    "session.previous",
+    "session.next",
+    "terminal.toggle",
+    "review.toggle",
+  ]
+  const limit = 5
 
-const ENTRY_LIMIT = 5
-const COMMON_COMMAND_IDS = [
-  "session.new",
-  "workspace.new",
-  "session.previous",
-  "session.next",
-  "terminal.toggle",
-  "review.toggle",
-] as const
+  const allowed = createMemo(() =>
+    command.options.filter(
+      (option) => !option.disabled && !option.id.startsWith("suggested.") && option.id !== "file.open",
+    ),
+  )
 
-const uniqueEntries = (items: Entry[]) => {
-  const seen = new Set<string>()
-  const out: Entry[] = []
-  for (const item of items) {
-    if (seen.has(item.id)) continue
-    seen.add(item.id)
-    out.push(item)
-  }
-  return out
-}
-
-const createCommandEntry = (option: CommandOption, category: string): Entry => ({
-  id: "command:" + option.id,
-  type: "command",
-  title: option.title,
-  description: option.description,
-  keybind: option.keybind,
-  category,
-  option,
-})
+  const commandItem = (option: CommandOption): Entry => ({
+    id: "command:" + option.id,
+    type: "command",
+    title: option.title,
+    description: option.description,
+    keybind: option.keybind,
+    category: language.t("palette.group.commands"),
+    option,
+  })
 
 const createFileEntry = (path: string, category: string): Entry => ({
   id: "file:" + path,
@@ -306,33 +304,10 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
   const items = async (text: string) => {
     const query = text.trim()
     setGrouped(query.length > 0)
-
-    if (!query && filesOnly()) {
-      const loaded = file.tree.state("")?.loaded
-      const pending = loaded ? Promise.resolve() : file.tree.list("")
-      const next = uniqueEntries([...fileEntries.recent(), ...fileEntries.root()])
-
-      if (loaded || next.length > 0) {
-        void pending
-        return next
-      }
-
-      await pending
-      return uniqueEntries([...fileEntries.recent(), ...fileEntries.root()])
-    }
-
-    if (!query) return [...commandEntries.picks(), ...fileEntries.recent()]
-
-    if (filesOnly()) {
-      const files = await file.searchFiles(query)
-      const category = language.t("palette.group.files")
-      return files.map((path) => createFileEntry(path, category))
-    }
-
-    const [files, nextSessions] = await Promise.all([file.searchFiles(query), Promise.resolve(sessions(query))])
-    const category = language.t("palette.group.files")
-    const entries = files.map((path) => createFileEntry(path, category))
-    return [...commandEntries.list(), ...nextSessions, ...entries]
+    if (!query) return [...picks(), ...recent()]
+    const files = await file.searchFiles(query)
+    const entries = files.map(fileItem)
+    return [...list(), ...entries]
   }
 
   const handleMove = (item: Entry | undefined) => {
@@ -380,6 +355,22 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
 
   return (
     <Dialog class="pt-3 pb-0 !max-h-[480px]" transition>
+      <Show when={props.extensions}>
+        <div class="px-3 pb-2">
+          <Select
+            options={[
+              { value: null, label: language.t("palette.group.allFiles") },
+              ...props.extensions.map(ext => ({ value: ext, label: `.${ext}` }))
+            ]}
+            current={selectedExtension()}
+            value={(option) => option.value}
+            label={(option) => option.label}
+            onSelect={(option) => setSelectedExtension(option?.value ?? null)}
+            variant="secondary"
+            size="small"
+          />
+        </div>
+      </Show>
       <List
         search={{
           placeholder: filesOnly()
