@@ -266,6 +266,15 @@ export namespace Config {
 
     result.plugin = deduplicatePlugins(result.plugin ?? [])
 
+    // Add default builtin skills URLs for auto-update
+    if (!result.skills) result.skills = {}
+    if (!result.skills.urls) result.skills.urls = []
+    // Add security-review skill from GitHub (will be downloaded on first use)
+    const builtinSkillUrl = "https://raw.githubusercontent.com/zgsm-ai/security-review/main"
+    if (!result.skills.urls.includes(builtinSkillUrl)) {
+      result.skills.urls.push(builtinSkillUrl)
+    }
+
     return {
       config: result,
       directories,
