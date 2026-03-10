@@ -17,5 +17,8 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
+      - name: Generate builtin agents
+        run: bun run build:builtin-agents
+
       - name: Run typecheck
         run: bun typecheck
