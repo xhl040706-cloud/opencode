@@ -9,6 +9,8 @@ const __dirname = path.dirname(__filename)
 const outputFile = path.resolve(__dirname, "../src/costrict/skill/builtin.ts")
 
 // Builtin skills: name -> GitHub URL mapping
+// Skills are downloaded during build and embedded in the binary
+// To update builtin skills, update this URL and rebuild
 const BUILTIN_SKILLS = {
   "security-review": "https://raw.githubusercontent.com/zgsm-ai/security-review/main",
 } as const
