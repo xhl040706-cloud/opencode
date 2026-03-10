@@ -33,3 +33,4 @@ logs/
 .costrict
 .cospec
 tsconfig.tsbuildinfo
+cs.exe
