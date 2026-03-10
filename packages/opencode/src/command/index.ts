@@ -141,14 +141,14 @@ export namespace Command {
       }
     }
 
-    // Register skills as commands (with skill marker to use skill tool instead of direct template)
-    const skills = await Skill.all()
-    for (const skill of skills) {
-      result[skill.name] = {
-        name: skill.name,
-        description: skill.description,
+    // Security review command - uses the security-review skill
+    const securityReviewSkill = await Skill.get("security-review")
+    if (securityReviewSkill) {
+      result["security-review"] = {
+        name: "security-review",
+        description: securityReviewSkill.description,
         skill: true,
-        template: `Please use the skill tool to load the "${skill.name}" skill for this task. Description: ${skill.description}`,
+        template: "Please use the skill tool to load the \"security-review\" skill for this task.",
         hints: [],
       }
     }
