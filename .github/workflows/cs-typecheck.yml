@@ -18,7 +18,7 @@ jobs:
         uses: ./.github/actions/setup-bun
 
       - name: Generate builtin agents
-        run: bun run build:builtin-agents
+        run: bun run --cwd packages/opencode build:builtin-agents
 
       - name: Run typecheck
         run: bun typecheck

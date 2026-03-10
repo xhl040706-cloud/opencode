@@ -415,7 +415,7 @@ export namespace Config {
     const lang = locale ?? "zh-CN"
 
     // Load built-in agents from imported modules
-    for (const [filename, entry] of Object.entries(BUILTIN_AGENTS) as [string, AgentEntry][]) {
+    for (const [filename, entry] of Object.entries(BUILTIN_AGENTS)) {
       try {
         const content = await resolveBuiltinContent(entry, lang)
         if (!content) continue
@@ -429,7 +429,7 @@ export namespace Config {
           prompt: md.content.trim(),
           model_prompts: entry.models
             ? Object.fromEntries(
-                Object.entries(entry.models).map(([family, body]: [string, string]) => [family, body.trim()]),
+                await Promise.all(Object.entries(entry.models).map(async ([family, body]) => [family, body.trim()])),
               )
             : undefined,
         }
