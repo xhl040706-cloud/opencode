@@ -13,6 +13,7 @@ import { Bus } from "@/bus"
 import { Session } from "@/session"
 import { Discovery } from "./discovery"
 import { Glob } from "../util/glob"
+import * as CoStrictSkill from "../costrict/skill"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
@@ -53,10 +54,9 @@ export namespace Skill {
     const skills: Record<string, Info> = {}
     const dirs = new Set<string>()
 
-    // Initialize builtin skills to cache directory on first run
-    // This ensures skills are available for use and updates
+    // Initialize CoStrict builtin skills to cache directory on first run
     try {
-      await Discovery.initializeBuiltinSkills()
+      await CoStrictSkill.Extension.initializeBuiltinSkills()
     } catch (err) {
       log.warn("failed to initialize builtin skills", { err })
     }
@@ -145,6 +145,20 @@ export namespace Skill {
     for (const dir of await Config.directories()) {
       const matches = await Glob.scan(OPENCODE_SKILL_PATTERN, {
         cwd: dir,
+        absolute: true,
+        include: "file",
+        symlink: true,
+      })
+      for (const match of matches) {
+        await addSkill(match)
+      }
+    }
+
+    // Scan CoStrict builtin skills from cache directory
+    const costrictSkillsDir = CoStrictSkill.Extension.getBuiltinSkillsDir()
+    if (await Filesystem.isDir(costrictSkillsDir)) {
+      const matches = await Glob.scan(SKILL_PATTERN, {
+        cwd: costrictSkillsDir,
         absolute: true,
         include: "file",
         symlink: true,

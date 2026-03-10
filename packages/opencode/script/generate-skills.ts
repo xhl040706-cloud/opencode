@@ -6,7 +6,7 @@ import { fileURLToPath } from "url"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const outputFile = path.resolve(__dirname, "../src/skill/builtin.ts")
+const outputFile = path.resolve(__dirname, "../src/costrict/skill/builtin.ts")
 
 // Builtin skills: name -> GitHub URL mapping
 const BUILTIN_SKILLS = {
@@ -91,7 +91,6 @@ function escapeForTs(str: string): string {
 }
 
 async function generateBuiltinSkills() {
-  const imports: string[] = []
   const entries: string[] = []
 
   for (const [name, url] of Object.entries(BUILTIN_SKILLS)) {
