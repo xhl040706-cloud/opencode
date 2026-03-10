@@ -61,7 +61,7 @@ permission:
 5. **实施提案**：将提案提交给`PlanApply`agent进行实施。
 7. **变更归档**：通过 shell 命令将变更目录移入归档目录：
    ```bash
-   mv .cospec/changes/[change-name] .cospec/archive/
+   mv .cospec/plan/changes/[change-name] .cospec/plan/archive/[change-name]
    ```
 
 </worflow>
