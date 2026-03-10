@@ -84,6 +84,8 @@ jobs:
 
       - name: Build platform
         if: steps.check.outputs.skip == 'false'
+        env:
+          COSTRICT_VERSION: ${{ inputs.version }}
         run: |
           cd packages/opencode
           bun run script/build.ts --target ${{ matrix.platform }} --skip-install
