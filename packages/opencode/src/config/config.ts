@@ -428,7 +428,9 @@ export namespace Config {
           ...(md.data as Record<string, any>),
           prompt: md.content.trim(),
           model_prompts: entry.models
-            ? Object.fromEntries(Object.entries(entry.models).map(([family, body]) => [family, body.trim()]))
+            ? Object.fromEntries(
+                Object.entries(entry.models).map(([family, body]: [string, string]) => [family, body.trim()]),
+              )
             : undefined,
         }
         const parsed = Agent.safeParse(config)
