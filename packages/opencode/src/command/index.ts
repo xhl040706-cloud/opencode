@@ -7,7 +7,6 @@ import { CostrictCommand } from "../costrict/command"
 import PROMPT_REVIEW from "./template/review.txt"
 import { MCP } from "../mcp"
 import { getCommands } from "../plugin/tdd"
-import { Skill } from "../skill/skill"
 
 export namespace Command {
   export const Event = {
@@ -137,19 +136,6 @@ export namespace Command {
           })
         },
         hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
-      }
-    }
-
-    // Register skills as commands
-    const skills = await Skill.all()
-    for (const skill of skills) {
-      result[skill.name] = {
-        name: skill.name,
-        description: skill.description,
-        get template() {
-          return skill.content
-        },
-        hints: [],
       }
     }
 
