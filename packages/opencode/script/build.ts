@@ -147,6 +147,10 @@ await $`rm -rf dist`
 console.log("Generating builtin agents...")
 await $`bun run script/generate-agents.ts`
 
+// Generate builtin skills file before building
+console.log("Generating builtin skills...")
+await $`bun run script/generate-skills.ts`
+
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`

@@ -53,6 +53,14 @@ export namespace Skill {
     const skills: Record<string, Info> = {}
     const dirs = new Set<string>()
 
+    // Initialize builtin skills to cache directory on first run
+    // This ensures skills are available for use and updates
+    try {
+      await Discovery.initializeBuiltinSkills()
+    } catch (err) {
+      log.warn("failed to initialize builtin skills", { err })
+    }
+
     const addSkill = async (match: string) => {
       const md = await ConfigMarkdown.parse(match).catch((err) => {
         const message = ConfigMarkdown.FrontmatterError.isInstance(err)
@@ -99,6 +107,20 @@ export namespace Skill {
         .catch((error) => {
           log.error(`failed to scan ${scope} skills`, { dir: root, error })
         })
+    }
+
+    // Scan builtin skills from cache directory (initialized from embedded content)
+    const builtinCacheDir = Discovery.dir()
+    if (await Filesystem.isDir(builtinCacheDir)) {
+      const matches = await Glob.scan(SKILL_PATTERN, {
+        cwd: builtinCacheDir,
+        absolute: true,
+        include: "file",
+        symlink: true,
+      })
+      for (const match of matches) {
+        await addSkill(match)
+      }
     }
 
     // Scan external skill directories (.claude/skills/, .agents/skills/, etc.)
