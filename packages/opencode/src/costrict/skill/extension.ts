@@ -12,12 +12,35 @@
  */
 
 import path from "path"
-import { mkdir, writeFile } from "fs/promises"
+import { mkdir, writeFile, readFile } from "fs/promises"
 import { Log } from "../../util/log"
 import { Filesystem } from "../../util/filesystem"
 import * as Builtin from "./builtin"
 
 const log = Log.create({ service: "costrict-skill" })
+
+/**
+ * Extract version from skill.md content
+ */
+function extractVersionFromSkill(content: string): string | null {
+  const match = content.match(/Builtin Skill Version:\s*([0-9.]+)/)
+  return match ? match[1] : null
+}
+
+/**
+ * Check if the skill needs to be updated due to version change
+ */
+async function needsUpdate(skillDir: string, builtinVersion: string): Promise<boolean> {
+  const skillMdPath = path.join(skillDir, "SKILL.md")
+  try {
+    const content = await readFile(skillMdPath, "utf-8")
+    const cachedVersion = extractVersionFromSkill(content)
+    return cachedVersion !== builtinVersion
+  } catch {
+    // File doesn't exist, needs initialization
+    return true
+  }
+}
 
 /**
  * Get the cache directory for skills.
@@ -30,22 +53,26 @@ function getSkillCacheDir(): string {
  * Initialize builtin skills by extracting them to the cache directory.
  * This is called on startup to ensure skills are available.
  *
- * Skills are only extracted if they don't already exist in the cache.
- * To update to the latest builtin skills, delete the cache directory.
+ * Skills are extracted if they don't exist or if the version has changed.
  */
 export async function initializeBuiltinSkills(): Promise<void> {
   const cacheDir = getSkillCacheDir()
+  const builtinVersion = Builtin.BUILTIN_SKILLS_VERSION
 
   for (const [name, skill] of Object.entries(Builtin.BUILTIN_SKILLS)) {
     const skillDir = path.join(cacheDir, name)
 
-    // Check if skill directory already exists
+    // Check if skill needs update (doesn't exist or version mismatch)
     if (await Filesystem.isDir(skillDir)) {
-      log.debug("builtin skill already exists", { name })
-      continue
+      if (!await needsUpdate(skillDir, builtinVersion)) {
+        log.debug("builtin skill up to date", { name, version: builtinVersion })
+        continue
+      }
+      log.info("builtin skill version changed, updating", { name })
+    } else {
+      log.info("initializing builtin skill", { name })
     }
 
-    log.info("initializing builtin skill", { name })
     await mkdir(skillDir, { recursive: true })
 
     // Write all files to the cache directory
@@ -61,7 +88,7 @@ export async function initializeBuiltinSkills(): Promise<void> {
       log.debug("wrote builtin skill file", { name, file: filePath })
     }
 
-    log.info("initialized builtin skill", { name, fileCount: Object.keys(skill.files).length })
+    log.info("initialized builtin skill", { name, fileCount: Object.keys(skill.files).length, version: builtinVersion })
   }
 }
 
