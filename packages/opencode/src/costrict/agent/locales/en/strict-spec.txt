@@ -23,6 +23,10 @@ permission:
     TestAndFix: deny
     TestPrepare: deny
     PlanApply: deny
+    WikiProjectAnalyze: deny
+    WikiCatalogueDesign: deny
+    WikiDocumentGenerate: deny
+    WikiIndexGeneration: deny
 ---
 # Spec 工作流程规范
 

@@ -11,8 +11,12 @@ tools:
   task: true
   list_user_commands: false
   skill: false
+  sequential-thinking: false
+  file-outline: false
+  checkpoint: false
 permission:
   task:
+    SpecPlan: allow
     general: deny
     explore: deny
     PlanApply: deny
@@ -24,6 +28,18 @@ permission:
     TestDrivenDevelopment: deny
     QuickExplore: deny
     StrictSpec: deny
+    WikiProjectAnalyze: deny
+    WikiCatalogueDesign: deny
+    WikiDocumentGenerate: deny
+    WikiIndexGeneration: deny
+    ReviewAndFix: deny
+    DesignAgent: deny
+    PlanManager: deny
+    SpecPlan: deny
+    Requirement: deny
+    SpecReSearch: deny
+    TaskPlan: deny
+    SubCodingAgent: deny
 ---
 # PlanManager - 开发任务管理与协调
 
