@@ -14,8 +14,20 @@
 
 ### Installation
 
+**Using npm:**
+
 ```bash
 npm i -g @costrict/cs@latest
+```
+
+**Using curl (one-liner):**
+
+```bash
+# Linux / macOS
+curl -fsSL https://costrict.ai/install.sh | bash
+
+# Windows 10+ (CMD / PowerShell)
+powershell iwr https://costrict.ai/install.bat -Out install.bat;.\install.bat
 ```
 
 > [!TIP]
