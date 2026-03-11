@@ -1,6 +1,13 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: Define ANSI color codes
+for /f %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
+set "RED=!ESC![31m"
+set "GREEN=!ESC![32m"
+set "NC=!ESC![0m"
+set "EXCL=!"
+
 if not defined COSTRICT_BASE_URL (
     set COSTRICT_BASE_URL=https://zgsm.sangfor.com
 )
@@ -311,13 +318,13 @@ if errorlevel 1 (
 )
 
 echo.
-echo ========================================
-echo   CoStrict CLI Installation Complete
-echo ========================================
+echo !GREEN!========================================!NC!
+echo !GREEN!  CoStrict CLI Installation Complete!NC!
+echo !GREEN!========================================!NC!
 echo.
 
 if "!ENV_UPDATED!"=="1" (
-    echo [!] IMPORTANT: Please restart your terminal for PATH changes to take effect
+    echo !RED![!EXCL!] IMPORTANT: Please restart your terminal for PATH changes to take effect!NC!
     echo.
 )
 
