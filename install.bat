@@ -292,7 +292,7 @@ if not errorlevel 1 (
 echo.
 echo Adding !INSTALL_DIR! to user PATH...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$currentPath = [Environment]::GetEnvironmentVariable('PATH', 'User'); if ($currentPath -notlike '*!INSTALL_DIR!*') { $newPath = $currentPath + ';!INSTALL_DIR!'; [Environment]::SetEnvironmentVariable('PATH', $newPath, 'User'); Write-Host '[OK] Added to user PATH environment variable' } else { Write-Host '[OK] Already in user PATH' }"
-echo Please restart your terminal for the change to take effect
+set "ENV_UPDATED=1"
 
 :install_base_url
 :: Add COSTRICT_BASE_URL to system environment variables (user level)
@@ -308,7 +308,6 @@ if errorlevel 1 (
     echo   setx COSTRICT_BASE_URL "!COSTRICT_BASE_URL!"
 ) else (
     echo [OK] Added COSTRICT_BASE_URL to user environment variables
-    echo Please restart your terminal for the change to take effect
 )
 
 echo.
@@ -316,6 +315,12 @@ echo ========================================
 echo   CoStrict CLI Installation Complete
 echo ========================================
 echo.
+
+if "!ENV_UPDATED!"=="1" (
+    echo [!] IMPORTANT: Please restart your terminal for PATH changes to take effect
+    echo.
+)
+
 echo To start:
 echo.
 echo   cd ^<project^>    # Open directory
