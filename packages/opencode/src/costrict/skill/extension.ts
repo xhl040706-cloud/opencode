@@ -12,7 +12,7 @@
  */
 
 import path from "path"
-import { mkdir, writeFile, readFile } from "fs/promises"
+import { mkdir, writeFile, readFile, rm } from "fs/promises"
 import { Log } from "../../util/log"
 import { Filesystem } from "../../util/filesystem"
 import * as Builtin from "./builtin"
@@ -29,15 +29,21 @@ function extractVersionFromSkill(content: string): string | null {
 
 /**
  * Check if the skill needs to be updated due to version change
+ * Returns true if:
+ * - File doesn't exist
+ * - File is corrupted or can't be read
+ * - Version comment is missing or invalid
+ * - Version doesn't match builtin version
  */
 async function needsUpdate(skillDir: string, builtinVersion: string): Promise<boolean> {
   const skillMdPath = path.join(skillDir, "SKILL.md")
   try {
     const content = await readFile(skillMdPath, "utf-8")
     const cachedVersion = extractVersionFromSkill(content)
+    // Update if version is missing, invalid, or doesn't match
     return cachedVersion !== builtinVersion
   } catch {
-    // File doesn't exist, needs initialization
+    // File doesn't exist or can't be read
     return true
   }
 }
@@ -54,6 +60,7 @@ function getSkillCacheDir(): string {
  * This is called on startup to ensure skills are available.
  *
  * Skills are extracted if they don't exist or if the version has changed.
+ * Uses full replacement to ensure no stale files remain.
  */
 export async function initializeBuiltinSkills(): Promise<void> {
   const cacheDir = getSkillCacheDir()
@@ -68,7 +75,9 @@ export async function initializeBuiltinSkills(): Promise<void> {
         log.debug("builtin skill up to date", { name, version: builtinVersion })
         continue
       }
-      log.info("builtin skill version changed, updating", { name })
+      log.info("builtin skill version changed, replacing with new version", { name, version: builtinVersion })
+      // Full replacement: delete single skill directory first
+      await rm(skillDir, { recursive: true, force: true })
     } else {
       log.info("initializing builtin skill", { name })
     }
