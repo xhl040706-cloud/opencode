@@ -219,10 +219,14 @@ async function generateBuiltinSkills() {
   // Always create/update index.json
   const indexContent = {
     version: packageVersion,
-    skills: downloadedSkills.map((s) => ({
-      name: s.name,
-      commitSha: s.commitSha || "unknown",
-    })),
+    skills: downloadedSkills.map((s) => {
+      // If we got a new commitSha, use it; otherwise keep the existing one
+      const existingSkill = localIndex?.skills.find((ls) => ls.name === s.name)
+      return {
+        name: s.name,
+        commitSha: s.commitSha || existingSkill?.commitSha || "",
+      }
+    }),
   }
   await fs.writeFile(indexJsonFile, JSON.stringify(indexContent, null, 2))
 
