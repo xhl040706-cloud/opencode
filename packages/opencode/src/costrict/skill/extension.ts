@@ -2,22 +2,36 @@
  * CoStrict Skill Extension
  *
  * This module extends the base Skill functionality with:
- * - Builtin skill initialization from embedded content
+ * - Builtin skill initialization from bundled content
  *
- * Skills are embedded in the binary during build and extracted to cache
+ * Skills are downloaded during build to bundled-skills/ and copied to cache
  * on first run. Users get updated skills when they upgrade CoStrict.
+ *
+ * Version tracking:
+ * - Uses commit SHA from bundled-skills/index.json for version tracking
+ * - Stores installed version in .version file in skill directory
+ * - Does NOT modify SKILL.md content
  *
  * Design: Minimal invasive - only patches/extends the original Discovery module
  * without modifying its source code.
  */
 
 import path from "path"
-import { mkdir, writeFile } from "fs/promises"
+import { mkdir, writeFile, readFile, rm, cp } from "fs/promises"
 import { Log } from "../../util/log"
 import { Filesystem } from "../../util/filesystem"
 import * as Builtin from "./builtin"
 
 const log = Log.create({ service: "costrict-skill" })
+
+/**
+ * Get the bundled skills directory
+ */
+function getBundledSkillsDir(): string {
+  // From src/costrict/skill/ -> bundled-skills/
+  const currentDir = path.dirname(new URL(import.meta.url).pathname)
+  return path.join(currentDir, "../../../bundled-skills")
+}
 
 /**
  * Get the cache directory for skills.
@@ -27,41 +41,128 @@ function getSkillCacheDir(): string {
 }
 
 /**
- * Initialize builtin skills by extracting them to the cache directory.
+ * Get the .version file path for a skill
+ */
+function getVersionFilePath(skillDir: string): string {
+  return path.join(skillDir, ".version")
+}
+
+/**
+ * Get the installed version from .version file
+ * Returns null if file doesn't exist or can't be read
+ */
+async function getInstalledVersion(skillDir: string): Promise<string | null> {
+  const versionFilePath = getVersionFilePath(skillDir)
+  try {
+    const content = await readFile(versionFilePath, "utf-8")
+    return content.trim()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Check if the skill needs to be updated
+ * Returns true if:
+ * - Directory doesn't exist
+ * - .version file doesn't exist or can't be read
+ * - Version doesn't match builtin version
+ */
+async function needsUpdate(skillDir: string, skillName: string): Promise<boolean> {
+  const builtinVersion = await Builtin.getBuiltinSkillVersion(skillName)
+  if (!builtinVersion) {
+    log.debug("no builtin version found, assuming update needed", { name: skillName })
+    return true
+  }
+
+  const installedVersion = await getInstalledVersion(skillDir)
+  return installedVersion !== builtinVersion
+}
+
+/**
+ * Write .version file to track installed skill version
+ */
+async function writeVersionFile(skillDir: string, skillName: string): Promise<void> {
+  const builtinVersion = await Builtin.getBuiltinSkillVersion(skillName)
+  if (!builtinVersion) {
+    log.warn("no builtin version to write", { name: skillName })
+    return
+  }
+
+  const versionFilePath = getVersionFilePath(skillDir)
+  await writeFile(versionFilePath, builtinVersion, "utf-8")
+  log.debug("wrote version file", { name: skillName, version: builtinVersion.slice(0, 7) })
+}
+
+/**
+ * Initialize builtin skills by copying them from bundled to cache directory.
  * This is called on startup to ensure skills are available.
  *
- * Skills are only extracted if they don't already exist in the cache.
- * To update to the latest builtin skills, delete the cache directory.
+ * Version tracking:
+ * - Uses commit SHA from bundled-skills/index.json
+ * - Stores version in .version file (separate from SKILL.md)
+ * - Full replacement when version changes
+ *
+ * To force update, delete the .version file or entire skill directory.
  */
 export async function initializeBuiltinSkills(): Promise<void> {
   const cacheDir = getSkillCacheDir()
+  const bundledDir = getBundledSkillsDir()
 
-  for (const [name, skill] of Object.entries(Builtin.BUILTIN_SKILLS)) {
+  // Get list of builtin skills
+  const skillNames = Builtin.listBuiltinSkills()
+
+  for (const name of skillNames) {
     const skillDir = path.join(cacheDir, name)
+    const bundledSkillDir = path.join(bundledDir, name)
 
-    // Check if skill directory already exists
-    if (await Filesystem.isDir(skillDir)) {
-      log.debug("builtin skill already exists", { name })
+    // Check if bundled skill exists
+    try {
+      await readFile(path.join(bundledSkillDir, "SKILL.md"))
+    } catch {
+      log.warn("bundled skill not found, skipping", { name })
       continue
     }
 
-    log.info("initializing builtin skill", { name })
-    await mkdir(skillDir, { recursive: true })
+    // Check if skill needs update (doesn't exist or version mismatch)
+    const dirExists = await Filesystem.isDir(skillDir)
+    if (dirExists) {
+      const updateNeeded = await needsUpdate(skillDir, name)
+      if (!updateNeeded) {
+        log.debug("builtin skill up to date", { name })
+        continue
+      }
 
-    // Write all files to the cache directory
-    for (const [filePath, content] of Object.entries(skill.files)) {
-      const destPath = path.join(skillDir, filePath)
-      const destDir = path.dirname(destPath)
+      const builtinVersion = await Builtin.getBuiltinSkillVersion(name)
+      log.info("builtin skill version changed, replacing with new version", {
+        name,
+        version: builtinVersion?.slice(0, 7) ?? "unknown",
+      })
 
-      // Ensure directory exists
-      await mkdir(destDir, { recursive: true })
-
-      // Write file content
-      await writeFile(destPath, content, "utf-8")
-      log.debug("wrote builtin skill file", { name, file: filePath })
+      // Full replacement: delete entire skill directory first
+      await rm(skillDir, { recursive: true, force: true })
+    } else {
+      log.info("initializing builtin skill", { name })
     }
 
-    log.info("initialized builtin skill", { name, fileCount: Object.keys(skill.files).length })
+    // Create fresh directory
+    await mkdir(skillDir, { recursive: true })
+
+    // Copy all files from bundled to cache (recursive copy)
+    await cp(bundledSkillDir, skillDir, { recursive: true })
+
+    // Write .version file to track installed version
+    await writeVersionFile(skillDir, name)
+
+    // Count files
+    const fileCount = await Builtin.listSkillFiles(name)
+
+    const builtinVersion = await Builtin.getBuiltinSkillVersion(name)
+    log.info("initialized builtin skill", {
+      name,
+      fileCount: fileCount.length,
+      version: builtinVersion?.slice(0, 7) ?? "unknown",
+    })
   }
 }
 

@@ -11,6 +11,7 @@ playground
 tmp
 dist
 ts-dist
+bundled-skills
 .turbo
 **/.serena
 .serena/
@@ -33,3 +34,4 @@ logs/
 .costrict
 .cospec
 tsconfig.tsbuildinfo
+.bunfig.toml
