@@ -35,3 +35,4 @@ logs/
 .cospec
 tsconfig.tsbuildinfo
 .bunfig.toml
+.cache

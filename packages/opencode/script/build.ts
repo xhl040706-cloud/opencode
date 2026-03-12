@@ -151,6 +151,15 @@ await $`bun run script/generate-agents.ts`
 console.log("Generating builtin skills...")
 await $`bun run script/generate-skills.ts`
 
+// Use embedded version for build (backup and replace)
+const builtinTsPath = path.join(dir, "src/costrict/skill/builtin.ts")
+const builtinEmbeddedPath = path.join(dir, ".cache/builtin-skills-embedded.ts")
+const builtinBackupPath = path.join(dir, ".cache/builtin-skills-dev.backup.ts")
+
+console.log("Using embedded skills for build...")
+await $`cp ${builtinTsPath} ${builtinBackupPath}`
+await $`cp ${builtinEmbeddedPath} ${builtinTsPath}`
+
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
@@ -227,5 +236,12 @@ for (const item of targets) {
   await $`cp ${readmeSrc} ${readmeDest}`
   binaries[name] = Script.version
 }
+
+// Restore dev version and cleanup
+console.log("Restoring dev version and cleaning up...")
+await $`cp ${builtinBackupPath} ${builtinTsPath}`
+await $`rm -f ${builtinBackupPath}`
+await $`rm -f ${builtinEmbeddedPath}`
+console.log("✓ Cleanup completed")
 
 export { binaries }

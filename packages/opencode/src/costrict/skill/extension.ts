@@ -17,21 +17,12 @@
  */
 
 import path from "path"
-import { mkdir, writeFile, readFile, rm, cp } from "fs/promises"
+import { writeFile, readFile, rm } from "fs/promises"
 import { Log } from "../../util/log"
 import { Filesystem } from "../../util/filesystem"
 import * as Builtin from "./builtin"
 
 const log = Log.create({ service: "costrict-skill" })
-
-/**
- * Get the bundled skills directory
- */
-function getBundledSkillsDir(): string {
-  // From src/costrict/skill/ -> bundled-skills/
-  const currentDir = path.dirname(new URL(import.meta.url).pathname)
-  return path.join(currentDir, "../../../bundled-skills")
-}
 
 /**
  * Get the cache directory for skills.
@@ -107,22 +98,12 @@ async function writeVersionFile(skillDir: string, skillName: string): Promise<vo
  */
 export async function initializeBuiltinSkills(): Promise<void> {
   const cacheDir = getSkillCacheDir()
-  const bundledDir = getBundledSkillsDir()
 
   // Get list of builtin skills
   const skillNames = Builtin.listBuiltinSkills()
 
   for (const name of skillNames) {
     const skillDir = path.join(cacheDir, name)
-    const bundledSkillDir = path.join(bundledDir, name)
-
-    // Check if bundled skill exists
-    try {
-      await readFile(path.join(bundledSkillDir, "SKILL.md"))
-    } catch {
-      log.warn("bundled skill not found, skipping", { name })
-      continue
-    }
 
     // Check if skill needs update (doesn't exist or version mismatch)
     const dirExists = await Filesystem.isDir(skillDir)
@@ -145,11 +126,8 @@ export async function initializeBuiltinSkills(): Promise<void> {
       log.info("initializing builtin skill", { name })
     }
 
-    // Create fresh directory
-    await mkdir(skillDir, { recursive: true })
-
-    // Copy all files from bundled to cache (recursive copy)
-    await cp(bundledSkillDir, skillDir, { recursive: true })
+    // Extract skill from bundled/embedded source to cache directory
+    await Builtin.extractBundledSkill(name, skillDir)
 
     // Write .version file to track installed version
     await writeVersionFile(skillDir, name)

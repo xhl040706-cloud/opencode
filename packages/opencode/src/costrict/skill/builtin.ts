@@ -62,7 +62,8 @@ export async function listSkillFiles(skillName: string): Promise<string[]> {
       if (entry.isDirectory()) {
         files.push(...await walk(fullPath, relativePath))
       } else {
-        files.push(relativePath)
+        // Normalize path separators to forward slashes for consistency
+        files.push(relativePath.replaceAll("\\", "/"))
       }
     }
 
@@ -122,4 +123,15 @@ export function listBuiltinSkills(): string[] {
  */
 export function isBuiltinSkill(name: string): boolean {
   return ["security-review"].includes(name)
+}
+
+/**
+ * Extract bundled skill to a target directory (used for installing to user cache)
+ * This function reads from the bundled-skills directory and copies to target
+ */
+export async function extractBundledSkill(skillName: string, targetDir: string): Promise<void> {
+  const { cp } = await import("fs/promises")
+  const { join } = await import("path")
+  const bundledDir = join(getBundledSkillsDir(), skillName)
+  await cp(bundledDir, targetDir, { recursive: true })
 }
