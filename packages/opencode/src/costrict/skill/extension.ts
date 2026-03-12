@@ -17,7 +17,7 @@
  */
 
 import path from "path"
-import { writeFile, readFile, rm } from "fs/promises"
+import { writeFile, readFile, rm, rename } from "fs/promises"
 import { Log } from "../../util/log"
 import { Filesystem } from "../../util/filesystem"
 import * as Builtin from "./builtin"
@@ -121,7 +121,50 @@ export async function initializeBuiltinSkills(): Promise<void> {
       })
 
       // Full replacement: delete entire skill directory first
-      await rm(skillDir, { recursive: true, force: true })
+      // Use retry logic for Windows file locking issues
+      let retryCount = 0
+      const maxRetries = 3
+      let deleted = false
+      let shouldSkip = false
+
+      while (retryCount < maxRetries && !deleted && !shouldSkip) {
+        try {
+          await rm(skillDir, { recursive: true, force: true })
+          deleted = true
+        } catch (err: any) {
+          retryCount++
+          if (retryCount >= maxRetries) {
+            log.warn("failed to delete skill directory, moving to temp and scheduling deletion", {
+              name,
+              error: err.message,
+            })
+            // Move to temp directory with timestamp for later cleanup
+            const tempDir = path.join(cacheDir, `.${name}-old-${Date.now()}`)
+            try {
+              await rename(skillDir, tempDir)
+              // Try to delete the temp directory asynchronously
+              rm(tempDir, { recursive: true, force: true }).catch(() => {
+                // Ignore deletion errors, will be cleaned up later
+              })
+            } catch (renameErr) {
+              log.warn("failed to move old skill directory, skipping update", {
+                name,
+                error: (renameErr as Error).message,
+              })
+              // Skip this skill update
+              shouldSkip = true
+            }
+          } else {
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 100 * retryCount))
+          }
+        }
+      }
+
+      // Skip to next skill if this one failed to delete
+      if (shouldSkip || !deleted) {
+        continue
+      }
     } else {
       log.info("initializing builtin skill", { name })
     }
