@@ -9,32 +9,32 @@ import AGENT_4 from "./locales/en/03-wiki-document-generate.txt"
 import AGENT_5 from "./locales/zh-CN/03-wiki-document-generate.txt"
 import AGENT_6 from "./locales/en/04-wiki-index-generation.txt"
 import AGENT_7 from "./locales/zh-CN/04-wiki-index-generation.txt"
-import AGENT_8 from "./locales/en/PlanManager.txt"
-import AGENT_9 from "./locales/zh-CN/PlanManager.txt"
-import AGENT_10 from "./locales/en/SpecPlan.txt"
-import AGENT_11 from "./locales/zh-CN/SpecPlan.txt"
-import AGENT_12 from "./locales/en/coding.txt"
-import AGENT_13 from "./locales/zh-CN/coding.txt"
-import AGENT_14 from "./locales/en/fix-agent.txt"
-import AGENT_15 from "./locales/zh-CN/fix-agent.txt"
-import AGENT_16 from "./locales/en/quick-explore.txt"
-import AGENT_17 from "./locales/zh-CN/quick-explore.txt"
-import AGENT_18 from "./locales/en/spec-design.txt"
-import AGENT_19 from "./locales/zh-CN/spec-design.txt"
-import AGENT_20 from "./locales/en/spec-requirement.txt"
-import AGENT_21 from "./locales/zh-CN/spec-requirement.txt"
-import AGENT_22 from "./locales/en/spec-search.txt"
-import AGENT_23 from "./locales/zh-CN/spec-search.txt"
-import AGENT_24 from "./locales/en/spec-task.txt"
-import AGENT_25 from "./locales/zh-CN/spec-task.txt"
-import AGENT_26 from "./locales/en/strict-plan.txt"
-import AGENT_27 from "./locales/zh-CN/strict-plan.txt"
-import AGENT_28 from "./locales/en/strict-spec.txt"
-import AGENT_29 from "./locales/zh-CN/strict-spec.txt"
-import AGENT_30 from "./locales/en/sub-coding.txt"
-import AGENT_31 from "./locales/zh-CN/sub-coding.txt"
-import AGENT_32 from "./locales/en/task-check.txt"
-import AGENT_33 from "./locales/zh-CN/task-check.txt"
+import AGENT_8 from "./locales/en/plan-apply.txt"
+import AGENT_9 from "./locales/zh-CN/plan-apply.txt"
+import AGENT_10 from "./locales/en/plan-fix-agent.txt"
+import AGENT_11 from "./locales/zh-CN/plan-fix-agent.txt"
+import AGENT_12 from "./locales/en/plan-quick-explore.txt"
+import AGENT_13 from "./locales/zh-CN/plan-quick-explore.txt"
+import AGENT_14 from "./locales/en/plan-sub-coding.txt"
+import AGENT_15 from "./locales/zh-CN/plan-sub-coding.txt"
+import AGENT_16 from "./locales/en/plan-task-check.txt"
+import AGENT_17 from "./locales/zh-CN/plan-task-check.txt"
+import AGENT_18 from "./locales/en/sepc-plan.txt"
+import AGENT_19 from "./locales/zh-CN/sepc-plan.txt"
+import AGENT_20 from "./locales/en/spec-design.txt"
+import AGENT_21 from "./locales/zh-CN/spec-design.txt"
+import AGENT_22 from "./locales/en/spec-plan-manager.txt"
+import AGENT_23 from "./locales/zh-CN/spec-plan-manager.txt"
+import AGENT_24 from "./locales/en/spec-requirement.txt"
+import AGENT_25 from "./locales/zh-CN/spec-requirement.txt"
+import AGENT_26 from "./locales/en/spec-search.txt"
+import AGENT_27 from "./locales/zh-CN/spec-search.txt"
+import AGENT_28 from "./locales/en/spec-task.txt"
+import AGENT_29 from "./locales/zh-CN/spec-task.txt"
+import AGENT_30 from "./locales/en/strict-plan.txt"
+import AGENT_31 from "./locales/zh-CN/strict-plan.txt"
+import AGENT_32 from "./locales/en/strict-spec.txt"
+import AGENT_33 from "./locales/zh-CN/strict-spec.txt"
 import AGENT_34 from "./locales/en/tdd.txt"
 import AGENT_35 from "./locales/zh-CN/tdd.txt"
 
@@ -48,18 +48,18 @@ export const BUILTIN_AGENTS: Record<string, AgentEntry> = {
   "02-wiki-catalogue-design": { locales: { "en": AGENT_2, "zh-CN": AGENT_3 } },
   "03-wiki-document-generate": { locales: { "en": AGENT_4, "zh-CN": AGENT_5 } },
   "04-wiki-index-generation": { locales: { "en": AGENT_6, "zh-CN": AGENT_7 } },
-  "PlanManager": { locales: { "en": AGENT_8, "zh-CN": AGENT_9 } },
-  "SpecPlan": { locales: { "en": AGENT_10, "zh-CN": AGENT_11 } },
-  "coding": { locales: { "en": AGENT_12, "zh-CN": AGENT_13 } },
-  "fix-agent": { locales: { "en": AGENT_14, "zh-CN": AGENT_15 } },
-  "quick-explore": { locales: { "en": AGENT_16, "zh-CN": AGENT_17 } },
-  "spec-design": { locales: { "en": AGENT_18, "zh-CN": AGENT_19 } },
-  "spec-requirement": { locales: { "en": AGENT_20, "zh-CN": AGENT_21 } },
-  "spec-search": { locales: { "en": AGENT_22, "zh-CN": AGENT_23 } },
-  "spec-task": { locales: { "en": AGENT_24, "zh-CN": AGENT_25 } },
-  "strict-plan": { locales: { "en": AGENT_26, "zh-CN": AGENT_27 } },
-  "strict-spec": { locales: { "en": AGENT_28, "zh-CN": AGENT_29 } },
-  "sub-coding": { locales: { "en": AGENT_30, "zh-CN": AGENT_31 } },
-  "task-check": { locales: { "en": AGENT_32, "zh-CN": AGENT_33 } },
+  "plan-apply": { locales: { "en": AGENT_8, "zh-CN": AGENT_9 } },
+  "plan-fix-agent": { locales: { "en": AGENT_10, "zh-CN": AGENT_11 } },
+  "plan-quick-explore": { locales: { "en": AGENT_12, "zh-CN": AGENT_13 } },
+  "plan-sub-coding": { locales: { "en": AGENT_14, "zh-CN": AGENT_15 } },
+  "plan-task-check": { locales: { "en": AGENT_16, "zh-CN": AGENT_17 } },
+  "sepc-plan": { locales: { "en": AGENT_18, "zh-CN": AGENT_19 } },
+  "spec-design": { locales: { "en": AGENT_20, "zh-CN": AGENT_21 } },
+  "spec-plan-manager": { locales: { "en": AGENT_22, "zh-CN": AGENT_23 } },
+  "spec-requirement": { locales: { "en": AGENT_24, "zh-CN": AGENT_25 } },
+  "spec-search": { locales: { "en": AGENT_26, "zh-CN": AGENT_27 } },
+  "spec-task": { locales: { "en": AGENT_28, "zh-CN": AGENT_29 } },
+  "strict-plan": { locales: { "en": AGENT_30, "zh-CN": AGENT_31 } },
+  "strict-spec": { locales: { "en": AGENT_32, "zh-CN": AGENT_33 } },
   "tdd": { locales: { "en": AGENT_34, "zh-CN": AGENT_35 } }
 }
