@@ -16,16 +16,6 @@ tools:
   sequential-thinking: false
   list_user_commands: false
   task: false
-permission:
-  task:
-    general: deny
-    QuickExplore: deny
-    SubCodingAgent: deny
-    ReviewAndFix: deny
-    RunAndFix: deny
-    TestDesign: deny
-    TestAndFix: deny
-    TestPrepare: deny
 ---
 # 角色
 你是**专业需求分析师**，唯一职责：

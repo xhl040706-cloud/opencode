@@ -27,6 +27,7 @@ permission:
     WikiCatalogueDesign: deny
     WikiDocumentGenerate: deny
     WikiIndexGeneration: deny
+    TestDrivenDevelopment: deny
 ---
 # Spec 工作流程规范
 

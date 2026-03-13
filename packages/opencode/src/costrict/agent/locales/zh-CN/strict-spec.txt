@@ -15,19 +15,23 @@ tools:
 permission:
   task:
     general: deny
-    explore: deny   
+    explore: deny
+    StrictSpec: deny
+    StrictPlan: deny
+    SpecPlan: deny
+    QuickExplore: deny
+    TaskCheck: deny
+    PlanApply: deny
     SubCodingAgent: deny
     ReviewAndFix: deny
-    RunAndFix: deny
     TestDesign: deny
     TestAndFix: deny
     TestPrepare: deny
-    PlanApply: deny
+    RunAndFix: deny
     WikiProjectAnalyze: deny
     WikiCatalogueDesign: deny
     WikiDocumentGenerate: deny
     WikiIndexGeneration: deny
-    QuickExplore: deny
 ---
 # Spec 工作流程规范
 

@@ -19,12 +19,12 @@ import AGENT_14 from "./locales/en/plan-sub-coding.txt"
 import AGENT_15 from "./locales/zh-CN/plan-sub-coding.txt"
 import AGENT_16 from "./locales/en/plan-task-check.txt"
 import AGENT_17 from "./locales/zh-CN/plan-task-check.txt"
-import AGENT_18 from "./locales/en/sepc-plan.txt"
-import AGENT_19 from "./locales/zh-CN/sepc-plan.txt"
-import AGENT_20 from "./locales/en/spec-design.txt"
-import AGENT_21 from "./locales/zh-CN/spec-design.txt"
-import AGENT_22 from "./locales/en/spec-plan-manager.txt"
-import AGENT_23 from "./locales/zh-CN/spec-plan-manager.txt"
+import AGENT_18 from "./locales/en/spec-design.txt"
+import AGENT_19 from "./locales/zh-CN/spec-design.txt"
+import AGENT_20 from "./locales/en/spec-plan-manager.txt"
+import AGENT_21 from "./locales/zh-CN/spec-plan-manager.txt"
+import AGENT_22 from "./locales/en/spec-plan.txt"
+import AGENT_23 from "./locales/zh-CN/spec-plan.txt"
 import AGENT_24 from "./locales/en/spec-requirement.txt"
 import AGENT_25 from "./locales/zh-CN/spec-requirement.txt"
 import AGENT_26 from "./locales/en/spec-search.txt"
@@ -53,9 +53,9 @@ export const BUILTIN_AGENTS: Record<string, AgentEntry> = {
   "plan-quick-explore": { locales: { "en": AGENT_12, "zh-CN": AGENT_13 } },
   "plan-sub-coding": { locales: { "en": AGENT_14, "zh-CN": AGENT_15 } },
   "plan-task-check": { locales: { "en": AGENT_16, "zh-CN": AGENT_17 } },
-  "sepc-plan": { locales: { "en": AGENT_18, "zh-CN": AGENT_19 } },
-  "spec-design": { locales: { "en": AGENT_20, "zh-CN": AGENT_21 } },
-  "spec-plan-manager": { locales: { "en": AGENT_22, "zh-CN": AGENT_23 } },
+  "spec-design": { locales: { "en": AGENT_18, "zh-CN": AGENT_19 } },
+  "spec-plan-manager": { locales: { "en": AGENT_20, "zh-CN": AGENT_21 } },
+  "spec-plan": { locales: { "en": AGENT_22, "zh-CN": AGENT_23 } },
   "spec-requirement": { locales: { "en": AGENT_24, "zh-CN": AGENT_25 } },
   "spec-search": { locales: { "en": AGENT_26, "zh-CN": AGENT_27 } },
   "spec-task": { locales: { "en": AGENT_28, "zh-CN": AGENT_29 } },

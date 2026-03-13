@@ -13,19 +13,7 @@ tools:
   list_user_commands: false
   skill: false
   sequential-thinking: false
-permission:
-  task:
-    general: deny
-    explore: deny
-    StrictPlan: deny
-    PlanApply: deny
-    TaskCheck: deny
-    RunAndFix: deny
-    TestDesign: deny
-    TestAndFix: deny
-    TestPrepare: deny
-    ReviewAndFix: deny
-    DesignAgent: deny
+  task: false
 ---
 <role>
 你是 DesignAgent，一名专业软件开发团队中的资深软件架构师。

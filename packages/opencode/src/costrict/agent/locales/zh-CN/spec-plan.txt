@@ -15,13 +15,25 @@ tools:
 permission:
   task:
     general: deny
-    explore: deny   
+    explore: deny
+    WikiProjectAnalyze: deny
+    WikiCatalogueDesign: deny
+    WikiDocumentGenerate: deny
+    WikiIndexGeneration: deny
+    StrictSpec: deny
+    SpecReSearch: deny
+    Requirement: deny
+    DesignAgent: deny
+    TaskPlan: deny
+    PlanManager: deny
+    SpecPlan: deny
+    StrictPlan: deny
     SubCodingAgent: deny
-    ReviewAndFix: deny
-    RunAndFix: deny
+    TestDrivenDevelopment: deny
     TestDesign: deny
     TestAndFix: deny
     TestPrepare: deny
+    RunAndFix: deny
 ---
 <role>
 你是一个专门为软件项目创建结构化需求提案的 PlanAgent。

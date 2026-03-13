@@ -32,6 +32,13 @@ permission:
     QuickExplore: deny
     StrictSpec: deny
     PlanManager: deny
+    SpecReSearch: deny
+    Requirement: deny
+    DesignAgent: deny
+    TaskPlan: deny
+    StrictPlan: deny
+    SubCodingAgent: deny
+    ReviewAndFix: deny
 ---
 # PlanManager - 开发任务管理与协调
 
