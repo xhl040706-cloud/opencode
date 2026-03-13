@@ -59,6 +59,7 @@ export namespace Command {
     REVIEW: "review",
     TEST: "test",
     PROJECT_WIKI: "project-wiki",
+    SECURITY_REVIEW: "security-review",
   } as const
 
   const state = Instance.state(async () => {
@@ -92,6 +93,14 @@ export namespace Command {
           return CostrictCommand.get("project-wiki", lang).replace(/\$\{path\}/g, Instance.worktree)
         },
         hints: hints(CostrictCommand.get("project-wiki", lang)),
+      },
+      [Default.SECURITY_REVIEW]: {
+        name: Default.SECURITY_REVIEW,
+        description: "perform code security audit",
+        get template() {
+          return CostrictCommand.get("security-review", lang)
+        },
+        hints: hints(CostrictCommand.get("security-review", lang)),
       },
     }
 
