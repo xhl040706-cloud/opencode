@@ -1,6 +1,13 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: Define ANSI color codes
+for /f %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
+set "RED=!ESC![31m"
+set "GREEN=!ESC![32m"
+set "NC=!ESC![0m"
+set "EXCL=!"
+
 if not defined COSTRICT_BASE_URL (
     set COSTRICT_BASE_URL=https://zgsm.sangfor.com
 )
@@ -280,42 +287,19 @@ rmdir /S /Q "!TEMP_DIR!"
 echo [OK] Installed successfully to: !INSTALL_DIR!\cs.exe
 
 :add_to_path
-:: Check if INSTALL_DIR is already in PATH
-echo !PATH! | findstr /i "!INSTALL_DIR!" >nul 2>&1
+:: Check if INSTALL_DIR is already in user PATH environment variable
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[Environment]::GetEnvironmentVariable('PATH', 'User')" | findstr /i "!INSTALL_DIR!" >nul 2>&1
 if not errorlevel 1 (
     echo.
-    echo [OK] PATH already configured
+    echo [OK] PATH already configured in user environment
     goto :install_base_url
 )
 
-:: Detect PowerShell profile location
-set "PROFILE_FILE="
-if exist "!USERPROFILE!\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1" (
-    set "PROFILE_FILE=!USERPROFILE!\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"
-) else if exist "!USERPROFILE!\Documents\WindowsPowerShell\profile.ps1" (
-    set "PROFILE_FILE=!USERPROFILE!\Documents\WindowsPowerShell\profile.ps1"
-)
-
-if "!PROFILE_FILE!"=="" (
-    echo.
-    echo No PowerShell profile found. You may need to manually add to PATH:
-    echo   $env:PATH += ";!INSTALL_DIR!"
-) else (
-    :: Check if PATH already configured in profile
-    findstr /i "cs" "!PROFILE_FILE!" >nul 2>&1
-    if not errorlevel 1 (
-        echo.
-        echo PATH already configured in !PROFILE_FILE!
-    ) else (
-        :: Add PATH to profile
-        echo. >> "!PROFILE_FILE!"
-        echo # costrict >> "!PROFILE_FILE!"
-        echo $env:PATH += ";!INSTALL_DIR!" >> "!PROFILE_FILE!"
-        echo.
-        echo [OK] Added cs to PATH in !PROFILE_FILE!
-        echo Please restart your shell or run: . !PROFILE_FILE!
-    )
-)
+:: Add INSTALL_DIR to user PATH environment variable using PowerShell
+echo.
+echo Adding !INSTALL_DIR! to user PATH...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$currentPath = [Environment]::GetEnvironmentVariable('PATH', 'User'); if ($currentPath -notlike '*!INSTALL_DIR!*') { $newPath = $currentPath + ';!INSTALL_DIR!'; [Environment]::SetEnvironmentVariable('PATH', $newPath, 'User'); Write-Host '[OK] Added to user PATH environment variable' } else { Write-Host '[OK] Already in user PATH' }"
+set "ENV_UPDATED=1"
 
 :install_base_url
 :: Add COSTRICT_BASE_URL to system environment variables (user level)
@@ -331,20 +315,25 @@ if errorlevel 1 (
     echo   setx COSTRICT_BASE_URL "!COSTRICT_BASE_URL!"
 ) else (
     echo [OK] Added COSTRICT_BASE_URL to user environment variables
-    echo Please restart your terminal for the change to take effect
 )
 
 echo.
-echo ========================================
-echo   CoStrict CLI Installation Complete
-echo ========================================
+echo !GREEN!========================================!NC!
+echo !GREEN!  CoStrict CLI Installation Complete!NC!
+echo !GREEN!========================================!NC!
 echo.
+
+if "!ENV_UPDATED!"=="1" (
+    echo !RED![!EXCL!] IMPORTANT: Please restart your terminal for PATH changes to take effect!NC!
+    echo.
+)
+
 echo To start:
 echo.
 echo   cd ^<project^>    # Open directory
 echo   cs       # Run command
 echo.
-echo For more information visit https://costrict.ai/docs
+echo For more information visit https://docs.costrict.ai
 echo.
 
 exit /b 0
