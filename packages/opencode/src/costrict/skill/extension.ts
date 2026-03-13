@@ -108,6 +108,8 @@ export async function initializeBuiltinSkills(): Promise<void> {
 
     // Check if skill needs update (doesn't exist or version mismatch)
     const dirExists = await Filesystem.isDir(skillDir)
+    let builtinVersion: string | undefined
+
     if (dirExists) {
       const updateNeeded = await needsUpdate(skillDir, name)
       if (!updateNeeded) {
@@ -115,7 +117,7 @@ export async function initializeBuiltinSkills(): Promise<void> {
         continue
       }
 
-      const builtinVersion = await Builtin.getBuiltinSkillVersion(name)
+      builtinVersion = await Builtin.getBuiltinSkillVersion(name)
       log.info("builtin skill version changed, replacing with new version", {
         name,
         version: builtinVersion?.slice(0, 7) ?? "unknown",
@@ -123,10 +125,8 @@ export async function initializeBuiltinSkills(): Promise<void> {
 
       // Try to delete the directory first for clean replacement
       // If deletion fails (due to file locks), we'll try to copy over it
-      let deleted = false
       try {
         await rm(skillDir, { recursive: true, force: true })
-        deleted = true
       } catch (err: any) {
         log.warn("failed to delete skill directory, will attempt to copy over existing files", {
           name,
@@ -147,7 +147,11 @@ export async function initializeBuiltinSkills(): Promise<void> {
     // Count files
     const fileCount = await Builtin.listSkillFiles(name)
 
-    const builtinVersion = await Builtin.getBuiltinSkillVersion(name)
+    // Get version if not already fetched
+    if (!builtinVersion) {
+      builtinVersion = await Builtin.getBuiltinSkillVersion(name)
+    }
+
     log.info("initialized builtin skill", {
       name,
       fileCount: fileCount.length,

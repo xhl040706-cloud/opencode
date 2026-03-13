@@ -141,15 +141,18 @@ export namespace Command {
       }
     }
 
-    // Security review command - uses the security-review skill
-    const securityReviewSkill = await Skill.get("security-review")
-    if (securityReviewSkill) {
-      result["security-review"] = {
-        name: "security-review",
-        description: securityReviewSkill.description,
-        skill: true,
-        template: "Please use the skill tool to load the \"security-review\" skill for this task.",
-        hints: [],
+    // Register builtin skills as commands
+    const allSkills = await Skill.all()
+    for (const skill of allSkills) {
+      // Only register builtin skills (stored in ~/.config/costrict/skills/)
+      if (skill.location.includes(".config/costrict/skills")) {
+        result[skill.name] = {
+          name: skill.name,
+          description: skill.description,
+          skill: true,
+          template: `Please use the skill tool to load the "${skill.name}" skill for this task.`,
+          hints: [],
+        }
       }
     }
 
