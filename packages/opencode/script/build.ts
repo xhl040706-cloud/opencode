@@ -147,26 +147,17 @@ await $`rm -rf dist`
 console.log("Generating builtin agents...")
 await $`bun run script/generate-agents.ts`
 
-// Generate builtin skills file before building
+// Generate builtin skills file before building (embedded version)
 console.log("Generating builtin skills...")
 await $`bun run script/generate-skills.ts`
-
-// Use embedded version for build (backup and replace)
-const builtinTsPath = path.join(dir, "src/costrict/skill/builtin.ts")
-const builtinEmbeddedPath = path.join(dir, ".cache/builtin-skills-embedded.ts")
-const builtinBackupPath = path.join(dir, ".cache/builtin-skills-dev.backup.ts")
-
-console.log("Using embedded skills for build...")
-await $`cp ${builtinTsPath} ${builtinBackupPath}`
-await $`cp ${builtinEmbeddedPath} ${builtinTsPath}`
 
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
   await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
 }
-try {
-  for (const item of targets) {
+
+for (const item of targets) {
     const name = [
       pkg.name,
       // changing to win32 flags npm for some reason
@@ -237,13 +228,5 @@ try {
     await $`cp ${readmeSrc} ${readmeDest}`
     binaries[name] = Script.version
   }
-} finally {
-  // Restore dev version and cleanup (always run, even if build fails)
-  console.log("Restoring dev version and cleaning up...")
-  await $`cp ${builtinBackupPath} ${builtinTsPath}`
-  await $`rm -f ${builtinBackupPath}`
-  await $`rm -f ${builtinEmbeddedPath}`
-  console.log("✓ Cleanup completed")
-}
 
 export { binaries }
