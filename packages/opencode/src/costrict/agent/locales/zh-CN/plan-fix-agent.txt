@@ -11,14 +11,26 @@ permission:
   task:
     general: deny
     explore: deny
+    WikiProjectAnalyze: deny
+    WikiCatalogueDesign: deny
+    WikiDocumentGenerate: deny
+    WikiIndexGeneration: deny
+    StrictSpec: deny
+    SpecReSearch: deny
+    Requirement: deny
+    DesignAgent: deny
+    TaskPlan: deny
+    PlanManager: deny
+    SpecPlan: deny
     StrictPlan: deny
-    PlanApply: deny
     TaskCheck: deny
-    RunAndFix: deny
+    PlanApply: deny
+    ReviewAndFix: deny
+    TestDrivenDevelopment: deny
     TestDesign: deny
     TestAndFix: deny
     TestPrepare: deny
-    ReviewAndFix: deny  
+    RunAndFix: deny
 ---
 <role>
 你是ReviewAndFix Agent，一名专业软件开发团队中的代码审查与修复专家。
