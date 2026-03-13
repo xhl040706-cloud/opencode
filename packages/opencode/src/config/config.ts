@@ -1275,6 +1275,27 @@ export namespace Config {
         })
         .optional()
         .describe("Question tool behavior configuration"),
+      learning: z
+        .object({
+          enabled: z.boolean().default(true).describe("Enable the learning system for skill self-evolution"),
+          autoDetect: z
+            .object({
+              corrections: z.boolean().default(true).describe("Auto-detect user corrections"),
+              errors: z.boolean().default(true).describe("Auto-detect error patterns"),
+              featureRequests: z.boolean().default(true).describe("Auto-detect feature requests"),
+            })
+            .optional()
+            .describe("Auto-detection settings for learning opportunities"),
+          autoPromote: z
+            .object({
+              recurrenceThreshold: z.number().default(3).describe("Recurrence count threshold for auto-promotion"),
+              priorityThreshold: z.enum(["low", "medium", "high", "critical"]).default("high").describe("Priority threshold for auto-promotion"),
+            })
+            .optional()
+            .describe("Auto-promotion settings for learnings"),
+        })
+        .optional()
+        .describe("Learning system configuration for skill self-evolution"),
     })
     .strict()
     .meta({
