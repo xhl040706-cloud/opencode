@@ -545,7 +545,7 @@ export function isBuiltinSkill(name: string): boolean {
  */
 export async function extractBundledSkill(skillName: string, targetDir: string): Promise<void> {
   const { writeFile } = await import("fs/promises")
-  const { join } = await import("path")
+  const { join, dirname } = await import("path")
   const { mkdir } = await import("fs/promises")
 
   const skillFiles = BUNDLED_SKILLS[skillName]
@@ -559,7 +559,7 @@ export async function extractBundledSkill(skillName: string, targetDir: string):
   // Write all files
   for (const [relativePath, content] of Object.entries(skillFiles)) {
     const filePath = join(targetDir, relativePath)
-    const fileDir = join(targetDir, path.dirname(relativePath))
+    const fileDir = join(targetDir, dirname(relativePath))
     await mkdir(fileDir, { recursive: true })
     await writeFile(filePath, content, "utf-8")
   }
