@@ -165,83 +165,85 @@ if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
   await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
 }
-for (const item of targets) {
-  const name = [
-    pkg.name,
-    // changing to win32 flags npm for some reason
-    item.os === "win32" ? "windows" : item.os,
-    item.arch,
-    item.avx2 === false ? "baseline" : undefined,
-    item.abi === undefined ? undefined : item.abi,
-  ]
-    .filter(Boolean)
-    .join("-")
-  console.log(`building ${name}`)
-  await $`mkdir -p dist/${name}/bin`
+try {
+  for (const item of targets) {
+    const name = [
+      pkg.name,
+      // changing to win32 flags npm for some reason
+      item.os === "win32" ? "windows" : item.os,
+      item.arch,
+      item.avx2 === false ? "baseline" : undefined,
+      item.abi === undefined ? undefined : item.abi,
+    ]
+      .filter(Boolean)
+      .join("-")
+    console.log(`building ${name}`)
+    await $`mkdir -p dist/${name}/bin`
 
-  const parserWorker = fs.realpathSync(path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"))
-  const workerPath = "./src/cli/cmd/tui/worker.ts"
-  const callGraphWorkerPath = "./src/costrict/tool/call-graph/worker.ts"
-  const fileImportanceWorkerPath = "./src/costrict/tool/file-importance/worker.ts"
+    const parserWorker = fs.realpathSync(path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"))
+    const workerPath = "./src/cli/cmd/tui/worker.ts"
+    const callGraphWorkerPath = "./src/costrict/tool/call-graph/worker.ts"
+    const fileImportanceWorkerPath = "./src/costrict/tool/file-importance/worker.ts"
 
-  // Use platform-specific bunfs root path based on target OS
-  const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
-  const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
+    // Use platform-specific bunfs root path based on target OS
+    const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
+    const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
 
-  await Bun.build({
-    conditions: ["browser"],
-    tsconfig: "./tsconfig.json",
-    plugins: [solidPlugin],
-    sourcemap: "external",
-    compile: {
-      autoloadBunfig: false,
-      autoloadDotenv: false,
-      autoloadTsconfig: true,
-      autoloadPackageJson: true,
-      target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/cs`,
-      execArgv: [`--smol`, `--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
-      windows: {},
-    },
-    entrypoints: ["./src/index.ts", parserWorker, workerPath, callGraphWorkerPath, fileImportanceWorkerPath],
-    define: {
-      COSTRICT_VERSION: `'${Script.version}'`,
-      COSTRICT_COMMIT_HASH: `'${Script.commitHash}'`,
-      COSTRICT_BUILD_TIME: `'${Script.buildTime}'`,
-      OPENCODE_MIGRATIONS: JSON.stringify(migrations),
-      OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
-      COSTRICT_WORKER_PATH: workerPath,
-      COSTRICT_CALL_GRAPH_WORKER_PATH: callGraphWorkerPath,
-      COSTRICT_FILE_IMPORTANCE_WORKER_PATH: fileImportanceWorkerPath,
-      COSTRICT_CHANNEL: `'${Script.channel}'`,
-      COSTRICT_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
-    },
-  })
-
-  await $`rm -rf ./dist/${name}/bin/tui`
-  await Bun.file(`dist/${name}/package.json`).write(
-    JSON.stringify(
-      {
-        name,
-        version: Script.version,
-        os: [item.os],
-        cpu: [item.arch],
+    await Bun.build({
+      conditions: ["browser"],
+      tsconfig: "./tsconfig.json",
+      plugins: [solidPlugin],
+      sourcemap: "external",
+      compile: {
+        autoloadBunfig: false,
+        autoloadDotenv: false,
+        autoloadTsconfig: true,
+        autoloadPackageJson: true,
+        target: name.replace(pkg.name, "bun") as any,
+        outfile: `dist/${name}/bin/cs`,
+        execArgv: [`--smol`, `--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
+        windows: {},
       },
-      null,
-      2,
-    ),
-  )
-  const readmeSrc = path.join(rootDir, "README.md")
-  const readmeDest = path.join(dir, `dist/${name}/README.md`)
-  await $`cp ${readmeSrc} ${readmeDest}`
-  binaries[name] = Script.version
-}
+      entrypoints: ["./src/index.ts", parserWorker, workerPath, callGraphWorkerPath, fileImportanceWorkerPath],
+      define: {
+        COSTRICT_VERSION: `'${Script.version}'`,
+        COSTRICT_COMMIT_HASH: `'${Script.commitHash}'`,
+        COSTRICT_BUILD_TIME: `'${Script.buildTime}'`,
+        OPENCODE_MIGRATIONS: JSON.stringify(migrations),
+        OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
+        COSTRICT_WORKER_PATH: workerPath,
+        COSTRICT_CALL_GRAPH_WORKER_PATH: callGraphWorkerPath,
+        COSTRICT_FILE_IMPORTANCE_WORKER_PATH: fileImportanceWorkerPath,
+        COSTRICT_CHANNEL: `'${Script.channel}'`,
+        COSTRICT_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
+      },
+    })
 
-// Restore dev version and cleanup
-console.log("Restoring dev version and cleaning up...")
-await $`cp ${builtinBackupPath} ${builtinTsPath}`
-await $`rm -f ${builtinBackupPath}`
-await $`rm -f ${builtinEmbeddedPath}`
-console.log("✓ Cleanup completed")
+    await $`rm -rf ./dist/${name}/bin/tui`
+    await Bun.file(`dist/${name}/package.json`).write(
+      JSON.stringify(
+        {
+          name,
+          version: Script.version,
+          os: [item.os],
+          cpu: [item.arch],
+        },
+        null,
+        2,
+      ),
+    )
+    const readmeSrc = path.join(rootDir, "README.md")
+    const readmeDest = path.join(dir, `dist/${name}/README.md`)
+    await $`cp ${readmeSrc} ${readmeDest}`
+    binaries[name] = Script.version
+  }
+} finally {
+  // Restore dev version and cleanup (always run, even if build fails)
+  console.log("Restoring dev version and cleaning up...")
+  await $`cp ${builtinBackupPath} ${builtinTsPath}`
+  await $`rm -f ${builtinBackupPath}`
+  await $`rm -f ${builtinEmbeddedPath}`
+  console.log("✓ Cleanup completed")
+}
 
 export { binaries }

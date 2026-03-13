@@ -17,7 +17,7 @@
  */
 
 import path from "path"
-import { writeFile, readFile, rm, rename } from "fs/promises"
+import { writeFile, readFile, rm } from "fs/promises"
 import { Log } from "../../util/log"
 import { Filesystem } from "../../util/filesystem"
 import * as Builtin from "./builtin"
@@ -26,9 +26,10 @@ const log = Log.create({ service: "costrict-skill" })
 
 /**
  * Get the cache directory for skills.
+ * Skills are stored in ~/.config/costrict/skills/<name>/
  */
 function getSkillCacheDir(): string {
-  return path.join(process.env.HOME ?? process.env.USERPROFILE ?? "", ".cache", "costrict", "skills")
+  return path.join(process.env.HOME ?? process.env.USERPROFILE ?? "", ".config", "costrict", "skills")
 }
 
 /**
@@ -120,50 +121,18 @@ export async function initializeBuiltinSkills(): Promise<void> {
         version: builtinVersion?.slice(0, 7) ?? "unknown",
       })
 
-      // Full replacement: delete entire skill directory first
-      // Use retry logic for Windows file locking issues
-      let retryCount = 0
-      const maxRetries = 3
+      // Try to delete the directory first for clean replacement
+      // If deletion fails (due to file locks), we'll try to copy over it
       let deleted = false
-      let shouldSkip = false
-
-      while (retryCount < maxRetries && !deleted && !shouldSkip) {
-        try {
-          await rm(skillDir, { recursive: true, force: true })
-          deleted = true
-        } catch (err: any) {
-          retryCount++
-          if (retryCount >= maxRetries) {
-            log.warn("failed to delete skill directory, moving to temp and scheduling deletion", {
-              name,
-              error: err.message,
-            })
-            // Move to temp directory with timestamp for later cleanup
-            const tempDir = path.join(cacheDir, `.${name}-old-${Date.now()}`)
-            try {
-              await rename(skillDir, tempDir)
-              // Try to delete the temp directory asynchronously
-              rm(tempDir, { recursive: true, force: true }).catch(() => {
-                // Ignore deletion errors, will be cleaned up later
-              })
-            } catch (renameErr) {
-              log.warn("failed to move old skill directory, skipping update", {
-                name,
-                error: (renameErr as Error).message,
-              })
-              // Skip this skill update
-              shouldSkip = true
-            }
-          } else {
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 100 * retryCount))
-          }
-        }
-      }
-
-      // Skip to next skill if this one failed to delete
-      if (shouldSkip || !deleted) {
-        continue
+      try {
+        await rm(skillDir, { recursive: true, force: true })
+        deleted = true
+      } catch (err: any) {
+        log.warn("failed to delete skill directory, will attempt to copy over existing files", {
+          name,
+          error: err.message,
+        })
+        // Continue with copy operation - cp will overwrite existing files
       }
     } else {
       log.info("initializing builtin skill", { name })
