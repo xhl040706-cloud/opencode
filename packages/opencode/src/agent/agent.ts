@@ -85,6 +85,9 @@ export namespace Agent {
           PermissionNext.fromConfig({
             question: "allow",
             plan_enter: "allow",
+            "sequential-thinking": "deny",
+            "file-outline": "deny",
+            "checkpoint": "deny",
             task:{
               ReviewAndFix: "deny",
               TestDrivenDevelopment:"deny",
