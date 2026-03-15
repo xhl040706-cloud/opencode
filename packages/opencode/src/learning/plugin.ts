@@ -1,6 +1,5 @@
-import type { Plugin, Hooks } from "@opencode-ai/plugin"
+import type { Plugin, Hooks, PluginInput } from "@opencode-ai/plugin"
 import { Log } from "@/util/log"
-import { LearningDetector } from "./detector"
 import { LearningPromoter } from "./promoter"
 import { ConversationHooks, SessionEndHooks } from "./hooks"
 
@@ -10,9 +9,10 @@ const log = Log.create({ service: "learning.plugin" })
  * Learning system plugin
  * Integrates with the plugin system to enable learning detection
  */
-export const LearningPlugin: Plugin = (input) => {
+export const LearningPlugin: Plugin = async (input: PluginInput): Promise<Hooks> => {
   log.info("initializing learning plugin", { directory: input.directory })
 
+  // Subscribe to bus events via hooks
   const hooks: Hooks = {}
 
   // Register conversation hooks
@@ -22,9 +22,6 @@ export const LearningPlugin: Plugin = (input) => {
   // Register session end hooks
   const sessionEndHooks = SessionEndHooks.register()
   Object.assign(hooks, sessionEndHooks)
-
-  // Subscribe detector to bus events
-  const unsubDetector = LearningDetector.subscribe()
 
   // Run periodic check on init
   LearningPromoter.runPeriodicCheck("project").catch((err) => {
@@ -37,9 +34,6 @@ export const LearningPlugin: Plugin = (input) => {
     async dispose() {
       // Run final promotion check
       await LearningPromoter.runPeriodicCheck("project")
-
-      // Unsubscribe detector
-      unsubDetector()
 
       log.info("learning plugin disposed")
     },

@@ -13,7 +13,7 @@ import {
   CandidateSourceType,
   generateCandidateId,
 } from "./types"
-import { Provider } from "@/provider"
+import { Provider } from "@/provider/provider"
 
 const log = Log.create({ service: "learning.generator" })
 

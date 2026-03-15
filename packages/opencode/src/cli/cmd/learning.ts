@@ -6,7 +6,7 @@ import { LearningPromoter } from "@/learning/promoter"
 import { bootstrap } from "../bootstrap"
 import { UI } from "../ui"
 import { EOL } from "os"
-import Table from "cli-table3"
+import { Locale } from "@/util/locale"
 
 export const LearningCommand = cmd({
   command: "learning",
@@ -68,27 +68,33 @@ export const LearningListCommand = cmd({
         return
       }
 
-      const table = new Table({
-        head: ["ID", "Category", "Priority", "Status", "Summary"],
-        colWidths: [18, 12, 10, 12, 50],
-        wordWrap: true,
-      })
-
-      for (const learning of learnings) {
-        table.push([
-          learning.id,
-          learning.category,
-          learning.priority,
-          learning.status,
-          learning.summary.slice(0, 50) + (learning.summary.length > 50 ? "..." : ""),
-        ])
-      }
-
-      console.log(table.toString())
+      console.log(formatLearningsTable(learnings))
       UI.println(`${EOL}Total: ${learnings.length} learning(s)`)
     })
   },
 })
+
+function formatLearningsTable(learnings: { id: string; category: string; priority: string; status: string; summary: string }[]): string {
+  const lines: string[] = []
+
+  const maxIdWidth = Math.max(18, ...learnings.map((l) => l.id.length))
+  const maxCategoryWidth = Math.max(10, ...learnings.map((l) => l.category.length))
+  const maxPriorityWidth = Math.max(8, ...learnings.map((l) => l.priority.length))
+  const maxStatusWidth = Math.max(10, ...learnings.map((l) => l.status.length))
+  const summaryWidth = 40
+
+  const header = `ID${" ".repeat(maxIdWidth - 2)}  Category${" ".repeat(maxCategoryWidth - 8)}  Priority${" ".repeat(maxPriorityWidth - 8)}  Status${" ".repeat(maxStatusWidth - 6)}  Summary`
+  lines.push(header)
+  lines.push("─".repeat(header.length))
+
+  for (const learning of learnings) {
+    const truncatedSummary = Locale.truncate(learning.summary, summaryWidth)
+    const line = `${learning.id.padEnd(maxIdWidth)}  ${learning.category.padEnd(maxCategoryWidth)}  ${learning.priority.padEnd(maxPriorityWidth)}  ${learning.status.padEnd(maxStatusWidth)}  ${truncatedSummary}`
+    lines.push(line)
+  }
+
+  return lines.join(EOL)
+}
 
 export const LearningShowCommand = cmd({
   command: "show <id>",
@@ -203,27 +209,33 @@ export const SkillCandidatesCommand = cmd({
         return
       }
 
-      const table = new Table({
-        head: ["ID", "Name", "Status", "Confidence", "Source", "Created"],
-        colWidths: [36, 25, 10, 12, 15, 12],
-      })
-
-      for (const candidate of candidates) {
-        table.push([
-          candidate.id,
-          candidate.name,
-          candidate.status,
-          `${(candidate.confidence * 100).toFixed(0)}%`,
-          candidate.sourceType,
-          new Date(candidate.createdAt).toLocaleDateString(),
-        ])
-      }
-
-      console.log(table.toString())
+      console.log(formatCandidatesTable(candidates))
       UI.println(`${EOL}Total: ${candidates.length} candidate(s)`)
     })
   },
 })
+
+function formatCandidatesTable(candidates: { id: string; name: string; status: string; confidence: number; sourceType: string; createdAt: string }[]): string {
+  const lines: string[] = []
+
+  const maxIdWidth = Math.max(36, ...candidates.map((c) => c.id.length))
+  const maxNameWidth = Math.max(15, ...candidates.map((c) => c.name.length))
+  const maxStatusWidth = Math.max(8, ...candidates.map((c) => c.status.length))
+  const maxSourceWidth = Math.max(10, ...candidates.map((c) => c.sourceType.length))
+
+  const header = `ID${" ".repeat(maxIdWidth - 2)}  Name${" ".repeat(maxNameWidth - 4)}  Status${" ".repeat(maxStatusWidth - 6)}  Confidence  Source${" ".repeat(maxSourceWidth - 6)}  Created`
+  lines.push(header)
+  lines.push("─".repeat(header.length))
+
+  for (const candidate of candidates) {
+    const confidence = `${(candidate.confidence * 100).toFixed(0)}%`
+    const date = new Date(candidate.createdAt).toLocaleDateString()
+    const line = `${candidate.id.padEnd(maxIdWidth)}  ${candidate.name.padEnd(maxNameWidth)}  ${candidate.status.padEnd(maxStatusWidth)}  ${confidence.padStart(10)}  ${candidate.sourceType.padEnd(maxSourceWidth)}  ${date}`
+    lines.push(line)
+  }
+
+  return lines.join(EOL)
+}
 
 export const SkillApproveCommand = cmd({
   command: "approve <id>",
