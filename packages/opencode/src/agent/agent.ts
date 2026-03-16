@@ -85,6 +85,9 @@ export namespace Agent {
           PermissionNext.fromConfig({
             question: "allow",
             plan_enter: "allow",
+            "sequential-thinking": "deny",
+            "file-outline": "deny",
+            "checkpoint": "deny",
             task:{
               ReviewAndFix: "deny",
               TestDrivenDevelopment:"deny",
@@ -92,6 +95,16 @@ export namespace Agent {
               QuickExplore: "deny",
               SubCodingAgent: "deny",
               TaskCheck: "deny",
+              PlanManager: "deny",
+              WikiProjectAnalyze: "deny",
+              WikiCatalogueDesign: "deny",
+              WikiDocumentGenerate: "deny",
+              WikiIndexGeneration: "deny",
+              SpecPlan: "deny",
+              DesignAgent: "deny",
+              Requirement: "deny",
+              SpecReSearch: "deny",
+              TaskPlan: "deny",
             }
           }),
           user,
