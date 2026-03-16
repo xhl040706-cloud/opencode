@@ -61,6 +61,7 @@ export namespace Flag {
   // export const COSTRICT_SERVER_PASSWORD = process.env["COSTRICT_SERVER_PASSWORD"]
   export const COSTRICT_SERVER_USERNAME = process.env["COSTRICT_SERVER_USERNAME"]
   export const COSTRICT_BASE_URL = process.env["COSTRICT_BASE_URL"]
+  export const COSTRICT_CLOUD_BASE_URL = process.env["COSTRICT_CLOUD_BASE_URL"]
   export const COSTRICT_APP_URL = process.env["COSTRICT_APP_URL"]
 
   export async function getAppUrlWithVersion() {
