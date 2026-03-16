@@ -114,8 +114,13 @@ const defaultUrl = iife(() => {
   const lsDefault = readDefaultServerUrl()
   if (lsDefault) return lsDefault
   if (location.hostname.includes("opencode.ai")) return "http://localhost:4096"
-  if (import.meta.env.DEV)
-    return `http://${import.meta.env.VITE_OPENCODE_SERVER_HOST ?? "localhost"}:${import.meta.env.VITE_OPENCODE_SERVER_PORT ?? "4096"}`
+  if (import.meta.env.DEV) {
+    const host = import.meta.env.VITE_OPENCODE_SERVER_HOST ?? "localhost"
+    const port = import.meta.env.VITE_OPENCODE_SERVER_PORT ?? "4096"
+    const deviceId = import.meta.env.VITE_OPENCODE_CLOUD_DEVICE_ID
+    if (deviceId) return `${location.origin}/cloud/device/${deviceId}/proxy`
+    return `http://${host}:${port}`
+  }
   return location.origin
 })
 
