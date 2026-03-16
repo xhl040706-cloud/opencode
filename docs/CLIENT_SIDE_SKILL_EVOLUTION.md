@@ -1021,22 +1021,11 @@ cs learning show <id>         # 查看学习详情
 cs learning resolve <id>      # 标记为已解决
 cs learning promote <id>      # 晋升到 MEMORY.md
 
-# 错误管理
-cs error list                 # 列出所有错误
-cs error show <id>            # 查看错误详情
-cs error resolve <id>         # 标记为已解决
-
-# 功能需求管理
-cs feature list               # 列出功能需求
-cs feature show <id>          # 查看需求详情
-cs feature implement <id>     # 从需求生成 Skill（自动调用 LLM）
-
 # Skill 候选管理
-cs skill candidates           # 列出候选 skills
-cs skill show <candidate-id>  # 查看候选详情
-cs skill approve <id>         # 批准候选（转为正式 skill）
-cs skill reject <id>          # 拒绝候选
-cs skill push <id>            # 推送到服务端（可选）
+cs learning candidates        # 列出候选 skills
+cs learning approve <id>      # 批准候选（转为正式 skill）
+cs learning reject <id>       # 拒绝候选
+cs learning generate <id>     # 从学习条目生成 Skill 候选
 
 # 快捷命令（对话中使用）
 /skill-capture                      # 从当前对话提取学习
@@ -1045,6 +1034,8 @@ cs skill push <id>            # 推送到服务端（可选）
 /feature-request                    # 记录功能需求
 /learning-review                    # 审查待处理学习
 ```
+
+> **Note**: 错误管理和功能需求管理在学习条目中统一存储，通过 `cs learning list` 查看。
 
 ---
 
