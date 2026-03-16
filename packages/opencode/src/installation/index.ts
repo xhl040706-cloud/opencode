@@ -214,7 +214,7 @@ export namespace Installation {
     await $`${process.execPath} --version`.nothrow().quiet().text()
   }
 
-  export const VERSION = typeof COSTRICT_VERSION === "string" ? COSTRICT_VERSION : "1.0.0"
+  export const VERSION = typeof COSTRICT_VERSION === "string" ? COSTRICT_VERSION : "100.0.0"
   export const CHANNEL = typeof COSTRICT_CHANNEL === "string" ? COSTRICT_CHANNEL : "1.0.0"
   export const COMMIT_HASH = typeof COSTRICT_COMMIT_HASH === "string" ? COSTRICT_COMMIT_HASH : "unknown"
   export const BUILD_TIME = typeof COSTRICT_BUILD_TIME === "string" ? COSTRICT_BUILD_TIME : "unknown"
