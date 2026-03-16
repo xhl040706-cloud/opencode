@@ -148,8 +148,8 @@ console.log("Generating builtin agents...")
 await $`bun run script/generate-agents.ts`
 
 // Generate builtin skills file before building (embedded version)
-console.log("Generating builtin skills...")
-await $`bun run script/generate-skills.ts`
+// console.log("Generating builtin skills...")
+// await $`bun run script/generate-skills.ts`
 
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
