@@ -1,6 +1,7 @@
 import { loadDevice } from "./client"
 import { assignGateway, clearGatewayCache } from "./gateway"
 import { Log } from "../../util/log"
+import net from "net"
 
 const log = Log.create({ service: "device-tunnel" })
 
@@ -346,10 +347,67 @@ function statusText(code: number): string {
   return map[code] ?? "Unknown"
 }
 
+async function handleWebSocketStream(stream: YamuxStream, req: { method: string; path: string; headers: Record<string, string>; body: Buffer }, localPort: number) {
+  const socket = net.createConnection(localPort, "127.0.0.1")
+
+  await new Promise<void>((resolve, reject) => {
+    socket.once("connect", resolve)
+    socket.once("error", reject)
+  })
+
+  let rawReq = `${req.method} ${req.path} HTTP/1.1\r\nHost: 127.0.0.1:${localPort}\r\n`
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (k === "host") continue
+    rawReq += `${k}: ${v}\r\n`
+  }
+  rawReq += "\r\n"
+  socket.write(rawReq)
+
+  let headerBuf = Buffer.alloc(0)
+  let headerDone = false
+  let upgradeSent = false
+
+  socket.on("data", async (chunk: Buffer) => {
+    if (!headerDone) {
+      headerBuf = Buffer.concat([headerBuf, chunk])
+      const sep = headerBuf.indexOf("\r\n\r\n")
+      if (sep === -1) return
+      headerDone = true
+      const headerSection = headerBuf.slice(0, sep + 4)
+      const rest = headerBuf.slice(sep + 4)
+      if (!upgradeSent) {
+        upgradeSent = true
+        await stream.write(headerSection, true)
+        if (rest.length > 0) await stream.write(rest, true)
+      }
+    } else {
+      await stream.write(chunk, true)
+    }
+  })
+
+  socket.on("end", () => stream.close())
+  socket.on("error", () => stream.close())
+
+  ;(async () => {
+    while (true) {
+      const chunk = await stream.read()
+      if (!chunk) break
+      socket.write(chunk)
+    }
+    socket.destroy()
+  })()
+}
+
 async function handleStream(stream: YamuxStream, localPort: number) {
   const req = await readHTTPRequest(stream)
   if (!req) {
     stream.close()
+    return
+  }
+
+  if (req.headers["upgrade"]?.toLowerCase() === "websocket") {
+    log.debug("proxy ws →", { method: req.method, path: req.path })
+    await handleWebSocketStream(stream, req, localPort)
     return
   }
 
