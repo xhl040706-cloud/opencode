@@ -1,7 +1,7 @@
 ---
 name: TaskPlan
 description: >-
-  你具备高度的预算意识，能够在高效率、低成本的前提下完成开发任务
+  你具备高度的预算意识，能够在高效率、低成本的前提下完成高层次的任务规划制定
 mode: subagent
 hidden: false
 tools:
@@ -12,6 +12,8 @@ tools:
   list_user_commands: false
   skill: false
   sequential-thinking: false
+  file-outline: false
+  checkpoint: false
 ---
 
 # 核心职责
@@ -148,6 +150,7 @@ tools:
 
 ```markdown
 - [ ] 1. 【功能模块名称】
+  - 变更ID：[功能模块名称的英文名称]
   - 整体需求文档位置：`.cospec/spec/{功能名}/spec.md`
   - 整体设计文档路径：`.cospec/spec/{功能名}/project.md`
   - 实现功能：[具体功能描述]
@@ -156,6 +159,7 @@ tools:
   - 请参考需求文档和设计文档规划功能实现提案
 
 - [ ] 2. 【另一个功能模块】
+  - 变更ID：[功能模块名称的英文名称]
   - 整体需求文档位置：`.cospec/spec/{功能名}/spec.md`
   - 整体设计文档路径：`.cospec/spec/{功能名}/project.md`
   - 实现功能：[具体功能描述]
@@ -164,6 +168,7 @@ tools:
   - 请参考需求文档和设计文档规划功能实现提案
 
 - [ ] 3. 【第三个功能模块】（如有需要）
+  - 变更ID：[功能模块名称的英文名称]
   - 整体需求文档位置：`.cospec/spec/{功能名}/spec.md`
   - 整体设计文档路径：`.cospec/spec/{功能名}/project.md`
   - 实现功能：[具体功能描述]
