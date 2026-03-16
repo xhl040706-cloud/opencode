@@ -33,6 +33,7 @@ EOF
 
 requested_version=${VERSION:-}
 binary_path=""
+ENV_UPDATED=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -103,7 +104,7 @@ if [ "$os" = "darwin" ] && [ "$arch" = "x64" ]; then
   fi
 fi
 
-target="opencode-$os-$arch"
+target="costrict-cs-$os-$arch"
 
 if [ "$os" = "linux" ] && [ "$arch" = "x64" ]; then
   if ! grep -qi avx2 /proc/cpuinfo 2>/dev/null; then
@@ -195,12 +196,12 @@ add_to_path() {
     local config_file=$1
     local command=$2
     local base_url_export=${3:-}
-    
+
     if grep -Fxq "$command" "$config_file" 2>/dev/null; then
         echo -e "${MUTED}PATH already configured in $config_file${NC}"
         return
     fi
-    
+
     if [[ -w $config_file ]]; then
         echo -e "\n# costrict" >> "$config_file"
         echo "$command" >> "$config_file"
@@ -208,7 +209,7 @@ add_to_path() {
             echo "$base_url_export" >> "$config_file"
         fi
         echo -e "${GREEN}✓ Added cs to PATH in ${NC}$config_file"
-        echo -e "${MUTED}Please restart your shell or run: ${NC}source $config_file"
+        ENV_UPDATED=1
     else
         echo -e "${MUTED}Manually add to $config_file:${NC}"
         echo "  $command"
@@ -270,10 +271,16 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  CoStrict CLI Installation Complete${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
+
+if [[ "$ENV_UPDATED" == "1" ]]; then
+    echo -e "${RED}[!] IMPORTANT: Please restart your shell for PATH changes to take effect${NC}"
+    echo ""
+fi
+
 echo -e "${MUTED}To start:${NC}"
 echo ""
 echo -e "cd <project>  ${MUTED}# Open directory${NC}"
-    echo -e "cs      ${MUTED}# Run command${NC}"
+echo -e "cs      ${MUTED}# Run command${NC}"
 echo ""
-echo -e "${MUTED}For more information visit ${NC}https://costrict.ai/docs"
+echo -e "${MUTED}For more information visit ${NC}https://docs.costrict.ai"
 echo ""

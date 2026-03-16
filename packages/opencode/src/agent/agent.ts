@@ -41,6 +41,7 @@ export namespace Agent {
         .optional(),
       variant: z.string().optional(),
       prompt: z.string().optional(),
+      model_prompts: z.record(z.string(), z.string()).optional(),
       options: z.record(z.string(), z.any()),
       steps: z.number().int().positive().optional(),
     })
@@ -84,6 +85,9 @@ export namespace Agent {
           PermissionNext.fromConfig({
             question: "allow",
             plan_enter: "allow",
+            "sequential-thinking": "deny",
+            "file-outline": "deny",
+            "checkpoint": "deny",
             task:{
               ReviewAndFix: "deny",
               TestDrivenDevelopment:"deny",
@@ -91,6 +95,16 @@ export namespace Agent {
               QuickExplore: "deny",
               SubCodingAgent: "deny",
               TaskCheck: "deny",
+              PlanManager: "deny",
+              WikiProjectAnalyze: "deny",
+              WikiCatalogueDesign: "deny",
+              WikiDocumentGenerate: "deny",
+              WikiIndexGeneration: "deny",
+              SpecPlan: "deny",
+              DesignAgent: "deny",
+              Requirement: "deny",
+              SpecReSearch: "deny",
+              TaskPlan: "deny",
             }
           }),
           user,

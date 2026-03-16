@@ -309,7 +309,10 @@ export namespace SessionProcessor {
                     sessionID: input.sessionID,
                     messageID: input.assistantMessage.parentID,
                   })
-                  if (await SessionCompaction.isOverflow({ tokens: usage.tokens, model: input.model })) {
+                  if (
+                    !input.assistantMessage.summary &&
+                    (await SessionCompaction.isOverflow({ tokens: usage.tokens, model: input.model }))
+                  ) {
                     needsCompaction = true
                   }
 
@@ -405,7 +408,11 @@ export namespace SessionProcessor {
 
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
             if (MessageV2.ContextOverflowError.isInstance(error)) {
-              // TODO: Handle context overflow error
+              needsCompaction = true
+              Bus.publish(Session.Event.Error, {
+                sessionID: input.sessionID,
+                error,
+              })
             }
             const retry = SessionRetry.retryable(error, { providerID: input.model.providerID })
             if (retry !== undefined) {

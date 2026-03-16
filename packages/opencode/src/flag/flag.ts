@@ -12,6 +12,11 @@ function number(key: string) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
 }
 
+function falsy(key: string) {
+  const value = process.env[key]?.toLowerCase()
+  return value === "false" || value === "0"
+}
+
 export namespace Flag {
   // COSTRICT flags
   export const COSTRICT_ENABLE_OPENCODE_CONFIG =
@@ -29,8 +34,9 @@ export namespace Flag {
   export const OPENCODE_AUTO_SHARE = truthy("COSTRICT_AUTO_SHARE")
   export const OPENCODE_GIT_BASH_PATH = process.env["COSTRICT_GIT_BASH_PATH"]
   export const OPENCODE_CONFIG = process.env["OPENCODE_CONFIG"]
-  export const OPENCODE_CONFIG_CONTENT = process.env["OPENCODE_CONFIG_CONTENT"]
+  export declare const OPENCODE_TUI_CONFIG: string | undefined
   export declare const OPENCODE_CONFIG_DIR: string | undefined
+  export const OPENCODE_CONFIG_CONTENT = process.env["OPENCODE_CONFIG_CONTENT"]
   export declare const OPENCODE_DISABLE_PROJECT_CONFIG: boolean
 
   export const COSTRICT_DISABLE_AUTOUPDATE = truthy("COSTRICT_DISABLE_AUTOUPDATE")
@@ -146,6 +152,17 @@ Object.defineProperty(Flag, "COSTRICT_DISABLE_PROJECT_CONFIG", {
 Object.defineProperty(Flag, "COSTRICT_CONFIG_DIR", {
   get() {
     return process.env["COSTRICT_CONFIG_DIR"]
+  },
+  enumerable: true,
+  configurable: false,
+})
+
+// Dynamic getter for OPENCODE_TUI_CONFIG
+// This must be evaluated at access time, not module load time,
+// because tests and external tooling may set this env var at runtime
+Object.defineProperty(Flag, "OPENCODE_TUI_CONFIG", {
+  get() {
+    return process.env["OPENCODE_TUI_CONFIG"]
   },
   enumerable: true,
   configurable: false,

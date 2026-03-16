@@ -7,6 +7,9 @@ import { fileURLToPath } from "url"
 const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
 
+if (!process.argv.includes("--all")) {
+  process.argv.push("--all")
+}
 const { binaries } = await import("./build.ts")
 {
   const name = `${pkg.name}-${process.platform}-${process.arch}`
@@ -40,15 +43,29 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
   ),
 )
 
-const tasks = Object.entries(binaries).map(async ([name]) => {
+const tasks = Object.entries(binaries).map(async ([name, version]) => {
   if (process.platform !== "win32") {
     await $`chmod -R 755 .`.cwd(`./dist/${name}`)
   }
+  const pkgPath = `./dist/${name}/package.json`
+  const pkg = JSON.parse(await Bun.file(pkgPath).text())
+  const originalVersion = pkg.version
+  pkg.version = version.replace(/\//g, "-")
+  await Bun.file(pkgPath).write(JSON.stringify(pkg, null, 2))
   await $`bun pm pack`.cwd(`./dist/${name}`)
+  pkg.version = originalVersion
+  await Bun.file(pkgPath).write(JSON.stringify(pkg, null, 2))
   await $`npm publish *.tgz --access public --tag ${Script.channel}`.cwd(`./dist/${name}`)
 })
 await Promise.all(tasks)
+const mainPkgPath = `./dist/${pkg.name}/package.json`
+const mainPkg = JSON.parse(await Bun.file(mainPkgPath).text())
+const originalMainVersion = mainPkg.version
+mainPkg.version = version.replace(/\//g, "-")
+await Bun.file(mainPkgPath).write(JSON.stringify(mainPkg, null, 2))
 await $`cd ./dist/${pkg.name} && bun pm pack && npm publish *.tgz --access public --tag ${Script.channel}`
+mainPkg.version = originalMainVersion
+await Bun.file(mainPkgPath).write(JSON.stringify(mainPkg, null, 2))
 
 const image = "ghcr.io/anomalyco/opencode"
 const platforms = "linux/amd64,linux/arm64"

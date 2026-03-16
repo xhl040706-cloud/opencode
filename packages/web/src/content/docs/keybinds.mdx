@@ -5,7 +5,7 @@ description: Customize your keybinds.
 
 CoStrict has a list of keybinds that you can customize through the CoStrict config.
 
-```json title="opencode.json"
+```json title="tui.json"
 {
   "$schema": "https://costrict.ai/config.json",
   "keybinds": {
@@ -117,11 +117,15 @@ You don't need to use a leader key for your keybinds but we recommend doing so.
 
 ## Disable keybind
 
-You can disable a keybind by adding the key to your config with a value of "none".
+You can disable a keybind by adding the key to `tui.json` with a value of "none".
 
-```json title="opencode.json"
+```json title="tui.json"
 {
+<<<<<<< HEAD
   "$schema": "https://costrict.ai/config.json",
+=======
+  "$schema": "https://opencode.ai/tui.json",
+>>>>>>> v1.2.20
   "keybinds": {
     "session_compact": "none"
   }

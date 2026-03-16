@@ -64,23 +64,14 @@ const BUILD_TIME = new Date().toLocaleString("zh-CN", {
   hour12: false,
 })
 
+const bot = ["actions-user", "opencode", "opencode-agent[bot]"]
+const teamPath = path.resolve(import.meta.dir, "../../../.github/TEAM_MEMBERS")
 const team = [
-  "actions-user",
-  "opencode",
-  "rekram1-node",
-  "thdxr",
-  "kommander",
-  "jayair",
-  "fwang",
-  "MrMushrooooom",
-  "adamdotdevin",
-  "iamdavidhill",
-  "Brendonovich",
-  "nexxeln",
-  "Hona",
-  "jlongster",
-  "opencode-agent[bot]",
-  "R44VC0RP",
+  ...(await Bun.file(teamPath)
+    .text()
+    .then((x) => x.split(/\r?\n/).map((x) => x.trim()))
+    .then((x) => x.filter((x) => x && !x.startsWith("#")))),
+  ...bot,
 ]
 
 export const Script = {

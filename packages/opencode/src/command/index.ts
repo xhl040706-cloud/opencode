@@ -3,11 +3,11 @@ import z from "zod"
 import { Config } from "../config/config"
 import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
-import PROMPT_INITIALIZE from "../costrict/command/template/enhanced-initialize.txt" // costrict change
+import { CostrictCommand } from "../costrict/command"
 import PROMPT_REVIEW from "./template/review.txt"
-import PROMPT_PROJECT_WIKI from "../costrict/command/template/project-wiki.txt" // project-wiki command
 import { MCP } from "../mcp"
 import { getCommands } from "../plugin/tdd"
+import { Skill } from "../skill/skill"
 
 export namespace Command {
   export const Event = {
@@ -29,6 +29,7 @@ export namespace Command {
       agent: z.string().optional(),
       model: z.string().optional(),
       mcp: z.boolean().optional(),
+      skill: z.boolean().optional(),
       // workaround for zod not supporting async functions natively so we use getters
       // https://zod.dev/v4/changelog?id=zfunction
       template: z.promise(z.string()).or(z.string()),
@@ -58,10 +59,12 @@ export namespace Command {
     REVIEW: "review",
     TEST: "test",
     PROJECT_WIKI: "project-wiki",
+    SECURITY_REVIEW: "security-review",
   } as const
 
   const state = Instance.state(async () => {
     const cfg = await Config.get()
+    const lang = cfg.promptLanguage
 
     const result: Record<string, Info> = {
       [Default.INIT]: {
@@ -69,9 +72,9 @@ export namespace Command {
         description: "create/update AGENTS.md",
         source: "command",
         get template() {
-          return PROMPT_INITIALIZE.replace("${path}", Instance.worktree)
+          return CostrictCommand.get("enhanced-initialize", lang).replace("${path}", Instance.worktree)
         },
-        hints: hints(PROMPT_INITIALIZE),
+        hints: hints(CostrictCommand.get("enhanced-initialize", lang)),
       },
       [Default.REVIEW]: {
         name: Default.REVIEW,
@@ -87,9 +90,17 @@ export namespace Command {
         name: Default.PROJECT_WIKI,
         description: "generate comprehensive project wiki documentation",
         get template() {
-          return PROMPT_PROJECT_WIKI.replace(/\$\{path\}/g, Instance.worktree)
+          return CostrictCommand.get("project-wiki", lang).replace(/\$\{path\}/g, Instance.worktree)
         },
-        hints: hints(PROMPT_PROJECT_WIKI),
+        hints: hints(CostrictCommand.get("project-wiki", lang)),
+      },
+      [Default.SECURITY_REVIEW]: {
+        name: Default.SECURITY_REVIEW,
+        description: "perform code security audit",
+        get template() {
+          return CostrictCommand.get("security-review", lang)
+        },
+        hints: hints(CostrictCommand.get("security-review", lang)),
       },
     }
 
@@ -136,6 +147,21 @@ export namespace Command {
           })
         },
         hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
+      }
+    }
+
+    // Register builtin skills as commands
+    const allSkills = await Skill.all()
+    for (const skill of allSkills) {
+      // Only register builtin skills (stored in ~/.config/costrict/skills/)
+      if (skill.location.includes(".config/costrict/skills")) {
+        result[skill.name] = {
+          name: skill.name,
+          description: skill.description,
+          skill: true,
+          template: `Please use the skill tool to load the "${skill.name}" skill for this task.`,
+          hints: [],
+        }
       }
     }
 

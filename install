@@ -181,8 +181,8 @@ else
     fi
 
     if [ -z "$requested_version" ]; then
-        url="https://github.com/zgsm-ai/costrict-cli/releases/latest/download/$filename"
-        specific_version=$(curl -s https://api.github.com/repos/zgsm-ai/costrict-cli/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
+        url="https://github.com/zgsm-ai/opencode/releases/latest/download/$filename"
+        specific_version=$(curl -s https://api.github.com/repos/zgsm-ai/opencode/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
 
         if [[ $? -ne 0 || -z "$specific_version" ]]; then
             echo -e "${RED}Failed to fetch version information${NC}"
