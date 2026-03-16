@@ -943,6 +943,8 @@ export namespace ProviderTransform {
 
         const result: any = {}
         for (const [key, value] of Object.entries(obj)) {
+          // gemini doesn't support "ref" key
+          if (key === "ref") continue
           if (key === "enum" && Array.isArray(value)) {
             // Convert all enum values to strings
             result[key] = value.map((v) => String(v))
