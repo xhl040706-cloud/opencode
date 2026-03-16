@@ -76,10 +76,6 @@ export namespace LearningPromoter {
         throw new Error(`Learning not found: ${learningId}`)
       }
 
-      if (learning.status !== "resolved") {
-        throw new Error(`Learning must be resolved before promotion. Current status: ${learning.status}`)
-      }
-
       // Get or create MEMORY.md
       const memoryDir = LearningStorage.getMemoryDir(scope)
       const memoryPath = path.join(memoryDir, "MEMORY.md")

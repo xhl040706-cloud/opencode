@@ -16,7 +16,6 @@ export const LearningCommand = cmd({
     yargs
       .command(LearningListCommand)
       .command(LearningShowCommand)
-      .command(LearningResolveCommand)
       .command(LearningPromoteCommand)
       .command(SkillCandidatesCommand)
       .command(SkillApproveCommand)
@@ -118,28 +117,6 @@ export const LearningShowCommand = cmd({
       }
 
       console.log(JSON.stringify(learning, null, 2))
-    })
-  },
-})
-
-export const LearningResolveCommand = cmd({
-  command: "resolve <id>",
-  describe: "mark a learning as resolved",
-  builder: (yargs: Argv) =>
-    yargs
-      .positional("id", {
-        describe: "learning entry ID",
-        type: "string",
-        demandOption: true,
-      })
-      .option("solution", {
-        describe: "solution description",
-        type: "string",
-      }),
-  handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      await LearningPromoter.resolveLearning(args.id, args.solution)
-      UI.println(UI.Style.TEXT_SUCCESS_BOLD + `Learning ${args.id} resolved` + UI.Style.TEXT_NORMAL)
     })
   },
 })
@@ -302,9 +279,14 @@ export const SkillGenerateCommand = cmd({
         process.exit(1)
       }
 
+      UI.println(`Generating skill from learning: ${learning.id}`)
+      UI.println(`Category: ${learning.category}`)
+      UI.println(`Summary: ${Locale.truncate(learning.summary, 60)}`)
+      UI.println(`${EOL}Analyzing learning content and generating skill...`)
+
       const candidate = await SkillGenerator.generateFromLearning(learning)
       if (candidate) {
-        UI.println(UI.Style.TEXT_SUCCESS_BOLD + `Skill candidate created: ${candidate.id}` + UI.Style.TEXT_NORMAL)
+        UI.println(UI.Style.TEXT_SUCCESS_BOLD + `${EOL}Skill candidate created: ${candidate.id}` + UI.Style.TEXT_NORMAL)
         UI.println(`Name: ${candidate.name}`)
         UI.println(`Description: ${candidate.description}`)
         UI.println(`Confidence: ${(candidate.confidence * 100).toFixed(0)}%`)

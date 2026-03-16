@@ -103,7 +103,7 @@ export const LearningEntry = z.object({
   category: LearningCategory,
   logged: z.string().datetime(),
   priority: z.enum(["low", "medium", "high", "critical"]),
-  status: z.enum(["pending", "in_progress", "resolved", "promoted", "skill_created"]),
+  status: z.enum(["pending", "in_progress", "promoted", "skill_created"]),
   area: z.enum(["frontend", "backend", "infra", "tests", "docs", "config", "general"]),
 
   summary: z.string(),
@@ -867,7 +867,7 @@ Review them with:
 
 ---
 
-## 5.4 需求生成 Skill Hook
+### 5.4 需求生成 Skill Hook
 
 当用户表达功能需求时，系统可以自动检测并引导用户生成 Skill。
 
@@ -1010,22 +1010,496 @@ complex: Requires significant logic, multiple integrations, or unclear implement
 
 ---
 
-## 6. CLI 命令
+## 6. Skill 生成完整流程
 
-### 6.1 新增命令
+### 6.1 流程概览
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                              Skill 生成来源                                            │
+├───────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                       │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐      │
+│  │  会话捕获  │  │  规则触发  │  │  错误模式  │  │  用户需求  │  │  手动创建  │      │
+│  │  /skills-  │  │ 关键词检测 │  │  命令失败  │  │  描述生成  │  │ cs learning │      │
+│  │  capture   │  │            │  │            │  │            │  │  generate  │      │
+│  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘      │
+│        │               │               │               │               │             │
+│        ▼               ▼               ▼               ▼               ▼             │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐     │
+│  │                      Learning Entry / Feature Request                       │     │
+│  │                      ID: LRN-* / FEAT-* / ERR-*                             │     │
+│  │                      存储于 .costrict/.learnings/                           │     │
+│  └───────────────────────────────────┬─────────────────────────────────────────┘     │
+│                                      │                                               │
+│                                      │ cs learning generate <id>                     │
+│                                      ▼                                               │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐     │
+│  │                      Skill Candidate (draft)                                 │     │
+│  │                      ID: UUID 格式                                           │     │
+│  │                      存储于 .costrict/.learnings/CANDIDATES/                  │     │
+│  └───────────────────────────────────┬─────────────────────────────────────────┘     │
+│                                      │                                               │
+│                    ┌─────────────────┼─────────────────┐                             │
+│                    ▼                 ▼                 ▼                             │
+│             ┌──────────┐      ┌──────────┐      ┌──────────┐                         │
+│             │  approve │      │  reject  │      │   push   │                         │
+│             └────┬─────┘      └────┬─────┘      └────┬─────┘                         │
+│                  │                 │                 │                               │
+│                  ▼                 ▼                 ▼                               │
+│  ┌───────────────────────┐  ┌───────────────┐  ┌───────────────┐                    │
+│  │     Formal Skill      │  │   Rejected    │  │  Server Sync  │                    │
+│  │  .costrict/skill/     │  │   (deleted)   │  │    (可选)     │                    │
+│  │  <name>/SKILL.md      │  │               │  │               │                    │
+│  └───────────────────────┘  └───────────────┘  └───────────────┘                    │
+│                                                                                       │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+
+来源说明：
+  1. 会话捕获 (/skills-capture)    - 从对话中提取知识点
+  2. 规则触发 (关键词检测)         - 自动检测纠正/工作流触发词
+  3. 错误模式 (命令失败)           - 自动检测错误输出
+  4. 用户需求描述                  - 直接描述功能需求生成 Skill
+  5. Feature Request               - 功能需求自动评估后建议生成
+  6. 手动创建 (cs learning generate) - 从已有 Learning 生成
+```
+
+### 6.2 生成来源详解
+
+#### 来源 1: 会话捕获 (`/skills-capture`)
+
+从当前对话中手动提取学习内容。
+
+```bash
+# 在对话中使用
+/skills-capture
+```
+
+**触发条件：**
+- 用户主动调用命令
+- 对话中有可提取的知识点
+
+**生成的 Learning Category：**
+- `correction` - 用户纠正了 AI 的回答
+- `knowledge_gap` - 发现了知识缺口
+- `best_practice` - 项目特定的最佳实践
+- `error_pattern` - 错误模式及解决方案
+- `workflow` - 可复用的工作流程
+
+**示例：**
+```
+用户: 刚才解决的那个 TypeScript 类型错误，是因为泛型约束不完整。应该这样写...
+
+AI: 我已捕获这个学习，ID: LRN-20260316-001
+    Category: best_practice
+    Status: pending
+```
+
+---
+
+#### 来源 2: 规则触发（自动检测）
+
+系统自动检测用户消息中的特定关键词，自动创建 Learning。
+
+**触发关键词：**
+
+| Category | 触发词（中文） | 触发词（英文） |
+|----------|---------------|---------------|
+| `correction` | 不对、应该是、错了、不是这样、实际上 | No, Actually, You're wrong, That's outdated |
+| `workflow` | 保存为技能、记住这个模式、这个很有用、做成技能 | Save as skill, Remember this pattern, Make this a skill |
+| `feature_request` | 希望可以、能不能也、需要有个功能、希望支持 | Can you also, I wish you could, Is there a way to |
+
+**示例：**
+```
+用户: 不对，应该用 fetch 而不是 axios，这个项目不用 axios
+
+AI: [自动检测到纠正] 已创建 Learning: LRN-20260316-002
+    Category: correction
+    Summary: 项目使用 fetch 而非 axios
+```
+
+---
+
+#### 来源 3: 错误模式（命令失败检测）
+
+当工具执行失败时，系统自动检测错误模式并创建 Learning。
+
+**检测的错误模式：**
+```
+error:, Error:, ERROR:, failed, FAILED, command not found,
+No such file, Permission denied, fatal:, Exception, Traceback,
+npm ERR!, ModuleNotFoundError, SyntaxError, TypeError, exit code
+```
+
+**示例：**
+```
+[执行] bun run typecheck
+[错误] Type 'string | undefined' is not assignable to type 'string'
+
+AI: [自动检测到错误] 已创建 Learning: LRN-20260316-003
+    Category: error_pattern
+    Summary: TypeScript 类型错误：string | undefined 不能赋值给 string
+```
+
+---
+
+#### 来源 4: 手动创建 Skill 候选
+
+直接从 Learning 生成 Skill 候选，或手动创建。
+
+```bash
+# 从 Learning 生成
+cs learning generate LRN-20260316-001
+
+# 输出
+Generating skill candidate from LRN-20260316-001...
+Candidate ID: 550e8400-e29b-41d4-a716-446655440000
+Name: use-fetch-instead-of-axios
+Confidence: 0.85
+
+Review and approve with: cs learning approve 550e8400-e29b-41d4-a716-446655440000
+```
+
+---
+
+#### 来源 5: 用户需求描述生成 Skill
+
+用户在对话中直接描述想要的功能/能力，让 AI 生成 Skill。
+
+**方式 1: 使用 `/skills-capture` + `generate`**
+
+```
+用户: 我需要一个 Skill，能够自动分析项目的依赖关系，检查是否有循环依赖，
+      并生成依赖图。
+
+AI: [分析需求并执行]
+    已完成依赖分析。
+
+用户: /skills-capture
+
+AI: 已捕获学习，ID: LRN-20260316-010
+    Category: workflow
+    Summary: 自动分析项目依赖关系并生成依赖图
+```
+
+```bash
+# 然后生成 Skill 候选
+cs learning generate LRN-20260316-010
+cs learning approve <candidate-id>
+```
+
+**方式 2: 直接描述需求 + 触发词**
+
+```
+用户: 帮我做成一个 Skill：自动分析项目依赖关系，检查循环依赖，生成依赖图
+
+AI: [自动检测到技能提取信号]
+    正在生成 Skill 候选...
+
+    Candidate ID: 660e8400-e29b-41d4-a716-446655440001
+    Name: dependency-analyzer
+    Description: 分析项目依赖关系，检测循环依赖，生成依赖图
+
+    Review and approve with: cs learning approve 660e8400-e29b-41d4-a716-446655440001
+```
+
+**触发词：**
+- 中文：做成技能、保存为技能、记住这个模式、创建技能、保存这个工作流
+- 英文：Make this a skill, Save as skill, Remember this pattern, Create a skill
+
+**方式 3: 功能需求自动检测（复杂度评估后建议）**
+
+```
+用户: 希望可以有一个功能，自动格式化所有 Markdown 文件，并检查链接是否有效
+
+AI: [检测到功能需求，评估复杂度为 simple]
+    我注意到您需要一个自动化功能。是否要将此保存为 Skill？
+
+    - 回复 "yes" 或 "创建技能" 生成 Skill
+    - 回复 "no" 仅记录为功能需求
+
+用户: yes
+
+AI: 正在生成 Skill 候选...
+    Candidate ID: 770e8400-e29b-41d4-a716-446655440002
+    Name: markdown-formatter-validator
+```
+
+---
+
+#### 来源 6: 从 Feature Request 生成
+
+用户表达的功能需求会被记录为 `FeatureRequestEntry`，可以从中生成 Skill。
+
+```bash
+# 查看功能需求
+cs learning list --category feature
+
+# 从功能需求生成 Skill
+cs learning generate FEAT-20260316-001
+```
+
+### 6.3 状态流转
+
+#### Learning 状态流转
+
+```
+┌─────────┐     promote      ┌──────────┐
+│ pending │ ───────────────► │ promoted │  (晋升到 MEMORY.md)
+└────┬────┘                  └──────────┘
+     │
+     │ generate
+     ▼
+┌──────────────┐
+│ skill_created│  (生成正式 Skill)
+└──────────────┘
+```
+
+| Status | 说明 |
+|--------|------|
+| `pending` | 待处理，新创建的默认状态 |
+| `in_progress` | 处理中 |
+| `promoted` | 已晋升到 MEMORY.md |
+| `skill_created` | 已生成正式 Skill |
+
+#### Skill Candidate 状态流转
+
+```
+┌────────┐     approve      ┌──────────┐     push       ┌────────┐
+│ draft  │ ───────────────► │ approved │ ─────────────► │ pushed │
+└────┬───┘                 └──────────┘                 └────────┘
+     │
+     │ reject
+     ▼
+┌──────────┐
+│ rejected │
+└──────────┘
+```
+
+| Status | 说明 |
+|--------|------|
+| `draft` | 草稿，待审核 |
+| `review` | 审核中 |
+| `approved` | 已批准，成为正式 Skill |
+| `rejected` | 已拒绝 |
+| `pushed` | 已推送到服务端 |
+
+### 6.4 完整操作流程
+
+#### 场景 1: 从对话中提取学习并生成 Skill
+
+```bash
+# Step 1: 在对话中捕获学习
+/skills-capture
+
+# Step 2: 查看学习列表
+cs learning list
+# 输出:
+# ID                  Category       Priority  Status      Summary
+# ─────────────────────────────────────────────────────────────────
+# LRN-20260316-001    best_practice  high      pending     项目使用 pnpm 而非 npm
+
+# Step 3: 从学习生成 Skill 候选
+cs learning generate LRN-20260316-001
+# 输出:
+# Generated candidate: 550e8400-e29b-41d4-a716-446655440000
+# Name: use-pnpm-package-manager
+# Review with: cs learning candidates
+
+# Step 4: 查看候选列表
+cs learning candidates
+# 输出:
+# ID                                    Name                        Status  Confidence
+# ──────────────────────────────────────────────────────────────────────────────────
+# 550e8400-e29b-41d4-a716-446655440000  use-pnpm-package-manager    draft   0.85
+
+# Step 5: 批准候选（生成正式 Skill）
+cs learning approve 550e8400-e29b-41d4-a716-446655440000
+# 输出:
+# Skill approved and created at: .costrict/skill/use-pnpm-package-manager/SKILL.md
+
+# Step 6: (可选) 推送到服务端
+cs learning push 550e8400-e29b-41d4-a716-446655440000
+```
+
+#### 场景 2: 触发式自动学习
+
+```bash
+# 用户在对话中说:
+# "不对，这个项目用的是 PostgreSQL，不是 MySQL"
+
+# 系统自动创建 Learning
+# [自动] Created: LRN-20260316-005 (correction)
+
+# 后续步骤同场景 1
+cs learning generate LRN-20260316-005
+cs learning approve <candidate-id>
+```
+
+#### 场景 3: 错误模式自动捕获
+
+```bash
+# 命令执行失败
+bun run build
+# error: Cannot find module '@/config'
+
+# 系统自动创建 Learning
+# [自动] Created: LRN-20260316-006 (error_pattern)
+
+# 查看并处理
+cs learning show LRN-20260316-006
+cs learning generate LRN-20260316-006  # 生成 Skill 候选
+```
+
+#### 场景 4: 用户需求描述直接生成 Skill
+
+**方式 A: 使用触发词直接生成**
+
+```
+用户: 帮我做成一个 Skill：能够自动扫描项目中的 TODO 注释，生成任务列表，
+      并按优先级排序
+
+AI: [检测到技能提取信号]
+    正在生成 Skill 候选...
+
+    Candidate ID: 880e8400-e29b-41d4-a716-446655440003
+    Name: todo-scanner
+    Description: 扫描项目 TODO 注释，生成优先级排序的任务列表
+    Confidence: 0.90
+
+    查看详情: cs learning show 880e8400-e29b-41d4-a716-446655440003
+    批准使用: cs learning approve 880e8400-e29b-41d4-a716-446655440003
+```
+
+```bash
+# 查看并批准
+cs learning show 880e8400-e29b-41d4-a716-446655440003
+cs learning approve 880e8400-e29b-41d4-a716-446655440003
+# 输出: Skill approved and created at: .costrict/skill/todo-scanner/SKILL.md
+```
+
+**方式 B: 功能需求自动检测**
+
+```
+用户: 希望可以有一个功能，每次提交代码前自动运行 lint 检查和测试
+
+AI: [检测到功能需求，复杂度: simple]
+    我注意到您需要一个自动化功能。是否要将此保存为 Skill？
+
+    - 回复 "yes" 或 "创建技能" 生成 Skill
+    - 回复 "no" 仅记录为功能需求
+
+用户: 创建技能
+
+AI: 正在生成 Skill 候选...
+    Candidate ID: 990e8400-e29b-41d4-a716-446655440004
+    Name: pre-commit-check
+    Description: 提交前自动运行 lint 检查和测试
+
+    批准使用: cs learning approve 990e8400-e29b-41d4-a716-446655440004
+```
+
+**方式 C: 先捕获需求，再手动生成**
+
+```
+用户: 我需要一个能力，能够自动分析 API 响应时间，找出慢接口
+
+AI: [完成分析任务]
+    已找到 3 个响应时间超过 1s 的接口...
+
+用户: /skills-capture
+
+AI: 已捕获学习，ID: LRN-20260316-020
+    Category: workflow
+    Summary: 自动分析 API 响应时间，找出慢接口
+```
+
+```bash
+# 从捕获的 Learning 生成 Skill
+cs learning generate LRN-20260316-020
+# 输出: Candidate ID: aaa0e8400-e29b-41d4-a716-446655440005
+
+cs learning approve aaa0e8400-e29b-41d4-a716-446655440005
+```
+
+### 6.5 CLI 命令速查
+
+```bash
+# ==================== Learning 管理 ====================
+cs learning list                    # 列出所有学习条目
+cs learning list --status pending   # 按状态筛选
+cs learning list --category error   # 按类别筛选
+cs learning show <id>               # 查看详情
+cs learning promote <id>            # 晋升到 MEMORY.md
+cs learning generate <id>           # 生成 Skill 候选
+
+# ==================== Skill Candidate 管理 ====================
+cs learning candidates              # 列出所有候选
+cs learning approve <candidate-id>  # 批准候选（生成正式 Skill）
+cs learning reject <candidate-id>   # 拒绝候选
+cs learning push <candidate-id>     # 推送到服务端
+
+# ==================== 对话中快捷命令 ====================
+/skills-capture                     # 从当前对话提取学习
+
+# ==================== 用户需求描述生成 Skill ====================
+# 方式 1: 先捕获再生成
+/skills-capture                     # 捕获需求描述
+cs learning generate <learning-id>  # 生成 Skill 候选
+
+# 方式 2: 直接使用触发词（对话中）
+# "做成技能：xxx" / "保存为技能" / "Make this a skill"
+```
+
+### 6.6 文件存储位置
+
+```
+.costrict/
+├── .learnings/
+│   ├── LEARNINGS.md              # 学习条目 (LRN-*)
+│   ├── ERRORS.md                 # 错误记录 (ERR-*)
+│   ├── FEATURE_REQUESTS.md       # 功能需求 (FEAT-*)
+│   └── CANDIDATES/               # Skill 候选
+│       └── <uuid>/
+│           ├── SKILL.md          # Skill 内容
+│           └── metadata.json     # 元数据
+│
+└── skill/                        # 正式 Skills
+    └── <skill-name>/
+        └── SKILL.md              # 最终可用的 Skill
+```
+
+### 6.7 ID 格式说明
+
+| 类型 | 格式 | 示例 |
+|------|------|------|
+| Learning ID | `LRN-YYYYMMDD-XXX` | `LRN-20260316-001` |
+| Error ID | `ERR-YYYYMMDD-XXX` | `ERR-20260316-005` |
+| Feature ID | `FEAT-YYYYMMDD-XXX` | `FEAT-20260316-002` |
+| Candidate ID | UUID | `550e8400-e29b-41d4-a716-446655440000` |
+
+**重要：**
+- `cs learning promote` 和 `cs learning generate` 使用 **Learning ID** (LRN-*)
+- `cs learning approve` 和 `cs learning reject` 使用 **Candidate ID** (UUID)
+
+---
+
+## 7. CLI 命令
+
+### 7.1 新增命令
 
 ```bash
 # 学习管理
 cs learning list              # 列出所有学习条目
 cs learning show <id>         # 查看学习详情
-cs learning resolve <id>      # 标记为已解决
 cs learning promote <id>      # 晋升到 MEMORY.md
+cs learning generate <id>     # 从学习条目生成 Skill 候选
 
 # Skill 候选管理
 cs learning candidates        # 列出候选 skills
 cs learning approve <id>      # 批准候选（转为正式 skill）
 cs learning reject <id>       # 拒绝候选
-cs learning generate <id>     # 从学习条目生成 Skill 候选
+cs learning push <id>         # 推送到服务端
 
 # 快捷命令（对话中使用）
 /skills-capture                      # 从当前对话提取学习
@@ -1039,9 +1513,9 @@ cs learning generate <id>     # 从学习条目生成 Skill 候选
 
 ---
 
-## 7. 配置扩展
+## 8. 配置扩展
 
-### 7.1 cs.jsonc 扩展
+### 8.1 cs.jsonc 扩展
 
 ```jsonc
 {
@@ -1078,7 +1552,7 @@ cs learning generate <id>     # 从学习条目生成 Skill 候选
 
 ---
 
-## 8. 实现路线图
+## 9. 实现路线图
 
 ### Phase 1: 基础设施
 
@@ -1114,9 +1588,9 @@ cs learning generate <id>     # 从学习条目生成 Skill 候选
 
 ---
 
-## 9. 需求生成 Skill 功能场景
+## 10. 需求生成 Skill 功能场景
 
-### 9.1 场景概述
+### 10.1 场景概述
 
 用户在对话中表达功能需求时，系统自动检测并引导生成可复用的 Skill。
 
@@ -1142,7 +1616,7 @@ AI: 正在生成 Skill...
       - Edit it manually at: .costrict/.learnings/CANDIDATES/xxx/SKILL.md
 ```
 
-### 9.2 完整流程图
+### 10.2 完整流程图
 
 ```mermaid
 sequenceDiagram
@@ -1176,7 +1650,7 @@ sequenceDiagram
     end
 ```
 
-### 9.3 生成条件
+### 10.3 生成条件
 
 | 条件 | 触发行为 | 说明 |
 |------|----------|------|
@@ -1185,7 +1659,7 @@ sequenceDiagram
 | `complexity === "complex"` | 仅记录需求 | 需要复杂逻辑或多系统集成 |
 | 用户明确要求 | 立即生成 Skill | "保存为技能" 等触发词 |
 
-### 9.4 生成的 Skill 示例
+### 10.4 生成的 Skill 示例
 
 **输入（用户需求）：**
 > 我希望能有一个功能，自动下载每周的报表，然后解析数据，统计汇总后发送邮件给团队。
@@ -1248,7 +1722,7 @@ Set these environment variables:
 - `EMAIL_SMTP_*`: SMTP configuration
 ```
 
-### 9.5 与服务端协作
+### 10.5 与服务端协作
 
 生成的 Skill 可以选择推送到服务端，进入团队共享的能力市场：
 
@@ -1281,9 +1755,9 @@ if (pushResult.success) {
 
 ---
 
-## 10. 与现有系统的集成
+## 11. 与现有系统的集成
 
-### 10.1 与 Skill 系统集成
+### 11.1 与 Skill 系统集成
 
 ```typescript
 // 在 src/skill/skill.ts 中添加候选 skill 扫描
@@ -1308,7 +1782,7 @@ for (const match of candidateMatches) {
 }
 ```
 
-### 10.2 与 Memory 系统集成
+### 11.2 与 Memory 系统集成
 
 ```typescript
 // 在 src/session/memory.ts 中集成学习晋升
@@ -1328,7 +1802,7 @@ export async function checkPromotions() {
 
 ---
 
-## 11. 安全与隐私
+## 12. 安全与隐私
 
 1. **本地优先**：所有学习数据默认存储在本地，不上传到服务端
 2. **用户控制**：推送前必须用户确认
