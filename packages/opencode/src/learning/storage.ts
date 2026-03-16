@@ -451,6 +451,41 @@ ${candidate.content}
   }
 
   /**
+   * Update a skill candidate's push status
+   */
+  export async function updateCandidatePushStatus(
+    id: string,
+    pushStatus: SkillCandidate["pushStatus"],
+    updates?: {
+      pushedAt?: string
+      remoteId?: string
+      remoteUrl?: string
+    },
+    scope: "project" | "global" = "project",
+  ): Promise<void> {
+    const candidate = await getCandidate(id, scope)
+    if (!candidate) {
+      throw new Error(`Candidate not found: ${id}`)
+    }
+
+    const updated: SkillCandidate = {
+      ...candidate,
+      pushStatus,
+      pushedAt: updates?.pushedAt,
+      remoteId: updates?.remoteId,
+      remoteUrl: updates?.remoteUrl,
+    }
+
+    // Also update status to "pushed" if push was successful
+    if (pushStatus === "pushed" && candidate.status !== "approved") {
+      updated.status = "approved"
+    }
+
+    await saveCandidate(updated, scope)
+    log.info("updated candidate push status", { id, pushStatus })
+  }
+
+  /**
    * Delete a skill candidate
    */
   export async function deleteCandidate(id: string, scope: "project" | "global" = "project"): Promise<void> {

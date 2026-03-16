@@ -3,6 +3,7 @@ import { cmd } from "./cmd"
 import { LearningStorage } from "@/learning/storage"
 import { SkillGenerator } from "@/learning/generator"
 import { LearningPromoter } from "@/learning/promoter"
+import { SkillPusher } from "@/learning/pusher"
 import { bootstrap } from "../bootstrap"
 import { UI } from "../ui"
 import { EOL } from "os"
@@ -21,6 +22,7 @@ export const LearningCommand = cmd({
       .command(SkillApproveCommand)
       .command(SkillRejectCommand)
       .command(SkillGenerateCommand)
+      .command(SkillPushCommand)
       .demandCommand(),
   async handler() {},
 })
@@ -309,6 +311,62 @@ export const SkillGenerateCommand = cmd({
         UI.println(`${EOL}Review and approve with: cs learning approve ${candidate.id}`)
       } else {
         UI.error("Failed to generate skill candidate")
+        process.exit(1)
+      }
+    })
+  },
+})
+
+export const SkillPushCommand = cmd({
+  command: "push <id>",
+  describe: "push a skill candidate to the CoStrict server",
+  builder: (yargs: Argv) =>
+    yargs
+      .positional("id", {
+        describe: "candidate ID",
+        type: "string",
+        demandOption: true,
+      })
+      .option("visibility", {
+        describe: "visibility of the skill on the server",
+        type: "string",
+        choices: ["private", "team", "public"],
+        default: "private",
+      }),
+  handler: async (args) => {
+    await bootstrap(process.cwd(), async () => {
+      // Check if server is configured
+      const isConfigured = await SkillPusher.isServerConfigured()
+      if (!isConfigured) {
+        UI.error("Server not configured. Please login first using 'cs auth login'")
+        process.exit(1)
+      }
+
+      const candidate = await LearningStorage.getCandidate(args.id)
+      if (!candidate) {
+        UI.error(`Skill candidate not found: ${args.id}`)
+        process.exit(1)
+      }
+
+      if (candidate.pushStatus === "pushed") {
+        UI.println(`Skill already pushed to server`)
+        UI.println(`Remote ID: ${candidate.remoteId}`)
+        UI.println(`Remote URL: ${candidate.remoteUrl}`)
+        return
+      }
+
+      UI.println(`Pushing skill "${candidate.name}" to server...`)
+
+      const result = await SkillPusher.pushToServer(args.id, {
+        visibility: args.visibility as "private" | "team" | "public",
+      })
+
+      if (result.success) {
+        UI.println(UI.Style.TEXT_SUCCESS_BOLD + `Skill pushed successfully!` + UI.Style.TEXT_NORMAL)
+        UI.println(`Remote ID: ${result.remoteId}`)
+        UI.println(`Remote URL: ${result.remoteUrl}`)
+      } else {
+        UI.error(`Failed to push skill: ${result.error}`)
         process.exit(1)
       }
     })

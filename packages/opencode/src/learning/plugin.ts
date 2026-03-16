@@ -12,30 +12,40 @@ const log = Log.create({ service: "learning.plugin" })
 export const LearningPlugin: Plugin = async (input: PluginInput): Promise<Hooks> => {
   log.info("initializing learning plugin", { directory: input.directory })
 
-  // Subscribe to bus events via hooks
-  const hooks: Hooks = {}
-
-  // Register conversation hooks
+  // Register individual hooks
   const conversationHooks = ConversationHooks.register()
-  Object.assign(hooks, conversationHooks)
-
-  // Register session end hooks
   const sessionEndHooks = SessionEndHooks.register()
-  Object.assign(hooks, sessionEndHooks)
+
+  log.info("hooks registered", {
+    conversationHasEvent: typeof conversationHooks.event === "function",
+    sessionEndHasEvent: typeof sessionEndHooks.event === "function",
+  })
 
   // Run periodic check on init
   LearningPromoter.runPeriodicCheck("project").catch((err) => {
     log.warn("failed to run periodic check on init", { err })
   })
 
+  // Return combined hooks - both modules have an 'event' hook, so we chain them
   return {
-    name: "learning",
-    ...hooks,
-    async dispose() {
-      // Run final promotion check
-      await LearningPromoter.runPeriodicCheck("project")
-
-      log.info("learning plugin disposed")
+    event: async (input: { event: any }) => {
+      log.info(">>> LEARNING PLUGIN EVENT CALLED <<<", { eventType: input?.event?.type })
+      // Call conversation hooks first
+      if (conversationHooks.event) {
+        try {
+          await conversationHooks.event(input)
+        } catch (err) {
+          log.error("conversation event handler error", { err })
+        }
+      }
+      // Then call session end hooks
+      if (sessionEndHooks.event) {
+        try {
+          await sessionEndHooks.event(input)
+        } catch (err) {
+          log.error("session end event handler error", { err })
+        }
+      }
     },
   }
 }

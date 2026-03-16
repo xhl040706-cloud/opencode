@@ -1,8 +1,7 @@
-import { Bus } from "@/bus"
 import { Log } from "@/util/log"
 import { LearningDetector } from "../detector"
-import { LearningEvent } from "../events"
 import type { Hooks } from "@opencode-ai/plugin"
+import { MessageV2 } from "@/session/message-v2"
 
 const log = Log.create({ service: "learning.hooks.conversation" })
 
@@ -15,19 +14,39 @@ export namespace ConversationHooks {
    * Register conversation-related hooks
    */
   export function register(): Partial<Hooks> {
+    log.info("registering conversation hooks")
     return {
       // Hook into message events
       event: async (input: { event: any }) => {
-        const event = input.event
+        // First log before anything else to confirm this function is called
+        log.info(">>> CONVERSATION HOOK CALLED <<<", { inputType: input?.event?.type })
+        try {
+          log.info("received event in conversation hook", {
+            hasInput: !!input,
+            hasEvent: !!input?.event,
+            type: input?.event?.type,
+          })
+          const event = input?.event
+          if (!event) {
+            log.warn("event is undefined in conversation hook")
+            return
+          }
 
-        // Handle message-related events
-        if (event.type?.startsWith("session.") || event.type?.startsWith("message.")) {
-          await handleMessageEvent(event)
-        }
+          // Handle message-related events
+          if (event.type?.startsWith("session.") || event.type?.startsWith("message.")) {
+            log.info("handling message event", { type: event.type })
+            await handleMessageEvent(event)
+          }
 
-        // Handle tool output events
-        if (event.type?.includes("tool") || event.type?.includes("bash")) {
-          await handleToolEvent(event)
+          // Handle tool output events
+          if (event.type?.includes("tool") || event.type?.includes("bash")) {
+            await handleToolEvent(event)
+          }
+        } catch (err) {
+          log.error("conversation hook event handler error", {
+            err: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          })
         }
       },
     }
@@ -38,18 +57,49 @@ export namespace ConversationHooks {
    */
   async function handleMessageEvent(event: any): Promise<void> {
     try {
-      // Detect user corrections and feature requests
-      if (event.type === "message.user" || event.properties?.role === "user") {
-        const content = extractMessageContent(event)
-        if (content) {
-          const sessionId = event.properties?.sessionId || event.properties?.sessionID
-          const relatedFiles = extractRelatedFiles(event)
+      // Check for message.updated event with user role
+      // Event structure: { type: "message.updated", properties: { info: { role: "user" | "assistant", ... } } }
+      const isUserMessage =
+        event.type === "message.updated" &&
+        event.properties?.info?.role === "user"
 
-          await LearningDetector.processUserMessage(content, sessionId, relatedFiles)
+      if (isUserMessage) {
+        const info = event.properties?.info
+        const messageID = info?.id
+        const sessionID = info?.sessionID || info?.sessionId
+
+        log.info("user message detected, fetching parts", { messageID, sessionID })
+
+        // Fetch message parts to get the actual content
+        if (messageID) {
+          const parts = await MessageV2.parts(messageID)
+          const content = extractContentFromParts(parts)
+
+          if (content) {
+            const relatedFiles = extractRelatedFiles(event)
+
+            log.info("processing user message for learning detection", {
+              contentPreview: content.slice(0, 100),
+              contentLength: content.length,
+              sessionID,
+              relatedFiles,
+            })
+
+            await LearningDetector.processUserMessage(content, sessionID, relatedFiles)
+          } else {
+            log.warn("no content extracted from message parts", {
+              messageID,
+              partsCount: parts.length,
+              partsTypes: parts.map((p: any) => p.type),
+            })
+          }
         }
       }
     } catch (err) {
-      log.error("failed to process message event", { err })
+      log.error("failed to process message event", {
+        err: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      })
     }
   }
 
@@ -72,22 +122,21 @@ export namespace ConversationHooks {
   }
 
   /**
-   * Extract message content from an event
+   * Extract content from message parts
+   * Parts are arrays of { type: "text" | "tool" | ..., text?: string, ... }
    */
-  function extractMessageContent(event: any): string | undefined {
-    if (typeof event.properties?.content === "string") {
-      return event.properties.content
+  function extractContentFromParts(parts: any[]): string | undefined {
+    if (!parts || !Array.isArray(parts)) return undefined
+
+    const textParts: string[] = []
+    for (const part of parts) {
+      if (part.type === "text" && typeof part.text === "string") {
+        textParts.push(part.text)
+      }
     }
-    if (typeof event.properties?.message === "string") {
-      return event.properties.message
-    }
-    if (Array.isArray(event.properties?.parts)) {
-      return event.properties.parts
-        .filter((p: any) => p.type === "text")
-        .map((p: any) => p.text)
-        .join("\n")
-    }
-    return undefined
+
+    if (textParts.length === 0) return undefined
+    return textParts.join("\n")
   }
 
   /**
