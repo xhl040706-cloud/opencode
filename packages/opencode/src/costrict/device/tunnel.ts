@@ -8,6 +8,8 @@ const log = Log.create({ service: "device-tunnel" })
 const INITIAL_DELAY = 1000
 const MAX_DELAY = 60000
 const INITIAL_WINDOW = 256 * 1024
+const WS_PING_INTERVAL = 20_000
+const WS_PING_TIMEOUT = 10_000
 
 const TYPE_DATA = 0
 const TYPE_WINDOW_UPDATE = 1
@@ -96,7 +98,36 @@ class YamuxSession {
     ws.binaryType = "arraybuffer"
     ws.onmessage = (e) => this.onMessage(Buffer.from(e.data as ArrayBuffer))
     ws.onclose = () => this.onClose()
-    ws.onerror = (e) => log.warn("websocket error", { error: String(e) })
+    ws.onerror = (e) => {
+      log.warn("websocket error", { error: String(e) })
+      this.onClose()
+    }
+    this.startPingLoop()
+  }
+
+  private lastPong = Date.now()
+
+  private startPingLoop() {
+    const interval = setInterval(() => {
+      if (this.closed) {
+        clearInterval(interval)
+        return
+      }
+      if (Date.now() - this.lastPong > WS_PING_INTERVAL + WS_PING_TIMEOUT) {
+        log.warn("websocket ping timeout, closing session")
+        this.onClose()
+        try { this.ws.close() } catch {}
+        clearInterval(interval)
+        return
+      }
+      try {
+        this.ws.send(buildHeader(TYPE_PING, FLAG_SYN, 0, 0))
+      } catch (e) {
+        log.warn("websocket ping send failed", { error: String(e) })
+        this.onClose()
+        clearInterval(interval)
+      }
+    }, WS_PING_INTERVAL)
   }
 
   accept(): Promise<YamuxStream> {
@@ -168,7 +199,9 @@ class YamuxSession {
 
   private handleFrame(type: number, flags: number, streamId: number, length: number, payload: Buffer) {
     if (type === TYPE_PING) {
-      if (flags & FLAG_SYN) {
+      if (flags & FLAG_ACK) {
+        this.lastPong = Date.now()
+      } else if (flags & FLAG_SYN) {
         const val = payload.length >= 4 ? payload.readUInt32BE(0) : 0
         this.ws.send(buildHeader(TYPE_PING, FLAG_ACK, 0, val))
       }
@@ -511,11 +544,13 @@ export async function connect(localPort: number): Promise<void> {
       await runSession(gatewayURL, device.device_id, localPort)
     } catch (e: any) {
       log.warn("tunnel disconnected", { error: e.message })
+      const delay = Math.min(INITIAL_DELAY * Math.pow(2, attempt), MAX_DELAY)
+      attempt++
+      log.info("reconnecting after delay", { delay, attempt })
+      await new Promise<void>((resolve) => setTimeout(resolve, delay))
+      continue
     }
 
-    const delay = Math.min(INITIAL_DELAY * Math.pow(2, attempt), MAX_DELAY)
-    attempt++
-    log.info("reconnecting after delay", { delay, attempt })
-    await new Promise<void>((resolve) => setTimeout(resolve, delay))
+    attempt = 0
   }
 }
