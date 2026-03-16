@@ -1,4 +1,5 @@
 import path from "path"
+import { generateText } from "ai"
 import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
 import { Filesystem } from "@/util/filesystem"
@@ -213,22 +214,24 @@ Generate a skill that:
     try {
       const prompt = buildSkillGenerationPrompt(sourceEntries, context)
 
-      // Get provider for LLM call
-      const provider = await Provider.get()
-      if (!provider) {
-        log.warn("no provider available for skill generation")
+      // Get model for LLM call
+      const modelInfo = await Provider.defaultModel()
+      if (!modelInfo) {
+        log.warn("no default model available for skill generation")
         return null
       }
 
-      // Call LLM
-      const response = await provider.chat({
-        messages: [
-          { role: "system", content: SKILL_GENERATION_SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ],
+      const model = await Provider.getModel(modelInfo.providerID, modelInfo.modelID)
+      const language = await Provider.getLanguage(model)
+
+      // Call LLM using generateText
+      const response = await generateText({
+        model: language,
+        system: SKILL_GENERATION_SYSTEM_PROMPT,
+        prompt: prompt,
       })
 
-      const skill = parseSkillResponse(response.content)
+      const skill = parseSkillResponse(response.text)
       if (!skill) {
         log.error("failed to parse skill from LLM response")
         return null

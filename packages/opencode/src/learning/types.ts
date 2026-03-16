@@ -200,6 +200,9 @@ export const SkillCandidate = z.object({
   pushedAt: z.string().datetime().optional(),
   remoteId: z.string().optional(),
   remoteUrl: z.string().optional(),
+
+  // Skill path (set when approved)
+  skillPath: z.string().optional(),
 })
 export type SkillCandidate = z.infer<typeof SkillCandidate>
 

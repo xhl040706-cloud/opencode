@@ -758,7 +758,7 @@ Task completed. Consider evaluating if any knowledge should be captured:
 - Project-specific pattern learned?
 - Error required debugging to resolve?
 
-If yes: Use /skill-capture to log this learning.
+If yes: Use /skills-capture to log this learning.
 If high-value (recurring, broadly applicable): Consider skill extraction.
 </learning-reminder>`,
         })
@@ -1028,7 +1028,7 @@ cs learning reject <id>       # 拒绝候选
 cs learning generate <id>     # 从学习条目生成 Skill 候选
 
 # 快捷命令（对话中使用）
-/skill-capture                      # 从当前对话提取学习
+/skills-capture                      # 从当前对话提取学习
 /skill-generate                     # 从当前对话上下文生成 Skill
 /error-log                          # 记录错误
 /feature-request                    # 记录功能需求
