@@ -2,6 +2,7 @@ import { Plugin } from "@/plugin"
 import { NotificationMode } from "@/permission/notification"
 import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
+import { notifyCloud } from "@/costrict/device/notify"
 
 interface InterventionData {
   type: "permission" | "question" | "idle"
@@ -155,6 +156,8 @@ async function triggerNotification(data: InterventionData) {
       { handled: false },
     )
   } catch {}
+
+  notifyCloud({ type: data.type, sessionID: data.sessionID, data: data.data }).catch(() => {})
 }
 
 export function cleanupSessionHistory(sessionID: string) {
