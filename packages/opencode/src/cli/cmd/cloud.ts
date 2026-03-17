@@ -108,11 +108,16 @@ export const CloudCommand = cmd({
           Daemon.tailLogs(args.lines, args.follow)
         },
       )
+      .command("restart", "restart cloud daemon", {}, async () => {
+        const stopped = Daemon.stop()
+        if (stopped) console.log("cloud daemon stopped")
+        await startDaemon()
+      })
       .command("_worker", false, {}, async () => {
         await runWorker()
       }),
   handler: async () => {
-    console.error("specify a subcommand: start, stop, status, logs")
+    console.error("specify a subcommand: start, stop, restart, status, logs")
     process.exit(1)
   },
 })

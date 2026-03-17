@@ -10,6 +10,7 @@ const MAX_DELAY = 60000
 const INITIAL_WINDOW = 256 * 1024
 const WS_PING_INTERVAL = 20_000
 const WS_PING_TIMEOUT = 10_000
+const WS_CONNECT_TIMEOUT = 15_000
 
 const TYPE_DATA = 0
 const TYPE_WINDOW_UPDATE = 1
@@ -504,9 +505,13 @@ async function runSession(gatewayURL: string, deviceId: string, localPort: numbe
   const session = new YamuxSession(ws)
 
   await new Promise<void>((resolve, reject) => {
-    ws.onopen = () => resolve()
-    ws.onerror = (e) => reject(new Error(`ws connect failed: ${e}`))
-    ws.onclose = () => reject(new Error("ws closed before open"))
+    const timer = setTimeout(() => {
+      try { ws.close() } catch {}
+      reject(new Error("ws connect timeout"))
+    }, WS_CONNECT_TIMEOUT)
+    ws.onopen = () => { clearTimeout(timer); resolve() }
+    ws.onerror = (e) => { clearTimeout(timer); reject(new Error(`ws connect failed: ${e}`)) }
+    ws.onclose = () => { clearTimeout(timer); reject(new Error("ws closed before open")) }
   })
 
   log.info("tunnel connected", { deviceId })
@@ -545,6 +550,7 @@ export async function connect(localPort: number): Promise<void> {
       clearGatewayCache()
       const gatewayURL = await assignGateway(device)
       await runSession(gatewayURL, device.device_id, localPort)
+      attempt = 0
     } catch (e: any) {
       log.warn("tunnel disconnected", { error: e.message })
       const delay = Math.min(INITIAL_DELAY * Math.pow(2, attempt), MAX_DELAY)
@@ -553,7 +559,5 @@ export async function connect(localPort: number): Promise<void> {
       await new Promise<void>((resolve) => setTimeout(resolve, delay))
       continue
     }
-
-    attempt = 0
   }
 }
