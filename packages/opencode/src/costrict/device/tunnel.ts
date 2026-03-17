@@ -536,7 +536,10 @@ export async function connect(localPort: number): Promise<void> {
       return
     }
 
-    log.info("connecting to gateway tunnel", { attempt, device_id: device.device_id })
+    const baseOverride = process.env["COSTRICT_CLOUD_BASE_URL"] || process.env["COSTRICT_BASE_URL"]
+    if (baseOverride) device.base_url = baseOverride
+
+    log.info("connecting to gateway tunnel", { attempt, device_id: device.device_id, base_url: device.base_url })
 
     try {
       clearGatewayCache()

@@ -43,6 +43,11 @@ export async function register(): Promise<DeviceInfo> {
   const existing = await loadDevice()
   if (existing) {
     log.info("device already registered, reusing", { device_id: existing.device_id })
+    const override = process.env["COSTRICT_CLOUD_BASE_URL"] || process.env["COSTRICT_BASE_URL"]
+    if (override && existing.base_url !== override) {
+      existing.base_url = override
+      log.info("base_url overridden by env", { base_url: override })
+    }
     return existing
   }
 

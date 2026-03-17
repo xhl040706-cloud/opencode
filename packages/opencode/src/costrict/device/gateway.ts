@@ -9,14 +9,20 @@ export function clearGatewayCache() {
   _cachedGatewayURL = null
 }
 
+const GATEWAY_TIMEOUT_MS = 10_000
+
 export async function assignGateway(device: DeviceInfo): Promise<string> {
   if (_cachedGatewayURL) return _cachedGatewayURL
 
-  const res = await fetch(`${device.base_url}/cloud/device/gateway-assign`, {
+  const base = process.env["COSTRICT_CLOUD_BASE_URL"] || process.env["COSTRICT_BASE_URL"] || device.base_url
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS)
+  const res = await fetch(`${base}/cloud/device/gateway-assign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ deviceID: device.device_id }),
-  })
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timer))
 
   if (!res.ok) {
     const body = await res.text().catch(() => "")
