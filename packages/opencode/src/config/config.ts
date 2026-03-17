@@ -1262,6 +1262,7 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          spec_manage: z.boolean().optional().describe("Enable the spec manage tool"),
         })
         .optional(),
       question: z
