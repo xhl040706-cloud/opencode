@@ -73,16 +73,6 @@ export const TaskTool = Tool.define("task", async (ctx) => {
           parentID: ctx.sessionID,
           title: params.description + ` (@${agent.name} subagent)`,
           permission: [
-            {
-              permission: "todowrite",
-              pattern: "*",
-              action: "deny",
-            },
-            {
-              permission: "todoread",
-              pattern: "*",
-              action: "deny",
-            },
             ...(hasTaskPermission
               ? []
               : [
@@ -134,8 +124,6 @@ export const TaskTool = Tool.define("task", async (ctx) => {
         },
         agent: agent.name,
         tools: {
-          todowrite: false,
-          todoread: false,
           ...(hasTaskPermission ? {} : { task: false }),
           ...Object.fromEntries((config.experimental?.primary_tools ?? []).map((t) => [t, false])),
         },

@@ -29,6 +29,7 @@ import { Truncate } from "./truncation"
 import { SequentialThinkingTool } from "../costrict/tool/sequential-thinking"
 import { FileOutlineTool } from "../costrict/tool/file-outline"
 import { CheckpointTool } from "../costrict/tool/checkpoint"
+import { SpecManageTool } from "../costrict/tool/spec-manage"
 import { ApplyPatchTool } from "./apply_patch"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "url"
@@ -123,6 +124,7 @@ export namespace ToolRegistry {
       // CallGraphTool, // deprecate
       // FileImportanceTool, // deprecate
       ...(config.experimental?.checkpoint !== false ? [CheckpointTool] : []),
+      ...(config.experimental?.spec_manage !== false ? [SpecManageTool] : []),
       ...(Flag.COSTRICT_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ApplyPatchTool,
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),

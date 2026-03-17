@@ -17,7 +17,6 @@ permission:
     general: deny
     explore: deny
     SubCodingAgent: deny
-    ReviewAndFix: deny
     RunAndFix: deny
     TestDesign: deny
     TestAndFix: deny
