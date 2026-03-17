@@ -21,7 +21,7 @@ export type LearningCategory = z.infer<typeof LearningCategory>
 export const LearningPriority = z.enum(["low", "medium", "high", "critical"])
 export type LearningPriority = z.infer<typeof LearningPriority>
 
-export const LearningStatus = z.enum(["pending", "in_progress", "resolved", "promoted", "skill_created"])
+export const LearningStatus = z.enum(["pending", "in_progress", "resolved", "skill_created"])
 export type LearningStatus = z.infer<typeof LearningStatus>
 
 export const LearningArea = z.enum(["frontend", "backend", "infra", "tests", "docs", "config", "general"])
@@ -64,8 +64,7 @@ export const LearningEntry = z.object({
   firstSeen: z.string().datetime().optional(),
   lastSeen: z.string().datetime().optional(),
 
-  // Promotion info
-  promotedTo: z.enum(["MEMORY.md", "AGENTS.md", "skill"]).optional(),
+  // Skill generation info
   skillPath: z.string().optional(),
 })
 export type LearningEntry = z.infer<typeof LearningEntry>

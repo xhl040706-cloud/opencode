@@ -2,7 +2,6 @@ import type { Argv } from "yargs"
 import { cmd } from "./cmd"
 import { LearningStorage } from "@/learning/storage"
 import { SkillGenerator } from "@/learning/generator"
-import { LearningPromoter } from "@/learning/promoter"
 import { SkillPusher } from "@/learning/pusher"
 import { bootstrap } from "../bootstrap"
 import { UI } from "../ui"
@@ -16,7 +15,6 @@ export const LearningCommand = cmd({
     yargs
       .command(LearningListCommand)
       .command(LearningShowCommand)
-      .command(LearningPromoteCommand)
       .command(SkillCandidatesCommand)
       .command(SkillApproveCommand)
       .command(SkillRejectCommand)
@@ -117,30 +115,6 @@ export const LearningShowCommand = cmd({
       }
 
       console.log(JSON.stringify(learning, null, 2))
-    })
-  },
-})
-
-export const LearningPromoteCommand = cmd({
-  command: "promote <id>",
-  describe: "promote a learning to MEMORY.md",
-  builder: (yargs: Argv) =>
-    yargs
-      .positional("id", {
-        describe: "learning entry ID",
-        type: "string",
-        demandOption: true,
-      })
-      .option("scope", {
-        describe: "scope for promotion",
-        type: "string",
-        choices: ["project", "global"],
-        default: "project",
-      }),
-  handler: async (args) => {
-    await bootstrap(process.cwd(), async () => {
-      await LearningPromoter.promoteToMemory(args.id, args.scope as "project" | "global")
-      UI.println(UI.Style.TEXT_SUCCESS_BOLD + `Learning ${args.id} promoted to MEMORY.md` + UI.Style.TEXT_NORMAL)
     })
   },
 })
@@ -261,43 +235,105 @@ export const SkillRejectCommand = cmd({
 })
 
 export const SkillGenerateCommand = cmd({
-  command: "generate <id>",
-  describe: "generate a skill from a learning entry",
+  command: "generate [id]",
+  describe: "generate skill(s) from learning entries",
   builder: (yargs: Argv) =>
     yargs.positional("id", {
-      describe: "learning entry ID",
+      describe: "learning entry ID (optional, if not provided, generates skills for all pending learnings)",
       type: "string",
-      demandOption: true,
     }),
   handler: async (args) => {
     await bootstrap(process.cwd(), async () => {
       const learnings = await LearningStorage.listLearnings()
-      const learning = learnings.find((l) => l.id === args.id)
 
-      if (!learning) {
-        UI.error(`Learning entry not found: ${args.id}`)
-        process.exit(1)
+      // If ID is provided, generate skill for single learning
+      if (args.id) {
+        const learning = learnings.find((l) => l.id === args.id)
+
+        if (!learning) {
+          UI.error(`Learning entry not found: ${args.id}`)
+          process.exit(1)
+        }
+
+        if (learning.status === "skill_created") {
+          UI.println(`Learning ${args.id} has already been converted to a skill`)
+          UI.println(`Skill path: ${learning.skillPath || "N/A"}`)
+          return
+        }
+
+        await generateSingleSkill(learning)
+        return
       }
 
-      UI.println(`Generating skill from learning: ${learning.id}`)
-      UI.println(`Category: ${learning.category}`)
-      UI.println(`Summary: ${Locale.truncate(learning.summary, 60)}`)
-      UI.println(`${EOL}Analyzing learning content and generating skill...`)
+      // No ID provided - generate skills for all pending learnings
+      const pendingLearnings = learnings.filter((l) => l.status !== "skill_created")
 
-      const candidate = await SkillGenerator.generateFromLearning(learning)
-      if (candidate) {
-        UI.println(UI.Style.TEXT_SUCCESS_BOLD + `${EOL}Skill candidate created: ${candidate.id}` + UI.Style.TEXT_NORMAL)
-        UI.println(`Name: ${candidate.name}`)
-        UI.println(`Description: ${candidate.description}`)
-        UI.println(`Confidence: ${(candidate.confidence * 100).toFixed(0)}%`)
-        UI.println(`${EOL}Review and approve with: cs learning approve ${candidate.id}`)
-      } else {
-        UI.error("Failed to generate skill candidate")
-        process.exit(1)
+      if (pendingLearnings.length === 0) {
+        UI.println("No pending learnings to convert. All learnings have been converted to skills.")
+        return
+      }
+
+      UI.println(`Found ${pendingLearnings.length} learning(s) to convert to skills${EOL}`)
+
+      let successCount = 0
+      let skipCount = 0
+      let failCount = 0
+
+      for (const learning of pendingLearnings) {
+        UI.println(`${EOL}--- Processing [${learning.id}] ---`)
+        UI.println(`Category: ${learning.category}`)
+        UI.println(`Summary: ${Locale.truncate(learning.summary, 60)}`)
+
+        try {
+          const candidate = await SkillGenerator.generateFromLearning(learning)
+          if (candidate) {
+            UI.println(UI.Style.TEXT_SUCCESS_BOLD + `Skill candidate created: ${candidate.id}` + UI.Style.TEXT_NORMAL)
+            successCount++
+          } else {
+            UI.println(UI.Style.TEXT_WARNING + "Skipped: Could not generate skill candidate" + UI.Style.TEXT_NORMAL)
+            skipCount++
+          }
+        } catch (err) {
+          UI.error(`Failed to generate skill: ${err}`)
+          failCount++
+        }
+      }
+
+      UI.println(`${EOL}${EOL}=== Summary ===`)
+      UI.println(`Total: ${pendingLearnings.length}`)
+      UI.println(UI.Style.TEXT_SUCCESS_BOLD + `Success: ${successCount}` + UI.Style.TEXT_NORMAL)
+      if (skipCount > 0) UI.println(`Skipped: ${skipCount}`)
+      if (failCount > 0) UI.println(UI.Style.TEXT_WARNING_BOLD + `Failed: ${failCount}` + UI.Style.TEXT_NORMAL)
+
+      if (successCount > 0) {
+        UI.println(`${EOL}Review candidates with: cs learning candidates`)
+        UI.println(`Approve a candidate with: cs learning approve <candidate-id>`)
       }
     })
   },
 })
+
+/**
+ * Generate a skill from a single learning entry
+ */
+async function generateSingleSkill(learning: any): Promise<void> {
+  UI.println(`Generating skill from learning: ${learning.id}`)
+  UI.println(`Category: ${learning.category}`)
+  UI.println(`Summary: ${Locale.truncate(learning.summary, 60)}`)
+  UI.println(`${EOL}Analyzing learning content and generating skill...`)
+
+  const candidate = await SkillGenerator.generateFromLearning(learning)
+  if (candidate) {
+    UI.println(UI.Style.TEXT_SUCCESS_BOLD + `${EOL}Skill candidate created: ${candidate.id}` + UI.Style.TEXT_NORMAL)
+    UI.println(`Name: ${candidate.name}`)
+    UI.println(`Description: ${candidate.description}`)
+    UI.println(`Confidence: ${(candidate.confidence * 100).toFixed(0)}%`)
+    UI.println(`${EOL}Review and approve with: cs learning approve ${candidate.id}`)
+  } else {
+    UI.error("Failed to generate skill candidate")
+    process.exit(1)
+  }
+}
 
 export const SkillPushCommand = cmd({
   command: "push <id>",

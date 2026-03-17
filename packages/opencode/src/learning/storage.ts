@@ -45,13 +45,6 @@ export namespace LearningStorage {
   }
 
   /**
-   * Get the memory directory path
-   */
-  export function getMemoryDir(scope: "project" | "global" = "project"): string {
-    return path.join(scope === "global" ? Global.Path.home : Instance.directory, ".costrict", "memory")
-  }
-
-  /**
    * Ensure the learnings directory exists
    */
   export async function ensureLearningsDir(scope: "project" | "global" = "project"): Promise<string> {
@@ -540,9 +533,6 @@ ${candidate.content}
     if (entry.lastSeen) {
       lines.push(`- Last-Seen: ${entry.lastSeen}`)
     }
-    if (entry.promotedTo) {
-      lines.push(`- Promoted-To: ${entry.promotedTo}`)
-    }
     if (entry.skillPath) {
       lines.push(`- Skill-Path: ${entry.skillPath}`)
     }
@@ -682,7 +672,6 @@ ${candidate.content}
       let recurrenceCount = 1
       let firstSeen: string | undefined
       let lastSeen: string | undefined
-      let promotedTo: LearningEntry["promotedTo"] | undefined
       let skillPath: string | undefined
 
       let currentSection = ""
@@ -767,8 +756,6 @@ ${candidate.content}
             firstSeen = trimmed.replace("- First-Seen:", "").trim()
           } else if (trimmed.startsWith("- Last-Seen:")) {
             lastSeen = trimmed.replace("- Last-Seen:", "").trim()
-          } else if (trimmed.startsWith("- Promoted-To:")) {
-            promotedTo = trimmed.replace("- Promoted-To:", "").trim() as LearningEntry["promotedTo"]
           } else if (trimmed.startsWith("- Skill-Path:")) {
             skillPath = trimmed.replace("- Skill-Path:", "").trim()
           }
@@ -794,7 +781,6 @@ ${candidate.content}
         recurrenceCount,
         firstSeen,
         lastSeen,
-        promotedTo,
         skillPath,
       }
     } catch {

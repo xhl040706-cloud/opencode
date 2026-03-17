@@ -9,7 +9,7 @@
 参考 [self-improving-agent](https://clawhub.ai/pskoett/self-improving-agent) 的设计：
 
 1. **客户端优先**：所有进化逻辑在客户端本地执行，服务端仅作为可选的存储协作方
-2. **渐进式晋升**：临时学习 → 本地记忆 → 项目记忆 → 服务端共享
+2. **渐进式学习**：临时学习 → Skill 生成 → 服务端共享
 3. **用户主导**：只有用户明确批准后，才将 skill 推送到服务端
 4. **Hook 驱动**：通过事件钩子自动触发学习检测，不依赖 AI 主动记忆
 
@@ -20,7 +20,7 @@
 │                         客户端 (cs)                        │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │                   本地进化闭环                               │ │
-│  │  行为采集 → 模式检测 → 学习记录 → 本地晋升 → Skill 生成      │ │
+│  │  行为采集 → 模式检测 → 学习记录 → Skill 生成                 │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │                              │                                   │
 │                              │ 用户主动推送                       │
@@ -63,9 +63,6 @@
 │       └── candidate-001/
 │           ├── SKILL.md
 │           └── metadata.json
-└── memory/                   # 新增：本地持久化记忆
-    └── daily/
-        └── 2026-03-12.md
 ```
 
 ### 2.2 全局学习目录
@@ -76,8 +73,6 @@
 │   ├── LEARNINGS.md
 │   ├── ERRORS.md
 │   └── FEATURE_REQUESTS.md
-├── memory/                   # 全局记忆
-│   └── MEMORY.md             # 跨会话持久化
 └── skills/                   # 全局 skills
 ```
 
@@ -103,7 +98,7 @@ export const LearningEntry = z.object({
   category: LearningCategory,
   logged: z.string().datetime(),
   priority: z.enum(["low", "medium", "high", "critical"]),
-  status: z.enum(["pending", "in_progress", "promoted", "skill_created"]),
+  status: z.enum(["pending", "in_progress", "resolved", "skill_created"]),
   area: z.enum(["frontend", "backend", "infra", "tests", "docs", "config", "general"]),
 
   summary: z.string(),
@@ -122,9 +117,8 @@ export const LearningEntry = z.object({
   firstSeen: z.string().datetime().optional(),
   lastSeen: z.string().datetime().optional(),
 
-  // 晋升信息
-  promotedTo: z.enum(["MEMORY.md", "AGENTS.md", "skill"]).optional(),
-  skillPath: z.string().optional(),         // 如果晋升为 skill
+  // Skill 生成信息
+  skillPath: z.string().optional(),         // 如果生成为 skill
 })
 export type LearningEntry = z.infer<typeof LearningEntry>
 ```
@@ -229,7 +223,6 @@ src/learning/
 ├── detector.ts             # 学习检测器
 ├── logger.ts               # 日志记录器
 ├── analyzer.ts             # 模式分析器
-├── promoter.ts             # 晋升管理器
 ├── skill_generator.ts      # Skill 生成器
 ├── pusher.ts               # 服务端推送器
 └── hooks/
@@ -1019,13 +1012,13 @@ complex: Requires significant logic, multiple integrations, or unclear implement
 │                              Skill 生成来源                                            │
 ├───────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                       │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐      │
-│  │  会话捕获  │  │  规则触发  │  │  错误模式  │  │  用户需求  │  │  手动创建  │      │
-│  │  /skills-  │  │ 关键词检测 │  │  命令失败  │  │  描述生成  │  │ cs learning │      │
-│  │  capture   │  │            │  │            │  │            │  │  generate  │      │
-│  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘      │
-│        │               │               │               │               │             │
-│        ▼               ▼               ▼               ▼               ▼             │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐                    │
+│  │  会话捕获  │  │  规则触发  │  │  错误模式  │  │  手动创建  │                    │
+│  │  /skills-  │  │ 关键词检测 │  │  命令失败  │  │ cs learning │                    │
+│  │  capture   │  │            │  │            │  │  generate  │                    │
+│  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘                    │
+│        │               │               │               │                           │
+│        ▼               ▼               ▼               ▼                           │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐     │
 │  │                      Learning Entry / Feature Request                       │     │
 │  │                      ID: LRN-* / FEAT-* / ERR-*                             │     │
@@ -1059,9 +1052,10 @@ complex: Requires significant logic, multiple integrations, or unclear implement
   1. 会话捕获 (/skills-capture)    - 从对话中提取知识点
   2. 规则触发 (关键词检测)         - 自动检测纠正/工作流触发词
   3. 错误模式 (命令失败)           - 自动检测错误输出
-  4. 用户需求描述                  - 直接描述功能需求生成 Skill
-  5. Feature Request               - 功能需求自动评估后建议生成
-  6. 手动创建 (cs learning generate) - 从已有 Learning 生成
+  4. Feature Request               - 功能需求自动评估后建议生成
+  5. 手动创建 (cs learning generate) - 从已有 Learning 生成
+     - `cs learning generate`          - 批量生成（跳过已转换的）
+     - `cs learning generate <id>`     - 单个生成
 ```
 
 ### 6.2 生成来源详解
@@ -1162,72 +1156,7 @@ Review and approve with: cs learning approve 550e8400-e29b-41d4-a716-44665544000
 
 ---
 
-#### 来源 5: 用户需求描述生成 Skill
-
-用户在对话中直接描述想要的功能/能力，让 AI 生成 Skill。
-
-**方式 1: 使用 `/skills-capture` + `generate`**
-
-```
-用户: 我需要一个 Skill，能够自动分析项目的依赖关系，检查是否有循环依赖，
-      并生成依赖图。
-
-AI: [分析需求并执行]
-    已完成依赖分析。
-
-用户: /skills-capture
-
-AI: 已捕获学习，ID: LRN-20260316-010
-    Category: workflow
-    Summary: 自动分析项目依赖关系并生成依赖图
-```
-
-```bash
-# 然后生成 Skill 候选
-cs learning generate LRN-20260316-010
-cs learning approve <candidate-id>
-```
-
-**方式 2: 直接描述需求 + 触发词**
-
-```
-用户: 帮我做成一个 Skill：自动分析项目依赖关系，检查循环依赖，生成依赖图
-
-AI: [自动检测到技能提取信号]
-    正在生成 Skill 候选...
-
-    Candidate ID: 660e8400-e29b-41d4-a716-446655440001
-    Name: dependency-analyzer
-    Description: 分析项目依赖关系，检测循环依赖，生成依赖图
-
-    Review and approve with: cs learning approve 660e8400-e29b-41d4-a716-446655440001
-```
-
-**触发词：**
-- 中文：做成技能、保存为技能、记住这个模式、创建技能、保存这个工作流
-- 英文：Make this a skill, Save as skill, Remember this pattern, Create a skill
-
-**方式 3: 功能需求自动检测（复杂度评估后建议）**
-
-```
-用户: 希望可以有一个功能，自动格式化所有 Markdown 文件，并检查链接是否有效
-
-AI: [检测到功能需求，评估复杂度为 simple]
-    我注意到您需要一个自动化功能。是否要将此保存为 Skill？
-
-    - 回复 "yes" 或 "创建技能" 生成 Skill
-    - 回复 "no" 仅记录为功能需求
-
-用户: yes
-
-AI: 正在生成 Skill 候选...
-    Candidate ID: 770e8400-e29b-41d4-a716-446655440002
-    Name: markdown-formatter-validator
-```
-
----
-
-#### 来源 6: 从 Feature Request 生成
+#### 来源 5: 从 Feature Request 生成
 
 用户表达的功能需求会被记录为 `FeatureRequestEntry`，可以从中生成 Skill。
 
@@ -1244,22 +1173,22 @@ cs learning generate FEAT-20260316-001
 #### Learning 状态流转
 
 ```
-┌─────────┐     promote      ┌──────────┐
-│ pending │ ───────────────► │ promoted │  (晋升到 MEMORY.md)
-└────┬────┘                  └──────────┘
+┌─────────┐     generate     ┌──────────────┐
+│ pending │ ───────────────► │ skill_created│  (生成正式 Skill)
+└────┬────┘                  └──────────────┘
      │
-     │ generate
+     │ resolve
      ▼
-┌──────────────┐
-│ skill_created│  (生成正式 Skill)
-└──────────────┘
+┌──────────┐
+│ resolved │  (问题已解决)
+└──────────┘
 ```
 
 | Status | 说明 |
 |--------|------|
 | `pending` | 待处理，新创建的默认状态 |
 | `in_progress` | 处理中 |
-| `promoted` | 已晋升到 MEMORY.md |
+| `resolved` | 已解决 |
 | `skill_created` | 已生成正式 Skill |
 
 #### Skill Candidate 状态流转
@@ -1301,6 +1230,9 @@ cs learning list
 
 # Step 3: 从学习生成 Skill 候选
 cs learning generate LRN-20260316-001
+# 或者批量生成所有待处理的 learning
+# cs learning generate
+
 # 输出:
 # Generated candidate: 550e8400-e29b-41d4-a716-446655440000
 # Name: use-pnpm-package-manager
@@ -1351,77 +1283,6 @@ cs learning show LRN-20260316-006
 cs learning generate LRN-20260316-006  # 生成 Skill 候选
 ```
 
-#### 场景 4: 用户需求描述直接生成 Skill
-
-**方式 A: 使用触发词直接生成**
-
-```
-用户: 帮我做成一个 Skill：能够自动扫描项目中的 TODO 注释，生成任务列表，
-      并按优先级排序
-
-AI: [检测到技能提取信号]
-    正在生成 Skill 候选...
-
-    Candidate ID: 880e8400-e29b-41d4-a716-446655440003
-    Name: todo-scanner
-    Description: 扫描项目 TODO 注释，生成优先级排序的任务列表
-    Confidence: 0.90
-
-    查看详情: cs learning show 880e8400-e29b-41d4-a716-446655440003
-    批准使用: cs learning approve 880e8400-e29b-41d4-a716-446655440003
-```
-
-```bash
-# 查看并批准
-cs learning show 880e8400-e29b-41d4-a716-446655440003
-cs learning approve 880e8400-e29b-41d4-a716-446655440003
-# 输出: Skill approved and created at: .costrict/skill/todo-scanner/SKILL.md
-```
-
-**方式 B: 功能需求自动检测**
-
-```
-用户: 希望可以有一个功能，每次提交代码前自动运行 lint 检查和测试
-
-AI: [检测到功能需求，复杂度: simple]
-    我注意到您需要一个自动化功能。是否要将此保存为 Skill？
-
-    - 回复 "yes" 或 "创建技能" 生成 Skill
-    - 回复 "no" 仅记录为功能需求
-
-用户: 创建技能
-
-AI: 正在生成 Skill 候选...
-    Candidate ID: 990e8400-e29b-41d4-a716-446655440004
-    Name: pre-commit-check
-    Description: 提交前自动运行 lint 检查和测试
-
-    批准使用: cs learning approve 990e8400-e29b-41d4-a716-446655440004
-```
-
-**方式 C: 先捕获需求，再手动生成**
-
-```
-用户: 我需要一个能力，能够自动分析 API 响应时间，找出慢接口
-
-AI: [完成分析任务]
-    已找到 3 个响应时间超过 1s 的接口...
-
-用户: /skills-capture
-
-AI: 已捕获学习，ID: LRN-20260316-020
-    Category: workflow
-    Summary: 自动分析 API 响应时间，找出慢接口
-```
-
-```bash
-# 从捕获的 Learning 生成 Skill
-cs learning generate LRN-20260316-020
-# 输出: Candidate ID: aaa0e8400-e29b-41d4-a716-446655440005
-
-cs learning approve aaa0e8400-e29b-41d4-a716-446655440005
-```
-
 ### 6.5 CLI 命令速查
 
 ```bash
@@ -1430,8 +1291,8 @@ cs learning list                    # 列出所有学习条目
 cs learning list --status pending   # 按状态筛选
 cs learning list --category error   # 按类别筛选
 cs learning show <id>               # 查看详情
-cs learning promote <id>            # 晋升到 MEMORY.md
-cs learning generate <id>           # 生成 Skill 候选
+cs learning generate                # 批量生成 Skill 候选（跳过已转换）
+cs learning generate <id>           # 从指定学习条目生成 Skill 候选
 
 # ==================== Skill Candidate 管理 ====================
 cs learning candidates              # 列出所有候选
@@ -1441,14 +1302,6 @@ cs learning push <candidate-id>     # 推送到服务端
 
 # ==================== 对话中快捷命令 ====================
 /skills-capture                     # 从当前对话提取学习
-
-# ==================== 用户需求描述生成 Skill ====================
-# 方式 1: 先捕获再生成
-/skills-capture                     # 捕获需求描述
-cs learning generate <learning-id>  # 生成 Skill 候选
-
-# 方式 2: 直接使用触发词（对话中）
-# "做成技能：xxx" / "保存为技能" / "Make this a skill"
 ```
 
 ### 6.6 文件存储位置
@@ -1479,7 +1332,7 @@ cs learning generate <learning-id>  # 生成 Skill 候选
 | Candidate ID | UUID | `550e8400-e29b-41d4-a716-446655440000` |
 
 **重要：**
-- `cs learning promote` 和 `cs learning generate` 使用 **Learning ID** (LRN-*)
+- `cs learning generate [<id>]` - 可选 Learning ID，不传则批量生成
 - `cs learning approve` 和 `cs learning reject` 使用 **Candidate ID** (UUID)
 
 ---
@@ -1492,8 +1345,8 @@ cs learning generate <learning-id>  # 生成 Skill 候选
 # 学习管理
 cs learning list              # 列出所有学习条目
 cs learning show <id>         # 查看学习详情
-cs learning promote <id>      # 晋升到 MEMORY.md
-cs learning generate <id>     # 从学习条目生成 Skill 候选
+cs learning generate          # 批量生成 Skill 候选（跳过已转换）
+cs learning generate <id>     # 从指定学习条目生成 Skill 候选
 
 # Skill 候选管理
 cs learning candidates        # 列出候选 skills
@@ -1533,8 +1386,8 @@ cs learning push <id>         # 推送到服务端
       "featureRequests": true,  // 检测功能需求
     },
 
-    // 自动晋升阈值
-    "autoPromote": {
+    // Skill 生成阈值
+    "skillGeneration": {
       "recurrenceThreshold": 3,  // 重复出现次数
       "priorityThreshold": "high" // 优先级阈值
     },
@@ -1568,10 +1421,10 @@ cs learning push <id>         # 推送到服务端
 - [ ] 集成 Hook 系统
 - [ ] 添加 CLI 命令
 
-### Phase 3: 分析与晋升
+### Phase 3: 分析与 Skill 生成
 
 - [ ] 实现模式分析器 `analyzer.ts`
-- [ ] 实现晋升管理器 `promoter.ts`
+- [ ] 实现 Skill 生成器 `skill_generator.ts`
 - [ ] 集成 LLM 生成 skill
 
 ### Phase 4: 服务端集成（可选）
@@ -1657,72 +1510,8 @@ sequenceDiagram
 | `complexity === "simple"` | 直接建议生成 Skill | 单步骤或简单自动化 |
 | `complexity === "medium"` | 建议生成 Skill | 多步骤但流程清晰 |
 | `complexity === "complex"` | 仅记录需求 | 需要复杂逻辑或多系统集成 |
-| 用户明确要求 | 立即生成 Skill | "保存为技能" 等触发词 |
 
-### 10.4 生成的 Skill 示例
-
-**输入（用户需求）：**
-> 我希望能有一个功能，自动下载每周的报表，然后解析数据，统计汇总后发送邮件给团队。
-
-**输出（生成的 SKILL.md）：**
-
-```markdown
----
-name: weekly-report-automation
-description: "Automatically download weekly reports, parse data, summarize, and email to team"
-triggers:
-  - "weekly report"
-  - "report automation"
-  - "send weekly summary"
----
-
-# Weekly Report Automation
-
-Automates the weekly reporting workflow: download → parse → summarize → email.
-
-## When to Use
-
-Use this skill when:
-- Processing weekly or periodic reports
-- Need to extract and summarize data from reports
-- Sending automated summary emails to team
-
-## Steps
-
-1. **Download Report**
-   - Fetch the report from the specified URL or location
-   - Verify file integrity
-
-2. **Parse Data**
-   - Extract relevant data fields
-   - Handle different file formats (CSV, Excel, PDF)
-
-3. **Summarize**
-   - Calculate key metrics
-   - Generate summary statistics
-   - Create visualizations if needed
-
-4. **Send Email**
-   - Format the summary for email
-   - Send to configured recipients
-   - Include attachments if specified
-
-## Example
-
-```bash
-# Trigger the weekly report automation
-/weekly-report --week 2026-W10 --recipients team@example.com
-```
-
-## Configuration
-
-Set these environment variables:
-- `REPORT_SOURCE_URL`: URL to download reports
-- `EMAIL_RECIPIENTS`: Comma-separated email addresses
-- `EMAIL_SMTP_*`: SMTP configuration
-```
-
-### 10.5 与服务端协作
+### 10.4 与服务端协作
 
 生成的 Skill 可以选择推送到服务端，进入团队共享的能力市场：
 
@@ -1777,24 +1566,6 @@ for (const match of candidateMatches) {
     if (meta.status === "approved") {
       // 只有 approved 的候选才作为正式 skill 加载
       await addSkill(match)
-    }
-  }
-}
-```
-
-### 11.2 与 Memory 系统集成
-
-```typescript
-// 在 src/session/memory.ts 中集成学习晋升
-
-// 定期检查待晋升的学习
-export async function checkPromotions() {
-  const learnings = await LearningStorage.getLearningsByStatus("pending")
-
-  for (const learning of learnings) {
-    if (learning.recurrenceCount >= 3) {
-      // 自动晋升到 MEMORY.md
-      await promoteToMemory(learning)
     }
   }
 }

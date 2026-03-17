@@ -40,22 +40,6 @@ const FEATURE_TRIGGERS = [
   "能否添加",
 ]
 
-const SKILL_EXTRACTION_TRIGGERS = [
-  "Save this as a skill",
-  "I keep running into this",
-  "This would be useful for other projects",
-  "Remember this pattern",
-  "Make this a skill",
-  "Create a skill for this",
-  "保存为技能",
-  "记住这个模式",
-  "这个很有用",
-  "做成技能",
-  "创建技能",
-  "保存这个工作流",
-  "记住这个",
-]
-
 const ERROR_PATTERNS = [
   "error:",
   "Error:",
@@ -121,14 +105,6 @@ export namespace LearningDetector {
   export function detectFeatureRequest(message: string): boolean {
     const lower = message.toLowerCase()
     return FEATURE_TRIGGERS.some((trigger) => lower.includes(trigger.toLowerCase()))
-  }
-
-  /**
-   * Detect if a message contains a skill extraction signal
-   */
-  export function detectSkillSignal(message: string): boolean {
-    const lower = message.toLowerCase()
-    return SKILL_EXTRACTION_TRIGGERS.some((signal) => lower.includes(signal.toLowerCase()))
   }
 
   /**
@@ -303,37 +279,6 @@ export namespace LearningDetector {
         })
       }
     }
-
-    // Detect skill extraction signals
-    if (detectSkillSignal(message)) {
-      log.info("skill extraction signal detected", { message: message.slice(0, 100) })
-
-      const summary = extractSummaryFromSkillSignal(message)
-      const area = determineArea(relatedFiles?.[0], message)
-      const patternKey = generatePatternKey("workflow", summary)
-
-      Bus.publish(LearningEvent.Detected, {
-        category: "workflow",
-        summary,
-        details: message,
-        message,
-        sessionId,
-        relatedFiles,
-      })
-
-      // Create the learning entry
-      await LearningStorage.createLearning({
-        category: "workflow",
-        priority: "medium",
-        status: "pending",
-        area,
-        summary,
-        details: message,
-        source: "conversation",
-        relatedFiles,
-        patternKey,
-      })
-    }
   }
 
   /**
@@ -398,40 +343,4 @@ function extractSummaryFromError(error: string): string {
     }
   }
   return error.slice(0, 100)
-}
-
-/**
- * Extract a summary from a skill signal message
- */
-function extractSummaryFromSkillSignal(message: string): string {
-  // Remove trigger phrases and extract the core intent
-  const triggers = [
-    "Save this as a skill",
-    "I keep running into this",
-    "This would be useful for other projects",
-    "Remember this pattern",
-    "Make this a skill",
-    "Create a skill for this",
-    "保存为技能",
-    "记住这个模式",
-    "这个很有用",
-    "做成技能",
-    "创建技能",
-    "保存这个工作流",
-    "记住这个",
-  ]
-
-  let summary = message
-  for (const trigger of triggers) {
-    const regex = new RegExp(trigger.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
-    summary = summary.replace(regex, "")
-  }
-
-  summary = summary.trim()
-  if (!summary) {
-    // If nothing left after removing trigger, use the original message
-    summary = `Skill pattern: ${message.slice(0, 50)}`
-  }
-
-  return summary.length > 100 ? summary.slice(0, 97) + "..." : summary
 }
