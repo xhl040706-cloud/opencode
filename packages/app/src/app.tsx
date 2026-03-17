@@ -25,6 +25,7 @@ import { PromptProvider } from "@/context/prompt"
 import { type ServerConnection, ServerProvider, useServer } from "@/context/server"
 import { SettingsProvider } from "@/context/settings"
 import { TerminalProvider } from "@/context/terminal"
+import { AuthProvider } from "@/context/auth"
 import DirectoryLayout from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
 import { ErrorPage } from "./pages/error"
@@ -32,52 +33,54 @@ import { Dynamic } from "solid-js/web"
 
 const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
-const StoreLayout = lazy(() => import("./pages/store").then((m) => ({ default: m.StoreLayout })))
-const StoreHome = lazy(() => import("./pages/store").then((m) => ({ default: m.StoreHome })))
-const StoreSkills = lazy(() => import("./pages/store").then((m) => ({ default: m.StoreSkills })))
-const StoreSubagents = lazy(() => import("./pages/store").then((m) => ({ default: m.StoreSubagents })))
-const StoreCommands = lazy(() => import("./pages/store").then((m) => ({ default: m.StoreCommands })))
-const StoreMcpServers = lazy(() => import("./pages/store").then((m) => ({ default: m.StoreMcpServers })))
-const StoreItemDetail = lazy(() => import("./pages/store").then((m) => ({ default: m.StoreItemDetail })))
-const StoreDashboard = lazy(() => import("./pages/store").then((m) => ({ default: m.StoreDashboard })))
+const StoreLayout = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreLayout })))
+const StoreHome = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreHome })))
+const StoreSkills = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreSkills })))
+const StoreSubagents = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreSubagents })))
+const StoreCommands = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreCommands })))
+const StoreMcpServers = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreMcpServers })))
+const StoreItemDetail = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreItemDetail })))
+const StoreDashboard = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreDashboard })))
 const Loading = () => <div class="size-full" />
 
-const HomeRoute = () => (
-  <Suspense fallback={<Loading />}>
-    <Home />
-  </Suspense>
-)
+const HomeRoute = () => <Navigate href="/store" />
 
 const StoreHomeRoute = () => (
   <Suspense fallback={<Loading />}>
     <StoreHome />
   </Suspense>
 )
+
 const StoreSkillsRoute = () => (
   <Suspense fallback={<Loading />}>
     <StoreSkills />
   </Suspense>
 )
+
 const StoreSubagentsRoute = () => (
   <Suspense fallback={<Loading />}>
     <StoreSubagents />
   </Suspense>
 )
+
 const StoreCommandsRoute = () => (
   <Suspense fallback={<Loading />}>
     <StoreCommands />
   </Suspense>
 )
+
 const StoreMcpServersRoute = () => (
   <Suspense fallback={<Loading />}>
     <StoreMcpServers />
   </Suspense>
 )
+
 const StoreItemDetailRoute = () => (
   <Suspense fallback={<Loading />}>
     <StoreItemDetail />
   </Suspense>
 )
+
 const StoreDashboardRoute = () => (
   <Suspense fallback={<Loading />}>
     <StoreDashboard />
@@ -165,7 +168,9 @@ export function AppBaseProviders(props: ParentProps) {
             <ErrorBoundary fallback={(error) => <ErrorPage error={error} />}>
               <DialogProvider>
                 <MarkedProviderWithNativeParser>
-                  <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
+                  <FileComponentProvider component={File}>
+                    <AuthProvider>{props.children}</AuthProvider>
+                  </FileComponentProvider>
                 </MarkedProviderWithNativeParser>
               </DialogProvider>
             </ErrorBoundary>
