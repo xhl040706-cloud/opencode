@@ -135,6 +135,6 @@ SpecPlan 只需理解与其任务直接相关的内容。分发任务时提供�
 <directory_structure>
 .cospec/spec/{功能名}/
   ├── spec.md           # 第一阶段：系统需求清单
-  ├── project.md        # 第二阶段：总体设计文件
+  ├── tech.md        # 第二阶段：总体设计文件
   └── plan.md           # 第三阶段：执行计划
 </directory_structure>
