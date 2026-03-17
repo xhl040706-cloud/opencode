@@ -2054,8 +2054,7 @@ export default function Layout(props: ParentProps) {
           aria-label={language.t("sidebar.nav.projectsAndSessions")}
           data-component="sidebar-nav-desktop"
           classList={{
-            "hidden xl:block": !location.pathname.startsWith("/store"),
-            hidden: location.pathname.startsWith("/store"),
+            "hidden xl:block": true,
             "relative shrink-0": true,
           }}
           style={{ width: layout.sidebar.opened() ? `${Math.max(layout.sidebar.width(), 244)}px` : "64px" }}
@@ -2096,13 +2095,6 @@ export default function Layout(props: ParentProps) {
               renderProjectOverlay={() => (
                 <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
               )}
-              settingsLabel={() => language.t("sidebar.settings")}
-              settingsKeybind={() => command.keybind("settings.open")}
-              onOpenSettings={openSettings}
-              helpLabel={() => language.t("sidebar.help")}
-              onOpenHelp={() => platform.openLink("https://docs.costrict.ai/cli/guide/installation")}
-              storeLabel={() => language.t("sidebar.store")}
-              onOpenStore={() => navigate("/store")}
               renderPanel={() => <SidebarPanel project={currentProject()} />}
             />
           </div>
@@ -2125,7 +2117,7 @@ export default function Layout(props: ParentProps) {
             />
           </Show>
         </nav>
-        <div classList={{ "xl:hidden": true, hidden: location.pathname.startsWith("/store") }}>
+        <div classList={{ "xl:hidden": true }}>
           <div
             classList={{
               "fixed inset-x-0 top-10 bottom-0 z-40 transition-opacity duration-200": true,
@@ -2163,13 +2155,6 @@ export default function Layout(props: ParentProps) {
               renderProjectOverlay={() => (
                 <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
               )}
-              settingsLabel={() => language.t("sidebar.settings")}
-              settingsKeybind={() => command.keybind("settings.open")}
-              onOpenSettings={openSettings}
-              helpLabel={() => language.t("sidebar.help")}
-              onOpenHelp={() => platform.openLink("https://docs.costrict.ai/cli/guide/installation")}
-              storeLabel={() => language.t("sidebar.store")}
-              onOpenStore={() => navigate("/store")}
               renderPanel={() => <SidebarPanel project={currentProject()} mobile />}
             />
           </nav>

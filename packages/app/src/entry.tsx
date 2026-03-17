@@ -2,13 +2,15 @@
 
 import { iife } from "@opencode-ai/util/iife"
 import { render } from "solid-js/web"
-import { AppBaseProviders, AppInterface } from "@/app"
+import { Router } from "@solidjs/router"
+import { AppBaseProviders } from "@/app"
 import { type Platform, PlatformProvider } from "@/context/platform"
 import { dict as en } from "@/i18n/en"
 import { dict as zh } from "@/i18n/zh"
 import { handleNotificationClick } from "@/utils/notification-click"
 import pkg from "../package.json"
 import { ServerConnection } from "./context/server"
+import { RootLayoutRoute, renderRoutes, routeConfig } from "./routes"
 
 const DEFAULT_SERVER_URL_KEY = "opencode.settings.dat:defaultServerUrl"
 
@@ -110,27 +112,12 @@ const platform: Platform = {
   setDefaultServerUrl: writeDefaultServerUrl,
 }
 
-const defaultUrl = iife(() => {
-  const lsDefault = readDefaultServerUrl()
-  if (lsDefault) return lsDefault
-  if (location.hostname.includes("opencode.ai")) return "http://localhost:4096"
-  if (import.meta.env.DEV) {
-    const host = import.meta.env.VITE_OPENCODE_SERVER_HOST ?? "localhost"
-    const port = import.meta.env.VITE_OPENCODE_SERVER_PORT ?? "4096"
-    const deviceId = import.meta.env.VITE_OPENCODE_CLOUD_DEVICE_ID
-    if (deviceId) return `${location.origin}/cloud/device/${deviceId}/proxy`
-    return `http://${host}:${port}`
-  }
-  return location.origin
-})
-
 if (root instanceof HTMLElement) {
-  const server: ServerConnection.Http = { type: "http", http: { url: defaultUrl } }
   render(
     () => (
       <PlatformProvider value={platform}>
         <AppBaseProviders>
-          <AppInterface defaultServer={ServerConnection.key(server)} servers={[server]} />
+          <Router root={RootLayoutRoute}>{renderRoutes(routeConfig)}</Router>
         </AppBaseProviders>
       </PlatformProvider>
     ),

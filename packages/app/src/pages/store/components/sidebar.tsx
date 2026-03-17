@@ -2,12 +2,9 @@ import { A, useLocation, useNavigate } from "@solidjs/router"
 import { createSignal, createEffect, For, Show } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
-import { Popover } from "@opencode-ai/ui/popover"
-import { Button } from "@opencode-ai/ui/button"
 import { orgApi, type Organization } from "../lib/api"
 import { useOrgFilter } from "../context/org-filter"
 import { useAuth } from "../hooks/use-auth"
-import { getLoginUrl } from "../lib/auth"
 
 function IconBuilding2(props: { class?: string }) {
   return (
@@ -52,25 +49,6 @@ function IconGlobe(props: { class?: string }) {
   )
 }
 
-function IconUser(props: { class?: string }) {
-  return (
-    <svg
-      class={props.class}
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  )
-}
 
 const NAV_ITEMS: Array<{
   href: string
@@ -105,70 +83,6 @@ function NavItem(props: {
   )
 }
 
-function UserMenu() {
-  const { user, logout } = useAuth()
-
-  return (
-    <Popover
-      placement="top"
-      trigger={
-        <button class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-text-weak hover:text-text-strong hover:bg-surface-base">
-          <Show when={user()?.picture} fallback={<IconUser class="h-4 w-4 shrink-0" />}>
-            <img src={user()?.picture} alt="" class="h-4 w-4 rounded-full shrink-0" />
-          </Show>
-          <span class="truncate flex-1 text-left">
-            {user()?.preferred_username || user()?.name || user()?.email || "Sign In"}
-          </span>
-        </button>
-      }
-    >
-      <div class="flex flex-col gap-2 p-2 min-w-48">
-        <Show
-          when={user()}
-          fallback={
-            <a href={getLoginUrl()}>
-              <Button size="small" variant="primary" class="w-full">
-                Sign In
-              </Button>
-            </a>
-          }
-        >
-          <div class="flex items-center gap-2 px-2 py-1">
-            <Show
-              when={user()?.picture}
-              fallback={
-                <div class="w-8 h-8 rounded-full bg-bg-muted flex items-center justify-center shrink-0">
-                  <span class="text-xs text-text-weak">{user()?.name?.[0] || user()?.email?.[0] || "?"}</span>
-                </div>
-              }
-            >
-              <img src={user()?.picture} alt="" class="w-8 h-8 rounded-full shrink-0" />
-            </Show>
-            <div class="flex-1 min-w-0">
-              <p class="text-xs font-medium text-text-strong truncate">
-                {user()?.preferred_username || user()?.name || user()?.email}
-              </p>
-              <Show when={user()?.email && user()?.name}>
-                <p class="text-[10px] text-text-weak truncate">{user()?.email}</p>
-              </Show>
-            </div>
-          </div>
-          <div class="border-t border-border-weak-base pt-2">
-            <Button
-              size="small"
-              variant="ghost"
-              onClick={logout}
-              class="w-full justify-start text-text-weak hover:text-text-strong"
-            >
-              <Icon name="arrow-left" size="small" />
-              <span>Sign Out</span>
-            </Button>
-          </div>
-        </Show>
-      </div>
-    </Popover>
-  )
-}
 
 export default function Sidebar() {
   const location = useLocation()
@@ -283,9 +197,6 @@ export default function Sidebar() {
             </Show>
           </div>
         </Show>
-      </div>
-      <div class="shrink-0 w-full pt-3 pb-4 px-4 border-t border-border-weak-base">
-        <UserMenu />
       </div>
     </aside>
   )

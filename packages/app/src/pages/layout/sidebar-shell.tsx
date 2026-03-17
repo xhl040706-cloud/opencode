@@ -9,7 +9,7 @@ import {
 } from "@thisbeyond/solid-dnd"
 import { ConstrainDragXAxis } from "@/utils/solid-dnd"
 import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
+import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { type LocalProject } from "@/context/layout"
 import { sidebarExpanded } from "./sidebar-shell-helpers"
 
@@ -26,13 +26,6 @@ export const SidebarContent = (props: {
   openProjectKeybind: Accessor<string | undefined>
   onOpenProject: () => void
   renderProjectOverlay: () => JSX.Element
-  settingsLabel: Accessor<string>
-  settingsKeybind: Accessor<string | undefined>
-  onOpenSettings: () => void
-  helpLabel: Accessor<string>
-  onOpenHelp: () => void
-  storeLabel: Accessor<string>
-  onOpenStore: () => void
   renderPanel: () => JSX.Element
 }): JSX.Element => {
   const expanded = createMemo(() => sidebarExpanded(props.mobile, props.opened()))
@@ -79,35 +72,6 @@ export const SidebarContent = (props: {
             </div>
             <DragOverlay>{props.renderProjectOverlay()}</DragOverlay>
           </DragDropProvider>
-        </div>
-        <div class="shrink-0 w-full pt-3 pb-6 flex flex-col items-center gap-2">
-          <Tooltip placement={placement()} value={props.storeLabel()}>
-            <IconButton
-              icon="store"
-              variant="ghost"
-              size="large"
-              onClick={props.onOpenStore}
-              aria-label={props.storeLabel()}
-            />
-          </Tooltip>
-          <TooltipKeybind placement={placement()} title={props.settingsLabel()} keybind={props.settingsKeybind() ?? ""}>
-            <IconButton
-              icon="settings-gear"
-              variant="ghost"
-              size="large"
-              onClick={props.onOpenSettings}
-              aria-label={props.settingsLabel()}
-            />
-          </TooltipKeybind>
-          <Tooltip placement={placement()} value={props.helpLabel()}>
-            <IconButton
-              icon="help"
-              variant="ghost"
-              size="large"
-              onClick={props.onOpenHelp}
-              aria-label={props.helpLabel()}
-            />
-          </Tooltip>
         </div>
       </div>
 
