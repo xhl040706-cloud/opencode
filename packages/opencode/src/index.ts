@@ -29,6 +29,7 @@ import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { DbCommand } from "./cli/cmd/db"
+import { LearningCommand } from "./cli/cmd/learning"
 import { CloudCommand } from "./cli/cmd/cloud"
 import path from "path"
 import { Global } from "./global"
@@ -152,6 +153,7 @@ let cli = yargs(hideBin(process.argv))
   .command(PrCommand)
   .command(SessionCommand)
   .command(DbCommand)
+  .command(LearningCommand)
   .command(CloudCommand)
 
 if (Installation.isLocal()) {

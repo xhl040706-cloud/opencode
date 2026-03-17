@@ -191,6 +191,31 @@ export namespace Skill {
       }
     }
 
+    // Scan approved candidate skills from .learnings/CANDIDATES/
+    for (const configDir of await Config.directories()) {
+      const candidatesDir = path.join(configDir, ".learnings", "CANDIDATES")
+      if (!(await Filesystem.isDir(candidatesDir))) continue
+      const matches = await Glob.scan("*/SKILL.md", {
+        cwd: candidatesDir,
+        absolute: true,
+        include: "file",
+        symlink: true,
+      })
+      for (const match of matches) {
+        const metaPath = path.join(path.dirname(match), "metadata.json")
+        if (await Filesystem.exists(metaPath)) {
+          try {
+            const meta = await Filesystem.readJson(metaPath)
+            if (meta.status === "approved") {
+              await addSkill(match)
+            }
+          } catch {
+            // Ignore invalid metadata files
+          }
+        }
+      }
+    }
+
     return {
       skills,
       dirs: Array.from(dirs),
