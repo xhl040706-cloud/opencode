@@ -3,13 +3,14 @@ import desktopPlugin from "./vite"
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_")
-  const host = env.VITE_OPENCODE_SERVER_HOST ?? "localhost"
-  const port = env.VITE_OPENCODE_SERVER_PORT ?? "8080"
-  const target = `http://${host}:${port}`
+  // const host = env.VITE_OPENCODE_SERVER_HOST ?? "localhost"
+  // const port = env.VITE_OPENCODE_SERVER_PORT ?? "8080"
+  // const target = `http://${host}:${port}`
 
   const cloudHost = env.VITE_CLOUD_SERVER_HOST ?? "localhost"
-  const cloudPort = env.VITE_CLOUD_SERVER_PORT ?? "8080"
+  const cloudPort = env.VITE_CLOUD_SERVER_PORT ?? "18080"
   const cloudTarget = `http://${cloudHost}:${cloudPort}`
+  const appPort = parseInt(env.VITE_APP_PORT ?? "3000")
 
   return {
   base: './',
@@ -17,18 +18,22 @@ export default defineConfig(({ mode }) => {
   server: {
     host: "0.0.0.0",
     allowedHosts: true,
-    port: 3000,
+    port: appPort,
     proxy: {
-      "/cloud/device": {
+      // "/cloud/device": {
+      //   target: cloudTarget,
+      //   changeOrigin: true,
+      //   ws: true,
+      // },
+      "/cloud": {
         target: cloudTarget,
         changeOrigin: true,
         ws: true,
       },
-      "/cloud": {
-        target,
+      "/api": {
+        target: cloudTarget,
         changeOrigin: true,
-        ws: true,
-      },
+      }
     },
   },
   build: {
