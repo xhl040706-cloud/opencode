@@ -900,8 +900,8 @@ export namespace MessageV2 {
     return result
   }
 
-  export function fromError(e: unknown, ctx: { providerID: string }) {
-    const mapped = ctx.providerID === "costrict" ? CostrictError.fromError(e) : undefined
+  export function fromError(e: unknown, ctx: { providerID: ProviderID }) {
+    const mapped = ctx.providerID === ProviderID.costrict ? CostrictError.fromError(e) : undefined
     if (mapped) return mapped
     switch (true) {
       case e instanceof DOMException && e.name === "AbortError":

@@ -318,32 +318,6 @@ export default function () {
                                   </div>
                                 </SessionTurn>
                               </div>
-<<<<<<< HEAD
-                            </div>
-                            <Show when={diffs().length > 0}>
-                              <div class="@container relative grow pt-14 flex-1 min-h-0 border-l border-border-weak-base">
-                                <SessionReview
-                                  class="@4xl:hidden"
-                                  diffs={diffs()}
-                                  classes={{
-                                    root: "pb-20",
-                                    header: "px-6",
-                                    container: "px-6",
-                                  }}
-                                />
-                                <SessionReview
-                                  split
-                                  class="hidden @4xl:flex"
-                                  diffs={splitDiffs()}
-                                  classes={{
-                                    root: "pb-20",
-                                    header: "px-6",
-                                    container: "px-6",
-                                  }}
-                                />
-                              </div>
-                            </Show>
-=======
                               <Show when={diffs().length > 0}>
                                 <div class="@container relative grow pt-14 flex-1 min-h-0 border-l border-border-weak-base">
                                   <SessionReview
@@ -399,7 +373,6 @@ export default function () {
                                 </div>
                               </Match>
                             </Switch>
->>>>>>> v1.2.27
                           </div>
                           <Switch>
                             <Match when={diffs().length > 0}>

@@ -885,17 +885,17 @@ export namespace Provider {
 
     // Add CoStrict provider (built-in)
     // Models will be loaded dynamically by CUSTOM_LOADER from /ai-gateway/api/v1/models
-    database["costrict"] = {
-      id: "costrict",
+    database[ProviderID.costrict] = {
+      id: ProviderID.costrict,
       name: "CoStrict",
       source: "custom",
       env: ["COSTRICT_API_KEY"],
       options: {},
       models: {
         Auto: {
-          id: "Auto",
+          id: ModelID.make("Auto"),
           name: "Auto",
-          providerID: "costrict",
+          providerID: ProviderID.costrict,
           status: "active",
           api: {
             id: "Auto",

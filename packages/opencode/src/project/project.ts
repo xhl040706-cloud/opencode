@@ -109,7 +109,7 @@ export namespace Project {
 
         // cached id calculation
         let id = await Filesystem.readText(path.join(dotgit, "costrict"))
-          .then((x) => x.trim())
+          .then((x) => ProjectID.make(x.trim()))
           .catch(() => undefined)
 
         if (!gitBinary) {
