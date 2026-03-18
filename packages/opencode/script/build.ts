@@ -4,7 +4,7 @@ import { $ } from "bun"
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
-import solidPlugin from "../node_modules/@opentui/solid/scripts/solid-plugin"
+import solidPlugin from "@opentui/solid/bun-plugin"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -52,7 +52,7 @@ const migrations = await Promise.all(
           Number(match[6]),
         )
       : 0
-    return { sql, timestamp }
+    return { sql, timestamp, name }
   }),
 )
 console.log(`Loaded ${migrations.length} migrations`)
@@ -108,6 +108,10 @@ const allTargets: {
     os: "darwin",
     arch: "x64",
     avx2: false,
+  },
+  {
+    os: "win32",
+    arch: "arm64",
   },
   {
     os: "win32",
@@ -171,10 +175,12 @@ for (const item of targets) {
     console.log(`building ${name}`)
     await $`mkdir -p dist/${name}/bin`
 
-    const parserWorker = fs.realpathSync(path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"))
-    const workerPath = "./src/cli/cmd/tui/worker.ts"
     const callGraphWorkerPath = "./src/costrict/tool/call-graph/worker.ts"
     const fileImportanceWorkerPath = "./src/costrict/tool/file-importance/worker.ts"
+  const localPath = path.resolve(dir, "node_modules/@opentui/core/parser.worker.js")
+  const rootPath = path.resolve(dir, "../../node_modules/@opentui/core/parser.worker.js")
+  const parserWorker = fs.realpathSync(fs.existsSync(localPath) ? localPath : rootPath)
+  const workerPath = "./src/cli/cmd/tui/worker.ts"
 
     // Use platform-specific bunfs root path based on target OS
     const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
