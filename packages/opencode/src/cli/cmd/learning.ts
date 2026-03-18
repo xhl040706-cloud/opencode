@@ -274,6 +274,8 @@ export const SkillGenerateCommand = cmd({
       }
 
       UI.println(`Found ${pendingLearnings.length} learning(s) to convert to skills${EOL}`)
+      UI.println(UI.Style.TEXT_WARNING + "Note: This operation may take some time depending on the model performance." + UI.Style.TEXT_NORMAL)
+      UI.println(`Processing...${EOL}`)
 
       let successCount = 0
       let skipCount = 0
@@ -321,6 +323,7 @@ async function generateSingleSkill(learning: any): Promise<void> {
   UI.println(`Category: ${learning.category}`)
   UI.println(`Summary: ${Locale.truncate(learning.summary, 60)}`)
   UI.println(`${EOL}Analyzing learning content and generating skill...`)
+  UI.println(UI.Style.TEXT_WARNING + "Note: This may take some time depending on the model performance." + UI.Style.TEXT_NORMAL)
 
   const candidate = await SkillGenerator.generateFromLearning(learning)
   if (candidate) {

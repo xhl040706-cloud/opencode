@@ -29,15 +29,15 @@ The skill should:
 3. Include clear triggers for when to use the skill
 4. Provide actionable steps and examples
 
-Output format:
-\`\`\`json
+Output format - respond with ONLY valid JSON (no code blocks):
 {
   "name": "skill-name-in-kebab-case",
   "description": "Brief description of what this skill does",
-  "content": "Full SKILL.md content in markdown",
+  "content": "Full SKILL.md content in markdown (escape any quotes and backslashes properly)",
   "confidence": 0.85
 }
-\`\`\`
+
+IMPORTANT: Return raw JSON only, NOT wrapped in code blocks.
 
 The content field should contain valid markdown with frontmatter:
 ---
@@ -162,10 +162,10 @@ Generate a skill that:
     confidence: number
   } | null {
     try {
-      // Try to extract JSON from code block
-      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/)
+      // Try to extract JSON from code block (handle nested backticks with greedy match)
+      const jsonMatch = response.match(/```json\s*([\s\S]*)```/)
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[1])
+        const parsed = JSON.parse(jsonMatch[1].trim())
         return {
           name: parsed.name || "unnamed-skill",
           description: parsed.description || "",
@@ -182,8 +182,14 @@ Generate a skill that:
         content: parsed.content || "",
         confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.7,
       }
-    } catch {
-      log.warn("failed to parse skill response", { response: response.slice(0, 200) })
+    } catch (parseError) {
+      // Log more details for debugging
+      log.warn("failed to parse skill response", {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        responseLength: response.length,
+        responsePreview: response.slice(0, 500),
+        responseEnd: response.slice(-200),
+      })
       return null
     }
   }
@@ -229,6 +235,7 @@ Generate a skill that:
         model: language,
         system: SKILL_GENERATION_SYSTEM_PROMPT,
         prompt: prompt,
+        maxOutputTokens: 4096,
       })
 
       const skill = parseSkillResponse(response.text)
