@@ -1,8 +1,15 @@
 import { test, expect } from "bun:test"
 import os from "os"
+import { Bus } from "../../src/bus"
 import { PermissionNext } from "../../src/permission/next"
+import { YoloMode } from "../../src/permission/yolo"
 import { Instance } from "../../src/project/instance"
 import { tmpdir } from "../fixture/fixture"
+
+async function yolo(fn: () => void | Promise<void>) {
+  YoloMode.setEnabled(true)
+  await Promise.resolve(fn()).finally(() => YoloMode.setEnabled(false))
+}
 
 // fromConfig tests
 
@@ -345,6 +352,32 @@ test("evaluate - merges multiple rulesets", () => {
   expect(result.action).toBe("deny")
 })
 
+test("evaluate - yolo keeps explicit deny", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      await yolo(() => {
+        const result = PermissionNext.evaluate("bash", "rm", [{ permission: "bash", pattern: "*", action: "deny" }])
+        expect(result.action).toBe("deny")
+      })
+    },
+  })
+})
+
+test("evaluate - yolo upgrades ask to allow", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      await yolo(() => {
+        const result = PermissionNext.evaluate("bash", "ls", [{ permission: "bash", pattern: "*", action: "ask" }])
+        expect(result.action).toBe("allow")
+      })
+    },
+  })
+})
+
 // disabled tests
 
 test("disabled - returns empty set when all tools allowed", () => {
@@ -509,6 +542,52 @@ test("ask - returns pending promise when action is ask", async () => {
       // Promise should be pending, not resolved
       expect(promise).toBeInstanceOf(Promise)
       // Don't await - just verify it returns a promise
+    },
+  })
+})
+
+test("ask - yolo still throws DeniedError for explicit deny", async () => {
+  await using tmp = await tmpdir({ git: true })
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      await yolo(() =>
+        expect(
+          PermissionNext.ask({
+            sessionID: "session_test",
+            permission: "bash",
+            patterns: ["rm -rf /"],
+            metadata: {},
+            always: [],
+            ruleset: [{ permission: "bash", pattern: "*", action: "deny" }],
+          }),
+        ).rejects.toBeInstanceOf(PermissionNext.DeniedError),
+      )
+    },
+  })
+})
+
+test("ask - yolo skips pending for ask rules", async () => {
+  await using tmp = await tmpdir({ git: true })
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      let asked = false
+      const off = Bus.subscribe(PermissionNext.Event.Asked, () => {
+        asked = true
+      })
+      await yolo(async () => {
+        const result = await PermissionNext.ask({
+          sessionID: "session_test",
+          permission: "bash",
+          patterns: ["ls"],
+          metadata: {},
+          always: [],
+          ruleset: [{ permission: "bash", pattern: "*", action: "ask" }],
+        })
+        expect(result).toBeUndefined()
+      }).finally(off)
+      expect(asked).toBe(false)
     },
   })
 })
