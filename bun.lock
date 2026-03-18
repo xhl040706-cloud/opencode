@@ -295,7 +295,7 @@
     },
     "packages/opencode": {
       "name": "@costrict/cs",
-      "version": "3.0.14",
+      "version": "3.0.15",
       "bin": {
         "cs": "./bin/cs",
       },
