@@ -14,6 +14,8 @@ COPY packages/sdk/js/package.json ./packages/sdk/js/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/util/package.json ./packages/util/
 COPY packages/slack/package.json ./packages/slack/
+COPY packages/plugin/package.json ./packages/plugin/
+COPY packages/script/package.json ./packages/script/
 
 # Install dependencies
 RUN bun install --frozen-lockfile
@@ -28,6 +30,8 @@ COPY --from=deps /app/packages/sdk/js/node_modules ./packages/sdk/js/node_module
 COPY --from=deps /app/packages/ui/node_modules ./packages/ui/node_modules
 COPY --from=deps /app/packages/util/node_modules ./packages/util/node_modules
 COPY --from=deps /app/packages/slack/node_modules ./packages/slack/node_modules
+COPY --from=deps /app/packages/plugin/node_modules ./packages/plugin/node_modules
+COPY --from=deps /app/packages/script/node_modules ./packages/script/node_modules
 
 # Copy source code
 COPY package.json bunfig.toml ./
