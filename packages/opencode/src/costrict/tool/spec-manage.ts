@@ -16,6 +16,7 @@ const log = Log.create({ service: 'spec-manage' });
  * 参数Schema定义
  */
 const parametersSchema = z.object({
+  mode: z.string().describe('模式，spec模式下展示.cospec/spec下文件和文件夹'),
   path: z.string().describe('当前工程路径'),
 });
 
@@ -81,11 +82,101 @@ export const SpecManageTool = Tool.define('spec-manage', async () => {
     parameters: parametersSchema,
 
     async execute(args: z.infer<typeof parametersSchema>, ctx) {
-      const { path: projectPath } = args;
+      const { mode, path: projectPath } = args;
 
-      log.info('Starting spec manage', { path: projectPath });
+      log.info('Starting spec manage', { mode, path: projectPath });
 
       const resolvedPath = resolve(process.cwd(), projectPath);
+
+      // spec 模式：展示 .cospec/spec 文件和文件夹
+      if (mode === 'spec') {
+        const specDir = resolve(resolvedPath, '.cospec', 'spec');
+        
+        if (!existsSync(specDir)) {
+          log.error('Spec directory not found', { path: specDir });
+          return {
+            title: 'CoSpec Spec 目录不存在',
+            metadata: {
+              path: projectPath,
+              error: 'spec_directory_not_found',
+              changes_count: 0,
+            },
+            output: `Error: No CoSpec spec directory found. Path: ${specDir}`,
+          };
+        }
+
+        try {
+          const entries = await fs.readdir(specDir, { withFileTypes: true });
+          const dirs: string[] = [];
+          
+          for (const entry of entries) {
+            if (entry.name === '.' || entry.name === '..') continue;
+            if (entry.isDirectory()) {
+              dirs.push(entry.name);
+            }
+          }
+
+          dirs.sort();
+
+          log.info('Spec mode completed', { path: projectPath, dirs: dirs.length });
+
+          // 如果没有功能目录，返回空提示
+          if (dirs.length === 0) {
+            return {
+              title: 'CoSpec Spec 为空',
+              metadata: {
+                path: projectPath,
+                error: '',
+                changes_count: 0,
+              },
+              output: '当前spec为空',
+            };
+          }
+
+          // 构建目录树输出
+          const outputLines: string[] = [];
+          
+          for (const dir of dirs) {
+            const dirPath = resolve(specDir, dir);
+            const files = await fs.readdir(dirPath);
+            files.sort();
+
+            outputLines.push(`.cospec/spec/${dir}/`);
+            for (let i = 0; i < files.length; i++) {
+              const isLast = i === files.length - 1;
+              const prefix = isLast ? '    └── ' : '    ├── ';
+              outputLines.push(`${prefix}${files[i]}`);
+            }
+            outputLines.push('');
+          }
+
+          return {
+            title: `CoSpec Spec: ${dirs.length} 个功能`,
+            metadata: {
+              path: projectPath,
+              error: '',
+              changes_count: 0,
+            },
+            output: outputLines.join('\n'),
+          };
+        } catch (error) {
+          log.error('Spec mode failed', {
+            error: error instanceof Error ? error.message : String(error),
+            path: projectPath,
+          });
+          return {
+            title: '获取 Spec 目录失败',
+            metadata: {
+              path: projectPath,
+              error: error instanceof Error ? error.message : String(error),
+              changes_count: 0,
+            },
+            output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      }
+
+      // 默认模式：展示 changes 目录下的变更
       const changesDir = resolve(resolvedPath, '.cospec', 'plan', 'changes');
 
       // 检查 changes 目录是否存在
@@ -137,9 +228,9 @@ export const SpecManageTool = Tool.define('spec-manage', async () => {
         // 按名称字母顺序排序
         changes.sort((a, b) => a.name.localeCompare(b.name));
 
-        log.info('Spec manage completed', { 
-          path: projectPath, 
-          changesCount: changes.length 
+        log.info('Spec manage completed', {
+          path: projectPath,
+          changesCount: changes.length
         });
 
         // 格式化输出
@@ -147,8 +238,8 @@ export const SpecManageTool = Tool.define('spec-manage', async () => {
         outputLines.push(`Total: ${changes.length} change(s)\n`);
         
         for (const change of changes) {
-          const progress = change.totalTasks > 0 
-            ? `[${change.completedTasks}/${change.totalTasks}]` 
+          const progress = change.totalTasks > 0
+            ? `[${change.completedTasks}/${change.totalTasks}]`
             : '[no tasks]';
           outputLines.push(`- ${change.name} ${progress}`);
         }

@@ -12,6 +12,7 @@ tools:
   file-outline: false
   list_user_commands: false
   skill: false
+  sequential-thinking: false
 permission:
   task:
     general: deny
@@ -120,3 +121,9 @@ permission:
 | 有plan.md | 方案执行阶段 |
 
 **重要提示**：所有功能名必须使用英文标识符
+
+### 当前工程.cospec/spec目录下文件状态
+
+```
+!tool{spec-manage}(mode=spec,path=./)
+```
