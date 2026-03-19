@@ -130,6 +130,23 @@ export interface CapabilityArtifact {
   createdAt: string
 }
 
+export interface ScanResult {
+  id: string
+  itemId: string
+  itemRevision: number
+  riskLevel: string
+  verdict: string
+  summary: string
+  scanModel: string
+  triggerType: string
+  durationMs: number
+  createdAt: string
+  finishedAt: string
+  permissions: Record<string, unknown>
+  recommendations: Record<string, unknown>[]
+  redFlags: Record<string, unknown>[]
+}
+
 export interface CapabilityVersion {
   id: string
   itemId: string
@@ -448,4 +465,8 @@ export const artifactApi = {
   list: (itemId: string) => apiFetch<{ artifacts: CapabilityArtifact[] }>(`/api/items/${itemId}/artifacts`),
   downloadUrl: (artifactId: string) => `${API_BASE}/api/artifacts/${artifactId}/download`,
   delete: (artifactId: string) => apiFetch<{ message: string }>(`/api/artifacts/${artifactId}`, { method: "DELETE" }),
+}
+
+export const scanApi = {
+  list: (itemId: string) => apiFetch<{ results: ScanResult[]; total: number }>(`/api/items/${itemId}/scan-results`),
 }

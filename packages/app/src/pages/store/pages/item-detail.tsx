@@ -1,8 +1,9 @@
 import { createResource, createSignal, Show, For } from "solid-js"
 import { useParams, useNavigate } from "@solidjs/router"
 import { Icon } from "@opencode-ai/ui/icon"
-import { itemApi, artifactApi, type CapabilityItem } from "../lib/api"
+import { itemApi, artifactApi, scanApi, type CapabilityItem, type ScanResult } from "../lib/api"
 import { useLanguage } from "@/context/language"
+import { useAuth } from "@/context/auth"
 
 const TYPE_META: Record<
   string,
@@ -22,6 +23,18 @@ function formatBytes(bytes: number) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+}
+
+function formatDuration(ms: number) {
+  if (ms < 1000) return `${ms} ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`
+  return `${(ms / 60_000).toFixed(1)} min`
+}
+
+function formatValue(value: unknown) {
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return JSON.stringify(value)
 }
 
 function installCmd(item: CapabilityItem) {
@@ -45,8 +58,109 @@ function renderMd(content: string) {
   })
 }
 
+function ScanRow(props: { scan: ScanResult }) {
+  const [open, setOpen] = createSignal(false)
+
+  return (
+    <div class="rounded-xl border border-border-weak-base bg-bg-muted">
+      <div
+        onClick={() => setOpen((v) => !v)}
+        class="flex w-full cursor-pointer items-center gap-4 px-5 py-4 transition hover:bg-bg-base/50"
+      >
+        <div class="min-w-0 flex-1">
+          <p class="text-sm text-text-strong">{props.scan.summary}</p>
+          <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-text-weak">
+            <span>{formatDate(props.scan.createdAt)}</span>
+          </div>
+        </div>
+        <div class="shrink-0 text-text-weak">
+          <Icon
+            name="chevron-down"
+            size="small"
+            class={`transition-transform duration-150 ${open() ? "rotate-0" : "-rotate-90"}`}
+          />
+        </div>
+      </div>
+      <Show when={open()}>
+        {(() => {
+          const perms = Object.entries(props.scan.permissions ?? {})
+          return (
+            <div class="space-y-4 px-5 pb-4 pt-1 text-sm text-text-weak">
+              <div class="grid gap-3 rounded-lg border border-border-weak-base bg-bg-base/50 p-4 sm:grid-cols-2">
+                <div>
+                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Scan Model</div>
+                  <div class="text-text-strong">{props.scan.scanModel}</div>
+                </div>
+                <div>
+                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Trigger</div>
+                  <div class="capitalize text-text-strong">{props.scan.triggerType}</div>
+                </div>
+                <div>
+                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Duration</div>
+                  <div class="text-text-strong">{formatDuration(props.scan.durationMs)}</div>
+                </div>
+                <div>
+                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Finished</div>
+                  <div class="text-text-strong">{formatDate(props.scan.finishedAt)}</div>
+                </div>
+              </div>
+
+              <div class="grid gap-3 lg:grid-cols-2">
+                <div class="rounded-lg border border-border-weak-base bg-bg-base/50 p-4">
+                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
+                    Recommendations
+                  </div>
+                  <Show when={props.scan.recommendations.length > 0} fallback={<div class="text-text-weak">None</div>}>
+                    <ul class="space-y-2">
+                      <For each={props.scan.recommendations}>
+                        {(item) => (
+                          <li class="rounded-md bg-bg-muted px-3 py-2 text-text-strong">{formatValue(item)}</li>
+                        )}
+                      </For>
+                    </ul>
+                  </Show>
+                </div>
+
+                <div class="rounded-lg border border-border-weak-base bg-bg-base/50 p-4">
+                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Red Flags</div>
+                  <Show when={props.scan.redFlags.length > 0} fallback={<div class="text-text-weak">None</div>}>
+                    <ul class="space-y-2">
+                      <For each={props.scan.redFlags}>
+                        {(item) => (
+                          <li class="rounded-md bg-bg-muted px-3 py-2 text-text-strong">{formatValue(item)}</li>
+                        )}
+                      </For>
+                    </ul>
+                  </Show>
+                </div>
+              </div>
+
+              <Show when={perms.length > 0}>
+                <div class="rounded-lg border border-border-weak-base bg-bg-base/50 p-4">
+                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Permissions</div>
+                  <dl class="grid gap-2 sm:grid-cols-2">
+                    <For each={perms}>
+                      {(entry) => (
+                        <div class="rounded-md bg-bg-muted px-3 py-2">
+                          <dt class="text-xs uppercase tracking-wide text-text-weak/70">{entry[0]}</dt>
+                          <dd class="mt-1 text-text-strong">{formatValue(entry[1])}</dd>
+                        </div>
+                      )}
+                    </For>
+                  </dl>
+                </div>
+              </Show>
+            </div>
+          )
+        })()}
+      </Show>
+    </div>
+  )
+}
+
 export default function ItemDetail() {
   const language = useLanguage()
+  const auth = useAuth()
   const params = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [item] = createResource(
@@ -56,6 +170,10 @@ export default function ItemDetail() {
   const [artifacts] = createResource(
     () => params.id,
     (id) => artifactApi.list(id).then((r) => r.artifacts),
+  )
+  const [scans] = createResource(
+    () => params.id,
+    (id) => scanApi.list(id).then((r) => r.results),
   )
   const [copied, setCopied] = createSignal(false)
 
@@ -127,7 +245,6 @@ export default function ItemDetail() {
               </Show>
             </div>
 
-            {/* Install command */}
             <div class="mb-10 p-4 bg-bg-muted rounded-lg border border-border-weak-base flex items-center justify-between gap-3">
               <div>
                 <p class="text-xs text-text-weak mb-1 font-medium">Quick Install</p>
@@ -211,6 +328,15 @@ export default function ItemDetail() {
                   </dl>
                 </div>
               </section>
+
+              <Show when={auth.user()?.sub === data().createdBy && (scans() ?? []).length > 0}>
+                <section>
+                  <h2 class="text-sm font-semibold uppercase tracking-wide text-text-weak mb-4">Scan Results</h2>
+                  <div class="space-y-3">
+                    <For each={scans() ?? []}>{(scan) => <ScanRow scan={scan} />}</For>
+                  </div>
+                </section>
+              </Show>
             </div>
           </div>
         )}
