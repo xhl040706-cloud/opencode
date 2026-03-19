@@ -7,6 +7,7 @@ import { connect } from "../../costrict/device/tunnel"
 import { initCloudNotifier } from "../../costrict/device/notify"
 import { Daemon } from "../../costrict/device/daemon"
 import { Log } from "../../util/log"
+import { Flag } from "../../flag/flag"
 
 const log = Log.create({ service: "cloud-cmd" })
 
@@ -14,6 +15,13 @@ const READY_TIMEOUT_MS = 30_000
 
 async function runWorker() {
   Log.useStderr()
+
+  // Handle TLS certificate verification setting before any network requests
+  if (Flag.COSTRICT_INSECURE_SKIP_TLS_VERIFY) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+    log.warn("TLS certificate verification is disabled (COSTRICT_INSECURE_SKIP_TLS_VERIFY=true) - this is insecure!")
+  }
+
   const device = await register()
   console.log(`device registered: ${device.device_id}`)
 
