@@ -70,16 +70,15 @@ COPY --from=builder /app/packages/app/docker-entrypoint.sh /docker-entrypoint.sh
 # Copy built assets
 COPY --from=builder /app/packages/app/dist /usr/share/nginx/html
 
-RUN chmod +x /docker-entrypoint.sh && \
-    addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup && \
-    chown -R appuser:appgroup /usr/share/nginx/html && \
-    chown -R appuser:appgroup /var/cache/nginx && \
-    chown -R appuser:appgroup /var/log/nginx && \
-    touch /var/run/nginx.pid && \
-    chown -R appuser:appgroup /var/run/nginx.pid
+RUN chmod +x /docker-entrypoint.sh
+
+# Copy built assets
+COPY --from=builder /app/packages/app/dist /usr/share/nginx/html
 
 EXPOSE 3000
+
+# Run as root to avoid permission issues with nginx
+USER root
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]
