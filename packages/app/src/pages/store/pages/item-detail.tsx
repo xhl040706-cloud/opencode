@@ -1,19 +1,17 @@
 import { createResource, createSignal, Show, For } from "solid-js"
 import { useParams, useNavigate } from "@solidjs/router"
+import { Icon } from "@opencode-ai/ui/icon"
 import { itemApi, artifactApi, type CapabilityItem } from "../lib/api"
+import { useLanguage } from "@/context/language"
 
-const TYPE_META: Record<string, { color: string; back: string; label: string }> = {
-  skill: { color: "text-yellow-500", back: "/store/skills", label: "Skills" },
-  subagent: { color: "text-blue-500", back: "/store/subagents", label: "Subagents" },
-  command: { color: "text-green-500", back: "/store/commands", label: "Commands" },
-  mcp: { color: "text-purple-500", back: "/store/mcp-servers", label: "MCP Servers" },
-}
-
-const TYPE_SYMBOL: Record<string, string> = {
-  skill: "✦",
-  subagent: "⬡",
-  command: ">_",
-  mcp: "⬢",
+const TYPE_META: Record<
+  string,
+  { color: string; back: string; label: string; icon: "sparkles" | "models" | "console" | "server" }
+> = {
+  skill: { color: "text-yellow-500", back: "/store/skills", label: "store.sidebar.nav.skills", icon: "sparkles" },
+  subagent: { color: "text-blue-500", back: "/store/subagents", label: "store.sidebar.nav.subagents", icon: "models" },
+  command: { color: "text-green-500", back: "/store/commands", label: "store.sidebar.nav.commands", icon: "console" },
+  mcp: { color: "text-purple-500", back: "/store/mcp-servers", label: "store.sidebar.nav.mcpServers", icon: "server" },
 }
 
 function formatBytes(bytes: number) {
@@ -48,6 +46,7 @@ function renderMd(content: string) {
 }
 
 export default function ItemDetail() {
+  const language = useLanguage()
   const params = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [item] = createResource(
@@ -61,7 +60,6 @@ export default function ItemDetail() {
   const [copied, setCopied] = createSignal(false)
 
   const meta = () => TYPE_META[item()?.itemType ?? "skill"] ?? TYPE_META.skill
-  const symbol = () => TYPE_SYMBOL[item()?.itemType ?? "skill"] ?? "•"
 
   const copy = async () => {
     if (!item()) return
@@ -71,7 +69,10 @@ export default function ItemDetail() {
   }
 
   return (
-    <Show when={!item.loading} fallback={<div class="flex justify-center py-16 text-text-weak">Loading...</div>}>
+    <Show
+      when={!item.loading}
+      fallback={<div class="flex justify-center py-16 text-text-weak">{language.t("store.loading")}</div>}
+    >
       <Show
         when={item()}
         fallback={
@@ -87,7 +88,7 @@ export default function ItemDetail() {
           <div class="px-8 py-10 w-full max-w-4xl mx-auto">
             <button
               onClick={() => navigate(meta().back)}
-              class="inline-flex items-center gap-2 text-sm text-text-weak hover:text-text-strong transition-colors mb-8"
+              class="inline-flex items-center gap-2 text-sm text-text-weak cursor-pointer hover:text-text-strong hover:-translate-x-px transition-all duration-150 mb-8"
             >
               ← Back to {meta().label}
             </button>
@@ -95,12 +96,14 @@ export default function ItemDetail() {
             <div class="mb-8">
               <div class="flex items-start justify-between gap-4 mb-4">
                 <div class="flex items-center gap-3">
-                  <span class={`text-2xl ${meta().color}`}>{symbol()}</span>
+                  <span class={`text-2xl ${meta().color}`}>
+                    <Icon name={meta().icon} />
+                  </span>
                   <h1 class="text-2xl font-semibold text-text-strong">{data().name}</h1>
                 </div>
                 <button
                   onClick={copy}
-                  class="p-2 rounded text-text-weak hover:text-text-strong hover:bg-bg-muted transition-colors"
+                  class="p-2 rounded text-text-weak cursor-pointer hover:text-text-strong hover:bg-bg-muted hover:shadow-xs-border-base transition-all duration-150"
                   title="Copy install command"
                 >
                   {copied() ? "✓" : "⎘"}
@@ -132,7 +135,7 @@ export default function ItemDetail() {
               </div>
               <button
                 onClick={copy}
-                class="p-2 rounded text-text-weak hover:text-text-strong hover:bg-bg-base transition-colors shrink-0"
+                class="p-2 rounded text-text-weak cursor-pointer hover:text-text-strong hover:bg-bg-base hover:shadow-xs-border-base transition-all duration-150 shrink-0"
               >
                 {copied() ? "✓" : "⎘"}
               </button>
@@ -154,7 +157,7 @@ export default function ItemDetail() {
                   <div class="space-y-3">
                     <For each={artifacts() ?? []}>
                       {(artifact) => (
-                        <div class="flex items-center justify-between gap-4 p-4 rounded-xl border border-border-weak-base bg-bg-muted">
+                        <div class="flex items-center justify-between gap-4 p-4 rounded-xl border border-border-weak-base bg-bg-muted hover:border-border-weak-base/80 hover:shadow-xs-border-base transition-all duration-150">
                           <div class="min-w-0">
                             <div class="font-medium truncate text-text-strong">{artifact.filename}</div>
                             <div class="text-sm text-text-weak">
@@ -168,7 +171,7 @@ export default function ItemDetail() {
                           <a
                             href={artifactApi.downloadUrl(artifact.id)}
                             download=""
-                            class="px-3 py-1.5 text-sm bg-bg-base border border-border-weak-base rounded text-text-strong hover:bg-bg-muted transition-colors"
+                            class="px-3 py-1.5 text-sm bg-bg-base border border-border-weak-base rounded text-text-strong cursor-pointer hover:bg-bg-muted hover:shadow-xs-border-base transition-all duration-150"
                           >
                             ↓ Download
                           </a>

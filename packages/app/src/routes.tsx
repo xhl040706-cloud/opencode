@@ -11,6 +11,7 @@ const StoreSubagents = lazy(() => import("@/pages/store").then((m) => ({ default
 const StoreCommands = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreCommands })))
 const StoreMcpServers = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreMcpServers })))
 const StoreItemDetail = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreItemDetail })))
+const StoreDashboard = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreDashboard })))
 
 const wrap = (Component: Component<{ children?: JSX.Element }>) => (props: { children?: JSX.Element }) => (
   <Suspense fallback={<Loading />}>
@@ -50,6 +51,7 @@ export const routeConfig: RouteConfig[] = [
       { path: "/commands", component: StoreCommands },
       { path: "/mcp-servers", component: StoreMcpServers },
       { path: "/items/:id", component: StoreItemDetail },
+      { path: "/dashboard", component: StoreDashboard },
     ],
   },
 ]
