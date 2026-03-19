@@ -195,9 +195,9 @@ export default function ItemDetail() {
         when={item()}
         fallback={
           <div class="flex flex-col items-center justify-center py-16 gap-4">
-            <p class="text-text-weak">Item not found</p>
+            <p class="text-text-weak">{language.t("store.detail.notFound")}</p>
             <button onClick={() => navigate(-1)} class="text-sm text-text-weak hover:text-text-strong">
-              ← Back
+              {language.t("store.detail.back")}
             </button>
           </div>
         }
@@ -208,7 +208,7 @@ export default function ItemDetail() {
               onClick={() => navigate(meta().back)}
               class="inline-flex items-center gap-2 text-sm text-text-weak cursor-pointer hover:text-text-strong hover:-translate-x-px transition-all duration-150 mb-8"
             >
-              ← Back to {meta().label}
+              {language.t("store.detail.backTo", { type: language.t(meta().label) })}
             </button>
 
             <div class="mb-8">
@@ -222,13 +222,15 @@ export default function ItemDetail() {
                 <button
                   onClick={copy}
                   class="p-2 rounded text-text-weak cursor-pointer hover:text-text-strong hover:bg-bg-muted hover:shadow-xs-border-base transition-all duration-150"
-                  title="Copy install command"
+                  title={language.t("store.itemCard.copyInstall")}
                 >
                   {copied() ? "✓" : "⎘"}
                 </button>
               </div>
               <div class="flex flex-wrap items-center gap-2 mb-4">
-                <span class="px-2 py-0.5 text-xs rounded bg-bg-muted text-text-weak">{meta().label.slice(0, -1)}</span>
+                <span class="px-2 py-0.5 text-xs rounded bg-bg-muted text-text-weak">
+                  {language.t("store.capability.type." + (item()?.itemType ?? "skill"))}
+                </span>
                 <Show when={data().version}>
                   <span class="px-2 py-0.5 text-xs rounded border border-border-weak-base text-text-weak">
                     v{data().version}
@@ -247,7 +249,7 @@ export default function ItemDetail() {
 
             <div class="mb-10 p-4 bg-bg-muted rounded-lg border border-border-weak-base flex items-center justify-between gap-3">
               <div>
-                <p class="text-xs text-text-weak mb-1 font-medium">Quick Install</p>
+                <p class="text-xs text-text-weak mb-1 font-medium">{language.t("store.detail.quickInstall")}</p>
                 <code class="text-sm font-mono text-text-strong">{installCmd(data())}</code>
               </div>
               <button
@@ -261,7 +263,9 @@ export default function ItemDetail() {
             <div class="space-y-10">
               <Show when={data().content}>
                 <section>
-                  <h2 class="text-sm font-semibold text-text-weak uppercase tracking-wide mb-4">Content</h2>
+                  <h2 class="text-sm font-semibold text-text-weak uppercase tracking-wide mb-4">
+                    {language.t("store.capabilityDialog.field.content")}
+                  </h2>
                   <div class="bg-bg-muted rounded-xl p-6 border border-border-weak-base text-sm leading-relaxed">
                     {renderMd(data().content)}
                   </div>
@@ -270,7 +274,9 @@ export default function ItemDetail() {
 
               <Show when={(artifacts() ?? []).length > 0}>
                 <section>
-                  <h2 class="text-sm font-semibold text-text-weak uppercase tracking-wide mb-4">Artifacts</h2>
+                  <h2 class="text-sm font-semibold text-text-weak uppercase tracking-wide mb-4">
+                    {language.t("store.detail.artifacts")}
+                  </h2>
                   <div class="space-y-3">
                     <For each={artifacts() ?? []}>
                       {(artifact) => (
@@ -279,9 +285,11 @@ export default function ItemDetail() {
                             <div class="font-medium truncate text-text-strong">{artifact.filename}</div>
                             <div class="text-sm text-text-weak">
                               v{artifact.version} · {formatBytes(artifact.fileSize)} · {artifact.downloadCount}{" "}
-                              downloads
+                              {language.t("store.detail.downloads")}
                               <Show when={artifact.isLatest}>
-                                <span class="ml-2 px-1.5 py-0.5 text-xs bg-bg-base rounded">latest</span>
+                                <span class="ml-2 px-1.5 py-0.5 text-xs bg-bg-base rounded">
+                                  {language.t("store.detail.latest")}
+                                </span>
                               </Show>
                             </div>
                           </div>
@@ -290,7 +298,7 @@ export default function ItemDetail() {
                             download=""
                             class="px-3 py-1.5 text-sm bg-bg-base border border-border-weak-base rounded text-text-strong cursor-pointer hover:bg-bg-muted hover:shadow-xs-border-base transition-all duration-150"
                           >
-                            ↓ Download
+                            {language.t("store.itemCard.download")}
                           </a>
                         </div>
                       )}
@@ -300,29 +308,33 @@ export default function ItemDetail() {
               </Show>
 
               <section>
-                <h2 class="text-sm font-semibold text-text-weak uppercase tracking-wide mb-4">Details</h2>
+                <h2 class="text-sm font-semibold text-text-weak uppercase tracking-wide mb-4">
+                  {language.t("store.detail.details")}
+                </h2>
                 <div class="bg-bg-muted rounded-xl border border-border-weak-base overflow-hidden">
                   <dl class="divide-y divide-border-weak-base">
                     <div class="flex items-center justify-between px-5 py-3.5">
-                      <dt class="text-text-weak">Type</dt>
-                      <dd class="font-medium text-text-strong">{meta().label.slice(0, -1)}</dd>
+                      <dt class="text-text-weak">{language.t("store.console.capabilities.type")}</dt>
+                      <dd class="font-medium text-text-strong">
+                        {language.t("store.capability.type." + (data().itemType ?? "skill"))}
+                      </dd>
                     </div>
                     <div class="flex items-center justify-between px-5 py-3.5">
-                      <dt class="text-text-weak">Visibility</dt>
+                      <dt class="text-text-weak">{language.t("store.console.capabilities.visibility")}</dt>
                       <dd class="capitalize text-text-strong">{data().visibility}</dd>
                     </div>
                     <Show when={data().createdBy}>
                       <div class="flex items-center justify-between px-5 py-3.5">
-                        <dt class="text-text-weak">Author</dt>
+                        <dt class="text-text-weak">{language.t("store.detail.author")}</dt>
                         <dd class="font-medium text-text-strong">{data().createdBy}</dd>
                       </div>
                     </Show>
                     <div class="flex items-center justify-between px-5 py-3.5">
-                      <dt class="text-text-weak">Created</dt>
+                      <dt class="text-text-weak">{language.t("store.detail.created")}</dt>
                       <dd class="text-text-strong">{formatDate(data().createdAt)}</dd>
                     </div>
                     <div class="flex items-center justify-between px-5 py-3.5">
-                      <dt class="text-text-weak">Updated</dt>
+                      <dt class="text-text-weak">{language.t("store.detail.updated")}</dt>
                       <dd class="text-text-strong">{formatDate(data().updatedAt)}</dd>
                     </div>
                   </dl>
