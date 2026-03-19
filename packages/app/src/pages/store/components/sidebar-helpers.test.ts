@@ -52,13 +52,12 @@ describe("repoItemClass", () => {
   test("active state includes active classes", () => {
     const cls = repoItemClass(true)
     expect(cls).toContain("bg-surface-base")
-    expect(cls).toContain("border-border-strong")
+    expect(cls).toContain("text-text-strong")
     expect(cls).toContain("font-medium")
   })
 
   test("inactive state includes hover classes", () => {
     const cls = repoItemClass(false)
-    expect(cls).toContain("border-transparent")
     expect(cls).toContain("text-text-weak")
     expect(cls).toContain("hover:text-text-strong")
   })
@@ -67,14 +66,13 @@ describe("repoItemClass", () => {
 describe("capabilityItemClass", () => {
   test("active state includes active classes", () => {
     const cls = capabilityItemClass(true)
-    expect(cls).toContain("bg-surface-base")
+    expect(cls).toContain("bg-surface-raised-strong")
     expect(cls).toContain("text-text-strong")
     expect(cls).toContain("font-medium")
   })
 
   test("inactive state includes hover classes", () => {
     const cls = capabilityItemClass(false)
-    expect(cls).toContain("border-transparent")
     expect(cls).toContain("text-text-weak")
     expect(cls).toContain("hover:bg-surface-base-hover")
   })

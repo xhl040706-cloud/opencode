@@ -73,6 +73,7 @@ export const dict = {
   "store.console.capabilities.type": "Type",
   "store.console.capabilities.category": "Category",
   "store.console.capabilities.visibility": "Visibility",
+  "store.console.capabilities.source": "Source",
   "store.console.capabilities.toast.loadFailed": "Failed to load capabilities",
   "store.console.capabilities.toast.deleteSuccess": "Capability deleted",
   "store.console.capabilities.toast.deleteFailed": "Failed to delete capability",

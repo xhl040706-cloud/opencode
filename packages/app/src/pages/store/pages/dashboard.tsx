@@ -118,11 +118,6 @@ export default function Dashboard() {
     state.itemTypeFilter === "all" ? state.items : state.items.filter((item) => item.itemType === state.itemTypeFilter),
   )
 
-  const publicRepoCount = createMemo(() => state.repos.filter((repo) => repo.visibility === "public").length)
-  const syncRepoCount = createMemo(() => state.repos.filter((repo) => repo.repoType === "sync").length)
-  const totalCapabilityCount = createMemo(() => state.items.length)
-  const visibleCapabilityCount = createMemo(() => filteredItems().length)
-
   const openCreateRepo = () => {
     if (!userId()) return
     dialog.show(() => (
@@ -237,17 +232,7 @@ export default function Dashboard() {
             <div class="flex items-start justify-between gap-4">
               <div>
                 <h1 class="text-2xl font-semibold text-text-strong">{language.t("store.console")}</h1>
-                <p class="mt-1 text-sm text-text-weak">{language.t("store.console.manageDescription")}</p>
-              </div>
-              <div class="flex gap-2">
-                <Button variant="ghost" onClick={openCreateRepo}>
-                  <Icon name="plus" class="size-4" />
-                  {language.t("store.console.repositories.create")}
-                </Button>
-                <Button onClick={openCreateCapability} disabled={!state.personalRegistry && state.repos.length === 0}>
-                  <Icon name="plus" class="size-4" />
-                  {language.t("store.console.capabilities.create")}
-                </Button>
+                {/* <p class="mt-1 text-sm text-text-weak">{language.t("store.console.manageDescription")}</p> */}
               </div>
             </div>
 
@@ -260,25 +245,10 @@ export default function Dashboard() {
                     </h2>
                     <p class="mt-1 text-sm text-text-weak">{language.t("store.console.repositories.description")}</p>
                   </div>
-                  <Button size="small" variant="ghost" onClick={openCreateRepo}>
+                  <Button size="small" variant="ghost" class="border border-border-weak-base" onClick={openCreateRepo}>
                     <Icon name="plus" class="size-4" />
                     {language.t("store.console.new")}
                   </Button>
-                </div>
-
-                <div class="mb-5 grid gap-3 sm:grid-cols-3">
-                  <div class="rounded-xl border border-border-weak-base bg-surface-base p-3">
-                    <div class="text-12-medium text-text-weak">{language.t("store.console.repositories.total")}</div>
-                    <div class="mt-1 text-xl font-semibold text-text-strong">{state.repos.length}</div>
-                  </div>
-                  <div class="rounded-xl border border-border-weak-base bg-surface-base p-3">
-                    <div class="text-12-medium text-text-weak">{language.t("store.console.repositories.public")}</div>
-                    <div class="mt-1 text-xl font-semibold text-text-strong">{publicRepoCount()}</div>
-                  </div>
-                  <div class="rounded-xl border border-border-weak-base bg-surface-base p-3">
-                    <div class="text-12-medium text-text-weak">{language.t("store.console.repositories.sync")}</div>
-                    <div class="mt-1 text-xl font-semibold text-text-strong">{syncRepoCount()}</div>
-                  </div>
                 </div>
 
                 <Show
@@ -295,17 +265,27 @@ export default function Dashboard() {
                       </div>
                     }
                   >
-                    <div class="space-y-4">
+                    <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       <For each={state.repos}>
                         {(repo) => (
-                          <div class="rounded-xl border border-border-weak-base bg-surface-base p-4">
-                            <div class="flex items-start justify-between gap-3">
+                          <div class="group rounded-md border border-border-weak-base bg-background-base px-4 py-3 transition-all duration-150 hover:-translate-y-px hover:shadow-xs-border-base">
+                            <div class="mb-3 flex items-start justify-between gap-3">
                               <div class="min-w-0">
                                 <div class="flex items-center gap-2">
-                                  <div class="truncate text-14-medium text-text-strong">
+                                  <div class="truncate text-sm font-medium text-text-strong transition-colors group-hover:text-text-strong">
                                     {repo.displayName || repo.name}
                                   </div>
-                                  <span class="rounded-full bg-surface-selected-base px-2 py-0.5 text-11-medium text-text-weak">
+                                  <span
+                                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-11-medium"
+                                    classList={{
+                                      "bg-surface-success-base/15 text-text-success-base": repo.visibility === "public",
+                                      "bg-surface-warning-base/15 text-text-warning-base":
+                                        repo.visibility === "private",
+                                      "bg-surface-selected-base text-text-weak":
+                                        repo.visibility !== "public" && repo.visibility !== "private",
+                                    }}
+                                  >
+                                    <Icon name={repo.visibility === "private" ? "eye" : "sparkles"} size="small" />
                                     {visibilityLabel(repo.visibility)}
                                   </span>
                                   <Show when={repo.repoType === "sync"}>
@@ -314,7 +294,7 @@ export default function Dashboard() {
                                     </span>
                                   </Show>
                                 </div>
-                                <div class="mt-1 truncate text-12-regular text-text-weak">{repo.name}</div>
+                                <div class="mt-1 truncate text-xs text-text-weak">{repo.name}</div>
                               </div>
                               <div class="flex items-center gap-1">
                                 <Button
@@ -338,15 +318,14 @@ export default function Dashboard() {
                               </div>
                             </div>
 
-                            <p class="mt-3 text-12-regular text-text-weak">
-                              {repo.description || language.t("store.console.repositories.descriptionFallback")}
-                            </p>
+                            <p class="mb-4 text-xs text-text-weak line-clamp-2 min-h-10">{repo.description || ""}</p>
 
-                            <div class="mt-4 flex items-center gap-2">
+                            <div class="mt-auto flex items-center gap-2 border-t border-border-weak-base pt-3">
                               <Show when={repo.repoType === "sync"}>
                                 <Button
                                   size="small"
                                   variant="ghost"
+                                  class="px-2 py-1 text-xs"
                                   onClick={() =>
                                     setState("expandedSyncRepo", state.expandedSyncRepo === repo.id ? null : repo.id)
                                   }
@@ -379,23 +358,15 @@ export default function Dashboard() {
                     </h2>
                     <p class="mt-1 text-sm text-text-weak">{language.t("store.console.capabilities.description")}</p>
                   </div>
-                  <Button size="small" variant="ghost" onClick={openCreateCapability}>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    class="border border-border-weak-base"
+                    onClick={openCreateCapability}
+                  >
                     <Icon name="plus" class="size-4" />
                     {language.t("store.console.new")}
                   </Button>
-                </div>
-
-                <div class="mb-5 grid gap-3 sm:grid-cols-2">
-                  <div class="rounded-xl border border-border-weak-base bg-surface-base p-3">
-                    <div class="text-12-medium text-text-weak">{language.t("store.console.capabilities.total")}</div>
-                    <div class="mt-1 text-xl font-semibold text-text-strong">{totalCapabilityCount()}</div>
-                  </div>
-                  <div class="rounded-xl border border-border-weak-base bg-surface-base p-3">
-                    <div class="text-12-medium text-text-weak">
-                      {language.t("store.console.capabilities.visibleAfterFilter")}
-                    </div>
-                    <div class="mt-1 text-xl font-semibold text-text-strong">{visibleCapabilityCount()}</div>
-                  </div>
                 </div>
 
                 <Show when={state.items.length > 0}>
@@ -449,6 +420,9 @@ export default function Dashboard() {
                             <th class="px-4 py-3 text-left text-12-medium text-text-weak">
                               {language.t("store.console.capabilities.visibility")}
                             </th>
+                            <th class="px-4 py-3 text-left text-12-medium text-text-weak">
+                              {language.t("store.console.capabilities.source")}
+                            </th>
                             <th class="px-4 py-3" />
                           </tr>
                         </thead>
@@ -468,8 +442,43 @@ export default function Dashboard() {
                                   </span>
                                 </td>
                                 <td class="px-4 py-3 text-12-regular text-text-weak">{categoryLabel(item.category)}</td>
+                                <td class="px-4 py-3">
+                                  <span
+                                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-11-medium"
+                                    classList={{
+                                      "bg-surface-success-base/15 text-text-success-base":
+                                        (item.visibility || "public") === "public",
+                                      "bg-surface-warning-base/15 text-text-warning-base":
+                                        item.visibility === "private",
+                                      "bg-surface-selected-base text-text-weak":
+                                        item.visibility !== "public" &&
+                                        item.visibility !== "private" &&
+                                        item.visibility !== undefined,
+                                    }}
+                                  >
+                                    <Icon name={item.visibility === "private" ? "eye" : "sparkles"} size="small" />
+                                    {visibilityLabel(item.visibility || "public")}
+                                  </span>
+                                </td>
                                 <td class="px-4 py-3 text-12-regular text-text-weak">
-                                  {visibilityLabel(item.visibility || "public")}
+                                  {(() => {
+                                    const repo = state.repos.find((r) => r.id === item.registry?.repoId)
+                                    const name =
+                                      repo?.displayName || repo?.name || item.registry?.name || item.registry?.orgId
+                                    if (!name) return "—"
+                                    if (!item.registry?.externalUrl) return <span>{name}</span>
+                                    return (
+                                      <a
+                                        href={item.registry.externalUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-1 text-text-info-base hover:underline"
+                                      >
+                                        {name}
+                                        <Icon name="link" size="small" />
+                                      </a>
+                                    )
+                                  })()}
                                 </td>
                                 <td class="px-4 py-3">
                                   <div class="flex items-center justify-end gap-1">

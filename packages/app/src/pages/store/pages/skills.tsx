@@ -30,6 +30,7 @@ export default function Skills() {
     total: 0,
     hasMore: false,
     loading: true,
+    category: "all",
     search: "",
     offset: 0,
   })
@@ -57,7 +58,7 @@ export default function Skills() {
   // Reset and reload global when not in repository mode or search changes
   createEffect(
     on(
-      () => [selectedRepo(), state.search] as const,
+      () => [selectedRepo(), state.search, state.category] as const,
       ([repo]) => {
         if (repo) return // repository mode handled by useRepoItems
         setState("offset", 0)
@@ -78,15 +79,36 @@ export default function Skills() {
     onCleanup(() => observer.disconnect())
   })
 
+  const isRepo = () => !!selectedRepo()
+
   // Repository mode: client-side search filter over repoItems
-  const repoFiltered = createMemo(() => {
-    if (!state.search) return repoItems()
-    const q = state.search.toLowerCase()
-    return repoItems().filter((i) => i.name.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q))
+  const source = () => (isRepo() ? repoItems() : state.items)
+
+  const categories = createMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of source()) {
+      if (item.category) counts.set(item.category, (counts.get(item.category) || 0) + 1)
+    }
+    return Array.from(counts.entries())
+      .map(([id, count]) => ({ id, count }))
+      .sort((a, b) => b.count - a.count)
   })
 
-  const isRepo = () => !!selectedRepo()
-  const items = () => (isRepo() ? repoFiltered() : state.items)
+  const repoFiltered = createMemo(() => {
+    let items = repoItems()
+    if (state.category !== "all") items = items.filter((i) => i.category === state.category)
+    if (!state.search) return items
+    const q = state.search.toLowerCase()
+    return items.filter((i) => i.name.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q))
+  })
+
+  const globalFiltered = createMemo(() => {
+    let items = state.items
+    if (state.category !== "all") items = items.filter((i) => i.category === state.category)
+    return items
+  })
+
+  const items = () => (isRepo() ? repoFiltered() : globalFiltered())
   const loading = () => (isRepo() ? repoLoading() : state.loading && state.items.length === 0)
   const total = () => (isRepo() ? repoItems().length : state.total)
 
@@ -122,6 +144,24 @@ export default function Skills() {
           placeholder={language.t("store.searchSkills")}
         />
       </div>
+      <div class="flex gap-2 flex-wrap mb-6">
+        <button
+          onClick={() => setState("category", "all")}
+          class={`px-3 py-1.5 text-sm rounded-md transition-colors ${state.category === "all" ? "bg-bg-muted text-text-strong" : "text-text-weak hover:text-text-strong hover:bg-bg-muted"}`}
+        >
+          {language.t("store.console.filters.all")}
+        </button>
+        <For each={categories()}>
+          {(cat) => (
+            <button
+              onClick={() => setState("category", cat.id)}
+              class={`px-3 py-1.5 text-sm rounded-md transition-colors ${state.category === cat.id ? "bg-bg-muted text-text-strong" : "text-text-weak hover:text-text-strong hover:bg-bg-muted"}`}
+            >
+              {cat.id} ({cat.count})
+            </button>
+          )}
+        </For>
+      </div>
       <Show
         when={!loading()}
         fallback={<div class="flex justify-center py-16 text-text-weak">{language.t("store.loading")}</div>}
@@ -143,7 +183,7 @@ export default function Skills() {
           <Show when={!state.hasMore && state.items.length > 0 && !state.loading}>
             <p class="text-sm text-text-weak">
               {language.t("store.showingAll", {
-                count: state.items.length,
+                count: items().length,
                 type: language.t("store.sidebar.nav.skills").toLowerCase(),
               })}
             </p>

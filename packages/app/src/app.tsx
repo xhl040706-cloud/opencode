@@ -119,21 +119,19 @@ function MarkedProviderWithNativeParser(props: ParentProps) {
 
 function AppShellProviders(props: ParentProps) {
   return (
-    <SettingsProvider>
-      <PermissionProvider>
-        <LayoutProvider>
-          <NotificationProvider>
-            <ModelsProvider>
-              <CommandProvider>
-                <HighlightsProvider>
-                  <Layout>{props.children}</Layout>
-                </HighlightsProvider>
-              </CommandProvider>
-            </ModelsProvider>
-          </NotificationProvider>
-        </LayoutProvider>
-      </PermissionProvider>
-    </SettingsProvider>
+    <PermissionProvider>
+      <LayoutProvider>
+        <NotificationProvider>
+          <ModelsProvider>
+            <CommandProvider>
+              <HighlightsProvider>
+                <Layout>{props.children}</Layout>
+              </HighlightsProvider>
+            </CommandProvider>
+          </ModelsProvider>
+        </NotificationProvider>
+      </LayoutProvider>
+    </PermissionProvider>
   )
 }
 
@@ -164,17 +162,19 @@ export function AppBaseProviders(props: ParentProps) {
       <Font />
       <ThemeProvider>
         <LanguageProvider>
-          <UiI18nBridge>
-            <ErrorBoundary fallback={(error) => <ErrorPage error={error} />}>
-              <DialogProvider>
-                <MarkedProviderWithNativeParser>
-                  <FileComponentProvider component={File}>
-                    <AuthProvider>{props.children}</AuthProvider>
-                  </FileComponentProvider>
-                </MarkedProviderWithNativeParser>
-              </DialogProvider>
-            </ErrorBoundary>
-          </UiI18nBridge>
+          <SettingsProvider>
+            <UiI18nBridge>
+              <ErrorBoundary fallback={(error) => <ErrorPage error={error} />}>
+                <DialogProvider>
+                  <MarkedProviderWithNativeParser>
+                    <FileComponentProvider component={File}>
+                      <AuthProvider>{props.children}</AuthProvider>
+                    </FileComponentProvider>
+                  </MarkedProviderWithNativeParser>
+                </DialogProvider>
+              </ErrorBoundary>
+            </UiI18nBridge>
+          </SettingsProvider>
         </LanguageProvider>
       </ThemeProvider>
     </MetaProvider>

@@ -227,7 +227,6 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
                     onSelect={(option) => option && setStore("namespace", option.value)}
                     variant="secondary"
                     size="small"
-                    triggerVariant="settings"
                   />
                 </div>
                 <input
@@ -287,7 +286,6 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
                   onSelect={(option) => option && setStore("category", option)}
                   variant="secondary"
                   size="small"
-                  triggerVariant="settings"
                 />
                 <p class="mt-2 text-12-regular text-text-weak">{language.t("store.itemCrud.categoryHint")}</p>
               </div>
