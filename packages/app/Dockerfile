@@ -19,7 +19,7 @@ COPY packages/plugin/package.json ./packages/plugin/
 COPY packages/script/package.json ./packages/script/
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Stage 2: Build the Vite app
 FROM base AS builder
