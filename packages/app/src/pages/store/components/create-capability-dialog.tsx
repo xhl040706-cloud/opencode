@@ -6,57 +6,7 @@ import { useLanguage } from "@/context/language"
 import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
 import { itemApi, repoApi, registryApi, registryApi2, type CapabilityItem, type Repository } from "../lib/api"
-
-const CATEGORIES = [
-  "developer-tools",
-  "database",
-  "file-system",
-  "cloud-infrastructure",
-  "productivity",
-  "ai-task-management",
-  "web-search",
-  "browser-automation",
-  "version-control",
-  "api-development",
-  "utilities",
-  "other",
-] as const
-
-const TYPE_PREFIX: Record<string, string> = {
-  skill: "skill-",
-  subagent: "agent-",
-  command: "cmd-",
-  mcp: "mcp-",
-}
-
-const TYPE_CONTENT_PLACEHOLDER: Record<string, string> = {
-  skill: "# Skill Instructions\n\nDescribe what this skill does...",
-  subagent: "# Subagent\n\nDescribe the subagent behavior...",
-  command: "# Command\n\nDescribe the command behavior...",
-  mcp: "# MCP Server\n\nDescribe the MCP server...",
-}
-
-const TYPE_LABEL: Record<string, string> = {
-  skill: "store.capability.type.skill",
-  subagent: "store.capability.type.subagent",
-  command: "store.capability.type.command",
-  mcp: "store.capability.type.mcp",
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  "developer-tools": "store.capability.category.developerTools",
-  database: "store.capability.category.database",
-  "file-system": "store.capability.category.fileSystem",
-  "cloud-infrastructure": "store.capability.category.cloudInfrastructure",
-  productivity: "store.capability.category.productivity",
-  "ai-task-management": "store.capability.category.aiTaskManagement",
-  "web-search": "store.capability.category.webSearch",
-  "browser-automation": "store.capability.category.browserAutomation",
-  "version-control": "store.capability.category.versionControl",
-  "api-development": "store.capability.category.apiDevelopment",
-  utilities: "store.capability.category.utilities",
-  other: "store.capability.category.other",
-}
+import { CATEGORIES, TYPE_PREFIX, TYPE_CONTENT_PLACEHOLDER, typeKey, categoryKey } from "../lib/constants"
 
 const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
@@ -101,9 +51,9 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
     error: "",
   })
 
-  const typeLabel = createMemo(() => language.t(TYPE_LABEL[store.itemType] ?? store.itemType))
+  const typeLabel = createMemo(() => language.t(typeKey(store.itemType)))
   const slugPrefix = createMemo(() => TYPE_PREFIX[store.itemType] ?? "")
-  const categoryLabel = (category: string) => language.t(CATEGORY_LABEL[category] ?? category)
+
   const visibilityLabel = (visibility: NamespaceOption["visibility"] | undefined) => {
     if (visibility === "private") return language.t("store.capabilityDialog.visibility.private")
     if (visibility === "repo") return language.t("store.capabilityDialog.visibility.repository")
@@ -228,7 +178,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
                     }}
                     onClick={() => setItemType(type)}
                   >
-                    {language.t(TYPE_LABEL[type])}
+                    {language.t(typeKey(type))}
                   </button>
                 ))}
               </div>
@@ -303,7 +253,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
                   class={inputClass}
                 >
                   {CATEGORIES.map((category) => (
-                    <option value={category}>{categoryLabel(category)}</option>
+                    <option value={category}>{language.t(categoryKey(category))}</option>
                   ))}
                 </select>
               </div>

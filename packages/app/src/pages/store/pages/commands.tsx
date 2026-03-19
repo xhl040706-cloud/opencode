@@ -9,6 +9,7 @@ import ItemCard from "../components/item-card"
 import SearchBar from "../components/search-bar"
 import { StoreCreateButton } from "../components/store-create"
 import { useLanguage } from "@/context/language"
+import { categoryKey } from "../lib/constants"
 
 const PER_PAGE = 24
 
@@ -126,7 +127,7 @@ export default function Commands() {
               }}
               class={`px-3 py-1.5 text-sm rounded-md transition-colors ${state.category === cat.id ? "bg-bg-muted text-text-strong" : "text-text-weak hover:text-text-strong hover:bg-bg-muted"}`}
             >
-              {cat.id} ({cat.count})
+              {language.t(categoryKey(cat.id))} ({cat.count})
             </button>
           )}
         </For>

@@ -4,6 +4,7 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { itemApi, artifactApi, scanApi, type CapabilityItem, type ScanResult } from "../lib/api"
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
+import { categoryKey } from "../lib/constants"
 
 const TYPE_META: Record<
   string,
@@ -238,7 +239,7 @@ export default function ItemDetail() {
                 </Show>
                 <Show when={data().category}>
                   <span class="px-2 py-0.5 text-xs rounded border border-border-weak-base text-text-weak">
-                    #{data().category}
+                    #{language.t(categoryKey(data().category))}
                   </span>
                 </Show>
               </div>
