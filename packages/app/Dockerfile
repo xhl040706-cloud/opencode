@@ -6,10 +6,11 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy workspace root config files
-COPY package.json bunfig.toml ./
-COPY packages/app/package.json ./packages/app/
+COPY package.json bunfig.toml bun.lock ./
+COPY patches ./patches
 
-# Copy workspace packages that app depends on
+# Copy workspace packages for dependency resolution
+COPY packages/app/package.json ./packages/app/
 COPY packages/sdk/js/package.json ./packages/sdk/js/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/util/package.json ./packages/util/
@@ -24,6 +25,7 @@ RUN bun install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 
+# Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/app/node_modules ./packages/app/node_modules
 COPY --from=deps /app/packages/sdk/js/node_modules ./packages/sdk/js/node_modules
