@@ -6,49 +6,13 @@ import { useLanguage } from "@/context/language"
 import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
 import { itemApi, type CapabilityItem } from "../lib/api"
-
-const CATEGORIES = [
-  "developer-tools",
-  "database",
-  "file-system",
-  "cloud-infrastructure",
-  "productivity",
-  "ai-task-management",
-  "web-search",
-  "browser-automation",
-  "version-control",
-  "api-development",
-  "utilities",
-  "other",
-] as const
+import { CATEGORIES, typeKey, categoryKey } from "../lib/constants"
 
 const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
 
 const textAreaClass =
   "w-full rounded-md border border-border-weak-base bg-background-base px-3 py-2 text-sm text-text-strong outline-none focus:border-border-strong resize-y"
-
-const TYPE_LABEL: Record<string, string> = {
-  skill: "store.capability.type.skill",
-  subagent: "store.capability.type.subagent",
-  command: "store.capability.type.command",
-  mcp: "store.capability.type.mcp",
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  "developer-tools": "store.capability.category.developerTools",
-  database: "store.capability.category.database",
-  "file-system": "store.capability.category.fileSystem",
-  "cloud-infrastructure": "store.capability.category.cloudInfrastructure",
-  productivity: "store.capability.category.productivity",
-  "ai-task-management": "store.capability.category.aiTaskManagement",
-  "web-search": "store.capability.category.webSearch",
-  "browser-automation": "store.capability.category.browserAutomation",
-  "version-control": "store.capability.category.versionControl",
-  "api-development": "store.capability.category.apiDevelopment",
-  utilities: "store.capability.category.utilities",
-  other: "store.capability.category.other",
-}
 
 type EditCapabilityDialogProps = {
   item: CapabilityItem
@@ -68,8 +32,7 @@ export function EditCapabilityDialog(props: EditCapabilityDialogProps) {
     error: "",
   })
 
-  const typeLabel = createMemo(() => language.t(TYPE_LABEL[props.item.itemType] ?? props.item.itemType))
-  const categoryLabel = (category: string) => language.t(CATEGORY_LABEL[category] ?? category)
+  const typeLabel = createMemo(() => language.t(typeKey(props.item.itemType)))
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
@@ -143,7 +106,7 @@ export function EditCapabilityDialog(props: EditCapabilityDialogProps) {
                 class={inputClass}
               >
                 {CATEGORIES.map((category) => (
-                  <option value={category}>{categoryLabel(category)}</option>
+                  <option value={category}>{language.t(categoryKey(category))}</option>
                 ))}
               </select>
             </div>

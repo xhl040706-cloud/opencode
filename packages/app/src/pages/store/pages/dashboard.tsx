@@ -20,34 +20,13 @@ import { CreateCapabilityDialog } from "../components/create-capability-dialog"
 import { EditCapabilityDialog } from "../components/edit-capability-dialog"
 import { EditRepoDialog } from "../components/edit-repo-dialog"
 import { RepoSyncTab } from "../components/repo-sync-tab"
+import { typeKey, categoryKey } from "../lib/constants"
 
 const ITEM_TYPE_COLORS: Record<string, string> = {
   skill: "bg-surface-info-base/20 text-text-info-base",
   subagent: "bg-surface-warning-base/20 text-text-warning-base",
   command: "bg-surface-success-base/20 text-text-success-base",
   mcp: "bg-surface-selected-base/40 text-text-strong",
-}
-
-const ITEM_TYPE_LABEL: Record<string, string> = {
-  skill: "store.capability.type.skill",
-  subagent: "store.capability.type.subagent",
-  command: "store.capability.type.command",
-  mcp: "store.capability.type.mcp",
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  "developer-tools": "store.capability.category.developerTools",
-  database: "store.capability.category.database",
-  "file-system": "store.capability.category.fileSystem",
-  "cloud-infrastructure": "store.capability.category.cloudInfrastructure",
-  productivity: "store.capability.category.productivity",
-  "ai-task-management": "store.capability.category.aiTaskManagement",
-  "web-search": "store.capability.category.webSearch",
-  "browser-automation": "store.capability.category.browserAutomation",
-  "version-control": "store.capability.category.versionControl",
-  "api-development": "store.capability.category.apiDevelopment",
-  utilities: "store.capability.category.utilities",
-  other: "store.capability.category.other",
 }
 
 export default function Dashboard() {
@@ -187,15 +166,11 @@ export default function Dashboard() {
     }
   }
 
-  const typeLabel = (type: string) => {
-    if (type in ITEM_TYPE_LABEL) return language.t(ITEM_TYPE_LABEL[type])
-    return type
-  }
+  const typeLabel = (type: string) => language.t(typeKey(type))
 
   const categoryLabel = (category?: string | null) => {
     if (!category) return "—"
-    if (category in CATEGORY_LABEL) return language.t(CATEGORY_LABEL[category])
-    return category
+    return language.t(categoryKey(category))
   }
 
   const visibilityLabel = (visibility?: string | null) => {

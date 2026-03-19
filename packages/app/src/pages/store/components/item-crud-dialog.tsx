@@ -9,42 +9,7 @@ import { useAuth } from "../hooks/use-auth"
 import { useLanguage } from "@/context/language"
 import { useRepoFilter } from "../context/repo-filter"
 import { itemApi, repoApi, registryApi, registryApi2 } from "../lib/api"
-
-const CATEGORIES = [
-  "developer-tools",
-  "database",
-  "file-system",
-  "cloud-infrastructure",
-  "productivity",
-  "ai-task-management",
-  "web-search",
-  "browser-automation",
-  "version-control",
-  "api-development",
-  "utilities",
-  "other",
-] as const
-
-const TYPE_PREFIX: Record<string, string> = {
-  skill: "skill-",
-  subagent: "agent-",
-  command: "cmd-",
-  mcp: "mcp-",
-}
-
-const TYPE_CONTENT_PLACEHOLDER: Record<string, string> = {
-  skill: "# Skill Instructions\n\nDescribe what this skill does...",
-  subagent: "# Subagent\n\nDescribe the subagent behavior...",
-  command: "# Command\n\nDescribe the command behavior...",
-  mcp: "# MCP Server\n\nDescribe the MCP server...",
-}
-
-const TYPE_LABEL: Record<string, string> = {
-  skill: "store.capability.type.skill",
-  subagent: "store.capability.type.subagent",
-  command: "store.capability.type.command",
-  mcp: "store.capability.type.mcp",
-}
+import { CATEGORIES, TYPE_PREFIX, TYPE_CONTENT_PLACEHOLDER, typeKey, categoryKey } from "../lib/constants"
 
 function slugify(value: string) {
   return value
@@ -78,7 +43,7 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
   const language = useLanguage()
 
   const currentUser = createMemo(() => user())
-  const typeLabel = createMemo(() => language.t(TYPE_LABEL[props.itemType] ?? props.itemType))
+  const typeLabel = createMemo(() => language.t(typeKey(props.itemType)))
   const slugPrefix = createMemo(() => TYPE_PREFIX[props.itemType] ?? "")
 
   const [store, setStore] = createStore({
@@ -279,14 +244,15 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
                   <span>{language.t("store.capabilityDialog.field.category")}</span>
                   <span class="text-icon-info-base">*</span>
                 </label>
-                <Select
-                  options={[...CATEGORIES]}
-                  current={store.category}
-                  label={(option) => option}
-                  onSelect={(option) => option && setStore("category", option)}
-                  variant="secondary"
-                  size="small"
-                />
+                <select
+                  value={store.category}
+                  onInput={(e) => setStore("category", e.currentTarget.value)}
+                  class={inputClass}
+                >
+                  {CATEGORIES.map((category) => (
+                    <option value={category}>{language.t(categoryKey(category))}</option>
+                  ))}
+                </select>
                 <p class="mt-2 text-12-regular text-text-weak">{language.t("store.itemCrud.categoryHint")}</p>
               </div>
 
