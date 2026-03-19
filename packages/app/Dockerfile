@@ -48,10 +48,12 @@ WORKDIR /app/packages/app
 ARG VITE_CLOUD_SERVER_HOST=localhost
 ARG VITE_CLOUD_SERVER_PORT=18080
 ARG VITE_APP_PORT=3000
+ARG VITE_API_PREFIX=
 
 ENV VITE_CLOUD_SERVER_HOST=$VITE_CLOUD_SERVER_HOST
 ENV VITE_CLOUD_SERVER_PORT=$VITE_CLOUD_SERVER_PORT
 ENV VITE_APP_PORT=$VITE_APP_PORT
+ENV VITE_API_PREFIX=$VITE_API_PREFIX
 
 RUN bun run build
 
@@ -62,6 +64,7 @@ WORKDIR /app
 # Environment variables for backend proxy (can be overridden at runtime)
 ENV CLOUD_SERVER_HOST=localhost
 ENV CLOUD_SERVER_PORT=18080
+ENV NGINX_PREFIX=
 
 # Copy nginx template and entrypoint script
 COPY --from=builder /app/packages/app/nginx.conf.template /etc/nginx/conf.d/default.conf.template

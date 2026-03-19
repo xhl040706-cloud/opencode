@@ -1,6 +1,7 @@
 // In dev the Vite proxy forwards /api/* to the real backend.
 // Set VITE_API_URL only for standalone mode (packages/store dev server on port 3002).
-const API_BASE = import.meta.env.VITE_API_URL ?? ""
+const PREFIX = import.meta.env.VITE_API_PREFIX ?? ""
+const API_BASE = (import.meta.env.VITE_API_URL ?? "") || PREFIX
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
