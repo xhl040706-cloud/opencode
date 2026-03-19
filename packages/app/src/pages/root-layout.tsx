@@ -11,12 +11,7 @@ import { useAuth } from "@/context/auth"
 import { getLoginUrl } from "@/pages/store/lib/auth"
 import { DialogSettings } from "@/components/dialog-settings"
 
-function NavButton(props: {
-  icon: "bubble-5" | "store"
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
+function NavButton(props: { icon: "bubble-5" | "store"; label: string; active: boolean; onClick: () => void }) {
   return (
     <Tooltip placement="right" value={props.label}>
       <button
@@ -26,7 +21,8 @@ function NavButton(props: {
         classList={{
           "flex items-center justify-center size-10 p-1 rounded-lg overflow-hidden transition-colors cursor-default": true,
           "bg-transparent border-2 border-icon-strong-base hover:bg-surface-base-hover": props.active,
-          "bg-transparent border border-transparent hover:bg-surface-base-hover hover:border-border-weak-base": !props.active,
+          "bg-transparent border border-transparent hover:bg-surface-base-hover hover:border-border-weak-base":
+            !props.active,
         }}
       >
         <Icon name={props.icon} size="normal" />
@@ -87,18 +83,14 @@ export default function RootLayout(props: ParentProps) {
   const dialog = useDialog()
   const platform = usePlatform()
   const language = useLanguage()
+  const auth = useAuth()
 
   const isStore = () => location.pathname.startsWith("/store")
 
   return (
     <div class="flex h-full w-full overflow-hidden">
       <div class="w-12 shrink-0 bg-background-base flex flex-col items-center py-3 gap-2 border-r border-border-weak-base">
-        <NavButton
-          icon="bubble-5"
-          label="Sessions"
-          active={!isStore()}
-          onClick={() => navigate("/")}
-        />
+        <NavButton icon="bubble-5" label="Sessions" active={!isStore()} onClick={() => navigate("/")} />
         <NavButton
           icon="store"
           label={language.t("sidebar.store")}
@@ -106,6 +98,17 @@ export default function RootLayout(props: ParentProps) {
           onClick={() => navigate("/store")}
         />
         <div class="flex-1" />
+        <Show when={auth.user()}>
+          <Tooltip placement="right" value="Console">
+            <IconButton
+              icon="console"
+              variant="ghost"
+              size="large"
+              onClick={() => navigate("/store/dashboard")}
+              aria-label="Console"
+            />
+          </Tooltip>
+        </Show>
         <UserButton />
         <Tooltip placement="right" value={language.t("sidebar.settings")}>
           <IconButton

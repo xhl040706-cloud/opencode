@@ -58,6 +58,8 @@ import { DialogEditProject } from "@/components/dialog-edit-project"
 import { Titlebar } from "@/components/titlebar"
 import { useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
+import { useAuth } from "@/pages/store/hooks/use-auth"
+import { getLoginUrl } from "@/pages/store/lib/auth"
 import {
   childMapByParent,
   displayName,
@@ -115,6 +117,7 @@ export default function Layout(props: ParentProps) {
   const permission = usePermission()
   const navigate = useNavigate()
   const location = useLocation()
+  const auth = useAuth()
   const [searchParams, setSearchParams] = useSearchParams<{ settings?: string }>()
   setNavigate(navigate)
   const providers = useProviders()

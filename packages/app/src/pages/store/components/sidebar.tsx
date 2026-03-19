@@ -1,10 +1,12 @@
 import { A, useLocation, useNavigate } from "@solidjs/router"
 import { createSignal, createEffect, For, Show } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
-import { Tooltip } from "@opencode-ai/ui/tooltip"
-import { orgApi, type Organization } from "../lib/api"
-import { useOrgFilter } from "../context/org-filter"
+// import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { repoApi, type Repository } from "../lib/api"
+import { useRepoFilter } from "../context/repo-filter"
 import { useAuth } from "../hooks/use-auth"
+import { useLanguage } from "@/context/language"
+import { NAV_ITEMS, navItemsForRepo, repoItemClass, capabilityItemClass } from "./sidebar-helpers"
 
 function IconBuilding2(props: { class?: string }) {
   return (
@@ -49,138 +51,154 @@ function IconGlobe(props: { class?: string }) {
   )
 }
 
-
-const NAV_ITEMS: Array<{
-  href: string
-  label: string
-  icon: "sparkles" | "models" | "console" | "server"
-}> = [
-  { href: "/store/skills", label: "Skills", icon: "sparkles" },
-  { href: "/store/subagents", label: "Subagents", icon: "models" },
-  { href: "/store/commands", label: "Commands", icon: "console" },
-  { href: "/store/mcp-servers", label: "MCP Servers", icon: "server" },
-]
-
 function NavItem(props: {
   href: string
   label: string
   icon: "sparkles" | "models" | "console" | "server"
   active: boolean
-  indent?: boolean
 }) {
   return (
-    <A
-      href={props.href}
-      class={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${props.indent ? "ml-3" : ""} ${
-        props.active
-          ? "bg-surface-base text-text-strong font-medium"
-          : "text-text-weak hover:text-text-strong hover:bg-surface-base"
-      }`}
-    >
-      <Icon name={props.icon} size="small" />
+    <A href={props.href} class={capabilityItemClass(props.active)}>
+      <Icon
+        name={props.icon}
+        size="small"
+        class={props.active ? "text-icon-strong-base" : "text-icon-base group-hover:text-icon-strong-base"}
+      />
       <span class="truncate">{props.label}</span>
     </A>
   )
 }
 
-
 export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { selectedOrg, setSelectedOrg } = useOrgFilter()
+  const { selectedRepo, setSelectedRepo } = useRepoFilter()
   const { user } = useAuth()
-  const [orgs, setOrgs] = createSignal<Organization[]>([])
-  const [orgsExpanded, setOrgsExpanded] = createSignal(true)
+  const [repos, setRepos] = createSignal<Repository[]>([])
+  const [reposExpanded, setReposExpanded] = createSignal(true)
+  const language = useLanguage()
 
   createEffect(() => {
     const u = user()
     if (u?.sub) {
-      orgApi
+      repoApi
         .listMy(u.sub)
-        .then((res) => setOrgs(res.organizations ?? []))
+        .then((res) => setRepos(res.repositories ?? []))
         .catch(() => {})
     } else {
-      setOrgs([])
+      setRepos([])
     }
   })
 
-  function selectOrg(org: Organization | null) {
-    setSelectedOrg(org)
-    if (org) {
-      const current = NAV_ITEMS.find((n) => location.pathname.startsWith(n.href))
-      navigate(current ? current.href : "/store/skills")
-    }
+  function selectRepo(repo: Repository | null) {
+    setSelectedRepo(repo)
+    const ordered = navItemsForRepo(repo)
+    const current = ordered.find((item) => location.pathname.startsWith(item.href))
+    navigate(current ? current.href : ordered[0]?.href || "/store/skills")
   }
 
-  const activeNav = (href: string) => !selectedOrg() && location.pathname === href
+  const itemDetailNav = () => {
+    if (!location.pathname.startsWith("/store/items/")) return undefined
+    const type = new URLSearchParams(location.search).get("type")
+    if (type === "skill") return "/store/skills"
+    if (type === "subagent") return "/store/subagents"
+    if (type === "command") return "/store/commands"
+    if (type === "mcp") return "/store/mcp-servers"
+    return undefined
+  }
+
+  const activeCapabilityNav = (href: string) => {
+    if (location.pathname === href) return true
+    if (location.pathname.startsWith(`${href}/`)) return true
+    return itemDetailNav() === href
+  }
 
   return (
-    <aside class="flex w-60 flex-col border-r border-border-weak-base shrink-0 h-full">
+    <aside class="flex w-64 flex-col border-r border-border-weak-base bg-background-base shrink-0 h-full">
       <div class="flex h-12 items-center px-4 gap-2 border-b border-border-weak-base shrink-0">
-        <button onClick={() => navigate("/")} class="p-1 hover:bg-surface-base rounded-md transition-colors">
+        <button
+          onClick={() => navigate("/")}
+          class="p-1 text-text-weak hover:text-text-strong hover:bg-surface-base rounded-md transition-colors"
+        >
           <Icon name="arrow-left" size="small" />
         </button>
-        <span class="font-semibold text-text-strong text-sm">Store</span>
+        <span class="font-semibold text-text-strong text-sm">{language.t("store.sidebar.title")}</span>
       </div>
-      <div class="flex flex-col flex-1 overflow-y-auto py-3 gap-1 px-2">
-        <div class="mb-1">
-          <p class="px-3 py-1 text-xs font-medium text-text-weak uppercase tracking-wider">Explore</p>
-          <For each={NAV_ITEMS}>
-            {(item) => <NavItem href={item.href} label={item.label} icon={item.icon} active={activeNav(item.href)} />}
-          </For>
-        </div>
 
-        <Show when={user()}>
-          <div class="mt-2">
-            <button
-              onClick={() => setOrgsExpanded((v) => !v)}
-              class="w-full flex items-center justify-between px-3 py-1 text-xs font-medium text-text-weak uppercase tracking-wider hover:text-text-strong transition-colors"
-            >
-              <span>Organizations</span>
-              <Show when={orgsExpanded()} fallback={<Icon name="chevron-right" size="small" />}>
+      <div class="flex flex-col flex-1 overflow-y-auto py-2.5 gap-2.5 px-2">
+        <section class="rounded-xl border border-border-weak-base bg-surface-raised-base p-1.5">
+          <button
+            onClick={() => setReposExpanded((v) => !v)}
+            class="w-full flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-weak uppercase tracking-wider hover:text-text-strong transition-colors"
+          >
+            <span class="flex items-center gap-2">
+              <Icon name="folder" size="small" />
+              {language.t("store.console.repositories.title")}
+            </span>
+            <span class="flex items-center gap-2">
+              <span class="rounded-full border border-border-weak-base bg-surface-base px-1.5 py-0.5 text-[10px] normal-case text-text-weak">
+                {repos().length + 1}
+              </span>
+              <Show when={reposExpanded()} fallback={<Icon name="chevron-right" size="small" />}>
                 <Icon name="chevron-down" size="small" />
               </Show>
-            </button>
+            </span>
+          </button>
 
-            <Show when={orgsExpanded()}>
-              <div class="mt-0.5 space-y-0.5">
-                <button
-                  onClick={() => selectOrg(null)}
-                  class={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-left ${
-                    !selectedOrg()
-                      ? "bg-surface-base text-text-strong font-medium"
-                      : "text-text-weak hover:text-text-strong hover:bg-surface-base"
-                  }`}
-                >
-                  <IconGlobe class="h-4 w-4 shrink-0" />
-                  <span class="truncate">All Public</span>
+          <Show when={reposExpanded()}>
+            <div class="mt-1 space-y-0.5">
+              <div>
+                <button onClick={() => selectRepo(null)} class={`${repoItemClass(!selectedRepo())} text-left`}>
+                  <IconGlobe
+                    class={`h-4 w-4 shrink-0 ${!selectedRepo() ? "text-icon-strong-base" : "text-icon-base group-hover:text-icon-strong-base"}`}
+                  />
+                  <span class="truncate">{language.t("store.allPublic")}</span>
                 </button>
 
-                <For each={orgs()}>
-                  {(org) => (
+                <Show when={!selectedRepo()}>
+                  <div class="ml-3.5 mt-0.5 border-l border-border-weak-base pl-1.5 space-y-0.5">
+                    <For each={navItemsForRepo(null)}>
+                      {(item) => (
+                        <NavItem
+                          href={item.href}
+                          label={language.t(item.label)}
+                          icon={item.icon}
+                          active={activeCapabilityNav(item.href)}
+                        />
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+
+              <Show when={user()}>
+                <For each={repos()}>
+                  {(repo) => (
                     <div>
                       <button
-                        onClick={() => selectOrg(org)}
-                        class={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-left ${
-                          selectedOrg()?.id === org.id
-                            ? "bg-surface-base text-text-strong font-medium"
-                            : "text-text-weak hover:text-text-strong hover:bg-surface-base"
-                        }`}
+                        onClick={() => selectRepo(repo)}
+                        class={`${repoItemClass(selectedRepo()?.id === repo.id)} text-left`}
                       >
-                        <IconBuilding2 class="h-4 w-4 shrink-0" />
-                        <span class="truncate flex-1">{org.displayName || org.name}</span>
+                        <IconBuilding2
+                          class={`h-4 w-4 shrink-0 ${selectedRepo()?.id === repo.id ? "text-icon-strong-base" : "text-icon-base group-hover:text-icon-strong-base"}`}
+                        />
+                        <span class="truncate flex-1">{repo.displayName || repo.name}</span>
+                        <Show when={repo.repoType === "sync"}>
+                          <span class="rounded-full bg-surface-info-base/20 px-1.5 py-0.5 text-[10px] text-text-info-base">
+                            {language.t("store.console.repositories.sync")}
+                          </span>
+                        </Show>
                       </button>
 
-                      <Show when={selectedOrg()?.id === org.id}>
-                        <div class="mt-0.5 space-y-0.5">
-                          <For each={NAV_ITEMS}>
+                      <Show when={selectedRepo()?.id === repo.id}>
+                        <div class="ml-3.5 mt-0.5 border-l border-border-weak-base pl-1.5 space-y-0.5">
+                          <For each={navItemsForRepo(repo)}>
                             {(item) => (
                               <NavItem
                                 href={item.href}
-                                label={item.label}
+                                label={language.t(item.label)}
                                 icon={item.icon}
-                                active={location.pathname === item.href}
-                                indent
+                                active={activeCapabilityNav(item.href)}
                               />
                             )}
                           </For>
@@ -190,13 +208,15 @@ export default function Sidebar() {
                   )}
                 </For>
 
-                <Show when={orgs().length === 0}>
-                  <p class="px-3 py-2 text-xs text-text-weak">No organizations</p>
+                <Show when={repos().length === 0}>
+                  <p class="px-3 py-2 text-xs text-text-weak rounded-md border border-dashed border-border-weak-base">
+                    {language.t("store.sidebar.noRepositories")}
+                  </p>
                 </Show>
-              </div>
-            </Show>
-          </div>
-        </Show>
+              </Show>
+            </div>
+          </Show>
+        </section>
       </div>
     </aside>
   )

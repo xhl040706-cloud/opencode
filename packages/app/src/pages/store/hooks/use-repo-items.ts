@@ -1,11 +1,11 @@
 import { createSignal, createEffect } from "solid-js"
-import { itemApi, type CapabilityItem, type Organization } from "../lib/api"
+import { itemApi, type CapabilityItem, type Repository } from "../lib/api"
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ""
 
-async function getOrgRegistry(orgId: string): Promise<{ id: string } | null> {
+async function getRepoRegistry(repoId: string): Promise<{ id: string } | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/organizations/${orgId}/registry`)
+    const res = await fetch(`${API_BASE}/api/repositories/${repoId}/registry`)
     if (!res.ok) return null
     return res.json()
   } catch {
@@ -13,18 +13,18 @@ async function getOrgRegistry(orgId: string): Promise<{ id: string } | null> {
   }
 }
 
-export function useOrgItems(selectedOrg: () => Organization | null, itemType: string) {
+export function useRepoItems(selectedRepo: () => Repository | null, itemType: string) {
   const [items, setItems] = createSignal<CapabilityItem[]>([])
   const [loading, setLoading] = createSignal(false)
 
   createEffect(() => {
-    const org = selectedOrg()
-    if (!org) {
+    const repo = selectedRepo()
+    if (!repo) {
       setItems([])
       return
     }
     setLoading(true)
-    getOrgRegistry(org.id)
+    getRepoRegistry(repo.id)
       .then((registry) => {
         if (!registry) {
           setItems([])
