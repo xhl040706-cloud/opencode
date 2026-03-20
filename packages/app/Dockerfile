@@ -67,20 +67,26 @@ ENV VITE_CLOUD_SERVER_PORT=18080
 ENV VITE_APP_PORT=3000
 ENV VITE_API_PREFIX=
 
-# Copy node_modules from builder stage
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/app/node_modules ./packages/app/node_modules
-COPY --from=builder /app/packages/sdk/js/node_modules ./packages/sdk/js/node_modules
-COPY --from=builder /app/packages/ui/node_modules ./packages/ui/node_modules
-COPY --from=builder /app/packages/util/node_modules ./packages/util/node_modules
-
-# Copy source code
+# Copy workspace config files
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/bunfig.toml ./bunfig.toml
+COPY --from=builder /app/bun.lock ./bun.lock
+COPY --from=builder /app/patches ./patches
+
+# Copy workspace packages package.json files
+COPY --from=builder /app/packages/app/package.json ./packages/app/
+COPY --from=builder /app/packages/sdk/js/package.json ./packages/sdk/js/
+COPY --from=builder /app/packages/ui/package.json ./packages/ui/
+COPY --from=builder /app/packages/util/package.json ./packages/util/
+
+# Copy source code
 COPY --from=builder /app/packages/app ./packages/app
 COPY --from=builder /app/packages/sdk/js ./packages/sdk/js
 COPY --from=builder /app/packages/ui ./packages/ui
 COPY --from=builder /app/packages/util ./packages/util
+
+# Install dependencies in runner stage
+RUN bun install
 
 WORKDIR /app/packages/app
 
