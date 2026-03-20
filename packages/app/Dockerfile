@@ -57,31 +57,33 @@ ENV VITE_API_PREFIX=$VITE_API_PREFIX
 
 RUN bun run build
 
-# Stage 3: Production runner with nginx
-FROM nginx:alpine AS runner
+# Stage 3: Production runner with bun
+FROM base AS runner
 WORKDIR /app
 
 # Environment variables for backend proxy (can be overridden at runtime)
-ENV CLOUD_SERVER_HOST=localhost
-ENV CLOUD_SERVER_PORT=18080
-ENV NGINX_PREFIX=
+ENV VITE_CLOUD_SERVER_HOST=localhost
+ENV VITE_CLOUD_SERVER_PORT=18080
+ENV VITE_APP_PORT=3000
+ENV VITE_API_PREFIX=
 
-# Copy nginx template and entrypoint script
-COPY --from=builder /app/packages/app/nginx.conf.template /etc/nginx/conf.d/default.conf.template
-COPY --from=builder /app/packages/app/docker-entrypoint.sh /docker-entrypoint.sh
+# Copy node_modules from builder stage
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/app/node_modules ./packages/app/node_modules
+COPY --from=builder /app/packages/sdk/js/node_modules ./packages/sdk/js/node_modules
+COPY --from=builder /app/packages/ui/node_modules ./packages/ui/node_modules
+COPY --from=builder /app/packages/util/node_modules ./packages/util/node_modules
 
-# Copy built assets
-COPY --from=builder /app/packages/app/dist /usr/share/nginx/html
+# Copy source code
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/bunfig.toml ./bunfig.toml
+COPY --from=builder /app/packages/app ./packages/app
+COPY --from=builder /app/packages/sdk/js ./packages/sdk/js
+COPY --from=builder /app/packages/ui ./packages/ui
+COPY --from=builder /app/packages/util ./packages/util
 
-RUN chmod +x /docker-entrypoint.sh \
-    && chmod -R 777 /etc/nginx/conf.d \
-    && chmod -R 777 /var/cache/nginx \
-    && chmod -R 777 /var/log/nginx \
-    && chmod -R 777 /var/run \
-    && touch /var/run/nginx.pid \
-    && chmod 777 /var/run/nginx.pid
+WORKDIR /app/packages/app
 
 EXPOSE 3000
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["bun", "run", "start"]
