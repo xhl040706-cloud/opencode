@@ -16,18 +16,6 @@ export type DeviceListProps = {
   onToggleCollapse: () => void
 }
 
-function getStatusColor(status: DeviceStatus): string {
-  switch (status) {
-    case "online":
-      return "bg-green-500"
-    case "offline":
-      return "bg-gray-400"
-    case "":
-    default:
-      return "bg-gray-400"
-  }
-}
-
 function getStatusText(status: DeviceStatus): string {
   switch (status) {
     case "online":
@@ -101,23 +89,16 @@ export function DeviceList(props: DeviceListProps) {
                   >
                     <div class="flex-1 min-w-0 flex flex-col gap-1">
                       <div class="flex items-center gap-2">
-                        <span
-                          class={`
-                            size-2 rounded-full shrink-0
-                            ${getStatusColor(device.status)}
-                          `}
+                        <div
+                          classList={{
+                            "size-1.5 rounded-full shrink-0": true,
+                            "bg-icon-success-base": device.status === "online",
+                            "bg-icon-critical-base": device.status === "offline",
+                            "bg-border-weak-base": device.status === "",
+                          }}
                         />
                         <span class="text-13-medium text-text-strong truncate">
                           {device.displayName}
-                        </span>
-                        <span
-                          class={`
-                            text-10-medium px-1.5 py-0.5 rounded-full shrink-0
-                            ${device.status === "online" ? "bg-green-100 text-green-700" : ""}
-                            ${device.status === "offline" ? "bg-gray-200 text-gray-600" : ""}
-                          `}
-                        >
-                          {getStatusText(device.status)}
                         </span>
                       </div>
                       <div class="flex flex-col gap-0.5 pl-4">

@@ -72,15 +72,14 @@ export function WorkspaceSidebar() {
   const [isRunningCollapsed, setIsRunningCollapsed] = createSignal(false)
   const [isIdleCollapsed, setIsIdleCollapsed] = createSignal(false)
 
-  const getDeviceStatusStyle = (status?: DeviceStatus) => {
+  const getDeviceStatusDot = (status?: DeviceStatus) => {
     switch (status) {
       case "online":
-        return { class: "bg-green-500/15 text-green-600 border-green-500/20", text: "在线" }
+        return { online: true, offline: false, text: "在线" }
       case "offline":
-        return { class: "bg-gray-500/15 text-gray-600 border-gray-500/20", text: "离线" }
-      case "":
+        return { online: false, offline: true, text: "离线" }
       default:
-        return { class: "bg-gray-500/10 text-gray-500 border-gray-500/15", text: "未绑定" }
+        return { online: false, offline: false, text: "未绑定" }
     }
   }
 
@@ -112,7 +111,7 @@ export function WorkspaceSidebar() {
 
   const WorkspaceCard = (props: { workspace: Workspace; isRunning: boolean }) => {
     const primaryDir = getPrimaryDirectory(props.workspace)
-    const deviceStatus = getDeviceStatusStyle(props.workspace.deviceStatus)
+    const deviceStatus = getDeviceStatusDot(props.workspace.deviceStatus)
 
     return (
       <div
@@ -137,9 +136,16 @@ export function WorkspaceSidebar() {
                   默认
                 </span>
               </Show>
-              <span class={`text-10-medium px-1.5 py-0.5 rounded-full border shrink-0 ${deviceStatus.class}`}>
-                {deviceStatus.text}
-              </span>
+              <Tooltip placement="top" value={deviceStatus.text}>
+                <div
+                  classList={{
+                    "size-1.5 rounded-full shrink-0": true,
+                    "bg-icon-success-base": deviceStatus.online,
+                    "bg-icon-critical-base": deviceStatus.offline,
+                    "bg-border-weak-base": !deviceStatus.online && !deviceStatus.offline,
+                  }}
+                />
+              </Tooltip>
             </div>
             <Show when={primaryDir}>
               <span class="text-11-regular text-text-weak truncate">
