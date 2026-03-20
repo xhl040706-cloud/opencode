@@ -19,6 +19,7 @@ import { useActiveWorkspace } from "@/pages/workspace/active-workspace"
 type NotificationBase = {
   directory?: string
   session?: string
+  workspaceId?: string
   metadata?: unknown
   time: number
   viewed: boolean
@@ -127,7 +128,9 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
     const currentSession = createMemo(() => params.id)
 
     const [store, setStore, _, ready] = persisted(
-      Persist.global("notification", ["notification.v1"]),
+      active?.id
+        ? Persist.device(active.id, "notification", ["notification.v1"])
+        : Persist.global("notification", ["notification.v1"]),
       createStore({
         list: [] as Notification[],
       }),
@@ -242,6 +245,7 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
 
         append({
           directory,
+          workspaceId: active?.id,
           time,
           viewed: viewedInCurrentSession(directory, sessionID),
           type: "turn-complete",
@@ -274,6 +278,7 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
         const error = "error" in event.properties ? event.properties.error : undefined
         append({
           directory,
+          workspaceId: active?.id,
           time,
           viewed: viewedInCurrentSession(directory, sessionID),
           type: "error",

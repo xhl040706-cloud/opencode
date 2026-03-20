@@ -1,5 +1,5 @@
 import type { ParentProps } from "solid-js"
-import { createSignal, createMemo, onMount, Show, createEffect, untrack } from "solid-js"
+import { createSignal, createMemo, onMount, Show, createEffect, untrack, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useParams } from "@solidjs/router"
 import { showToast } from "@opencode-ai/ui/toast"
@@ -38,6 +38,19 @@ export default function WorkspaceLayout(props: ParentProps) {
     } finally {
       setIsLoading(false)
     }
+
+    const loadDevices = async () => {
+      const res = await deviceApi.list().catch(() => ({ devices: [] }))
+      setDevices(res.devices)
+    }
+
+    const timer = setInterval(loadDevices, 30_000)
+    const onVisible = () => { if (document.visibilityState === "visible") void loadDevices() }
+    document.addEventListener("visibilitychange", onVisible)
+    onCleanup(() => {
+      clearInterval(timer)
+      document.removeEventListener("visibilitychange", onVisible)
+    })
   })
 
   const handleSelectWorkspace = (workspaceId: string) => {

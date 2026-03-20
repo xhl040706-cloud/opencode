@@ -306,6 +306,10 @@ export const Persist = {
   global(key: string, legacy?: string[]): PersistTarget {
     return { storage: GLOBAL_STORAGE, key, legacy }
   },
+  device(workspaceId: string, key: string, legacy?: string[]): PersistTarget {
+    const id = workspaceId.slice(0, 8) || "default"
+    return { storage: `opencode.device.${id}.dat`, key, legacy }
+  },
   workspace(dir: string, key: string, legacy?: string[]): PersistTarget {
     return { storage: workspaceStorage(dir), key: `workspace:${key}`, legacy }
   },
