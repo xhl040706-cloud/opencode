@@ -8,6 +8,7 @@ import { type Platform, PlatformProvider } from "@/context/platform"
 import { dict as en } from "@/i18n/en"
 import { dict as zh } from "@/i18n/zh"
 import { handleNotificationClick } from "@/utils/notification-click"
+import { env } from "@/lib/env"
 import pkg from "../package.json"
 import { ServerConnection } from "./context/server"
 import { RootLayoutRoute, renderRoutes, routeConfig } from "./routes"
@@ -117,7 +118,7 @@ if (root instanceof HTMLElement) {
     () => (
       <PlatformProvider value={platform}>
         <AppBaseProviders>
-          <Router root={RootLayoutRoute}>{renderRoutes(routeConfig)}</Router>
+          <Router base={env.BASE_PATH || "/"} root={RootLayoutRoute}>{renderRoutes(routeConfig)}</Router>
         </AppBaseProviders>
       </PlatformProvider>
     ),

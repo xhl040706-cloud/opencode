@@ -88,6 +88,11 @@ export const env = {
     return getEnv("VITE_CASDOOR_ORG_NAME", "built-in")
   },
 
+  // Base path for subdirectory deployment (e.g., "/costrict-web-portal")
+  get BASE_PATH() {
+    return getEnv("VITE_BASE_PATH", "")
+  },
+
   // Store
   get STORE_URL() {
     return getEnv("VITE_STORE_URL", "")
