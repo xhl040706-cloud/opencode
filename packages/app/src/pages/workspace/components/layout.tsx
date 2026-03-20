@@ -12,6 +12,8 @@ import { AppInterface } from "@/app-interface"
 import { getProxyUrl } from "../lib/url"
 import { ActiveWorkspaceProvider } from "../active-workspace"
 
+let inWorkspace = false
+
 export default function WorkspaceLayout(props: ParentProps) {
   const [workspaces, setWorkspaces] = createStore<Workspace[]>([])
   const [devices, setDevices] = createStore<Device[]>([])
@@ -38,19 +40,39 @@ export default function WorkspaceLayout(props: ParentProps) {
     } finally {
       setIsLoading(false)
     }
+  })
 
-    const loadDevices = async () => {
+  let loading = false
+  const loadDevices = async () => {
+    if (document.visibilityState !== "visible") return
+    if (!inWorkspace) return
+    if (loading) return
+    loading = true
+    try {
+      const prevStatuses = devices.map((d) => ({ id: d.id, status: d.status }))
       const res = await deviceApi.list().catch(() => ({ devices: [] }))
       setDevices(res.devices)
+      const changed = res.devices.some((d) => prevStatuses.find((p) => p.id === d.id)?.status !== d.status)
+      if (!changed) return
+      const prevOnlineIds = new Set(workspaces.filter((w) => w.deviceStatus === "online").map((w) => w.id))
+      const wsRes = await workspaceApi.list().catch(() => ({ workspaces: [] as Workspace[] }))
+      setWorkspaces(wsRes.workspaces)
+      const enabled = enabledIds()
+      wsRes.workspaces
+        .filter((w) => prevOnlineIds.has(w.id) && w.deviceStatus !== "online" && enabled.includes(w.id))
+        .forEach((w) => handleDisableWorkspace(w.id))
+    } finally {
+      loading = false
     }
+  }
 
-    const timer = setInterval(loadDevices, 30_000)
-    const onVisible = () => { if (document.visibilityState === "visible") void loadDevices() }
-    document.addEventListener("visibilitychange", onVisible)
-    onCleanup(() => {
-      clearInterval(timer)
-      document.removeEventListener("visibilitychange", onVisible)
-    })
+  const timer = setInterval(loadDevices, 30_000)
+  document.addEventListener("visibilitychange", loadDevices)
+  inWorkspace = true
+  onCleanup(() => {
+    inWorkspace = false
+    clearInterval(timer)
+    document.removeEventListener("visibilitychange", loadDevices)
   })
 
   const handleSelectWorkspace = (workspaceId: string) => {
