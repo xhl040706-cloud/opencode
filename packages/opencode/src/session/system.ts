@@ -13,6 +13,7 @@ import type { Provider } from "@/provider/provider"
 import type { Agent } from "@/agent/agent"
 import { PermissionNext } from "@/permission/next"
 import { Skill } from "@/skill"
+import { EditorContext } from "@/context/editor-context"
 
 export namespace SystemPrompt {
   export function instructions() {
@@ -31,6 +32,8 @@ export namespace SystemPrompt {
 
   export async function environment(model: Provider.Model) {
     const project = Instance.project
+    const editorContext = EditorContext.formatForPrompt()
+    
     return [
       [
         `You are powered by the model named ${model.api.id}. The exact model ID is ${model.providerID}/${model.api.id}`,
@@ -42,6 +45,7 @@ export namespace SystemPrompt {
         `  Platform: ${process.platform}`,
         `  Today's date: ${new Date().toDateString()}`,
         `</env>`,
+        ...(editorContext ? [editorContext] : []),
         `<directories>`,
         `  ${
           project.vcs === "git" && false
