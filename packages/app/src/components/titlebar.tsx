@@ -195,7 +195,8 @@ export function Titlebar() {
           </div>
         </Show>
         <div class="flex items-center gap-1 shrink-0">
-          <Show when={!inStore()}>
+          {/* sidebar toggle hidden for workspace mode */}
+          {/* <Show when={!inStore()}>
             <TooltipKeybind
               class={web() ? "hidden xl:flex shrink-0 ml-14" : "hidden xl:flex shrink-0 ml-2"}
               placement="bottom"
@@ -228,7 +229,7 @@ export function Titlebar() {
                 </div>
               </Button>
             </TooltipKeybind>
-          </Show>
+          </Show> */}
           <Show when={!inStore()}>
             <div class="hidden xl:flex items-center shrink-0">
               <Show when={params.dir}>
@@ -244,13 +245,14 @@ export function Titlebar() {
                     class="titlebar-icon w-8 h-6 p-0 box-border"
                     onClick={() => {
                       if (!params.dir) return
-                      navigate(`/${params.dir}/session`)
+                      navigate(`/workspace/${params.workspaceID}/${params.dir}/session`)
                     }}
                     aria-label={language.t("command.session.new")}
                   />
                 </TooltipKeybind>
               </Show>
-              <div class="flex items-center gap-0" classList={{ "ml-1": !!params.dir }}>
+              {/* back/forward buttons hidden for workspace mode */}
+              {/* <div class="flex items-center gap-0" classList={{ "ml-1": !!params.dir }}>
                 <Tooltip placement="bottom" value={language.t("common.goBack")} openDelay={2000}>
                   <Button
                     variant="ghost"
@@ -271,7 +273,7 @@ export function Titlebar() {
                     aria-label={language.t("common.goForward")}
                   />
                 </Tooltip>
-              </div>
+              </div> */}
             </div>
           </Show>
         </div>
