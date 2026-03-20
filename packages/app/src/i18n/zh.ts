@@ -1045,4 +1045,26 @@ export const dict = {
   "store.scanResults.permissions": "权限",
   "store.scanResults.noRecommendations": "无",
   "store.scanResults.noRedFlags": "无",
+  "store.scanResults.rescan": "重新扫描",
+  "store.scanResults.securityScan": "安全扫描",
+
+  "store.security.unscanned": "待扫描",
+  "store.security.pending": "扫描中...",
+  "store.security.scanning": "扫描中...",
+  "store.security.clean": "安全",
+  "store.security.low": "安全",
+  "store.security.medium": "注意",
+  "store.security.high": "高风险",
+  "store.security.extreme": "极高风险",
+  "store.security.error": "扫描失败",
+  "store.security.skipped": "已跳过",
+
+  "store.verdict.safe": "可安装",
+  "store.verdict.caution": "需确认后安装",
+  "store.verdict.reject": "不建议安装",
+
+  "store.security.scanTime": "扫描时间",
+  "store.security.foundIssues": "发现的问题",
+  "store.security.permissionNeeds": "权限需求",
+  "store.security.suggestions": "修改建议",
 } satisfies Partial<Record<Keys, string>>

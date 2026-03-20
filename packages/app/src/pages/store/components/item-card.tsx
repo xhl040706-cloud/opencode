@@ -3,6 +3,7 @@ import { A } from "@solidjs/router"
 import { useLanguage } from "@/context/language"
 import { artifactApi, type CapabilityItem } from "../lib/api"
 import { categoryKey } from "../lib/constants"
+import SecurityBadge from "./security-badge"
 
 const TYPE_COLOR: Record<string, string> = {
   skill: "text-yellow-500",
@@ -67,6 +68,7 @@ export default function ItemCard(props: { item: CapabilityItem }) {
           <span class="text-xs text-text-weak">#{language.t(categoryKey(props.item.category))}</span>
         </Show>
         <span class="text-xs text-text-weak">{orgName() ?? "public"}</span>
+        <SecurityBadge status={props.item.securityStatus} size="sm" showIcon={false} />
       </div>
 
       <div class="flex items-center gap-1 mt-auto pt-3 border-t border-border-weak-base">
