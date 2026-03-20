@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsgo -b",
-    "start": "vite",
+    "start": "bun run script/server.ts",
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
