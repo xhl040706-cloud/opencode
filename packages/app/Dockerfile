@@ -72,6 +72,7 @@ ENV VITE_OPENCODE_SERVER_HOST=localhost
 ENV VITE_OPENCODE_SERVER_PORT=8080
 
 COPY --from=builder /app/packages/app/dist ./dist
+RUN chmod -R 777 ./dist 
 COPY --from=builder /app/packages/app/script/server.ts ./script/server.ts
 COPY --from=builder /app/packages/app/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
