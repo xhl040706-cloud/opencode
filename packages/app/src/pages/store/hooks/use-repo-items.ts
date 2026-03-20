@@ -1,7 +1,8 @@
 import { createSignal, createEffect } from "solid-js"
+import { env } from "@/lib/env"
 import { itemApi, type CapabilityItem, type Repository } from "../lib/api"
 
-const API_BASE = import.meta.env.VITE_API_URL ?? ""
+const API_BASE = env.API_URL
 
 async function getRepoRegistry(repoId: string): Promise<{ id: string } | null> {
   try {

@@ -1,3 +1,5 @@
+import { env } from "@/lib/env"
+
 export interface CasdoorUser {
   sub: string
   name?: string
@@ -8,10 +10,10 @@ export interface CasdoorUser {
 }
 
 export function getLoginUrl(redirectTo?: string) {
-  const endpoint = import.meta.env.VITE_CASDOOR_ENDPOINT
-  const clientId = import.meta.env.VITE_CASDOOR_CLIENT_ID
-  const appUrl = import.meta.env.VITE_APP_URL
-  const appName = import.meta.env.VITE_CASDOOR_APP_NAME
+  const endpoint = env.CASDOOR_ENDPOINT
+  const clientId = env.CASDOOR_CLIENT_ID
+  const appUrl = env.APP_URL
+  const appName = env.CASDOOR_APP_NAME
 
   const params = new URLSearchParams({
     client_id: clientId,
