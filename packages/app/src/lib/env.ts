@@ -15,6 +15,19 @@ declare global {
   }
 }
 
+// Pattern to detect unreplaced placeholders (e.g., "${VITE_API_PREFIX}")
+const PLACEHOLDER_PATTERN = /^\$\{.+\}$/
+
+/**
+ * Check if a value is a valid environment variable value (not an unreplaced placeholder)
+ */
+function isValidValue(value: string | undefined): boolean {
+  if (value === undefined || value === "") return false
+  // Reject unreplaced placeholders like "${VITE_API_PREFIX}"
+  if (PLACEHOLDER_PATTERN.test(value)) return false
+  return true
+}
+
 /**
  * Get an environment variable value.
  * Priority: runtime (window.__ENV__) > build-time (import.meta.env)
@@ -23,14 +36,14 @@ export function getEnv(key: string, defaultValue?: string): string | undefined {
   // Check runtime environment first (for Docker deployments)
   if (typeof window !== "undefined" && window.__ENV__) {
     const runtimeValue = window.__ENV__[key]
-    if (runtimeValue !== undefined && runtimeValue !== "") {
+    if (isValidValue(runtimeValue)) {
       return runtimeValue
     }
   }
 
   // Fallback to build-time environment variables
   const buildTimeValue = (import.meta.env as Record<string, string | undefined>)[key]
-  if (buildTimeValue !== undefined && buildTimeValue !== "") {
+  if (isValidValue(buildTimeValue)) {
     return buildTimeValue
   }
 
