@@ -471,3 +471,32 @@ export const artifactApi = {
 export const scanApi = {
   list: (itemId: string) => apiFetch<{ results: ScanResult[]; total: number }>(`/api/items/${itemId}/scan-results`),
 }
+
+export interface SearchRequest {
+  query: string
+  limit?: number
+  offset?: number
+  types?: string[]
+  categories?: string[]
+  registryIds?: string[]
+  minScore?: number
+}
+
+export interface SearchResultItem {
+  item: CapabilityItem
+  score: number
+}
+
+export interface SearchResult {
+  items: SearchResultItem[]
+  total: number
+  hasMore: boolean
+}
+
+export const searchApi = {
+  semantic: (params: SearchRequest) =>
+    apiFetch<SearchResult>("/api/marketplace/items/search", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+}

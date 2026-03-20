@@ -1,7 +1,7 @@
 import { createStore } from "solid-js/store"
 import { createEffect, createMemo, on, onMount, onCleanup, For, Show } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
-import { itemApi, type CapabilityItem } from "../lib/api"
+import { itemApi, searchApi, type CapabilityItem } from "../lib/api"
 import { useRepoFilter } from "../context/repo-filter"
 import { useRepoItems } from "../hooks/use-repo-items"
 import { useAuth } from "../hooks/use-auth"
@@ -34,37 +34,65 @@ export default function Skills() {
     category: "all",
     search: "",
     offset: 0,
+    useSemanticSearch: false,
   })
 
   let sentinel: HTMLDivElement | undefined
-  let debounce: ReturnType<typeof setTimeout>
 
-  async function load(reset: boolean) {
+  async function load(reset: boolean, useSemanticSearch = false) {
     setState("loading", true)
     try {
       const offset = reset ? 0 : state.offset
-      const res = await itemApi.list({ type: "skill", search: state.search || undefined, limit: PER_PAGE, offset })
-      setState({
-        items: reset ? res.items : [...state.items, ...res.items],
-        total: res.total,
-        hasMore: res.hasMore,
-        offset: reset ? res.items.length : state.offset + res.items.length,
-        loading: false,
-      })
+      const searchQuery = state.search
+
+      if (useSemanticSearch && searchQuery) {
+        // Use semantic search API
+        const res = await searchApi.semantic({
+          query: searchQuery,
+          types: ["skill"],
+          categories: state.category !== "all" ? [state.category] : undefined,
+          limit: PER_PAGE,
+          offset,
+        })
+        setState({
+          items: reset ? res.items.map((i) => i.item) : [...state.items, ...res.items.map((i) => i.item)],
+          total: res.total,
+          hasMore: res.hasMore,
+          offset: reset ? res.items.length : state.offset + res.items.length,
+          loading: false,
+          useSemanticSearch: true,
+        })
+      } else {
+        // Use regular list API
+        const res = await itemApi.list({ type: "skill", search: searchQuery || undefined, limit: PER_PAGE, offset })
+        setState({
+          items: reset ? res.items : [...state.items, ...res.items],
+          total: res.total,
+          hasMore: res.hasMore,
+          offset: reset ? res.items.length : state.offset + res.items.length,
+          loading: false,
+          useSemanticSearch: false,
+        })
+      }
     } catch {
       setState("loading", false)
     }
   }
 
-  // Reset and reload global when not in repository mode or search changes
+  // Handle search button click
+  function handleSearch() {
+    setState("offset", 0)
+    void load(true, true)
+  }
+
+  // Reset and reload when not in repository mode or category changes
   createEffect(
     on(
-      () => [selectedRepo(), state.search, state.category] as const,
+      () => [selectedRepo(), state.category] as const,
       ([repo]) => {
         if (repo) return // repository mode handled by useRepoItems
         setState("offset", 0)
-        clearTimeout(debounce)
-        debounce = setTimeout(() => load(true), 300)
+        void load(true, false)
       },
     ),
   )
@@ -72,7 +100,9 @@ export default function Skills() {
   onMount(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !selectedRepo() && state.hasMore && !state.loading) load(false)
+        if (entries[0].isIntersecting && !selectedRepo() && state.hasMore && !state.loading) {
+          load(false, state.useSemanticSearch)
+        }
       },
       { threshold: 0.1, rootMargin: "100px" },
     )
@@ -138,10 +168,11 @@ export default function Skills() {
           </Show>
         </div>
       </div>
-      <div class="mb-6 max-w-sm">
+      <div class="mb-6 max-w-md">
         <SearchBar
           value={state.search}
           onChange={(v) => setState("search", v)}
+          onSearch={handleSearch}
           placeholder={language.t("store.searchSkills")}
         />
       </div>
