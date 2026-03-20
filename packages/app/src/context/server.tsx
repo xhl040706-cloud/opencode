@@ -95,6 +95,7 @@ export namespace ServerConnection {
 
 export const { use: useServer, provider: ServerProvider } = createSimpleContext({
   name: "Server",
+  gate: false,  // 避免未选定 server 时不渲染子元素
   init: (props: { defaultServer: ServerConnection.Key; servers?: Array<ServerConnection.Any> }) => {
     const platform = usePlatform()
 
@@ -110,14 +111,17 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
     const url = (x: StoredServer) => (typeof x === "string" ? x : "type" in x ? x.http.url : x.url)
 
     const allServers = createMemo((): Array<ServerConnection.Any> => {
+      const normalize = (conn: ServerConnection.Any): ServerConnection.Any => {
+        const normalized = normalizeServerUrl(conn.http.url)
+        if (!normalized || normalized === conn.http.url) return conn
+        return { ...conn, http: { ...conn.http, url: normalized } }
+      }
+
       const servers = [
-        ...(props.servers ?? []),
+        ...(props.servers ?? []).map(normalize),
         ...store.list.map((value) =>
           typeof value === "string"
-            ? {
-                type: "http" as const,
-                http: { url: value },
-              }
+            ? { type: "http" as const, http: { url: value } }
             : value,
         ),
       ]
@@ -211,7 +215,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
     const origin = createMemo(() => projectsKey(state.active))
     const projectsList = createMemo(() => store.projects[origin()] ?? [])
     const current: Accessor<ServerConnection.Any | undefined> = createMemo(
-      () => allServers().find((s) => ServerConnection.key(s) === state.active) ?? allServers()[0],
+      () => state.active ? allServers().find((s) => ServerConnection.key(s) === state.active) ?? allServers()[0] : undefined,
     )
     const isLocal = createMemo(() => {
       const c = current()

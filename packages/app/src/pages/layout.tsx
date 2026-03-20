@@ -1,4 +1,4 @@
-import {
+﻿import {
   batch,
   createEffect,
   createMemo,
@@ -13,10 +13,13 @@ import {
   type JSX,
 } from "solid-js"
 import { A, useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useDirectory } from "@/context/directory"
+import { base64Encode } from "@opencode-ai/util/encode"
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { useLayout, LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
+import { useActiveWorkspace } from "@/pages/workspace/active-workspace"
 import { Persist, persisted } from "@/utils/persist"
-import { base64Encode } from "@opencode-ai/util/encode"
 import { decode64 } from "@/utils/base64"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Button } from "@opencode-ai/ui/button"
@@ -58,8 +61,6 @@ import { DialogEditProject } from "@/components/dialog-edit-project"
 import { Titlebar } from "@/components/titlebar"
 import { useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
-import { useAuth } from "@/pages/store/hooks/use-auth"
-import { getLoginUrl } from "@/pages/store/lib/auth"
 import {
   childMapByParent,
   displayName,
@@ -108,6 +109,7 @@ export default function Layout(props: ParentProps) {
   const params = useParams()
   const globalSDK = useGlobalSDK()
   const globalSync = useGlobalSync()
+  const active = useActiveWorkspace()
   const layout = useLayout()
   const layoutReady = createMemo(() => layout.ready())
   const platform = usePlatform()
@@ -117,15 +119,16 @@ export default function Layout(props: ParentProps) {
   const permission = usePermission()
   const navigate = useNavigate()
   const location = useLocation()
-  const auth = useAuth()
   const [searchParams, setSearchParams] = useSearchParams<{ settings?: string }>()
   setNavigate(navigate)
   const providers = useProviders()
+  const { navigateToNewSession: wsNavigateToNewSession, navigateToSession: wsNavigateToSession } = useWorkspaceNavigate()
   const dialog = useDialog()
   const command = useCommand()
   const theme = useTheme()
   const language = useLanguage()
-  const initialDirectory = decode64(params.dir)
+  const directoryCtx = (() => { try { return useDirectory() } catch { return undefined } })()
+  const initialDirectory = directoryCtx?.() ?? decode64(params.dir)
   const availableThemeEntries = createMemo(() => Object.entries(theme.themes()))
   const colorSchemeOrder: ColorScheme[] = ["system", "light", "dark"]
   const colorSchemeKey: Record<ColorScheme, "theme.scheme.system" | "theme.scheme.light" | "theme.scheme.dark"> = {
@@ -134,7 +137,7 @@ export default function Layout(props: ParentProps) {
     dark: "theme.scheme.dark",
   }
   const colorSchemeLabel = (scheme: ColorScheme) => language.t(colorSchemeKey[scheme])
-  const currentDir = createMemo(() => decode64(params.dir) ?? "")
+  const currentDir = createMemo(() => directoryCtx?.() ?? decode64(params.dir) ?? "")
 
   const [state, setState] = createStore({
     autoselect: !initialDirectory,
@@ -393,7 +396,9 @@ export default function Layout(props: ParentProps) {
           e.details.type === "permission.asked"
             ? language.t("notification.permission.description", { sessionTitle, projectName })
             : language.t("notification.question.description", { sessionTitle, projectName })
-        const href = `/${base64Encode(directory)}/session/${props.sessionID}`
+        const dirSlug = base64Encode(directory)
+        const workspaceId = active?.id ?? dirSlug
+        const href = `/workspace/${workspaceId}/${dirSlug}/session/${props.sessionID}`
 
         const now = Date.now()
         const lastAlerted = alertedAtBySession.get(sessionKey) ?? 0
@@ -504,6 +509,7 @@ export default function Layout(props: ParentProps) {
         if (!state.autoselect) return
         if (value.dir) return
         if (location.pathname.startsWith("/store")) return
+        if (location.pathname.startsWith("/workspace")) return
 
         const last = server.projects.last()
 
@@ -587,7 +593,7 @@ export default function Layout(props: ParentProps) {
 
     const result: Session[] = []
     for (const dir of dirs) {
-      const [dirStore] = globalSync.child(dir, { bootstrap: true })
+      const [dirStore] = globalSync.child(dir, { bootstrap: false })
       const dirSessions = sortedRootSessions(dirStore, now)
       result.push(...dirSessions)
     }
@@ -863,9 +869,9 @@ export default function Layout(props: ParentProps) {
     )
     if (session.id === params.id) {
       if (nextSession) {
-        navigate(`/${params.dir}/session/${nextSession.id}`)
+        navigate(`/workspace/${params.workspaceID}/${params.dir}/session/${nextSession.id}`)
       } else {
-        navigate(`/${params.dir}/session`)
+        navigate(`/workspace/${params.workspaceID}/${params.dir}/session`)
       }
     }
   }
@@ -1147,7 +1153,9 @@ export default function Layout(props: ParentProps) {
       if (!resolved?.directory) return false
       if (!canOpen(resolved.directory)) return false
       setStore("lastProjectSession", root, { directory: resolved.directory, id: resolved.id, at: Date.now() })
-      navigateWithSidebarReset(`/${base64Encode(resolved.directory)}/session/${resolved.id}`)
+      const dirSlug = base64Encode(resolved.directory)
+      const workspaceId = active?.id ?? dirSlug
+      navigateWithSidebarReset(`/workspace/${workspaceId}/${dirSlug}/session/${resolved.id}`)
       return true
     }
 
@@ -1183,12 +1191,14 @@ export default function Layout(props: ParentProps) {
       return
     }
 
-    navigateWithSidebarReset(`/${base64Encode(root)}/session`)
+    wsNavigateToNewSession({ dir: base64Encode(root) })
   }
 
   function navigateToSession(session: Session | undefined) {
     if (!session) return
-    navigateWithSidebarReset(`/${base64Encode(session.directory)}/session/${session.id}`)
+    wsNavigateToSession(session.id, { 
+      dir: base64Encode(session.directory) 
+    })
   }
 
   function openProject(directory: string, navigate = true) {
@@ -1264,7 +1274,7 @@ export default function Layout(props: ParentProps) {
       return
     }
 
-    navigateWithSidebarReset(`/${base64Encode(next.worktree)}/session`)
+    wsNavigateToNewSession({ dir: base64Encode(next.worktree) })
     layout.projects.close(directory)
     queueMicrotask(() => {
       void navigateToProject(next.worktree)
@@ -1317,7 +1327,7 @@ export default function Layout(props: ParentProps) {
     const deletedKey = workspaceKey(directory)
     const shouldLeave = leaveDeletedWorkspace || (!!params.dir && currentKey === deletedKey)
     if (!leaveDeletedWorkspace && shouldLeave) {
-      navigateWithSidebarReset(`/${base64Encode(root)}/session`)
+      wsNavigateToNewSession({ dir: base64Encode(root) })
     }
 
     setBusy(directory, true)
@@ -1365,7 +1375,7 @@ export default function Layout(props: ParentProps) {
     const valid = dirs.some((item) => workspaceKey(item) === nextKey)
 
     if (params.dir && projectRoot(nextCurrent) === root && !valid) {
-      navigateWithSidebarReset(`/${base64Encode(root)}/session`)
+      wsNavigateToNewSession({ dir: base64Encode(root) })
     }
   }
 
@@ -1434,8 +1444,9 @@ export default function Layout(props: ParentProps) {
         {
           label: language.t("command.session.new"),
           onClick: () => {
-            const href = `/${base64Encode(directory)}/session`
-            navigate(href)
+            const dirSlug = base64Encode(directory)
+            const workspaceId = active?.id ?? dirSlug
+            navigate(`/workspace/${workspaceId}/${dirSlug}/session`)
             layout.mobileSidebar.hide()
           },
         },
@@ -1470,7 +1481,7 @@ export default function Layout(props: ParentProps) {
     const handleDelete = () => {
       const leaveDeletedWorkspace = !!params.dir && workspaceKey(currentDir()) === workspaceKey(props.directory)
       if (leaveDeletedWorkspace) {
-        navigateWithSidebarReset(`/${base64Encode(props.root)}/session`)
+        wsNavigateToNewSession({ dir: base64Encode(props.root) })
       }
       dialog.close()
       void deleteWorkspace(props.root, props.directory, leaveDeletedWorkspace)
@@ -1768,7 +1779,9 @@ export default function Layout(props: ParentProps) {
     })
 
     globalSync.child(created.directory)
-    navigateWithSidebarReset(`/${base64Encode(created.directory)}/session`)
+    const dirSlug = base64Encode(created.directory)
+    const workspaceId = active?.id ?? dirSlug
+    navigateWithSidebarReset(`/workspace/${workspaceId}/${dirSlug}/session`)
   }
 
   const workspaceSidebarCtx: WorkspaceSidebarContext = {
@@ -1956,7 +1969,11 @@ export default function Layout(props: ParentProps) {
                           size="large"
                           icon="plus-small"
                           class="w-full"
-                          onClick={() => navigateWithSidebarReset(`/${base64Encode(p.worktree)}/session`)}
+                          onClick={() => {
+                            const dirSlug = base64Encode(p.worktree)
+                            const workspaceId = active?.id ?? dirSlug
+                            navigateWithSidebarReset(`/workspace/${workspaceId}/${dirSlug}/session`)
+                          }}
                         >
                           {language.t("command.session.new")}
                         </Button>
@@ -2053,7 +2070,8 @@ export default function Layout(props: ParentProps) {
     <div class="relative bg-background-base flex-1 min-h-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
       <Titlebar />
       <div class="flex-1 min-h-0 flex">
-        <nav
+        {/* sidebar nav hidden for workspace mode */}
+        {/* <nav
           aria-label={language.t("sidebar.nav.projectsAndSessions")}
           data-component="sidebar-nav-desktop"
           classList={{
@@ -2119,7 +2137,7 @@ export default function Layout(props: ParentProps) {
               onCollapse={layout.sidebar.close}
             />
           </Show>
-        </nav>
+        </nav> */}
         <div classList={{ "xl:hidden": true }}>
           <div
             classList={{
@@ -2177,4 +2195,4 @@ export default function Layout(props: ParentProps) {
       <Toast.Region />
     </div>
   )
-}
+}

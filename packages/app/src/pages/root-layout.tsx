@@ -11,7 +11,12 @@ import { useAuth } from "@/context/auth"
 import { getLoginUrl } from "@/pages/store/lib/auth"
 import { DialogSettings } from "@/components/dialog-settings"
 
-function NavButton(props: { icon: "bubble-5" | "store"; label: string; active: boolean; onClick: () => void }) {
+function NavButton(props: {
+  icon: "bubble-5" | "store" | "folder"
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
   return (
     <Tooltip placement="right" value={props.label}>
       <button
@@ -85,12 +90,18 @@ export default function RootLayout(props: ParentProps) {
   const language = useLanguage()
   const auth = useAuth()
 
+  const isWorkspace = () => location.pathname.startsWith("/workspace")
   const isStore = () => location.pathname.startsWith("/store")
 
   return (
     <div class="flex h-full w-full overflow-hidden">
       <div class="w-12 shrink-0 bg-background-base flex flex-col items-center py-3 gap-2 border-r border-border-weak-base">
-        <NavButton icon="bubble-5" label="Sessions" active={!isStore()} onClick={() => navigate("/")} />
+        <NavButton
+          icon="folder"
+          label="Workspace"
+          active={isWorkspace()}
+          onClick={() => navigate("/workspace")}
+        />
         <NavButton
           icon="store"
           label={language.t("sidebar.store")}

@@ -1,5 +1,6 @@
 import { Navigate, Route } from "@solidjs/router"
 import { Component, lazy, Suspense, type JSX } from "solid-js"
+import { SessionRoute, SessionIndexRoute } from "@/app"
 
 const Loading = () => <div class="size-full" />
 
@@ -11,6 +12,9 @@ const StoreSubagents = lazy(() => import("@/pages/store").then((m) => ({ default
 const StoreCommands = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreCommands })))
 const StoreMcpServers = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreMcpServers })))
 const StoreItemDetail = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreItemDetail })))
+const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
+const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
+const DirectoryLayout = lazy(() => import("@/pages/directory-layout"))
 const StoreDashboard = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreDashboard })))
 
 const wrap = (Component: Component<{ children?: JSX.Element }>) => (props: { children?: JSX.Element }) => (
@@ -40,7 +44,22 @@ export function renderRoutes(routes: RouteConfig[]) {
 }
 
 export const routeConfig: RouteConfig[] = [
-  { path: "/", component: () => <Navigate href="/store" /> },
+  { path: "/", component: () => <Navigate href="/workspace" /> },
+  {
+    path: "/workspace",
+    component: WorkspaceLayout,
+    children: [
+      { path: "/", component: WorkspaceHome },
+      {
+        path: "/:workspaceID/:dir",
+        component: DirectoryLayout,
+        children: [
+          { path: "/", component: SessionIndexRoute },
+          { path: "/session/:id?", component: SessionRoute },
+        ],
+      },
+    ],
+  },
   {
     path: "/store",
     component: StoreLayout,

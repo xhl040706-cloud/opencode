@@ -21,8 +21,9 @@ import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Select } from "@opencode-ai/ui/select"
 import { createAutoScroll } from "@opencode-ai/ui/hooks"
 import { Mark } from "@opencode-ai/ui/logo"
-import { base64Encode, checksum } from "@opencode-ai/util/encode"
-import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { checksum } from "@opencode-ai/util/encode"
+import { useParams, useSearchParams } from "@solidjs/router"
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { NewSessionView, SessionHeader } from "@/components/session"
 import { useComments } from "@/context/comments"
 import { useLanguage } from "@/context/language"
@@ -259,7 +260,7 @@ export default function Page() {
   const dialog = useDialog()
   const language = useLanguage()
   const params = useParams()
-  const navigate = useNavigate()
+  const { navigateToNewSession, encodeDirectory } = useWorkspaceNavigate()
   const sdk = useSDK()
   const prompt = usePrompt()
   const comments = useComments()
@@ -1264,7 +1265,8 @@ export default function Page() {
                     if (!target) return
                     if (target === sdk.directory) return
                     layout.projects.open(target)
-                    navigate(`/${base64Encode(target)}/session`)
+                    // 使用当前 workspaceID，dir 使用目标目录的编码
+                    navigateToNewSession({ dir: encodeDirectory(target) })
                   }}
                 />
               </Match>

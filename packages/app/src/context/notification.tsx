@@ -4,6 +4,7 @@ import { useParams } from "@solidjs/router"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { useGlobalSDK } from "./global-sdk"
 import { useGlobalSync } from "./global-sync"
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
@@ -13,6 +14,7 @@ import { decode64 } from "@/utils/base64"
 import { EventSessionError } from "@opencode-ai/sdk/v2"
 import { Persist, persisted } from "@/utils/persist"
 import { playSound, soundSrc } from "@/utils/sound"
+import { useActiveWorkspace } from "@/pages/workspace/active-workspace"
 
 type NotificationBase = {
   directory?: string
@@ -111,6 +113,7 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
     const params = useParams()
     const globalSDK = useGlobalSDK()
     const globalSync = useGlobalSync()
+    const active = useActiveWorkspace()
     const platform = usePlatform()
     const settings = useSettings()
     const language = useLanguage()
@@ -245,7 +248,9 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
           session: sessionID,
         })
 
-        const href = `/${base64Encode(directory)}/session/${sessionID}`
+        const dirSlug = base64Encode(directory)
+        const workspaceId = active?.id ?? dirSlug
+        const href = `/workspace/${workspaceId}/${dirSlug}/session/${sessionID}`
         if (settings.notifications.agent()) {
           void platform.notify(language.t("notification.session.responseReady.title"), session.title ?? sessionID, href)
         }
@@ -278,7 +283,9 @@ export const { use: useNotification, provider: NotificationProvider } = createSi
         const description =
           session?.title ??
           (typeof error === "string" ? error : language.t("notification.session.error.fallbackDescription"))
-        const href = sessionID ? `/${base64Encode(directory)}/session/${sessionID}` : `/${base64Encode(directory)}`
+        const dirSlug = base64Encode(directory)
+        const workspaceId = active?.id ?? dirSlug
+        const href = sessionID ? `/workspace/${workspaceId}/${dirSlug}/session/${sessionID}` : `/workspace/${workspaceId}/${dirSlug}`
         if (settings.notifications.errors()) {
           void platform.notify(language.t("notification.session.error.title"), description, href)
         }
