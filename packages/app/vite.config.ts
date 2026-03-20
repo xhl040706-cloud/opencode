@@ -12,9 +12,10 @@ export default defineConfig(({ mode }) => {
   const cloudTarget = `http://${cloudHost}:${cloudPort}`
   const appPort = parseInt(env.VITE_APP_PORT ?? "3000")
   const prefix = env.VITE_API_PREFIX ?? ""
+  const basePath = env.VITE_BASE_PATH ?? "/"
 
   return {
-    base: "./",
+    base: basePath,
     plugins: [desktopPlugin] as any,
     server: {
       host: "0.0.0.0",
