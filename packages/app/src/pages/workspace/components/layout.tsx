@@ -22,6 +22,7 @@ export default function WorkspaceLayout(props: ParentProps) {
   const [selectedDeviceId, setSelectedDeviceId] = createSignal<string | undefined>(undefined)
   const [showHistorySidebar, setShowHistorySidebar] = createSignal(false)
   const [enabledIds, setEnabledIds] = createSignal<string[]>([])
+  const closed = new Set<string>()
 
   onMount(async () => {
     setIsLoading(true)
@@ -91,10 +92,12 @@ export default function WorkspaceLayout(props: ParentProps) {
   }
 
   const handleEnableWorkspace = (id: string) => {
+    closed.delete(id)
     setEnabledIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
   }
 
   const handleDisableWorkspace = (id: string) => {
+    closed.add(id)
     setEnabledIds((prev) => prev.filter((x) => x !== id))
     if (selectedWorkspaceId() === id) setSelectedWorkspaceId(undefined)
   }
@@ -162,6 +165,7 @@ export default function WorkspaceLayout(props: ParentProps) {
     selectedWorkspaceId,
     selectedDeviceId,
     enabledWorkspaceIds: enabledIds,
+    closedWorkspaceIds: () => Array.from(closed),
     isLoading,
     showHistorySidebar,
     selectWorkspace: handleSelectWorkspace,
@@ -231,12 +235,14 @@ function WorkspaceActivation(props: ParentProps) {
     const id = params.workspaceID
     if (!id) return
 
-    const target = workspace.workspaces().find((w: Workspace) => w.id === id)
-    if (!target?.deviceUniqueId) return
-
-    const key = ServerConnection.Key.make(getProxyUrl(target.deviceUniqueId))
     untrack(() => {
-      workspace.enableWorkspace(id)
+      const target = workspace.workspaces().find((w: Workspace) => w.id === id)
+      if (!target?.deviceUniqueId) return
+
+      const key = ServerConnection.Key.make(getProxyUrl(target.deviceUniqueId))
+      const isClosed = workspace.closedWorkspaceIds().includes(id)
+      const enabled = workspace.enabledWorkspaceIds().includes(id)
+      if (!isClosed && !enabled) workspace.enableWorkspace(id)
       if (workspace.selectedWorkspaceId() !== id) workspace.selectWorkspace(id)
       if (server.key !== key) server.setActive(key)
     })
