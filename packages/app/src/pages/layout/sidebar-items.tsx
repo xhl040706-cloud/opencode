@@ -12,6 +12,7 @@ import { A, useNavigate, useParams } from "@solidjs/router"
 import { type Accessor, createMemo, For, type JSX, Match, onCleanup, Show, Switch } from "solid-js"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { getAvatarColors, type LocalProject, useLayout } from "@/context/layout"
 import { useNotification } from "@/context/notification"
 import { usePermission } from "@/context/permission"
@@ -188,6 +189,7 @@ const SessionHoverPreview = (props: {
 export const SessionItem = (props: SessionItemProps): JSX.Element => {
   const params = useParams()
   const navigate = useNavigate()
+  const { navigateToSession, encodeDirectory } = useWorkspaceNavigate()
   const layout = useLayout()
   const language = useLanguage()
   const notification = useNotification()
@@ -305,7 +307,8 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
             if (!isActive())
               layout.pendingMessage.set(`${base64Encode(props.session.directory)}/${props.session.id}`, message.id)
 
-            navigate(`${props.slug}/session/${props.session.id}#message-${message.id}`)
+            navigateToSession(props.session.id, { dir: encodeDirectory(props.session.directory) })
+            navigate(`#message-${message.id}`, { replace: true })
           }}
           trigger={item}
         />

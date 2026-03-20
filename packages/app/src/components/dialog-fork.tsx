@@ -1,5 +1,5 @@
 import { Component, createMemo } from "solid-js"
-import { useNavigate, useParams } from "@solidjs/router"
+import { useParams } from "@solidjs/router"
 import { useSync } from "@/context/sync"
 import { useSDK } from "@/context/sdk"
 import { usePrompt } from "@/context/prompt"
@@ -9,7 +9,7 @@ import { List } from "@opencode-ai/ui/list"
 import { showToast } from "@opencode-ai/ui/toast"
 import { extractPromptFromParts } from "@/utils/prompt"
 import type { TextPart as SDKTextPart } from "@opencode-ai/sdk/v2/client"
-import { base64Encode } from "@opencode-ai/util/encode"
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { useLanguage } from "@/context/language"
 
 interface ForkableMessage {
@@ -24,7 +24,7 @@ function formatTime(date: Date): string {
 
 export const DialogFork: Component = () => {
   const params = useParams()
-  const navigate = useNavigate()
+  const { navigateToSession } = useWorkspaceNavigate()
   const sync = useSync()
   const sdk = useSDK()
   const prompt = usePrompt()
@@ -75,7 +75,7 @@ export const DialogFork: Component = () => {
           return
         }
         dialog.close()
-        navigate(`/${base64Encode(sdk.directory)}/session/${forked.data.id}`)
+        navigateToSession(forked.data.id, { dir: forked.data.directory })
         requestAnimationFrame(() => {
           prompt.set(restored)
         })

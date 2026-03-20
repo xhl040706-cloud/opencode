@@ -1,9 +1,7 @@
-import { createMemo, For, Match, Switch } from "solid-js"
+import { createMemo, For, Match, Switch, createResource } from "solid-js"
 import { Button } from "@opencode-ai/ui/button"
 import { Logo } from "@opencode-ai/ui/logo"
 import { useLayout } from "@/context/layout"
-import { useNavigate } from "@solidjs/router"
-import { base64Encode } from "@opencode-ai/util/encode"
 import { Icon } from "@opencode-ai/ui/icon"
 import { usePlatform } from "@/context/platform"
 import { DateTime } from "luxon"
@@ -13,13 +11,16 @@ import { DialogSelectServer } from "@/components/dialog-select-server"
 import { useServer } from "@/context/server"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
+import { workspaceApi } from "@/pages/workspace/lib/api"
+import { base64Encode } from "@opencode-ai/util/encode"
 
 export default function Home() {
   const sync = useGlobalSync()
   const layout = useLayout()
   const platform = usePlatform()
   const dialog = useDialog()
-  const navigate = useNavigate()
+  const { navigateToNewSession, encodeDirectory } = useWorkspaceNavigate()
   const server = useServer()
   const language = useLanguage()
   const homedir = createMemo(() => sync.data.path.home)
@@ -37,10 +38,21 @@ export default function Home() {
     return "bg-border-weak-base"
   })
 
-  function openProject(directory: string) {
+  async function openProject(directory: string) {
     layout.projects.open(directory)
     server.projects.touch(directory)
-    navigate(`/${base64Encode(directory)}`)
+    // 获取或创建 workspace
+    try {
+      const defaultWorkspace = await workspaceApi.getDefault()
+      if (defaultWorkspace.workspace) {
+        navigateToNewSession({ workspaceId: defaultWorkspace.workspace.id, dir: encodeDirectory(directory) })
+        return
+      }
+    } catch {
+      // 如果获取失败，使用备用方案
+    }
+    // 备用：导航到 workspace 首页
+    navigateToNewSession({ dir: encodeDirectory(directory) })
   }
 
   async function chooseProject() {

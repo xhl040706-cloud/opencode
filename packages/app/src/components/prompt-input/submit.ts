@@ -1,7 +1,8 @@
-import type { Message } from "@opencode-ai/sdk/v2/client"
+import type { Message, Session } from "@opencode-ai/sdk/v2/client"
 import { showToast } from "@opencode-ai/ui/toast"
 import { base64Encode } from "@opencode-ai/util/encode"
 import { useNavigate, useParams } from "@solidjs/router"
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import type { Accessor } from "solid-js"
 import type { FileSelection } from "@/context/file"
 import { useGlobalSync } from "@/context/global-sync"
@@ -55,6 +56,8 @@ type CommentItem = {
 
 export function createPromptSubmit(input: PromptSubmitInput) {
   const navigate = useNavigate()
+  const params = useParams()
+  const { navigateToSession, encodeDirectory } = useWorkspaceNavigate()
   const sdk = useSDK()
   const sync = useSync()
   const globalSync = useGlobalSync()
@@ -63,7 +66,6 @@ export function createPromptSubmit(input: PromptSubmitInput) {
   const prompt = usePrompt()
   const layout = useLayout()
   const language = useLanguage()
-  const params = useParams()
 
   const errorMessage = (err: unknown) => {
     if (err && typeof err === "object" && "data" in err) {
@@ -189,7 +191,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       input.onNewSessionWorktreeReset?.()
     }
 
-    let session = input.info()
+    let session = input.info() as Session | undefined
     if (!session && isNewSession) {
       session = await client.session
         .create()
@@ -203,8 +205,8 @@ export function createPromptSubmit(input: PromptSubmitInput) {
         })
       if (session) {
         if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
-        layout.handoff.setTabs(base64Encode(sessionDirectory), session.id)
-        navigate(`/${base64Encode(sessionDirectory)}/session/${session.id}`)
+        layout.handoff.setTabs(encodeDirectory(sessionDirectory), session.id)
+        navigateToSession(session.id, { dir: encodeDirectory(sessionDirectory) })
       }
     }
     if (!session) {

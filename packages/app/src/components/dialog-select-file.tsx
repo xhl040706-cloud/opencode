@@ -4,9 +4,9 @@ import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Keybind } from "@opencode-ai/ui/keybind"
 import { List } from "@opencode-ai/ui/list"
-import { base64Encode } from "@opencode-ai/util/encode"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
-import { useNavigate, useParams } from "@solidjs/router"
+import { useParams } from "@solidjs/router"
+import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { createMemo, createSignal, Match, onCleanup, Show, Switch } from "solid-js"
 import { formatKeybind, useCommand, type CommandOption } from "@/context/command"
 import { useGlobalSDK } from "@/context/global-sdk"
@@ -260,7 +260,7 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
   const file = useFile()
   const dialog = useDialog()
   const params = useParams()
-  const navigate = useNavigate()
+  const { navigateToSession, encodeDirectory } = useWorkspaceNavigate()
   const globalSDK = useGlobalSDK()
   const globalSync = useGlobalSync()
   const filesOnly = () => props.mode === "files"
@@ -365,7 +365,10 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
 
     if (item.type === "session") {
       if (!item.directory || !item.sessionID) return
-      navigate(`/${base64Encode(item.directory)}/session/${item.sessionID}`)
+      navigateToSession(item.sessionID, { 
+        workspaceId: params.workspaceID, 
+        dir: encodeDirectory(item.directory) 
+      })
       return
     }
 
