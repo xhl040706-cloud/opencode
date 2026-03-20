@@ -11,9 +11,9 @@ export interface CasdoorUser {
 
 export function getLoginUrl(redirectTo?: string) {
   const endpoint = env.CASDOOR_ENDPOINT
-  const clientId = env.CASDOOR_CLIENT_ID
-  const appUrl = env.APP_URL
-  const appName = env.CASDOOR_APP_NAME
+  const clientId = env.CASDOOR_CLIENT_ID ?? ""
+  const appUrl = env.APP_URL ?? ""
+  const appName = env.CASDOOR_APP_NAME ?? ""
 
   const params = new URLSearchParams({
     client_id: clientId,

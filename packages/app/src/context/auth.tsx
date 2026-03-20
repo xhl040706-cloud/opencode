@@ -30,7 +30,7 @@ export function AuthProvider(props: ParentProps) {
     const code = params.get("code")
     if (!code) return false
 
-    const appUrl = env.APP_URL
+    const appUrl = env.APP_URL ?? ""
     const qs = new URLSearchParams({ code, redirect_uri: `${appUrl}/store` })
 
     try {
