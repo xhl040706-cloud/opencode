@@ -5,6 +5,7 @@ import { itemApi, artifactApi, scanApi, type CapabilityItem, type ScanResult } f
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
 import { categoryKey } from "../lib/constants"
+import SecurityBadge, { VerdictBadge, type Verdict } from "../components/security-badge"
 
 const TYPE_META: Record<
   string,
@@ -61,6 +62,7 @@ function renderMd(content: string) {
 
 function ScanRow(props: { scan: ScanResult }) {
   const [open, setOpen] = createSignal(false)
+  const language = useLanguage()
 
   return (
     <div class="rounded-xl border border-border-weak-base bg-bg-muted">
@@ -69,7 +71,11 @@ function ScanRow(props: { scan: ScanResult }) {
         class="flex w-full cursor-pointer items-center gap-4 px-5 py-4 transition hover:bg-bg-base/50"
       >
         <div class="min-w-0 flex-1">
-          <p class="text-sm text-text-strong">{props.scan.summary}</p>
+          <div class="flex items-center gap-2 mb-1">
+            <SecurityBadge status={props.scan.riskLevel as any} size="sm" />
+            <VerdictBadge verdict={props.scan.verdict as Verdict} size="sm" />
+          </div>
+          <p class="text-sm text-text-strong">{props.scan.summary || "No summary available"}</p>
           <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-text-weak">
             <span>{formatDate(props.scan.createdAt)}</span>
           </div>
@@ -89,15 +95,21 @@ function ScanRow(props: { scan: ScanResult }) {
             <div class="space-y-4 px-5 pb-4 pt-1 text-sm text-text-weak">
               <div class="grid gap-3 rounded-lg border border-border-weak-base bg-bg-base/50 p-4 sm:grid-cols-2">
                 <div>
-                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Scan Model</div>
+                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
+                    {language.t("store.scanResults.model")}
+                  </div>
                   <div class="text-text-strong">{props.scan.scanModel}</div>
                 </div>
                 <div>
-                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Trigger</div>
+                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
+                    {language.t("store.scanResults.trigger")}
+                  </div>
                   <div class="capitalize text-text-strong">{props.scan.triggerType}</div>
                 </div>
                 <div>
-                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Duration</div>
+                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
+                    {language.t("store.scanResults.duration")}
+                  </div>
                   <div class="text-text-strong">{formatDuration(props.scan.durationMs)}</div>
                 </div>
                 <div>
@@ -109,9 +121,12 @@ function ScanRow(props: { scan: ScanResult }) {
               <div class="grid gap-3 lg:grid-cols-2">
                 <div class="rounded-lg border border-border-weak-base bg-bg-base/50 p-4">
                   <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
-                    Recommendations
+                    {language.t("store.security.suggestions")}
                   </div>
-                  <Show when={props.scan.recommendations.length > 0} fallback={<div class="text-text-weak">None</div>}>
+                  <Show
+                    when={props.scan.recommendations.length > 0}
+                    fallback={<div class="text-text-weak">{language.t("store.scanResults.noRecommendations")}</div>}
+                  >
                     <ul class="space-y-2">
                       <For each={props.scan.recommendations}>
                         {(item) => (
@@ -123,8 +138,13 @@ function ScanRow(props: { scan: ScanResult }) {
                 </div>
 
                 <div class="rounded-lg border border-border-weak-base bg-bg-base/50 p-4">
-                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Red Flags</div>
-                  <Show when={props.scan.redFlags.length > 0} fallback={<div class="text-text-weak">None</div>}>
+                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
+                    {language.t("store.security.foundIssues")}
+                  </div>
+                  <Show
+                    when={props.scan.redFlags.length > 0}
+                    fallback={<div class="text-text-weak">{language.t("store.scanResults.noRedFlags")}</div>}
+                  >
                     <ul class="space-y-2">
                       <For each={props.scan.redFlags}>
                         {(item) => (
@@ -138,7 +158,9 @@ function ScanRow(props: { scan: ScanResult }) {
 
               <Show when={perms.length > 0}>
                 <div class="rounded-lg border border-border-weak-base bg-bg-base/50 p-4">
-                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Permissions</div>
+                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
+                    {language.t("store.security.permissionNeeds")}
+                  </div>
                   <dl class="grid gap-2 sm:grid-cols-2">
                     <For each={perms}>
                       {(entry) => (
@@ -242,6 +264,7 @@ export default function ItemDetail() {
                     #{language.t(categoryKey(data().category))}
                   </span>
                 </Show>
+                <SecurityBadge status={data().securityStatus} size="sm" />
               </div>
               <Show when={data().description}>
                 <p class="text-text-weak">{data().description}</p>
@@ -342,9 +365,11 @@ export default function ItemDetail() {
                 </div>
               </section>
 
-              <Show when={auth.user()?.sub === data().createdBy && (scans() ?? []).length > 0}>
+              <Show when={(scans() ?? []).length > 0}>
                 <section>
-                  <h2 class="text-sm font-semibold uppercase tracking-wide text-text-weak mb-4">Scan Results</h2>
+                  <h2 class="text-sm font-semibold uppercase tracking-wide text-text-weak mb-4">
+                    {language.t("store.scanResults.securityScan")}
+                  </h2>
                   <div class="space-y-3">
                     <For each={scans() ?? []}>{(scan) => <ScanRow scan={scan} />}</For>
                   </div>

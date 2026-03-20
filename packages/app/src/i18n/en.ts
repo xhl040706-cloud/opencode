@@ -234,6 +234,28 @@ export const dict = {
   "store.scanResults.permissions": "Permissions",
   "store.scanResults.noRecommendations": "None",
   "store.scanResults.noRedFlags": "None",
+  "store.scanResults.rescan": "Rescan",
+  "store.scanResults.securityScan": "Security Scan",
+
+  "store.security.unscanned": "Unscanned",
+  "store.security.pending": "Scanning...",
+  "store.security.scanning": "Scanning...",
+  "store.security.clean": "Safe",
+  "store.security.low": "Safe",
+  "store.security.medium": "Caution",
+  "store.security.high": "High Risk",
+  "store.security.extreme": "Extreme Risk",
+  "store.security.error": "Scan Failed",
+  "store.security.skipped": "Skipped",
+
+  "store.verdict.safe": "Safe to Install",
+  "store.verdict.caution": "Install with Caution",
+  "store.verdict.reject": "Not Recommended",
+
+  "store.security.scanTime": "Scan Time",
+  "store.security.foundIssues": "Found Issues",
+  "store.security.permissionNeeds": "Permission Needs",
+  "store.security.suggestions": "Suggestions",
 
   "theme.scheme.system": "System",
   "theme.scheme.light": "Light",

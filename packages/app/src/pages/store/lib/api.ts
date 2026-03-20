@@ -157,6 +157,8 @@ export interface CapabilityVersion {
   createdAt: string
 }
 
+export type SecurityStatus = "unscanned" | "pending" | "scanning" | "clean" | "low" | "medium" | "high" | "extreme" | "error" | "skipped"
+
 export interface CapabilityItem {
   id: string
   registryId: string
@@ -169,6 +171,8 @@ export interface CapabilityItem {
   content: string
   visibility: string
   status: string
+  securityStatus?: SecurityStatus
+  lastScanId?: string
   createdBy: string
   createdAt: string
   updatedAt: string
@@ -468,8 +472,23 @@ export const artifactApi = {
   delete: (artifactId: string) => apiFetch<{ message: string }>(`/api/artifacts/${artifactId}`, { method: "DELETE" }),
 }
 
+export interface ScanStatus {
+  scanStatus: SecurityStatus
+  lastScannedAt?: string
+  latestResult?: {
+    id: string
+    riskLevel: string
+    verdict: string
+    summary: string
+    scanModel: string
+  }
+}
+
 export const scanApi = {
   list: (itemId: string) => apiFetch<{ results: ScanResult[]; total: number }>(`/api/items/${itemId}/scan-results`),
+  getStatus: (itemId: string) => apiFetch<ScanStatus>(`/api/items/${itemId}/scan-status`),
+  trigger: (itemId: string) =>
+    apiFetch<{ jobId: string; status: string }>(`/api/items/${itemId}/scan`, { method: "POST" }),
 }
 
 export interface SearchRequest {
