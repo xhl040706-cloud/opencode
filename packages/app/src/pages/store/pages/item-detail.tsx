@@ -347,10 +347,10 @@ export default function ItemDetail() {
                       <dt class="text-text-weak">{language.t("store.console.capabilities.visibility")}</dt>
                       <dd class="capitalize text-text-strong">{data().visibility}</dd>
                     </div>
-                    <Show when={data().createdBy}>
+                    <Show when={data().createdByName}>
                       <div class="flex items-center justify-between px-5 py-3.5">
                         <dt class="text-text-weak">{language.t("store.detail.author")}</dt>
-                        <dd class="font-medium text-text-strong">{data().createdBy}</dd>
+                        <dd class="font-medium text-text-strong">{data().createdByName || '-'}</dd>
                       </div>
                     </Show>
                     <div class="flex items-center justify-between px-5 py-3.5">

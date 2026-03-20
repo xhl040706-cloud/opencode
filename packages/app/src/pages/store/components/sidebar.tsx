@@ -39,6 +39,7 @@ export default function Sidebar() {
   const { selectedRepo, setSelectedRepo } = useRepoFilter()
   const { user } = useAuth()
   const [repos, setRepos] = createSignal<Repository[]>([])
+  const [repoMenuOpen, setRepoMenuOpen] = createSignal(false)
   const language = useLanguage()
 
   createEffect(() => {
@@ -56,6 +57,7 @@ export default function Sidebar() {
   function select(repo: Repository | null) {
     setSelectedRepo(repo)
     navigate("/store")
+    setRepoMenuOpen(false)
   }
 
   const name = () => selectedRepo()?.displayName || selectedRepo()?.name || language.t("store.allPublic")
@@ -85,9 +87,9 @@ export default function Sidebar() {
             {language.t("store.sidebar.title")}
           </A>
           <span class="text-text-weak shrink-0">/</span>
-          <DropdownMenu placement="bottom-start" gutter={4}>
-            <DropdownMenu.Trigger class="group flex items-center gap-1.5 min-w-0 rounded-md px-1.5 py-1 -mx-1.5 hover:bg-surface-base-hover transition-colors cursor-pointer">
-              <Icon name="store" size="small" class="text-icon-weak-base shrink-0" />
+          <DropdownMenu placement="bottom-start" gutter={4} open={repoMenuOpen()} onOpenChange={setRepoMenuOpen}>
+            <DropdownMenu.Trigger class="group flex items-center gap-1.5 min-w-0 rounded-md border border-border-weak-base bg-surface-raised-base px-2 py-1.5 hover:border-border-strong hover:bg-surface-base transition-colors cursor-pointer">
+              <Icon name="store" size="small" class="text-icon-strong-base shrink-0" />
               <span class="font-semibold text-text-strong truncate">{name()}</span>
               <Icon
                 name="chevron-down"
@@ -107,7 +109,10 @@ export default function Sidebar() {
                       select(val === "__public__" ? null : (repos().find((r) => r.id === val) ?? null))
                     }
                   >
-                    <DropdownMenu.RadioItem value="__public__">
+                    <DropdownMenu.RadioItem
+                      value="__public__"
+                      classList={{ "bg-surface-info-base/15 text-text-strong": !selectedRepo() }}
+                    >
                       <Icon name="sparkles" size="small" class="text-icon-weak-base" />
                       <DropdownMenu.ItemLabel>{language.t("store.allPublic")}</DropdownMenu.ItemLabel>
                       <DropdownMenu.ItemIndicator>
@@ -119,7 +124,10 @@ export default function Sidebar() {
                       <DropdownMenu.Separator />
                       <For each={repos()}>
                         {(repo) => (
-                          <DropdownMenu.RadioItem value={repo.id}>
+                          <DropdownMenu.RadioItem
+                            value={repo.id}
+                            classList={{ "bg-surface-info-base/15 text-text-strong": selectedRepo()?.id === repo.id }}
+                          >
                             <Icon name="store" size="small" class="text-icon-weak-base" />
                             <DropdownMenu.ItemLabel class="flex-1 truncate">
                               {repo.displayName || repo.name}

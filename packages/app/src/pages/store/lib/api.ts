@@ -174,6 +174,7 @@ export interface CapabilityItem {
   securityStatus?: SecurityStatus
   lastScanId?: string
   createdBy: string
+  createdByName?: string
   createdAt: string
   updatedAt: string
   registry?: CapabilityRegistry

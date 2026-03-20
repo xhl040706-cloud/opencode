@@ -3,13 +3,49 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { Select } from "@opencode-ai/ui/select"
 import { showToast } from "@opencode-ai/ui/toast"
-import { createMemo } from "solid-js"
+import { createMemo, createSignal, createEffect } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useAuth } from "../hooks/use-auth"
 import { useLanguage } from "@/context/language"
 import { useRepoFilter } from "../context/repo-filter"
-import { itemApi, repoApi, registryApi, registryApi2 } from "../lib/api"
-import { CATEGORIES, TYPE_PREFIX, TYPE_CONTENT_PLACEHOLDER, typeKey, categoryKey } from "../lib/constants"
+import { typeKey, categoryKey } from "../lib/constants"
+import { itemApi, repoApi, registryApi, registryApi2, type Repository } from "../lib/api"
+
+const CATEGORIES = [
+  "developer-tools",
+  "database",
+  "file-system",
+  "cloud-infrastructure",
+  "productivity",
+  "ai-task-management",
+  "web-search",
+  "browser-automation",
+  "version-control",
+  "api-development",
+  "utilities",
+  "other",
+] as const
+
+const TYPE_PREFIX: Record<string, string> = {
+  skill: "skill-",
+  subagent: "agent-",
+  command: "cmd-",
+  mcp: "mcp-",
+}
+
+const TYPE_CONTENT_PLACEHOLDER: Record<string, string> = {
+  skill: "# Skill Instructions\n\nDescribe what this skill does...",
+  subagent: "# Subagent\n\nDescribe the subagent behavior...",
+  command: "# Command\n\nDescribe the command behavior...",
+  mcp: "# MCP Server\n\nDescribe the MCP server...",
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  skill: "store.capability.type.skill",
+  subagent: "store.capability.type.subagent",
+  command: "store.capability.type.command",
+  mcp: "store.capability.type.mcp",
+}
 
 function slugify(value: string) {
   return value
@@ -46,6 +82,18 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
   const typeLabel = createMemo(() => language.t(typeKey(props.itemType)))
   const slugPrefix = createMemo(() => TYPE_PREFIX[props.itemType] ?? "")
 
+  const [repos, setRepos] = createSignal<Repository[]>([])
+
+  createEffect(() => {
+    const u = currentUser()
+    if (u?.sub) {
+      repoApi
+        .listMy(u.sub)
+        .then((res) => setRepos(res.repositories ?? []))
+        .catch(() => {})
+    }
+  })
+
   const [store, setStore] = createStore({
     namespace: selectedRepo()?.id ? `repo:${selectedRepo()!.id}` : "public",
     name: "",
@@ -67,18 +115,7 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
         visibility: "public",
       },
     ]
-    const u = currentUser()
-    const username = u?.preferred_username || u?.name
-    if (u?.sub && username) {
-      options.push({
-        value: "personal",
-        label: `@${username}`,
-        sublabel: language.t("store.capabilityDialog.namespace.personalDescription"),
-        visibility: "private",
-      })
-    }
-    const repo = selectedRepo()
-    if (repo) {
+    for (const repo of repos()) {
       options.push({
         value: `repo:${repo.id}`,
         label: `@${repo.displayName || repo.name}`,
@@ -168,20 +205,13 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
     <Dialog title={language.t("store.itemCrud.title", { type: typeLabel() })} class="mx-auto w-full max-w-[760px]">
       <form onSubmit={handleSubmit} class="flex max-h-[calc(100vh-96px)] flex-col overflow-hidden">
         <div class="flex-1 overflow-y-auto px-6 pb-6 pt-3">
-          <div class="mb-4 px-1">
-            <p class="text-13-medium text-text-strong">
-              {language.t("store.itemCrud.subtitle", { type: typeLabel() })}
-            </p>
-            <p class="mt-1 text-12-regular text-text-weak">{language.t("store.itemCrud.description")}</p>
-          </div>
-
           <div class="overflow-hidden rounded-2xl border border-border-weak-base bg-surface-raised-base">
             <div class="border-b border-border-weak-base px-5 py-5">
               <div class="flex items-center gap-1 text-14-medium text-text-strong">
                 <span>{language.t("store.capabilityDialog.field.ownerPackage")}</span>
                 <span class="text-icon-info-base">*</span>
               </div>
-              <div class="mt-1 text-12-regular text-text-weak">{language.t("store.itemCrud.namespaceDescription")}</div>
+              {/* <div class="mt-1 text-12-regular text-text-weak">{language.t("store.itemCrud.namespaceDescription")}</div> */}
               <div class="mt-4 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
                 <div>
                   <Select
@@ -253,7 +283,7 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
                     <option value={category}>{language.t(categoryKey(category))}</option>
                   ))}
                 </select>
-                <p class="mt-2 text-12-regular text-text-weak">{language.t("store.itemCrud.categoryHint")}</p>
+                {/* <p class="mt-2 text-12-regular text-text-weak">{language.t("store.itemCrud.categoryHint")}</p> */}
               </div>
 
               <div>
@@ -263,7 +293,7 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
                 <div class="flex h-9 items-center rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-weak">
                   {visibilityLabel()}
                 </div>
-                <p class="mt-2 text-12-regular text-text-weak">{language.t("store.itemCrud.visibilityHint")}</p>
+                {/* <p class="mt-2 text-12-regular text-text-weak">{language.t("store.itemCrud.visibilityHint")}</p> */}
               </div>
             </div>
 
@@ -284,8 +314,8 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
         </div>
 
         <div class="flex shrink-0 items-center justify-between gap-3 border-t border-border-weak-base bg-surface-base px-6 py-4">
-          <p class="text-12-regular text-text-weak">{language.t("store.itemCrud.publishHint")}</p>
-          <div class="flex items-center gap-2">
+          {/* <p class="text-12-regular text-text-weak">{language.t("store.itemCrud.publishHint")}</p> */}
+          <div class="flex items-center gap-2 ml-auto">
             <Button type="button" variant="ghost" onClick={() => dialog.close()}>
               {language.t("common.cancel")}
             </Button>
