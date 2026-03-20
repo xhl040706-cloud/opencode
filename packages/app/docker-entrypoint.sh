@@ -19,10 +19,10 @@ ENV_VARS='\${VITE_CLOUD_SERVER_HOST} \
 
 # Substitute environment variables in index.html for runtime configuration
 if [ -f "/app/packages/app/dist/index.html" ]; then
-  envsubst "$ENV_VARS" < /app/packages/app/dist/index.html > /tmp/index.html
-  # Use cp instead of mv to avoid permission issues with directory permissions
-  cp /tmp/index.html /app/packages/app/dist/index.html
-  rm /tmp/index.html
+  # Create temp file in the same directory to avoid cross-filesystem issues
+  tmpfile=$(mktemp /app/packages/app/dist/index.html.XXXXXX)
+  envsubst "$ENV_VARS" < /app/packages/app/dist/index.html > "$tmpfile"
+  mv -f "$tmpfile" /app/packages/app/dist/index.html
   echo "Runtime environment variables injected into index.html"
 fi
 
