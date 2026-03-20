@@ -87,7 +87,7 @@ const StoreDashboardRoute = () => (
   </Suspense>
 )
 
-const SessionRoute = () => (
+export const SessionRoute = () => (
   <SessionProviders>
     <Suspense fallback={<Loading />}>
       <Session />
@@ -95,7 +95,7 @@ const SessionRoute = () => (
   </SessionProviders>
 )
 
-const SessionIndexRoute = () => <Navigate href="session" />
+export const SessionIndexRoute = () => <Navigate href="session" />
 
 function UiI18nBridge(props: ParentProps) {
   const language = useLanguage()
@@ -117,7 +117,7 @@ function MarkedProviderWithNativeParser(props: ParentProps) {
   return <MarkedProvider nativeParser={platform.parseMarkdown}>{props.children}</MarkedProvider>
 }
 
-function AppShellProviders(props: ParentProps) {
+export function AppShellProviders(props: ParentProps) {
   return (
     <SettingsProvider>
       <PermissionProvider>
@@ -149,7 +149,7 @@ function SessionProviders(props: ParentProps) {
   )
 }
 
-function RouterRoot(props: ParentProps<{ appChildren?: JSX.Element }>) {
+export function RouterRoot(props: ParentProps<{ appChildren?: JSX.Element }>) {
   return (
     <AppShellProviders>
       {props.appChildren}
@@ -181,7 +181,7 @@ export function AppBaseProviders(props: ParentProps) {
   )
 }
 
-function ServerKey(props: ParentProps) {
+export function ServerKey(props: ParentProps) {
   const server = useServer()
   return (
     <Show when={server.key} keyed>
@@ -214,10 +214,6 @@ export function AppInterface(props: {
                 <Route path="/mcp-servers" component={StoreMcpServersRoute} />
                 <Route path="/items/:id" component={StoreItemDetailRoute} />
                 <Route path="/dashboard" component={StoreDashboardRoute} />
-              </Route>
-              <Route path="/:dir" component={DirectoryLayout}>
-                <Route path="/" component={SessionIndexRoute} />
-                <Route path="/session/:id?" component={SessionRoute} />
               </Route>
             </Dynamic>
           </GlobalSyncProvider>
