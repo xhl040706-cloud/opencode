@@ -111,7 +111,7 @@ export function CreateRepoDialog(props: CreateRepoDialogProps) {
             <div class="grid gap-4 border-b border-border-weak-base px-4 py-4 md:grid-cols-2">
               <div>
                 <label class="mb-2 block text-12-medium text-text-strong">
-                  {language.t("store.repoDialog.field.name")}
+                  {language.t("store.repoDialog.field.name")} <span class="text-icon-info-base">*</span>
                 </label>
                 <input
                   autofocus
@@ -199,7 +199,9 @@ export function CreateRepoDialog(props: CreateRepoDialogProps) {
 
                 <div class="mt-4 grid gap-4 md:grid-cols-2">
                   <div class="md:col-span-2">
-                    <label class="mb-2 block text-12-medium text-text-strong">{language.t("store.sync.gitUrl")}</label>
+                    <label class="mb-2 block text-12-medium text-text-strong">
+                      {language.t("store.sync.gitUrl")} <span class="text-icon-info-base">*</span>
+                    </label>
                     <input
                       value={store.externalUrl}
                       onInput={(e) => setStore("externalUrl", e.currentTarget.value)}

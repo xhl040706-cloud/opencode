@@ -19,6 +19,7 @@ import { CreateRepoDialog } from "../components/create-repo-dialog"
 import { CreateCapabilityDialog } from "../components/create-capability-dialog"
 import { EditCapabilityDialog } from "../components/edit-capability-dialog"
 import { EditRepoDialog } from "../components/edit-repo-dialog"
+import { MoveCapabilityDialog } from "../components/move-capability-dialog"
 import { RepoSyncTab } from "../components/repo-sync-tab"
 import { typeKey, categoryKey } from "../lib/constants"
 
@@ -132,6 +133,21 @@ export default function Dashboard() {
       <EditCapabilityDialog
         item={item}
         onSaved={(updated) =>
+          setState("items", (items) => items.map((current) => (current.id === updated.id ? updated : current)))
+        }
+      />
+    ))
+  }
+
+  const openMoveCapability = (item: CapabilityItem) => {
+    if (!userId()) return
+    dialog.show(() => (
+      <MoveCapabilityDialog
+        item={item}
+        userId={userId()}
+        username={username()}
+        repositories={state.repos}
+        onMoved={(updated) =>
           setState("items", (items) => items.map((current) => (current.id === updated.id ? updated : current)))
         }
       />
@@ -457,6 +473,15 @@ export default function Dashboard() {
                                 </td>
                                 <td class="px-4 py-3">
                                   <div class="flex items-center justify-end gap-1">
+                                    <Button
+                                      size="small"
+                                      variant="ghost"
+                                      class="h-8 w-8 p-0"
+                                      onClick={() => openMoveCapability(item)}
+                                      title={language.t("store.console.capabilities.move")}
+                                    >
+                                      <Icon name="folder" size="small" />
+                                    </Button>
                                     <Button
                                       size="small"
                                       variant="ghost"

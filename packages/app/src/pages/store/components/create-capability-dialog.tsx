@@ -40,7 +40,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
   const language = useLanguage()
   const [store, setStore] = createStore({
     itemType: "skill" as "skill" | "subagent" | "command" | "mcp",
-    namespace: props.username ? "personal" : "public",
+    namespace: "public",
     name: "",
     slug: "",
     slugManual: false,
@@ -69,14 +69,14 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
         visibility: "public",
       },
     ]
-    if (props.username) {
-      options.push({
-        value: "personal",
-        label: `@${props.username}`,
-        sublabel: language.t("store.capabilityDialog.namespace.personalDescription"),
-        visibility: "private",
-      })
-    }
+    // if (props.username) {
+    //   options.push({
+    //     value: "personal",
+    //     label: `@${props.username}`,
+    //     sublabel: language.t("store.capabilityDialog.namespace.personalDescription"),
+    //     visibility: "private",
+    //   })
+    // }
     // Backward compatibility for old prop name if it still appears in runtime transforms
     const legacyOrganizations = (props as unknown as { organizations?: Repository[] }).organizations ?? []
     for (const repo of legacyOrganizations) {
@@ -186,7 +186,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
 
             <div class="border-b border-border-weak-base px-4 py-4">
               <label class="mb-2 block text-12-medium text-text-strong">
-                {language.t("store.capabilityDialog.field.ownerPackage")}
+                {language.t("store.capabilityDialog.field.ownerPackage")} <span class="text-icon-info-base">*</span>
               </label>
               <div class="flex items-center gap-2">
                 <select
@@ -218,7 +218,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
 
             <div class="border-b border-border-weak-base px-4 py-4">
               <label class="mb-2 block text-12-medium text-text-strong">
-                {language.t("store.capabilityDialog.field.displayName")}
+                {language.t("store.capabilityDialog.field.displayName")} <span class="text-icon-info-base">*</span>
               </label>
               <input
                 autofocus
@@ -245,7 +245,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
             <div class="grid gap-4 border-b border-border-weak-base px-4 py-4 md:grid-cols-2">
               <div>
                 <label class="mb-2 block text-12-medium text-text-strong">
-                  {language.t("store.capabilityDialog.field.category")}
+                  {language.t("store.capabilityDialog.field.category")} <span class="text-icon-info-base">*</span>
                 </label>
                 <select
                   value={store.category}
