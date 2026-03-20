@@ -1,9 +1,7 @@
 import { Component } from "solid-js"
-import { useNavigate } from "@solidjs/router"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { Tabs } from "@opencode-ai/ui/tabs"
 import { Icon } from "@opencode-ai/ui/icon"
-import { Button } from "@opencode-ai/ui/button"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { SettingsGeneral } from "./settings-general"
@@ -12,20 +10,11 @@ import { SettingsProviders } from "./settings-providers"
 import { SettingsModels } from "./settings-models"
 
 export const DialogSettings: Component = () => {
-  const navigate = useNavigate()
   const language = useLanguage()
   const platform = usePlatform()
 
   return (
-    <Dialog
-      size="x-large"
-      transition
-      action={
-        <Button variant="ghost" size="small" icon="store" onClick={() => navigate("/store")}>
-          {language.t("sidebar.store")}
-        </Button>
-      }
-    >
+    <Dialog size="x-large" transition>
       <Tabs orientation="vertical" variant="settings" defaultValue="general" class="h-full settings-dialog">
         <Tabs.List>
           <div class="flex flex-col justify-between h-full w-full">

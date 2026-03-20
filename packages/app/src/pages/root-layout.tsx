@@ -26,7 +26,8 @@ function NavButton(props: {
         classList={{
           "flex items-center justify-center size-10 p-1 rounded-lg overflow-hidden transition-colors cursor-default": true,
           "bg-transparent border-2 border-icon-strong-base hover:bg-surface-base-hover": props.active,
-          "bg-transparent border border-transparent hover:bg-surface-base-hover hover:border-border-weak-base": !props.active,
+          "bg-transparent border border-transparent hover:bg-surface-base-hover hover:border-border-weak-base":
+            !props.active,
         }}
       >
         <Icon name={props.icon} size="normal" />
@@ -87,6 +88,7 @@ export default function RootLayout(props: ParentProps) {
   const dialog = useDialog()
   const platform = usePlatform()
   const language = useLanguage()
+  const auth = useAuth()
 
   const isWorkspace = () => location.pathname.startsWith("/workspace")
   const isStore = () => location.pathname.startsWith("/store")
@@ -107,6 +109,17 @@ export default function RootLayout(props: ParentProps) {
           onClick={() => navigate("/store")}
         />
         <div class="flex-1" />
+        <Show when={auth.user()}>
+          <Tooltip placement="right" value="Console">
+            <IconButton
+              icon="console"
+              variant="ghost"
+              size="large"
+              onClick={() => navigate("/store/dashboard")}
+              aria-label="Console"
+            />
+          </Tooltip>
+        </Show>
         <UserButton />
         <Tooltip placement="right" value={language.t("sidebar.settings")}>
           <IconButton

@@ -15,6 +15,7 @@ const StoreItemDetail = lazy(() => import("@/pages/store").then((m) => ({ defaul
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
 const DirectoryLayout = lazy(() => import("@/pages/directory-layout"))
+const StoreDashboard = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreDashboard })))
 
 const wrap = (Component: Component<{ children?: JSX.Element }>) => (props: { children?: JSX.Element }) => (
   <Suspense fallback={<Loading />}>
@@ -69,6 +70,7 @@ export const routeConfig: RouteConfig[] = [
       { path: "/commands", component: StoreCommands },
       { path: "/mcp-servers", component: StoreMcpServers },
       { path: "/items/:id", component: StoreItemDetail },
+      { path: "/dashboard", component: StoreDashboard },
     ],
   },
 ]

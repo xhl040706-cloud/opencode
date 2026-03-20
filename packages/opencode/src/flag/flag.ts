@@ -63,6 +63,8 @@ export namespace Flag {
   export const COSTRICT_BASE_URL = process.env["COSTRICT_BASE_URL"]
   export const COSTRICT_CLOUD_BASE_URL = process.env["COSTRICT_CLOUD_BASE_URL"]
   export const COSTRICT_APP_URL = process.env["COSTRICT_APP_URL"]
+  // Skip TLS certificate verification (insecure, for development/testing only)
+  export const COSTRICT_INSECURE_SKIP_TLS_VERIFY = truthy("COSTRICT_INSECURE_SKIP_TLS_VERIFY")
 
   export async function getAppUrlWithVersion() {
     return await getAppUrl(COSTRICT_BASE_URL)

@@ -1,4 +1,5 @@
 import { createContext, useContext, type ParentProps } from "solid-js"
+const PREFIX = import.meta.env.VITE_API_PREFIX ?? ""
 import { createStore } from "solid-js/store"
 import { onMount } from "solid-js"
 import type { CasdoorUser } from "@/pages/store/lib/auth"
@@ -32,7 +33,7 @@ export function AuthProvider(props: ParentProps) {
     const qs = new URLSearchParams({ code, redirect_uri: `${appUrl}/store` })
 
     try {
-      const res = await fetch(`/api/auth/callback?${qs.toString()}`, { credentials: "include" })
+      const res = await fetch(`${PREFIX}/api/auth/callback?${qs.toString()}`, { credentials: "include" })
       if (!res.ok) return false
 
       const redirectTo = decodeURIComponent(params.get("state") ?? "/store")
@@ -46,7 +47,7 @@ export function AuthProvider(props: ParentProps) {
 
   async function fetchUser() {
     try {
-      const res = await fetch(`/api/auth/me`, { credentials: "include" })
+      const res = await fetch(`${PREFIX}/api/auth/me`, { credentials: "include" })
       setState("user", res.ok ? ((await res.json()).user ?? null) : null)
     } catch {
       setState("user", null)
@@ -60,7 +61,7 @@ export function AuthProvider(props: ParentProps) {
   })
 
   const logout = async () => {
-    await fetch(`/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {})
+    await fetch(`${PREFIX}/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {})
     setState("user", null)
     window.location.href = "/"
   }
