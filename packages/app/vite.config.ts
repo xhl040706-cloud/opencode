@@ -31,6 +31,13 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           ws: true,
           rewrite: (path) => path.replace(new RegExp(`^${prefix}`), ""),
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq) => {
+              if (proxyReq.path.endsWith("/global/event")) {
+                proxyReq.setHeader("Connection", "keep-alive")
+              }
+            })
+          },
         },
         [`${prefix}/api`]: {
           target: cloudTarget,
