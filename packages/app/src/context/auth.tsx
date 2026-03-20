@@ -1,5 +1,6 @@
 import { createContext, useContext, type ParentProps } from "solid-js"
-const PREFIX = import.meta.env.VITE_API_PREFIX ?? ""
+import { env } from "@/lib/env"
+const PREFIX = env.API_PREFIX
 import { createStore } from "solid-js/store"
 import { onMount } from "solid-js"
 import type { CasdoorUser } from "@/pages/store/lib/auth"
@@ -29,7 +30,7 @@ export function AuthProvider(props: ParentProps) {
     const code = params.get("code")
     if (!code) return false
 
-    const appUrl = import.meta.env.VITE_APP_URL
+    const appUrl = env.APP_URL ?? ""
     const qs = new URLSearchParams({ code, redirect_uri: `${appUrl}/store` })
 
     try {

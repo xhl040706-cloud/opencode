@@ -1,4 +1,6 @@
+import { env } from "@/lib/env"
+
 export function getProxyUrl(deviceId: string) {
-    const appUrl = import.meta.env.VITE_APP_URL
+    const appUrl = env.APP_URL
     return `${appUrl}/cloud/device/${deviceId}/proxy`
 }
