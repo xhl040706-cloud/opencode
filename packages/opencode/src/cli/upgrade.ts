@@ -4,7 +4,6 @@ import { Flag } from "@/flag/flag"
 import { Installation } from "@/installation"
 
 export async function upgrade() {
-  return // todo : remove this line when we want to enable auto-updates again
   const config = await Config.global()  
 
   const method = await Installation.method()

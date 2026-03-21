@@ -6,8 +6,6 @@ import z from "zod"
 export const EDITOR_CONTEXT_CONFIG = {
   /** 最大标签页数量 */
   MAX_TABS: 10,
-  /** 上下文信息最大长度（字符数）*/
-  MAX_CONTEXT_LENGTH: 2000,
 }
 
 // 编辑器上下文事件定义
@@ -78,28 +76,21 @@ export namespace EditorContext {
     parts.push(`<editor_context>`)
 
     if (ctx.activeFile) {
-      let activeFile = `IDE Visible Files: ${ctx.activeFile.fileRef}`
+      let activeFile = `Editor Active File: ${ctx.activeFile.fileRef}`
       if (ctx.activeFile.selection) {
         activeFile = activeFile +  `(Selection range: ${ctx.activeFile.selection.startLine}-${ctx.activeFile.selection.endLine})`
       }
       parts.push(activeFile)
-    } else {
-      parts.push(`IDE Visible Files: None`)
     }
 
     if (ctx?.openTabs?.length > 0) {
-      parts.push(`IDE Open Tabs: ${ctx.openTabs.join(", ")}`)
-    } else {
-      parts.push(`IDE Open Tabs: None`)
+      parts.push(`Editor Open Tabs: ${ctx.openTabs.join(", ")}`)
     }
 
     parts.push(`</editor_context>`)
 
     const result = parts.join("\n")
 
-    if (result.length > EDITOR_CONTEXT_CONFIG.MAX_CONTEXT_LENGTH) {
-      return result.substring(0, EDITOR_CONTEXT_CONFIG.MAX_CONTEXT_LENGTH) + "..."
-    }
 
     return result
   }
