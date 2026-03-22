@@ -32,7 +32,6 @@ export namespace SystemPrompt {
 
   export async function environment(model: Provider.Model) {
     const project = Instance.project
-    const editorContext = EditorContext.formatForPrompt()
     
     return [
       [
@@ -45,7 +44,6 @@ export namespace SystemPrompt {
         `  Platform: ${process.platform}`,
         `  Today's date: ${new Date().toDateString()}`,
         `</env>`,
-        ...(editorContext ? [editorContext] : []),
         `<directories>`,
         `  ${
           project.vcs === "git" && false
@@ -58,6 +56,10 @@ export namespace SystemPrompt {
         `</directories>`,
       ].join("\n"),
     ]
+  }
+
+  export function editorContext() {
+    return EditorContext.formatForPrompt()
   }
 
   export async function skills(agent: Agent.Info) {
