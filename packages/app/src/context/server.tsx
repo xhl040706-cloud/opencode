@@ -204,6 +204,23 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
     const fetcher = platform.fetch ?? globalThis.fetch
     const check = (conn: ServerConnection.Any) => checkServerHealth(conn.http, fetcher).then((x) => x.healthy)
 
+    const provided = createMemo(() => {
+      const list = props.servers ?? []
+      return new Set(list.map((s) => ServerConnection.key(s)))
+    })
+
+    createEffect(() => {
+      const active = state.active
+      if (!active) return
+      const keys = provided()
+      if (keys.size === 0) {
+        setState("active", props.defaultServer)
+        return
+      }
+      if (keys.has(active)) return
+      setState("active", props.defaultServer)
+    })
+
     createEffect(() => {
       const current_ = current()
       if (!current_) return
@@ -215,7 +232,7 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
     const origin = createMemo(() => projectsKey(state.active))
     const projectsList = createMemo(() => store.projects[origin()] ?? [])
     const current: Accessor<ServerConnection.Any | undefined> = createMemo(
-      () => state.active ? allServers().find((s) => ServerConnection.key(s) === state.active) ?? allServers()[0] : undefined,
+      () => state.active ? allServers().find((s) => ServerConnection.key(s) === state.active) : undefined,
     )
     const isLocal = createMemo(() => {
       const c = current()

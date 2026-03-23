@@ -386,12 +386,6 @@ export const registryApi = {
   listMy: (ownerId: string) =>
     apiFetch<{ registries: CapabilityRegistry[] }>(`/api/registries/my?ownerId=${encodeURIComponent(ownerId)}`),
 
-  ensurePersonal: (ownerId: string, username?: string) =>
-    apiFetch<CapabilityRegistry>("/api/registries/ensure-personal", {
-      method: "POST",
-      body: JSON.stringify({ ownerId, username }),
-    }),
-
   create: (data: { name: string; description?: string; visibility?: string; orgId?: string; ownerId: string }) =>
     apiFetch<CapabilityRegistry>("/api/registries", {
       method: "POST",

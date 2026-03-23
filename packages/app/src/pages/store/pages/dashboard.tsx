@@ -10,9 +10,7 @@ import { getLoginUrl } from "../lib/auth"
 import {
   itemApi,
   repoApi,
-  registryApi,
   type CapabilityItem,
-  type CapabilityRegistry,
   type Repository,
 } from "../lib/api"
 import { CreateRepoDialog } from "../components/create-repo-dialog"
@@ -37,7 +35,6 @@ export default function Dashboard() {
   const [state, setState] = createStore({
     repos: [] as Repository[],
     items: [] as CapabilityItem[],
-    personalRegistry: null as CapabilityRegistry | null,
     loadingRepos: false,
     loadingItems: false,
     itemTypeFilter: "all",
@@ -79,19 +76,10 @@ export default function Dashboard() {
     }
   }
 
-  const ensureRegistry = async () => {
-    if (!userId()) return
-    try {
-      const registry = await registryApi.ensurePersonal(userId(), username())
-      setState("personalRegistry", registry)
-    } catch {}
-  }
-
   createEffect(() => {
     if (!userId()) return
     void loadRepos()
     void loadItems()
-    void ensureRegistry()
   })
 
   const filteredItems = createMemo(() =>

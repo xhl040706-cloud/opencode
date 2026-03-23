@@ -9,7 +9,7 @@ import { useAuth } from "../hooks/use-auth"
 import { useLanguage } from "@/context/language"
 import { useRepoFilter } from "../context/repo-filter"
 import { typeKey, categoryKey } from "../lib/constants"
-import { itemApi, repoApi, registryApi, registryApi2, type Repository } from "../lib/api"
+import { itemApi, repoApi, registryApi2, type Repository } from "../lib/api"
 
 const CATEGORIES = [
   "developer-tools",
@@ -146,12 +146,6 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
     const u = currentUser()
 
     if (namespace === "public") return (await registryApi2.getPublic()).id
-
-    if (namespace === "personal") {
-      if (!u?.sub) throw new Error("Please sign in first")
-      const username = u.preferred_username || u.name
-      return (await registryApi.ensurePersonal(u.sub, username)).id
-    }
 
     if (namespace?.startsWith("repo:")) {
       return (await repoApi.getRegistry(namespace.slice(5))).id

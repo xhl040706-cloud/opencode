@@ -5,7 +5,7 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
 import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
-import { itemApi, repoApi, registryApi, registryApi2, type CapabilityItem, type Repository } from "../lib/api"
+import { itemApi, repoApi, registryApi2, type CapabilityItem, type Repository } from "../lib/api"
 import { CATEGORIES, TYPE_PREFIX, TYPE_CONTENT_PLACEHOLDER, typeKey, categoryKey } from "../lib/constants"
 
 const inputClass =
@@ -117,7 +117,6 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
     const namespace = selectedNamespace()?.value
 
     if (namespace === "public") return (await registryApi2.getPublic()).id
-    if (namespace === "personal") return (await registryApi.ensurePersonal(props.userId, props.username)).id
     if (namespace?.startsWith("repo:")) return (await repoApi.getRegistry(namespace.slice(5))).id
     return undefined
   }
