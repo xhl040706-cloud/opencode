@@ -4,7 +4,7 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { itemApi, artifactApi, scanApi, type CapabilityItem, type ScanResult } from "../lib/api"
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
-import { categoryKey } from "../lib/constants"
+import { categoryKey, formatBytes } from "../lib/constants"
 import SecurityBadge, { VerdictBadge, type Verdict } from "../components/security-badge"
 
 const TYPE_META: Record<
@@ -15,12 +15,6 @@ const TYPE_META: Record<
   subagent: { color: "text-blue-500", back: "/store/subagents", label: "store.sidebar.nav.subagents", icon: "models" },
   command: { color: "text-green-500", back: "/store/commands", label: "store.sidebar.nav.commands", icon: "console" },
   mcp: { color: "text-purple-500", back: "/store/mcp-servers", label: "store.sidebar.nav.mcpServers", icon: "server" },
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
 function formatDate(iso: string) {
@@ -40,9 +34,8 @@ function formatValue(value: unknown) {
 }
 
 function installCmd(item: CapabilityItem) {
-  const owner =
-    item.registry?.orgId && item.registry.orgId !== "public" ? item.registry.orgId : item.createdBy || "public"
-  return `npx costrict install ${owner}/${item.slug}`
+  const registry = item.registry?.name || "public"
+  return `cs plugin add ${item.itemType} ${registry}/${item.slug}`
 }
 
 function renderMd(content: string) {
@@ -265,6 +258,10 @@ export default function ItemDetail() {
                   </span>
                 </Show>
                 <SecurityBadge status={data().securityStatus} size="sm" />
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded border border-border-weak-base text-text-weak">
+                  <Icon name={data().sourceType === "archive" ? "cloud-upload" : "pencil-line"} size="small" />
+                  {language.t(data().sourceType === "archive" ? "store.sourceType.archive" : "store.sourceType.direct")}
+                </span>
               </div>
               <Show when={data().description}>
                 <p class="text-text-weak">{data().description}</p>
@@ -350,7 +347,7 @@ export default function ItemDetail() {
                     <Show when={data().createdByName}>
                       <div class="flex items-center justify-between px-5 py-3.5">
                         <dt class="text-text-weak">{language.t("store.detail.author")}</dt>
-                        <dd class="font-medium text-text-strong">{data().createdByName || '-'}</dd>
+                        <dd class="font-medium text-text-strong">{data().createdByName || "-"}</dd>
                       </div>
                     </Show>
                     <div class="flex items-center justify-between px-5 py-3.5">

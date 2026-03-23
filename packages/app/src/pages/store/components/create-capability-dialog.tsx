@@ -2,11 +2,14 @@ import { Button } from "@opencode-ai/ui/button"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
-import { useLanguage } from "@/context/language"
 import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
+import { useLanguage } from "@/context/language"
 import { itemApi, repoApi, registryApi2, type CapabilityItem, type Repository } from "../lib/api"
+import type { ContentMode } from "../lib/content"
+import { canArchive, contentValue, usableMode } from "../lib/content"
 import { CATEGORIES, TYPE_PREFIX, TYPE_CONTENT_PLACEHOLDER, typeKey, categoryKey } from "../lib/constants"
+import { ContentField } from "./content-field"
 
 const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
@@ -47,12 +50,17 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
     description: "",
     category: "utilities",
     content: TYPE_CONTENT_PLACEHOLDER.skill,
+    contentMode: "text" as ContentMode,
+    file: null as File | null,
     saving: false,
     error: "",
   })
 
   const typeLabel = createMemo(() => language.t(typeKey(store.itemType)))
   const slugPrefix = createMemo(() => TYPE_PREFIX[store.itemType] ?? "")
+
+  const archive = createMemo(() => canArchive(store.itemType))
+  const mode = createMemo(() => usableMode(archive(), store.contentMode))
 
   const visibilityLabel = (visibility: NamespaceOption["visibility"] | undefined) => {
     if (visibility === "private") return language.t("store.capabilityDialog.visibility.private")
@@ -125,6 +133,11 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
     e.preventDefault()
     if (!store.name.trim() || !store.slug.trim()) return
 
+    if (mode() === "archive" && !store.file) {
+      setStore("error", language.t("store.capabilityDialog.content.required"))
+      return
+    }
+
     setStore("saving", true)
     setStore("error", "")
 
@@ -136,10 +149,11 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
         slug: store.slug.trim(),
         description: store.description.trim(),
         category: store.category,
-        content: store.content.trim(),
+        content: contentValue(mode(), store.content.trim()),
         visibility: selectedNamespace()?.visibility,
         registryId,
         createdBy: props.userId,
+        file: mode() === "archive" ? store.file : null,
       })
       props.onCreated?.(item)
       showToast({ title: language.t("store.capabilityDialog.toast.created", { type: typeLabel() }) })
@@ -267,14 +281,26 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
             </div>
 
             <div class="px-4 py-4">
-              <label class="mb-2 block text-12-medium text-text-strong">
-                {language.t("store.capabilityDialog.field.content")}
-              </label>
-              <textarea
-                value={store.content}
-                onInput={(e) => setStore("content", e.currentTarget.value)}
+              <ContentField
+                archive={archive()}
+                mode={store.contentMode}
+                text={store.content}
+                file={store.file}
                 rows={10}
-                class={textAreaClass}
+                textClass={textAreaClass}
+                onModeChange={(mode) => {
+                  setStore("contentMode", mode)
+                  setStore("error", "")
+                }}
+                onTextChange={(text) => {
+                  setStore("content", text)
+                  setStore("error", "")
+                }}
+                onFileChange={(file) => {
+                  setStore("file", file)
+                  setStore("error", "")
+                }}
+                onError={(message) => setStore("error", message)}
               />
             </div>
           </div>
@@ -288,7 +314,9 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
           </Button>
           <Button type="submit" disabled={store.saving || !store.name.trim() || !store.slug.trim()}>
             {store.saving
-              ? language.t("store.capabilityDialog.create.submitting")
+              ? mode() === "archive"
+                ? language.t("store.capabilityDialog.content.uploading")
+                : language.t("store.capabilityDialog.create.submitting")
               : language.t("store.capabilityDialog.create.submit")}
           </Button>
         </div>

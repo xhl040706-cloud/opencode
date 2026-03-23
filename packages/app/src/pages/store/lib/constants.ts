@@ -13,6 +13,10 @@ export const CATEGORIES = [
   "other",
 ] as const
 
+const archives = [".zip", ".tar.gz", ".tgz"] as const
+
+export const ACCEPTED_ARCHIVE_TYPES = archives.join(",")
+
 export const TYPE_PREFIX: Record<string, string> = {
   skill: "skill-",
   subagent: "agent-",
@@ -38,4 +42,15 @@ export function categoryKey(slug: string) {
 
 export function typeKey(type: string) {
   return `store.capability.type.${type}`
+}
+
+export function isArchive(name: string) {
+  const file = name.toLowerCase()
+  return archives.some((ext) => file.endsWith(ext))
+}
+
+export function formatBytes(size: number) {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
