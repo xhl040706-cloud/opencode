@@ -1,5 +1,6 @@
 import { createSignal, Show } from "solid-js"
 import { A } from "@solidjs/router"
+import { Icon } from "@opencode-ai/ui/icon"
 import { useLanguage } from "@/context/language"
 import { artifactApi, type CapabilityItem } from "../lib/api"
 import { categoryKey } from "../lib/constants"
@@ -20,9 +21,8 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 function installCmd(item: CapabilityItem) {
-  const owner =
-    item.registry?.orgId && item.registry.orgId !== "public" ? item.registry.orgId : item.createdBy || "public"
-  return `npx costrict install ${owner}/${item.slug}`
+  const registry = item.registry?.name || "public"
+  return `cs plugin add ${item.itemType} @${registry}/${item.slug}`
 }
 
 export default function ItemCard(props: { item: CapabilityItem }) {
@@ -54,9 +54,19 @@ export default function ItemCard(props: { item: CapabilityItem }) {
             {props.item.name}
           </span>
         </div>
-        <Show when={props.item.version}>
-          <span class="text-xs text-text-weak bg-bg-muted px-1.5 py-0.5 rounded shrink-0">v{props.item.version}</span>
-        </Show>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <Show when={props.item.sourceType === "archive"}>
+            <span
+              class="text-xs text-text-weak bg-bg-muted p-0.5 rounded inline-flex items-center"
+              title={language.t("store.sourceType.archive")}
+            >
+              <Icon name="cloud-upload" size="small" />
+            </span>
+          </Show>
+          <Show when={props.item.version}>
+            <span class="text-xs text-text-weak bg-bg-muted px-1.5 py-0.5 rounded">v{props.item.version}</span>
+          </Show>
+        </div>
       </div>
 
       <Show when={props.item.description}>

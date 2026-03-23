@@ -6,9 +6,11 @@ const PREFIX = env.API_PREFIX
 const API_BASE = env.API_URL || PREFIX
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers =
+    options?.body instanceof FormData ? options.headers : { "Content-Type": "application/json", ...options?.headers }
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
     ...options,
+    headers,
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
@@ -159,11 +161,22 @@ export interface CapabilityVersion {
   createdAt: string
 }
 
-export type SecurityStatus = "unscanned" | "pending" | "scanning" | "clean" | "low" | "medium" | "high" | "extreme" | "error" | "skipped"
+export type SecurityStatus =
+  | "unscanned"
+  | "pending"
+  | "scanning"
+  | "clean"
+  | "low"
+  | "medium"
+  | "high"
+  | "extreme"
+  | "error"
+  | "skipped"
 
 export interface CapabilityItem {
   id: string
   registryId: string
+  repoId?: string
   slug: string
   itemType: string
   name: string
@@ -173,6 +186,7 @@ export interface CapabilityItem {
   content: string
   visibility: string
   status: string
+  sourceType?: string
   securityStatus?: SecurityStatus
   lastScanId?: string
   createdBy: string
@@ -430,7 +444,24 @@ export const itemApi = {
     registryId?: string
     slug?: string
     createdBy?: string
-  }) => apiFetch<CapabilityItem>("/api/items", { method: "POST", body: JSON.stringify(data) }),
+    file?: File | null
+  }) => {
+    if (data.file) {
+      const form = new FormData()
+      form.append("file", data.file)
+      if (data.itemType) form.append("itemType", data.itemType)
+      if (data.name) form.append("name", data.name)
+      if (data.slug) form.append("slug", data.slug)
+      if (data.description) form.append("description", data.description)
+      if (data.category) form.append("category", data.category)
+      if (data.version) form.append("version", data.version)
+      if (data.registryId) form.append("registryId", data.registryId)
+      if (data.createdBy) form.append("createdBy", data.createdBy)
+      return apiFetch<CapabilityItem>("/api/items", { method: "POST", body: form })
+    }
+    const { file: _file, ...rest } = data
+    return apiFetch<CapabilityItem>("/api/items", { method: "POST", body: JSON.stringify(rest) })
+  },
 
   create: (
     registryId: string,
@@ -451,8 +482,20 @@ export const itemApi = {
       body: JSON.stringify(data),
     }),
 
-  update: (id: string, data: Partial<CapabilityItem> & { commitMsg?: string }) =>
-    apiFetch<CapabilityItem>(`/api/items/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<CapabilityItem> & { commitMsg?: string; file?: File | null }) => {
+    if (data.file) {
+      const form = new FormData()
+      form.append("file", data.file)
+      if (data.name) form.append("name", data.name)
+      if (data.description) form.append("description", data.description)
+      if (data.category) form.append("category", data.category)
+      if (data.version) form.append("version", data.version)
+      if (data.commitMsg) form.append("commitMsg", data.commitMsg)
+      return apiFetch<CapabilityItem>(`/api/items/${id}`, { method: "PUT", body: form })
+    }
+    const { file: _file, ...rest } = data
+    return apiFetch<CapabilityItem>(`/api/items/${id}`, { method: "PUT", body: JSON.stringify(rest) })
+  },
 
   delete: (id: string) => apiFetch<{ message: string }>(`/api/items/${id}`, { method: "DELETE" }),
 
@@ -465,6 +508,7 @@ export const registryApi2 = {
 
 export const artifactApi = {
   list: (itemId: string) => apiFetch<{ artifacts: CapabilityArtifact[] }>(`/api/items/${itemId}/artifacts`),
+  // upload removed: zip creation is handled atomically by createDirect via multipart POST /api/items
   downloadUrl: (artifactId: string) => `${API_BASE}/api/artifacts/${artifactId}/download`,
   delete: (artifactId: string) => apiFetch<{ message: string }>(`/api/artifacts/${artifactId}`, { method: "DELETE" }),
 }

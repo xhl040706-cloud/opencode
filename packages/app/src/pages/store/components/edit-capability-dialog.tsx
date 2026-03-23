@@ -6,7 +6,10 @@ import { useLanguage } from "@/context/language"
 import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
 import { itemApi, type CapabilityItem } from "../lib/api"
+import type { ContentMode } from "../lib/content"
+import { canArchive, contentValue, sourceTypeToMode, usableMode } from "../lib/content"
 import { CATEGORIES, typeKey, categoryKey } from "../lib/constants"
+import { ContentField } from "./content-field"
 
 const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
@@ -28,15 +31,25 @@ export function EditCapabilityDialog(props: EditCapabilityDialogProps) {
     category: props.item.category || "utilities",
     visibility: props.item.visibility || "public",
     content: props.item.content || "",
+    contentMode: usableMode(canArchive(props.item.itemType), sourceTypeToMode(props.item.sourceType)) as ContentMode,
+    file: null as File | null,
     saving: false,
     error: "",
   })
 
   const typeLabel = createMemo(() => language.t(typeKey(props.item.itemType)))
 
+  const archive = canArchive(props.item.itemType)
+  const mode = createMemo(() => usableMode(archive, store.contentMode))
+
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
     if (!store.name.trim()) return
+
+    if (mode() === "archive" && !store.file && props.item.sourceType !== "archive") {
+      setStore("error", language.t("store.capabilityDialog.content.required"))
+      return
+    }
 
     setStore("saving", true)
     setStore("error", "")
@@ -47,7 +60,8 @@ export function EditCapabilityDialog(props: EditCapabilityDialogProps) {
         description: store.description.trim(),
         category: store.category,
         visibility: store.visibility,
-        content: store.content,
+        content: contentValue(mode(), store.content),
+        ...(mode() === "archive" && store.file ? { file: store.file } : {}),
       })
       props.onSaved?.(updated)
       showToast({ title: language.t("store.capabilityDialog.toast.updated", { type: typeLabel() }) })
@@ -127,17 +141,28 @@ export function EditCapabilityDialog(props: EditCapabilityDialogProps) {
             </div>
           </div>
 
-          <div>
-            <label class="mb-2 block text-12-medium text-text-strong">
-              {language.t("store.capabilityDialog.field.content")}
-            </label>
-            <textarea
-              value={store.content}
-              onInput={(e) => setStore("content", e.currentTarget.value)}
-              rows={14}
-              class={textAreaClass}
-            />
-          </div>
+          <ContentField
+            archive={archive}
+            mode={store.contentMode}
+            text={store.content}
+            file={store.file}
+            rows={14}
+            textClass={textAreaClass}
+            existingArchive={props.item.sourceType === "archive"}
+            onModeChange={(mode) => {
+              setStore("contentMode", mode)
+              setStore("error", "")
+            }}
+            onTextChange={(text) => {
+              setStore("content", text)
+              setStore("error", "")
+            }}
+            onFileChange={(file) => {
+              setStore("file", file)
+              setStore("error", "")
+            }}
+            onError={(message) => setStore("error", message)}
+          />
 
           {store.error ? <p class="text-12-regular text-icon-critical-base">{store.error}</p> : null}
         </div>
@@ -147,7 +172,11 @@ export function EditCapabilityDialog(props: EditCapabilityDialogProps) {
             {language.t("common.cancel")}
           </Button>
           <Button type="submit" disabled={store.saving || !store.name.trim()}>
-            {store.saving ? language.t("common.saving") : language.t("store.capabilityDialog.edit.submit")}
+            {store.saving
+              ? mode() === "archive"
+                ? language.t("store.capabilityDialog.content.uploading")
+                : language.t("common.saving")
+              : language.t("store.capabilityDialog.edit.submit")}
           </Button>
         </div>
       </form>

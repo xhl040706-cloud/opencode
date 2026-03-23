@@ -5,11 +5,13 @@ import { Select } from "@opencode-ai/ui/select"
 import { showToast } from "@opencode-ai/ui/toast"
 import { createMemo, createSignal, createEffect } from "solid-js"
 import { createStore } from "solid-js/store"
-import { useAuth } from "../hooks/use-auth"
 import { useLanguage } from "@/context/language"
+import { useAuth } from "../hooks/use-auth"
 import { useRepoFilter } from "../context/repo-filter"
 import { typeKey, categoryKey } from "../lib/constants"
 import { itemApi, repoApi, registryApi2, type Repository } from "../lib/api"
+import type { ContentMode } from "../lib/content"
+import { canArchive, contentValue, usableMode } from "../lib/content"
 
 const CATEGORIES = [
   "developer-tools",
@@ -46,6 +48,7 @@ const TYPE_LABEL: Record<string, string> = {
   command: "store.capability.type.command",
   mcp: "store.capability.type.mcp",
 }
+import { ContentField } from "./content-field"
 
 function slugify(value: string) {
   return value
@@ -102,9 +105,14 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
     description: "",
     category: "utilities",
     content: TYPE_CONTENT_PLACEHOLDER[props.itemType] ?? "",
+    contentMode: "text" as ContentMode,
+    file: null as File | null,
     saving: false,
     error: "",
   })
+
+  const archive = canArchive(props.itemType)
+  const mode = createMemo(() => usableMode(archive, store.contentMode))
 
   const namespaceOptions = createMemo<NamespaceOption[]>(() => {
     const options: NamespaceOption[] = [
@@ -164,21 +172,27 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
 
     if (!store.name.trim() || !store.slug.trim()) return
 
+    if (mode() === "archive" && !store.file) {
+      setStore("error", language.t("store.capabilityDialog.content.required"))
+      return
+    }
+
     setStore("saving", true)
     setStore("error", "")
 
     try {
       const registryId = await resolveRegistryId()
-      await itemApi.createDirect({
+      const item = await itemApi.createDirect({
         itemType: props.itemType,
         name: store.name.trim(),
         slug: store.slug.trim(),
         description: store.description.trim(),
         category: store.category,
-        content: store.content.trim(),
+        content: contentValue(mode(), store.content.trim()),
         visibility: selectedNamespace()?.visibility,
         registryId,
         createdBy: u.sub,
+        file: mode() === "archive" ? store.file : null,
       })
       showToast({ title: language.t("store.capabilityDialog.toast.created", { type: typeLabel() }) })
       props.onCreated?.()
@@ -205,7 +219,6 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
                 <span>{language.t("store.capabilityDialog.field.ownerPackage")}</span>
                 <span class="text-icon-info-base">*</span>
               </div>
-              {/* <div class="mt-1 text-12-regular text-text-weak">{language.t("store.itemCrud.namespaceDescription")}</div> */}
               <div class="mt-4 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
                 <div>
                   <Select
@@ -292,14 +305,26 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
             </div>
 
             <div class="px-5 py-5">
-              <label class="mb-2 block text-12-medium text-text-strong">
-                {language.t("store.capabilityDialog.field.content")}
-              </label>
-              <textarea
-                value={store.content}
-                onInput={(e) => setStore("content", e.currentTarget.value)}
+              <ContentField
+                archive={archive}
+                mode={store.contentMode}
+                text={store.content}
+                file={store.file}
                 rows={10}
-                class={textAreaClass}
+                textClass={textAreaClass}
+                onModeChange={(mode) => {
+                  setStore("contentMode", mode)
+                  setStore("error", "")
+                }}
+                onTextChange={(text) => {
+                  setStore("content", text)
+                  setStore("error", "")
+                }}
+                onFileChange={(file) => {
+                  setStore("file", file)
+                  setStore("error", "")
+                }}
+                onError={(message) => setStore("error", message)}
               />
             </div>
           </div>
@@ -315,7 +340,9 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
             </Button>
             <Button type="submit" disabled={store.saving || !store.name.trim() || !store.slug.trim()}>
               {store.saving
-                ? language.t("store.capabilityDialog.create.submitting")
+                ? mode() === "archive"
+                  ? language.t("store.capabilityDialog.content.uploading")
+                  : language.t("store.capabilityDialog.create.submitting")
                 : language.t("store.itemCrud.submit", { type: typeLabel() })}
             </Button>
           </div>
