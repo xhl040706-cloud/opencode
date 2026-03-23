@@ -31,6 +31,7 @@ import { FileOutlineTool } from "../costrict/tool/file-outline"
 import { CheckpointTool } from "../costrict/tool/checkpoint"
 import { SpecManageTool } from "../costrict/tool/spec-manage"
 import { ApplyPatchTool } from "./apply_patch"
+import { WorkflowTool } from "../costrict/tool/workflow"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "url"
 
@@ -127,6 +128,7 @@ export namespace ToolRegistry {
       ...(config.experimental?.spec_manage !== false ? [SpecManageTool] : []),
       ...(Flag.COSTRICT_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ApplyPatchTool,
+      WorkflowTool,
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
       ...(Flag.COSTRICT_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [PlanExitTool] : []),
       ...custom,
