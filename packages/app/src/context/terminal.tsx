@@ -5,6 +5,7 @@ import { useParams } from "@solidjs/router"
 import { useSDK } from "./sdk"
 import type { Platform } from "./platform"
 import { Persist, persisted, removePersisted } from "@/utils/persist"
+import { useActiveWorkspace } from "@/pages/workspace/active-workspace"
 
 export type LocalPTY = {
   id: string
@@ -38,14 +39,17 @@ type TerminalCacheEntry = {
 
 const caches = new Set<Map<string, TerminalCacheEntry>>()
 
-export function clearWorkspaceTerminals(dir: string, sessionIDs?: string[], platform?: Platform) {
+export function clearWorkspaceTerminals(dir: string, sessionIDs?: string[], platform?: Platform, workspaceId?: string) {
   const key = getWorkspaceTerminalCacheKey(dir)
   for (const cache of caches) {
     const entry = cache.get(key)
     entry?.value.clear()
   }
 
-  removePersisted(Persist.workspace(dir, "terminal"), platform)
+  const target = workspaceId
+    ? Persist.device(workspaceId, `terminal:${dir}`)
+    : Persist.workspace(dir, "terminal")
+  removePersisted(target, platform)
 
   const legacy = new Set(getLegacyTerminalStorageKeys(dir))
   for (const id of sessionIDs ?? []) {
@@ -58,8 +62,12 @@ export function clearWorkspaceTerminals(dir: string, sessionIDs?: string[], plat
   }
 }
 
-function createWorkspaceTerminalSession(sdk: ReturnType<typeof useSDK>, dir: string, legacySessionID?: string) {
+function createWorkspaceTerminalSession(sdk: ReturnType<typeof useSDK>, dir: string, workspaceId?: string, legacySessionID?: string) {
   const legacy = getLegacyTerminalStorageKeys(dir, legacySessionID)
+
+  const persistTarget = workspaceId
+    ? Persist.device(workspaceId, `terminal:${dir}`, legacy)
+    : Persist.workspace(dir, "terminal", legacy)
 
   const numberFromTitle = (title: string) => {
     const match = title.match(/^Terminal (\d+)$/)
@@ -70,7 +78,7 @@ function createWorkspaceTerminalSession(sdk: ReturnType<typeof useSDK>, dir: str
   }
 
   const [store, setStore, _, ready] = persisted(
-    Persist.workspace(dir, "terminal", legacy),
+    persistTarget,
     createStore<{
       active?: string
       all: LocalPTY[]
@@ -276,6 +284,7 @@ export const { use: useTerminal, provider: TerminalProvider } = createSimpleCont
   init: () => {
     const sdk = useSDK()
     const params = useParams()
+    const active = useActiveWorkspace()
     const cache = new Map<string, TerminalCacheEntry>()
 
     caches.add(cache)
@@ -301,7 +310,6 @@ export const { use: useTerminal, provider: TerminalProvider } = createSimpleCont
     }
 
     const loadWorkspace = (dir: string, legacySessionID?: string) => {
-      // Terminals are workspace-scoped so tabs persist while switching sessions in the same directory.
       const key = getWorkspaceTerminalCacheKey(dir)
       const existing = cache.get(key)
       if (existing) {
@@ -311,7 +319,7 @@ export const { use: useTerminal, provider: TerminalProvider } = createSimpleCont
       }
 
       const entry = createRoot((dispose) => ({
-        value: createWorkspaceTerminalSession(sdk, dir, legacySessionID),
+        value: createWorkspaceTerminalSession(sdk, dir, active?.id, legacySessionID),
         dispose,
       }))
 

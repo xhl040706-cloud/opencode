@@ -7,6 +7,7 @@ type WorkspaceContextValue = {
   selectedWorkspaceId: Accessor<string | undefined>
   selectedDeviceId: Accessor<string | undefined>
   enabledWorkspaceIds: Accessor<string[]>
+  closedWorkspaceIds: Accessor<string[]>
   isLoading: Accessor<boolean>
   showHistorySidebar: Accessor<boolean>
   selectWorkspace: (id: string) => void

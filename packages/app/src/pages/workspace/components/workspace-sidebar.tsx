@@ -1,8 +1,6 @@
 import { createSignal, createMemo, For, Show } from "solid-js"
 import { useNavigate, useParams } from "@solidjs/router"
-import { Button } from "@opencode-ai/ui/button"
 import { Icon } from "@opencode-ai/ui/icon"
-import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { Collapsible } from "@opencode-ai/ui/collapsible"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -72,15 +70,14 @@ export function WorkspaceSidebar() {
   const [isRunningCollapsed, setIsRunningCollapsed] = createSignal(false)
   const [isIdleCollapsed, setIsIdleCollapsed] = createSignal(false)
 
-  const getDeviceStatusStyle = (status?: DeviceStatus) => {
+  const getDeviceStatusDot = (status?: DeviceStatus) => {
     switch (status) {
       case "online":
-        return { class: "bg-green-500/15 text-green-600 border-green-500/20", text: "在线" }
+        return { online: true, offline: false, text: "在线" }
       case "offline":
-        return { class: "bg-gray-500/15 text-gray-600 border-gray-500/20", text: "离线" }
-      case "":
+        return { online: false, offline: true, text: "离线" }
       default:
-        return { class: "bg-gray-500/10 text-gray-500 border-gray-500/15", text: "未绑定" }
+        return { online: false, offline: false, text: "未绑定" }
     }
   }
 
@@ -110,35 +107,37 @@ export function WorkspaceSidebar() {
     ))
   }
 
-  const WorkspaceCard = (props: { workspace: Workspace; isRunning: boolean }) => {
-    const primaryDir = getPrimaryDirectory(props.workspace)
-    const deviceStatus = getDeviceStatusStyle(props.workspace.deviceStatus)
+  const WorkspaceCard = (cardProps: { workspace: Workspace; isRunning: boolean }) => {
+    const primaryDir = getPrimaryDirectory(cardProps.workspace)
+    const dot = getDeviceStatusDot(cardProps.workspace.deviceStatus)
+    const selected = () => selectedWorkspaceId() === cardProps.workspace.id
 
     return (
       <div
-        class={`
-          group flex items-center gap-0 rounded-md overflow-hidden border border-border-weak-base
-          ${selectedWorkspaceId() === props.workspace.id ? "bg-surface-base-active border-transparent" : "bg-background-base"}
-        `}
+        class="group/workspace flex items-stretch rounded-md transition-colors cursor-default"
+        classList={{ "bg-surface-base-active": selected() }}
       >
-        {/* 内容区 - 点击选中 */}
         <div
-          class="flex-1 min-w-0 flex items-center gap-2 p-2 cursor-pointer rounded-l-md hover:bg-surface-base-hover transition-colors"
-          onClick={() => handleSelectWorkspace(props.workspace)}
+          class="flex-1 min-w-0 flex items-center gap-1 px-2 py-1.5 rounded-l-md hover:bg-surface-raised-base-hover transition-colors"
+          onClick={() => handleSelectWorkspace(cardProps.workspace)}
         >
-          <Icon name="folder" class="size-4 text-text-weak shrink-0" />
-          <div class="flex-1 min-w-0 flex flex-col">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-13-medium text-text-strong truncate">
-                {props.workspace.name}
-              </span>
-              <Show when={props.workspace.isDefault}>
-                <span class="text-10-medium px-1.5 py-0.5 rounded-full bg-primary-base text-white shrink-0">
-                  默认
-                </span>
-              </Show>
-              <span class={`text-10-medium px-1.5 py-0.5 rounded-full border shrink-0 ${deviceStatus.class}`}>
-                {deviceStatus.text}
+          <div class="shrink-0 size-6 flex items-center justify-center">
+            <Icon name="folder" size="small" class="text-icon-weak" />
+          </div>
+          <div class="min-w-0 flex flex-col">
+            <div class="flex items-center gap-1.5">
+              <Tooltip placement="top" value={dot.text}>
+                <div
+                  classList={{
+                    "size-1.5 rounded-full shrink-0": true,
+                    "bg-icon-success-base": dot.online,
+                    "bg-icon-critical-base": dot.offline,
+                    "bg-border-weak-base": !dot.online && !dot.offline,
+                  }}
+                />
+              </Tooltip>
+              <span class="text-14-regular text-text-strong truncate">
+                {cardProps.workspace.name}
               </span>
             </div>
             <Show when={primaryDir}>
@@ -149,49 +148,29 @@ export function WorkspaceSidebar() {
           </div>
         </div>
 
-        {/* 操作区 - 固定宽度 */}
-        <div class="shrink-0 flex items-center gap-1 px-2 py-2 w-24 justify-end border-l border-border-weak-base rounded-r-md hover:bg-surface-base-hover/50 transition-colors">
-          <Tooltip placement="top" value="删除">
-            <IconButton
-              icon="trash"
-              variant="ghost"
-              size="small"
-              class="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        <div class="shrink-0 flex flex-col w-8 border-l border-border-weak-base opacity-0 group-hover/workspace:opacity-100 transition-opacity self-stretch">
+          <Tooltip placement="left" value={cardProps.isRunning ? "关闭" : "运行"} class="flex-1">
+            <div
+              class="h-full flex items-center justify-center cursor-pointer hover:bg-surface-raised-base-hover transition-colors rounded-tr-md"
               onClick={(e: MouseEvent) => {
                 e.stopPropagation()
-                deleteWorkspace(props.workspace.id)
-              }}
-            />
-          </Tooltip>
-
-          <Show
-          when={props.isRunning}
-          fallback={
-            <Button
-              variant="secondary"
-              size="small"
-              class="shrink-0 h-7 px-2 text-11-medium"
-              onClick={(e: MouseEvent) => {
-                e.stopPropagation()
-                handleOpenWorkspace(props.workspace)
+                cardProps.isRunning ? handleCloseWorkspace(cardProps.workspace) : handleOpenWorkspace(cardProps.workspace)
               }}
             >
-              运行
-            </Button>
-          }
-        >
-          <Button
-            variant="ghost"
-            size="small"
-            class="shrink-0 h-7 px-2 text-11-medium text-text-weak hover:text-text-strong"
-            onClick={(e: MouseEvent) => {
-              e.stopPropagation()
-              handleCloseWorkspace(props.workspace)
-            }}
-          >
-            关闭
-          </Button>
-        </Show>
+              <Icon name={cardProps.isRunning ? "circle-x" : "circle-check"} size="small" class="text-icon-weak" />
+            </div>
+          </Tooltip>
+          <Tooltip placement="left" value="删除" class="flex-1">
+            <div
+              class="h-full flex items-center justify-center cursor-pointer hover:bg-surface-critical-weak transition-colors rounded-br-md"
+              onClick={(e: MouseEvent) => {
+                e.stopPropagation()
+                deleteWorkspace(cardProps.workspace.id)
+              }}
+            >
+              <Icon name="trash" size="small" class="text-icon-weak" />
+            </div>
+          </Tooltip>
         </div>
       </div>
     )
@@ -199,42 +178,36 @@ export function WorkspaceSidebar() {
 
   return (
     <div class="flex flex-col h-full w-72 bg-surface-base border-r border-border-weak-base">
-      {/* 顶部搜索区域 */}
-      <div class="shrink-0 p-3 border-b border-border-weak-base">
-        <div class="relative">
-          <Icon name="magnifying-glass" class="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-text-weak" />
+      <div class="shrink-0 p-2 border-b border-border-weak-base">
+        <div class="flex items-center gap-2 h-8 px-2 bg-background-base rounded-md border border-border-weak-base focus-within:border-border-strong-base">
+          <Icon name="magnifying-glass" class="size-4 text-text-weak shrink-0" />
           <input
             type="text"
             placeholder="搜索工作空间..."
             value={workspaceSearchQuery()}
             onInput={(e: Event) => setWorkspaceSearchQuery((e.target as HTMLInputElement).value)}
-            class="w-full h-9 pl-8 pr-3 text-13-regular bg-background-base rounded-md border border-border-weak-base placeholder:text-text-weak focus:outline-none focus:border-border-strong-base"
+            class="flex-1 text-13-regular bg-transparent placeholder:text-text-weak focus:outline-none"
           />
         </div>
       </div>
 
-      {/* 工作空间列表 */}
-      <div class="flex-1 min-h-0 overflow-y-auto">
-        {/* 运行中分区 */}
+      <div class="flex-1 min-h-0 overflow-y-auto py-2">
         <Collapsible open={!isRunningCollapsed()}>
-          <div class="flex flex-col gap-1 p-2">
-            <div class="flex items-center justify-between px-2">
-              <div class="flex items-center gap-2">
-                <Collapsible.Trigger
-                  as={IconButton}
-                  icon={isRunningCollapsed() ? "chevron-right" : "chevron-down"}
-                  variant="ghost"
-                  size="small"
-                  class="size-5"
-                  onClick={() => setIsRunningCollapsed((v) => !v)}
-                />
-                <span class="text-12-medium text-text-strong">运行中</span>
-                <span class="text-12-regular text-text-weak">({runningWorkspaces().length})</span>
-              </div>
-            </div>
-
+          <div class="px-2 py-1">
+            <Collapsible.Trigger
+              class="flex items-center gap-1 px-1 py-0.5 w-full rounded-md hover:bg-surface-base-hover transition-colors cursor-pointer mb-1"
+              onClick={() => setIsRunningCollapsed((v) => !v)}
+            >
+              <Icon
+                name={isRunningCollapsed() ? "chevron-right" : "chevron-down"}
+                size="small"
+                class="size-4 text-icon-weak shrink-0"
+              />
+              <span class="text-12-medium text-text-weak">运行中</span>
+              <span class="text-11-regular text-text-weaker">{runningWorkspaces().length}</span>
+            </Collapsible.Trigger>
             <Collapsible.Content>
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-0.5">
                 <For each={runningWorkspaces()}>
                   {(workspace) => <WorkspaceCard workspace={workspace} isRunning={true} />}
                 </For>
@@ -243,37 +216,30 @@ export function WorkspaceSidebar() {
           </div>
         </Collapsible>
 
-        {/* 空闲分区 */}
         <Collapsible open={!isIdleCollapsed()}>
-          <div class="flex flex-col gap-1 p-2">
-            <div class="flex items-center justify-between px-2">
-              <div class="flex items-center gap-2">
-                <Collapsible.Trigger
-                  as={IconButton}
-                  icon={isIdleCollapsed() ? "chevron-right" : "chevron-down"}
-                  variant="ghost"
-                  size="small"
-                  class="size-5"
-                  onClick={() => setIsIdleCollapsed((v) => !v)}
-                />
-                <span class="text-12-medium text-text-strong">空闲</span>
-                <span class="text-12-regular text-text-weak">({idleWorkspaces().length})</span>
-              </div>
-            </div>
-
+          <div class="px-2 py-1">
+            <Collapsible.Trigger
+              class="flex items-center gap-1 px-1 py-0.5 w-full rounded-md hover:bg-surface-base-hover transition-colors cursor-pointer mb-1"
+              onClick={() => setIsIdleCollapsed((v) => !v)}
+            >
+              <Icon
+                name={isIdleCollapsed() ? "chevron-right" : "chevron-down"}
+                size="small"
+                class="size-4 text-icon-weak shrink-0"
+              />
+              <span class="text-12-medium text-text-weak">空闲</span>
+              <span class="text-11-regular text-text-weaker">{idleWorkspaces().length}</span>
+            </Collapsible.Trigger>
             <Collapsible.Content>
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-0.5">
                 <For each={idleWorkspaces()}>
                   {(workspace) => <WorkspaceCard workspace={workspace} isRunning={false} />}
                 </For>
-
                 <Show when={filteredWorkspaces().length === 0}>
                   <div class="flex flex-col items-center justify-center py-8 text-text-weak">
-                    <Icon name="folder" class="size-10 mb-2 opacity-30" />
+                    <Icon name="folder" class="size-8 mb-2 opacity-30" />
                     <span class="text-12-regular">暂无工作空间</span>
-                    <span class="text-11-regular text-text-weaker mt-1">
-                      从下方设备列表创建
-                    </span>
+                    <span class="text-11-regular text-text-weaker mt-1">从下方设备列表创建</span>
                   </div>
                 </Show>
               </div>
@@ -282,7 +248,6 @@ export function WorkspaceSidebar() {
         </Collapsible>
       </div>
 
-      {/* 设备列表 */}
       <div class="shrink-0 border-t border-border-weak-base max-h-80 overflow-y-auto">
         <DeviceList
           devices={devices}

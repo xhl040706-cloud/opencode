@@ -111,6 +111,8 @@ export default function Layout(props: ParentProps) {
   const globalSync = useGlobalSync()
   const active = useActiveWorkspace()
   const layout = useLayout()
+
+  const scopedKey = (key: string) => active?.id ? `${active.id}:${key}` : key
   const layoutReady = createMemo(() => layout.ready())
   const platform = usePlatform()
   const settings = useSettings()
@@ -531,7 +533,7 @@ export default function Layout(props: ParentProps) {
   )
 
   const workspaceName = (directory: string, projectId?: string, branch?: string) => {
-    const key = workspaceKey(directory)
+    const key = scopedKey(workspaceKey(directory))
     const direct = store.workspaceName[key] ?? store.workspaceName[directory]
     if (direct) return direct
     if (!projectId) return
@@ -540,7 +542,7 @@ export default function Layout(props: ParentProps) {
   }
 
   const setWorkspaceName = (directory: string, next: string, projectId?: string, branch?: string) => {
-    const key = workspaceKey(directory)
+    const key = scopedKey(workspaceKey(directory))
     setStore("workspaceName", key, next)
     if (!projectId) return
     if (!branch) return
@@ -1098,16 +1100,16 @@ export default function Layout(props: ParentProps) {
   }
 
   function rememberSessionRoute(directory: string, id: string, root = activeProjectRoot(directory)) {
-    setStore("lastProjectSession", root, { directory, id, at: Date.now() })
+    setStore("lastProjectSession", scopedKey(root), { directory, id, at: Date.now() })
     return root
   }
 
   function clearLastProjectSession(root: string) {
-    if (!store.lastProjectSession[root]) return
+    if (!store.lastProjectSession[scopedKey(root)]) return
     setStore(
       "lastProjectSession",
       produce((draft) => {
-        delete draft[root]
+        delete draft[scopedKey(root)]
       }),
     )
   }
@@ -1129,7 +1131,7 @@ export default function Layout(props: ParentProps) {
     server.projects.touch(root)
     const project = layout.projects.list().find((item) => item.worktree === root)
     let dirs = project
-      ? effectiveWorkspaceOrder(root, [root, ...(project.sandboxes ?? [])], store.workspaceOrder[root])
+      ? effectiveWorkspaceOrder(root, [root, ...(project.sandboxes ?? [])], store.workspaceOrder[scopedKey(root)])
       : [root]
     const canOpen = (value: string | undefined) => {
       if (!value) return false
@@ -1141,7 +1143,7 @@ export default function Layout(props: ParentProps) {
         .list({ directory: root })
         .then((x) => x.data ?? [])
         .catch(() => [] as string[])
-      dirs = effectiveWorkspaceOrder(root, [root, ...listed], store.workspaceOrder[root])
+      dirs = effectiveWorkspaceOrder(root, [root, ...listed], store.workspaceOrder[scopedKey(root)])
       return canOpen(target)
     }
     const openSession = async (target: { directory: string; id: string }) => {
@@ -1152,14 +1154,14 @@ export default function Layout(props: ParentProps) {
         .catch(() => undefined)
       if (!resolved?.directory) return false
       if (!canOpen(resolved.directory)) return false
-      setStore("lastProjectSession", root, { directory: resolved.directory, id: resolved.id, at: Date.now() })
+      setStore("lastProjectSession", scopedKey(root), { directory: resolved.directory, id: resolved.id, at: Date.now() })
       const dirSlug = base64Encode(resolved.directory)
       const workspaceId = active?.id ?? dirSlug
       navigateWithSidebarReset(`/workspace/${workspaceId}/${dirSlug}/session/${resolved.id}`)
       return true
     }
 
-    const projectSession = store.lastProjectSession[root]
+    const projectSession = store.lastProjectSession[scopedKey(root)]
     if (projectSession?.id) {
       await refreshDirs(projectSession.directory)
       const opened = await openSession(projectSession)
@@ -1347,7 +1349,7 @@ export default function Layout(props: ParentProps) {
 
     if (!result) return
 
-    if (workspaceKey(store.lastProjectSession[root]?.directory ?? "") === workspaceKey(directory)) {
+    if (workspaceKey(store.lastProjectSession[scopedKey(root)]?.directory ?? "") === workspaceKey(directory)) {
       clearLastProjectSession(root)
     }
 
@@ -1359,7 +1361,7 @@ export default function Layout(props: ParentProps) {
         project.sandboxes = (project.sandboxes ?? []).filter((sandbox) => sandbox !== directory)
       }),
     )
-    setStore("workspaceOrder", root, (order) => (order ?? []).filter((workspace) => workspace !== directory))
+    setStore("workspaceOrder", scopedKey(root), (order) => (order ?? []).filter((workspace) => workspace !== directory))
 
     layout.projects.close(directory)
     layout.projects.open(root)
@@ -1370,7 +1372,7 @@ export default function Layout(props: ParentProps) {
     const nextKey = workspaceKey(nextCurrent)
     const project = layout.projects.list().find((item) => item.worktree === root)
     const dirs = project
-      ? effectiveWorkspaceOrder(root, [root, ...(project.sandboxes ?? [])], store.workspaceOrder[root])
+      ? effectiveWorkspaceOrder(root, [root, ...(project.sandboxes ?? [])], store.workspaceOrder[scopedKey(root)])
       : [root]
     const valid = dirs.some((item) => workspaceKey(item) === nextKey)
 
@@ -1694,7 +1696,7 @@ export default function Layout(props: ParentProps) {
     const extra = directory && directory !== local && !dirs.includes(directory) ? directory : undefined
     const pending = extra ? WorktreeState.get(extra)?.status === "pending" : false
 
-    const ordered = effectiveWorkspaceOrder(local, dirs, store.workspaceOrder[project.worktree])
+    const ordered = effectiveWorkspaceOrder(local, dirs, store.workspaceOrder[scopedKey(project.worktree)])
     if (pending && extra) return [local, extra, ...ordered.filter((item) => item !== local)]
     if (!extra) return ordered
     if (pending) return ordered
@@ -1769,7 +1771,7 @@ export default function Layout(props: ParentProps) {
     if (key !== created.directory) {
       setStore("workspaceExpanded", created.directory, true)
     }
-    setStore("workspaceOrder", project.worktree, (prev) => {
+    setStore("workspaceOrder", scopedKey(project.worktree), (prev) => {
       const existing = prev ?? []
       const next = existing.filter((item) => {
         const id = workspaceKey(item)

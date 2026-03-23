@@ -41,6 +41,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       [key: string]: Event
     }>()
 
+    let reconnecting = false
     type Queued = { directory: string; payload: Event }
     const FLUSH_FRAME_MS = 16
     const STREAM_YIELD_MS = 8
@@ -85,6 +86,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
             const props = event.payload.properties
             if (skip.has(deltaKey(event.directory, props.messageID, props.partID))) continue
           }
+          if (event.payload.type === "server.connected") reconnecting = false
           emitter.emit(event.directory, event.payload)
         }
       })
@@ -103,7 +105,8 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     const aborted = (error: unknown) => abortError.safeParse(error).success
 
     let attempt: AbortController | undefined
-    const HEARTBEAT_TIMEOUT_MS = 15_000
+    const isProxy = currentServer.http.url.includes("/cloud/device/")
+    const HEARTBEAT_TIMEOUT_MS = isProxy ? 60_000 : 15_000
     let lastEventAt = Date.now()
     let heartbeat: ReturnType<typeof setTimeout> | undefined
     const resetHeartbeat = () => {
@@ -120,9 +123,15 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     }
 
     void (async () => {
+      let attempt_count = 0
       while (!abort.signal.aborted) {
+        attempt_count++
         attempt = new AbortController()
         lastEventAt = Date.now()
+        const isReconnect = attempt_count > 1
+        if (isReconnect) {
+          reconnecting = true
+        }
         const onAbort = () => {
           attempt?.abort()
         }
@@ -216,6 +225,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       url: currentServer.http.url,
       client: sdk,
       event: emitter,
+      isReconnect: () => reconnecting,
       createClient(opts: Omit<Parameters<typeof createSdkForServer>[0], "server" | "fetch">) {
         const s = server.current
         if (!s) throw new Error("Server not available")

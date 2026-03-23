@@ -1,5 +1,5 @@
 import type { ParentProps } from "solid-js"
-import { createSignal, createMemo, onMount, Show, createEffect, untrack } from "solid-js"
+import { createSignal, createMemo, onMount, Show, createEffect, untrack, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useParams } from "@solidjs/router"
 import { showToast } from "@opencode-ai/ui/toast"
@@ -12,6 +12,8 @@ import { AppInterface } from "@/app-interface"
 import { getProxyUrl } from "../lib/url"
 import { ActiveWorkspaceProvider } from "../active-workspace"
 
+let inWorkspace = false
+
 export default function WorkspaceLayout(props: ParentProps) {
   const [workspaces, setWorkspaces] = createStore<Workspace[]>([])
   const [devices, setDevices] = createStore<Device[]>([])
@@ -20,6 +22,7 @@ export default function WorkspaceLayout(props: ParentProps) {
   const [selectedDeviceId, setSelectedDeviceId] = createSignal<string | undefined>(undefined)
   const [showHistorySidebar, setShowHistorySidebar] = createSignal(false)
   const [enabledIds, setEnabledIds] = createSignal<string[]>([])
+  const closed = new Set<string>()
 
   onMount(async () => {
     setIsLoading(true)
@@ -40,6 +43,39 @@ export default function WorkspaceLayout(props: ParentProps) {
     }
   })
 
+  let loading = false
+  const loadDevices = async () => {
+    if (document.visibilityState !== "visible") return
+    if (!inWorkspace) return
+    if (loading) return
+    loading = true
+    try {
+      const prevStatuses = devices.map((d) => ({ id: d.id, status: d.status }))
+      const res = await deviceApi.list().catch(() => ({ devices: [] }))
+      setDevices(res.devices)
+      const changed = res.devices.some((d) => prevStatuses.find((p) => p.id === d.id)?.status !== d.status)
+      if (!changed) return
+      const prevOnlineIds = new Set(workspaces.filter((w) => w.deviceStatus === "online").map((w) => w.id))
+      const wsRes = await workspaceApi.list().catch(() => ({ workspaces: [] as Workspace[] }))
+      setWorkspaces(wsRes.workspaces)
+      const enabled = enabledIds()
+      wsRes.workspaces
+        .filter((w) => prevOnlineIds.has(w.id) && w.deviceStatus !== "online" && enabled.includes(w.id))
+        .forEach((w) => handleDisableWorkspace(w.id))
+    } finally {
+      loading = false
+    }
+  }
+
+  const timer = setInterval(loadDevices, 30_000)
+  document.addEventListener("visibilitychange", loadDevices)
+  inWorkspace = true
+  onCleanup(() => {
+    inWorkspace = false
+    clearInterval(timer)
+    document.removeEventListener("visibilitychange", loadDevices)
+  })
+
   const handleSelectWorkspace = (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId)
   }
@@ -56,10 +92,12 @@ export default function WorkspaceLayout(props: ParentProps) {
   }
 
   const handleEnableWorkspace = (id: string) => {
+    closed.delete(id)
     setEnabledIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
   }
 
   const handleDisableWorkspace = (id: string) => {
+    closed.add(id)
     setEnabledIds((prev) => prev.filter((x) => x !== id))
     if (selectedWorkspaceId() === id) setSelectedWorkspaceId(undefined)
   }
@@ -127,6 +165,7 @@ export default function WorkspaceLayout(props: ParentProps) {
     selectedWorkspaceId,
     selectedDeviceId,
     enabledWorkspaceIds: enabledIds,
+    closedWorkspaceIds: () => Array.from(closed),
     isLoading,
     showHistorySidebar,
     selectWorkspace: handleSelectWorkspace,
@@ -196,12 +235,14 @@ function WorkspaceActivation(props: ParentProps) {
     const id = params.workspaceID
     if (!id) return
 
-    const target = workspace.workspaces().find((w: Workspace) => w.id === id)
-    if (!target?.deviceUniqueId) return
-
-    const key = ServerConnection.Key.make(getProxyUrl(target.deviceUniqueId))
     untrack(() => {
-      workspace.enableWorkspace(id)
+      const target = workspace.workspaces().find((w: Workspace) => w.id === id)
+      if (!target?.deviceUniqueId) return
+
+      const key = ServerConnection.Key.make(getProxyUrl(target.deviceUniqueId))
+      const isClosed = workspace.closedWorkspaceIds().includes(id)
+      const enabled = workspace.enabledWorkspaceIds().includes(id)
+      if (!isClosed && !enabled) workspace.enableWorkspace(id)
       if (workspace.selectedWorkspaceId() !== id) workspace.selectWorkspace(id)
       if (server.key !== key) server.setActive(key)
     })

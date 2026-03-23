@@ -282,8 +282,10 @@ function createGlobalSync() {
         setGlobalProject: setProjects,
       })
       if (event.type === "server.connected" || event.type === "global.disposed") {
-        for (const directory of Object.keys(children.children)) {
-          queue.push(directory)
+        if (event.type === "global.disposed" || !globalSDK.isReconnect()) {
+          for (const directory of Object.keys(children.children)) {
+            queue.push(directory)
+          }
         }
       }
       return
@@ -390,6 +392,23 @@ export function GlobalSyncProvider(props: ParentProps) {
     <Switch>
       <Match when={value.ready}>
         <GlobalSyncContext.Provider value={value}>{props.children}</GlobalSyncContext.Provider>
+      </Match>
+      <Match when={!value.ready}>
+        <GlobalSyncContext.Provider value={value}>
+          <div class="flex h-full w-full min-h-0">
+            <div class="flex flex-col gap-2 p-3 w-[var(--sidebar-width,280px)] shrink-0 border-r border-border-base">
+              <div class="h-6 w-3/4 rounded-md bg-surface-raised-base opacity-60 animate-pulse" />
+              <div class="flex flex-col gap-1 mt-2">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <div class="h-8 w-full rounded-md bg-surface-raised-base opacity-60 animate-pulse" />
+                ))}
+              </div>
+            </div>
+            <div class="flex-1 min-h-0 flex items-center justify-center">
+              <div class="h-5 w-5 rounded-full border-2 border-border-base border-t-text-dimmed animate-spin" />
+            </div>
+          </div>
+        </GlobalSyncContext.Provider>
       </Match>
     </Switch>
   )

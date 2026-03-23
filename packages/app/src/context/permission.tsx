@@ -8,6 +8,7 @@ import { useGlobalSync } from "./global-sync"
 import { useParams } from "@solidjs/router"
 import { decode64 } from "@/utils/base64"
 import { acceptKey, autoRespondsPermission } from "./permission-auto-respond"
+import { useActiveWorkspace } from "@/pages/workspace/active-workspace"
 
 type PermissionRespondFn = (input: {
   sessionID: string
@@ -45,6 +46,7 @@ export const { use: usePermission, provider: PermissionProvider } = createSimple
     const params = useParams()
     const globalSDK = useGlobalSDK()
     const globalSync = useGlobalSync()
+    const active = useActiveWorkspace()
 
     const permissionsEnabled = createMemo(() => {
       const directory = decode64(params.dir)
@@ -55,7 +57,9 @@ export const { use: usePermission, provider: PermissionProvider } = createSimple
 
     const [store, setStore, _, ready] = persisted(
       {
-        ...Persist.global("permission", ["permission.v3"]),
+        ...(active?.id
+          ? Persist.device(active.id, "permission", ["permission.v3"])
+          : Persist.global("permission", ["permission.v3"])),
         migrate(value) {
           if (!value || typeof value !== "object" || Array.isArray(value)) return value
 
