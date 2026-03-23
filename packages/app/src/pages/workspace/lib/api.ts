@@ -1,5 +1,8 @@
 // Workspace API Client - 对接 server 层接口
-const API_BASE = import.meta.env.VITE_API_URL ?? ""
+import { env } from "@/lib/env"
+
+const PREFIX = env.API_PREFIX
+const API_BASE = env.API_URL || PREFIX
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
