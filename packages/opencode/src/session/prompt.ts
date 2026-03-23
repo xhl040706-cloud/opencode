@@ -630,6 +630,26 @@ export namespace SessionPrompt {
         })
       }
 
+      // Inject editor context into the last user message for cache optimization
+      const editorCtx = SystemPrompt.editorContext()
+      if (editorCtx) {
+        const lastMsg = msgs.findLast((m) => m.info.role === "user")
+        if (lastMsg) {
+          for (const part of lastMsg.parts) {
+            if (part.type !== "text" || part.ignored) continue
+            if (!part.text.trim()) continue
+            part.text = [
+              "<editor_context>",
+              editorCtx,
+              "</editor_context>",
+              "",
+              part.text,
+            ].join("\n")
+            break
+          }
+        }
+      }
+
       // Ephemerally wrap queued user messages with a reminder to stay on track
       if (step > 1 && lastFinished) {
         for (const msg of msgs) {
