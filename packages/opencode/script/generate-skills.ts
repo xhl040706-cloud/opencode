@@ -45,7 +45,7 @@ async function fetchCommitSha(repo: string, branch: string): Promise<string | nu
 // Builtin skills configuration
 const BUILTIN_SKILLS = {
   "security-review": {
-    repo: "zgsm-ai/security-review",
+    repo: "zgsm-ai/security-review-skill",
     branch: "main",
     subdir: "security-review",
   },
