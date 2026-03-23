@@ -19,7 +19,10 @@ export async function assignGateway(device: DeviceInfo): Promise<string> {
   const timer = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS)
   const res = await fetch(`${base}/cloud/device/gateway-assign`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${device.device_token}`,
+    },
     body: JSON.stringify({ deviceID: device.device_id }),
     signal: controller.signal,
   }).finally(() => clearTimeout(timer))

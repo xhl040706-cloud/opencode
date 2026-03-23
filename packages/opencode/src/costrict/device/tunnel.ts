@@ -497,9 +497,9 @@ async function handleStream(stream: YamuxStream, localPort: number) {
   stream.close()
 }
 
-async function runSession(gatewayURL: string, deviceId: string, localPort: number): Promise<void> {
-  const wsURL = `${gatewayURL.replace(/^http/, "ws")}/device/${deviceId}/tunnel`
-  log.info("connecting tunnel", { wsURL })
+async function runSession(gatewayURL: string, deviceId: string, deviceToken: string, localPort: number): Promise<void> {
+  const wsURL = `${gatewayURL.replace(/^http/, "ws")}/device/${deviceId}/tunnel?token=${encodeURIComponent(deviceToken)}`
+  log.info("connecting tunnel", { wsURL: wsURL.replace(/token=[^&]+/, "token=***") })
 
   const ws = new WebSocket(wsURL)
   const session = new YamuxSession(ws)
@@ -549,7 +549,7 @@ export async function connect(localPort: number): Promise<void> {
     try {
       clearGatewayCache()
       const gatewayURL = await assignGateway(device)
-      await runSession(gatewayURL, device.device_id, localPort)
+      await runSession(gatewayURL, device.device_id, device.device_token, localPort)
       attempt = 0
     } catch (e: any) {
       log.warn("tunnel disconnected", { error: e.message })

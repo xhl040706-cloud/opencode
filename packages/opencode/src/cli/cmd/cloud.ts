@@ -13,6 +13,8 @@ const log = Log.create({ service: "cloud-cmd" })
 
 const READY_TIMEOUT_MS = 30_000
 
+const DEVICE_ENV_KEY = "__CLOUD_DEVICE__"
+
 async function runWorker() {
   Log.useStderr()
 
@@ -22,7 +24,11 @@ async function runWorker() {
     log.warn("TLS certificate verification is disabled (COSTRICT_INSECURE_SKIP_TLS_VERIFY=true) - this is insecure!")
   }
 
-  const device = await register()
+  // Device registration is done in the foreground parent process (startDaemon)
+  // and passed to the worker via environment variable.
+  const raw = process.env[DEVICE_ENV_KEY]
+  if (!raw) throw new Error("missing device info from parent process")
+  const device = JSON.parse(raw) as import("../../costrict/device/client").DeviceInfo
   console.log(`device registered: ${device.device_id}`)
 
   initCloudNotifier(device.base_url, device.device_token, device.device_id)
@@ -46,6 +52,16 @@ async function startDaemon() {
     return
   }
 
+  // Handle TLS certificate verification setting before any network requests
+  if (Flag.COSTRICT_INSECURE_SKIP_TLS_VERIFY) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+    log.warn("TLS certificate verification is disabled (COSTRICT_INSECURE_SKIP_TLS_VERIFY=true) - this is insecure!")
+  }
+
+  // Perform device registration in the foreground so auth errors are visible
+  const device = await register()
+  console.log(`device registered: ${device.device_id}`)
+
   const entry = process.argv[1]
   const logFd = Daemon.openLogFd()
 
@@ -53,7 +69,7 @@ async function startDaemon() {
     detached: true,
     windowsHide: true,
     stdio: ["ignore", logFd, logFd, "ipc"],
-    env: process.env,
+    env: { ...process.env, [DEVICE_ENV_KEY]: JSON.stringify(device) },
   })
 
   child.unref()
