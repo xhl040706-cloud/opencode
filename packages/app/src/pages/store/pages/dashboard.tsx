@@ -200,9 +200,9 @@ export default function Dashboard() {
                 </div>
                 <h1 class="text-lg font-semibold text-text-strong">{language.t("store.console")}</h1>
                 <p class="mt-2 text-sm text-text-weak">{language.t("store.console.authDescription")}</p>
-                <a href={getLoginUrl("/store/dashboard")}>
-                  <Button class="mt-4">{language.t("store.console.login")}</Button>
-                </a>
+                <Button class="mt-4" onClick={() => { window.location.href = getLoginUrl("/store/dashboard") }}>
+                  {language.t("store.console.login")}
+                </Button>
               </div>
             </div>
           }

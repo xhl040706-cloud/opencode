@@ -44,9 +44,13 @@ function UserButton() {
       when={user()}
       fallback={
         <Tooltip placement="right" value="Sign In">
-          <a href={getLoginUrl()}>
-            <IconButton icon="glasses" variant="ghost" size="large" aria-label="Sign In" />
-          </a>
+          <IconButton
+            icon="glasses"
+            variant="ghost"
+            size="large"
+            aria-label="Sign In"
+            onClick={() => { window.location.href = getLoginUrl() }}
+          />
         </Tooltip>
       }
     >

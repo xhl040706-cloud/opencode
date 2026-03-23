@@ -25,27 +25,6 @@ const AuthContext = createContext<AuthContextValue>({
 export function AuthProvider(props: ParentProps) {
   const [state, setState] = createStore<AuthState>({ user: null, loading: true })
 
-  async function handleCallback() {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get("code")
-    if (!code) return false
-
-    const appUrl = env.APP_URL ?? ""
-    const qs = new URLSearchParams({ code, redirect_uri: `${appUrl}/store` })
-
-    try {
-      const res = await fetch(`${PREFIX}/api/auth/callback?${qs.toString()}`, { credentials: "include" })
-      if (!res.ok) return false
-
-      const redirectTo = decodeURIComponent(params.get("state") ?? "/store")
-      window.history.replaceState({}, "", window.location.pathname)
-      if (redirectTo !== window.location.pathname) window.location.href = redirectTo
-      return true
-    } catch {
-      return false
-    }
-  }
-
   async function fetchUser() {
     try {
       const res = await fetch(`${PREFIX}/api/auth/me`, { credentials: "include" })
@@ -56,7 +35,6 @@ export function AuthProvider(props: ParentProps) {
   }
 
   onMount(async () => {
-    await handleCallback()
     await fetchUser()
     setState("loading", false)
   })

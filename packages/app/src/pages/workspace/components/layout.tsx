@@ -8,6 +8,7 @@ import { workspaceApi, deviceApi } from "../lib/api"
 import { WorkspaceSidebar } from "./workspace-sidebar"
 import { WorkspaceProvider, useWorkspace, type WorkspaceContextValue } from "../context"
 import { ServerConnection, ServerProvider, useServer } from "@/context/server"
+import { useAuth } from "@/context/auth"
 import { AppInterface } from "@/app-interface"
 import { getProxyUrl } from "../lib/url"
 import { ActiveWorkspaceProvider } from "../active-workspace"
@@ -23,8 +24,10 @@ export default function WorkspaceLayout(props: ParentProps) {
   const [showHistorySidebar, setShowHistorySidebar] = createSignal(false)
   const [enabledIds, setEnabledIds] = createSignal<string[]>([])
   const closed = new Set<string>()
+  const auth = useAuth()
 
   onMount(async () => {
+    if (!auth.user()) return
     setIsLoading(true)
     try {
       const [workspacesRes, devicesRes] = await Promise.all([
@@ -45,6 +48,7 @@ export default function WorkspaceLayout(props: ParentProps) {
 
   let loading = false
   const loadDevices = async () => {
+    if (!auth.user()) return
     if (document.visibilityState !== "visible") return
     if (!inWorkspace) return
     if (loading) return

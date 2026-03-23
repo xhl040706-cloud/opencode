@@ -74,20 +74,6 @@ export const env = {
     return getEnv("VITE_API_URL", "")
   },
 
-  // Casdoor authentication
-  get CASDOOR_ENDPOINT() {
-    return getEnv("VITE_CASDOOR_ENDPOINT", "http://localhost:18000")
-  },
-  get CASDOOR_CLIENT_ID() {
-    return getEnv("VITE_CASDOOR_CLIENT_ID", "")
-  },
-  get CASDOOR_APP_NAME() {
-    return getEnv("VITE_CASDOOR_APP_NAME", "app-built-in")
-  },
-  get CASDOOR_ORG_NAME() {
-    return getEnv("VITE_CASDOOR_ORG_NAME", "built-in")
-  },
-
   // Base path for subdirectory deployment (e.g., "/costrict-web-portal")
   get BASE_PATH() {
     return getEnv("VITE_BASE_PATH", "")
