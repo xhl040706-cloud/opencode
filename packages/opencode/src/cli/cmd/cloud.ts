@@ -62,10 +62,11 @@ async function startDaemon() {
   const device = await register()
   console.log(`device registered: ${device.device_id}`)
 
-  const entry = process.argv[1]
+  const entry = process.execPath
   const logFd = Daemon.openLogFd()
 
-  const child = spawn(process.execPath, [entry, "cloud", "_worker"], {
+  // Spawn the binary directly (process.execPath is the compiled executable)
+  const child = spawn(entry, ["cloud", "_worker"], {
     detached: true,
     windowsHide: true,
     stdio: ["ignore", logFd, logFd, "ipc"],
