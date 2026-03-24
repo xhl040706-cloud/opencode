@@ -1,5 +1,6 @@
 import { spawn } from "child_process"
 import fs from "fs"
+import path from "path"
 import { Server } from "../../server/server"
 import { cmd } from "./cmd"
 import { register } from "../../costrict/device/client"
@@ -62,15 +63,23 @@ async function startDaemon() {
   const device = await register()
   console.log(`device registered: ${device.device_id}`)
 
-  const entry = process.execPath
   const logFd = Daemon.openLogFd()
 
-  // Spawn the binary directly (process.execPath is the compiled executable)
-  const child = spawn(entry, ["cloud", "_worker"], {
+  // In dev mode, process.execPath is "bun" and `bun cloud` is a reserved
+  // Bun subcommand, so we need to go through `bun run` with the script
+  // entrypoint.  In production the compiled binary handles it directly.
+  const entry = process.execPath
+  const dev = path.basename(entry).toLowerCase().startsWith("bun")
+  const args = dev
+    ? ["run", "--conditions=browser", path.resolve(import.meta.dirname, "../../index.ts"), "cloud", "_worker"]
+    : ["cloud", "_worker"]
+
+  const child = spawn(entry, args, {
     detached: true,
     windowsHide: true,
     stdio: ["ignore", logFd, logFd, "ipc"],
     env: { ...process.env, [DEVICE_ENV_KEY]: JSON.stringify(device) },
+    ...(dev ? { cwd: path.resolve(import.meta.dirname, "../../..") } : {}),
   })
 
   child.unref()

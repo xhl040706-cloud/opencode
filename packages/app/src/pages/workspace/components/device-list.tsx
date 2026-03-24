@@ -80,7 +80,7 @@ export function DeviceList(props: DeviceListProps) {
               <For each={filteredDevices()}>
                 {(device) => (
                   <div
-                    class={`group flex items-center rounded-md transition-colors duration-150 ${isSelected(device.id) ? "bg-surface-base-active" : ""} ${device.status === "offline" ? "opacity-60" : ""}`}
+                    class={`group flex items-center rounded-md border border-transparent hover:border-border-weak-base transition-colors duration-150 ${isSelected(device.id) ? "bg-surface-base-active" : ""} ${device.status === "offline" ? "opacity-60" : ""}`}
                   >
                     <div class="flex-1 min-w-0 flex flex-col gap-1 p-2 cursor-default">
                       <div class="flex items-center gap-2">

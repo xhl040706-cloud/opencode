@@ -5,6 +5,7 @@ import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { Collapsible } from "@opencode-ai/ui/collapsible"
 import { Spinner } from "@opencode-ai/ui/spinner"
+import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { DateTime } from "luxon"
 import type { Device, DeviceStatus, Workspace, WorkspaceDirectory } from "../types"
@@ -132,126 +133,206 @@ export function WorkspaceSidebar() {
       return ws ? getPrimaryDirectory(ws) : undefined
     })
     const dot = createMemo(() => getDeviceStatusDot(workspace()?.deviceStatus))
+    const device = createMemo(() => {
+      const ws = workspace()
+      if (!ws?.deviceId) return undefined
+      return devices().find((d) => d.id === ws.deviceId)
+    })
     const selected = () => selectedWorkspaceId() === cardProps.id
     const [open, setOpen] = createSignal(false)
+    const [mounted, setMounted] = createSignal(false)
+    const toggle = () => {
+      if (!mounted()) setMounted(true)
+      setOpen((v) => !v)
+    }
+
+    // Idle card: three-line layout
+    const idleContent = () => (
+      <div class="min-w-0 flex flex-col gap-0.5 py-1.5">
+        <div class="flex items-center gap-1.5">
+          <Tooltip placement="top" value={dot().text}>
+            <div
+              classList={{
+                "size-1.5 rounded-full shrink-0": true,
+                "bg-icon-success-base": dot().online,
+                "bg-icon-critical-base": dot().offline,
+                "bg-border-weak-base": !dot().online && !dot().offline,
+              }}
+            />
+          </Tooltip>
+          <span class="text-13-medium text-text-strong truncate">{workspace()?.name}</span>
+          <Show when={workspace()?.isDefault}>
+            <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">{t("common.default")}</span>
+          </Show>
+        </div>
+        <span class="text-11-regular text-text-weak truncate">{device()?.displayName ?? t("workspace.device.unbound")}</span>
+        <Show when={primaryDir()}>
+          <span class="text-11-regular text-text-weaker truncate">{primaryDir()!.path}</span>
+        </Show>
+      </div>
+    )
+
+    // Running card: single-line layout
+    const runningContent = () => (
+      <div class="flex items-center gap-1 min-w-0 w-full">
+        <Tooltip placement="top" value={dot().text}>
+          <div
+            classList={{
+              "size-1.5 rounded-full shrink-0": true,
+              "bg-icon-success-base": dot().online,
+              "bg-icon-critical-base": dot().offline,
+              "bg-border-weak-base": !dot().online && !dot().offline,
+            }}
+          />
+        </Tooltip>
+        <span class="text-14-regular text-text-strong truncate">{workspace()?.name}</span>
+        <Show when={workspace()?.isDefault}>
+          <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">{t("common.default")}</span>
+        </Show>
+        <Icon name={open() ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-weak" />
+      </div>
+    )
+
+    if (cardProps.isRunning) {
+      return (
+        <Show when={workspace()}>
+          {(ws) => (
+            <div>
+              <div
+                class="group/workspace flex items-center rounded-md border border-border-weak-base transition-colors cursor-default h-8 has-[.content-area:hover]:bg-surface-base-hover"
+              >
+                <div
+                  classList={{
+                    "shrink-0 w-1.5 self-stretch rounded-l-[calc(0.375rem-1px)] transition-colors": true,
+                    "bg-icon-critical-base": dot().offline,
+                    "bg-icon-success-base": !dot().offline,
+                  }}
+                />
+                <div
+                  class="content-area flex-1 min-w-0 flex items-center px-2 transition-colors h-full"
+                  onClick={() => toggle()}
+                >
+                  {runningContent()}
+                </div>
+                <div class="shrink-0 flex items-center gap-0.5 pr-1 opacity-0 group-hover/workspace:opacity-100 transition-opacity">
+                  <DropdownMenu>
+                    <Tooltip placement="top" value={t("workspace.more")}>
+                      <DropdownMenu.Trigger
+                        as={IconButton}
+                        icon="dot-grid"
+                        variant="ghost"
+                        class="size-6 rounded-md cursor-pointer"
+                        aria-label={t("workspace.more")}
+                      />
+                    </Tooltip>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content>
+                        <DropdownMenu.Item onSelect={() => handleCloseWorkspace(ws())}>
+                          <DropdownMenu.ItemLabel>{t("workspace.close")}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Separator />
+                        <DropdownMenu.Item onSelect={() => deleteWorkspace(cardProps.id)}>
+                          <DropdownMenu.ItemLabel>{t("workspace.delete")}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu>
+                  <Tooltip placement="top" value={t("workspace.newSession")}>
+                    <IconButton
+                      icon="plus-small"
+                      variant="ghost"
+                      class="size-6 rounded-md cursor-pointer"
+                      aria-label={t("workspace.newSession")}
+                      onClick={(event: MouseEvent) => {
+                        event.stopPropagation()
+                        if (!mounted()) setMounted(true)
+                        if (!open()) setOpen(true)
+                        const dir = primaryDir()
+                        const dirSlug = dir ? encodeDirectory(dir.path) : "default"
+                        navigateToNewSession({ workspaceId: cardProps.id, dir: dirSlug })
+                      }}
+                    />
+                  </Tooltip>
+                </div>
+              </div>
+              <Show when={mounted()}>
+                <div classList={{ hidden: !open() }}>
+                  <WorkspaceSessions id={cardProps.id} />
+                </div>
+              </Show>
+            </div>
+          )}
+        </Show>
+      )
+    }
 
     return (
       <Show when={workspace()}>
         {(ws) => (
-          <Collapsible open={open()}>
+          <div
+            class="group/workspace flex items-stretch rounded-md border border-border-weak-base transition-colors cursor-default"
+            classList={{ "bg-surface-base-active": selected() }}
+          >
             <div
-              class="group/workspace flex items-stretch rounded-md transition-colors cursor-default"
-              classList={{ "bg-surface-base-active": selected() }}
+              classList={{
+                "shrink-0 w-1.5 rounded-l-md transition-colors": true,
+                "bg-border-weak-base": true,
+              }}
+            />
+            <div
+              classList={{
+                "flex-1 min-w-0 flex items-center px-2 transition-colors": true,
+                "hover:bg-surface-base-hover": !dot().offline,
+                "cursor-not-allowed opacity-60": dot().offline,
+              }}
+              onClick={() => {
+                if (dot().offline) return
+                handleSelectWorkspace(ws())
+              }}
             >
-              <Show
-                when={cardProps.isRunning}
-                fallback={
-                  <div
-                    class="flex-1 min-w-0 flex items-center gap-1 px-2 h-10 rounded-l-md hover:bg-surface-raised-base-hover transition-colors"
-                    onClick={() => handleSelectWorkspace(ws())}
-                  >
-                    <div class="shrink-0 size-6 flex items-center justify-center">
-                      <Icon name="folder" size="small" class="text-icon-weak" />
-                    </div>
-                    <div class="min-w-0 flex flex-col">
-                      <div class="flex items-center gap-1.5">
-                        <Tooltip placement="top" value={dot().text}>
-                          <div
-                            classList={{
-                              "size-1.5 rounded-full shrink-0": true,
-                              "bg-icon-success-base": dot().online,
-                              "bg-icon-critical-base": dot().offline,
-                              "bg-border-weak-base": !dot().online && !dot().offline,
-                            }}
-                          />
-                        </Tooltip>
-                        <span class="text-14-regular text-text-strong truncate">{ws().name}</span>
-                      </div>
-                      <Show when={primaryDir()}>
-                        <span class="text-11-regular text-text-weak truncate">{primaryDir()!.path}</span>
-                      </Show>
-                    </div>
-                  </div>
-                }
-              >
-                <Collapsible.Trigger
-                  class="flex-1 min-w-0 flex items-center gap-1 px-2 h-10 rounded-l-md hover:bg-surface-raised-base-hover transition-colors cursor-pointer"
-                  onClick={() => {
-                    setOpen((v) => !v)
-                    handleSelectWorkspace(ws())
+              {idleContent()}
+            </div>
+            <div class="shrink-0 flex flex-col w-10 border-l border-border-weak-base opacity-0 group-hover/workspace:opacity-100 transition-opacity self-stretch">
+              <Tooltip placement="left" value={dot().offline ? t("workspace.device.offline") : t("workspace.run")} class="flex-1">
+                <div
+                  classList={{
+                    "size-full flex items-center justify-center transition-colors rounded-tr-md": true,
+                    "cursor-pointer hover:bg-surface-raised-base-hover": !dot().offline,
+                    "cursor-not-allowed opacity-60": dot().offline,
+                  }}
+                  onClick={(e: MouseEvent) => {
+                    e.stopPropagation()
+                    if (dot().offline) return
+                    handleOpenWorkspace(ws())
                   }}
                 >
-                  <div class="shrink-0 size-6 flex items-center justify-center">
-                    <Icon name={open() ? "chevron-down" : "chevron-right"} size="small" class="text-icon-weak" />
-                  </div>
-                  <div class="min-w-0 flex flex-col">
-                    <div class="flex items-center gap-1.5">
-                      <Tooltip placement="top" value={dot().text}>
-                        <div
-                          classList={{
-                            "size-1.5 rounded-full shrink-0": true,
-                            "bg-icon-success-base": dot().online,
-                            "bg-icon-critical-base": dot().offline,
-                            "bg-border-weak-base": !dot().online && !dot().offline,
-                          }}
-                        />
-                      </Tooltip>
-                      <span class="text-14-regular text-text-strong truncate">{ws().name}</span>
-                    </div>
-                    <Show when={primaryDir()}>
-                      <span class="text-11-regular text-text-weak truncate">{primaryDir()!.path}</span>
-                    </Show>
-                  </div>
-                </Collapsible.Trigger>
-              </Show>
-
-              <div class="shrink-0 flex flex-col w-8 border-l border-border-weak-base opacity-0 group-hover/workspace:opacity-100 transition-opacity self-stretch">
-                <Tooltip
-                  placement="left"
-                  value={cardProps.isRunning ? t("workspace.close") : t("workspace.run")}
-                  class="flex-1"
+                  <Icon name="arrow-up" size="small" class="text-icon-weak" />
+                </div>
+              </Tooltip>
+              <Tooltip placement="left" value={t("workspace.delete")} class="flex-1">
+                <div
+                  class="size-full flex items-center justify-center cursor-pointer hover:bg-surface-raised-base-hover transition-colors rounded-br-md"
+                  onClick={(e: MouseEvent) => {
+                    e.stopPropagation()
+                    deleteWorkspace(cardProps.id)
+                  }}
                 >
-                  <div
-                    class="h-full flex items-center justify-center cursor-pointer hover:bg-surface-raised-base-hover transition-colors rounded-tr-md"
-                    onClick={(e: MouseEvent) => {
-                      e.stopPropagation()
-                      cardProps.isRunning ? handleCloseWorkspace(ws()) : handleOpenWorkspace(ws())
-                    }}
-                  >
-                    <Icon
-                      name={cardProps.isRunning ? "circle-x" : "circle-check"}
-                      size="small"
-                      class="text-icon-weak"
-                    />
-                  </div>
-                </Tooltip>
-                <Tooltip placement="left" value={t("workspace.delete")} class="flex-1">
-                  <div
-                    class="h-full flex items-center justify-center cursor-pointer hover:bg-surface-critical-weak transition-colors rounded-br-md"
-                    onClick={(e: MouseEvent) => {
-                      e.stopPropagation()
-                      deleteWorkspace(cardProps.id)
-                    }}
-                  >
-                    <Icon name="trash" size="small" class="text-icon-weak" />
-                  </div>
-                </Tooltip>
-              </div>
+                  <Icon name="trash" size="small" class="text-icon-weak" />
+                </div>
+              </Tooltip>
             </div>
-            <Show when={cardProps.isRunning}>
-              <Collapsible.Content>
-                <WorkspaceSessions id={cardProps.id} />
-              </Collapsible.Content>
-            </Show>
-          </Collapsible>
+          </div>
         )}
       </Show>
     )
   }
 
   return (
-    <div class="flex flex-col h-full w-72 bg-surface-base border-r border-border-weak-base">
-      <div class="shrink-0 p-2 border-b border-border-weak-base flex items-center gap-1">
+    <div class="flex flex-col h-full w-full bg-background-stronger border-r border-border-weak-base">
+      <div class="h-10 shrink-0 flex items-center px-4">
+        <span class="text-13-medium">{t("workspace.page.title")}</span>
+      </div>
+      <div class="shrink-0 p-2 flex items-center gap-1 border-t border-border-weak-base">
         <div class="flex-1 flex items-center gap-2 h-8 px-2 bg-background-base rounded-md border border-border-weak-base focus-within:border-border-strong-base">
           <Icon name="magnifying-glass" class="size-4 text-text-weak shrink-0" />
           <input
@@ -264,7 +345,7 @@ export function WorkspaceSidebar() {
         </div>
       </div>
 
-      <div class="flex-1 min-h-0 overflow-y-auto py-2">
+      <div class="flex-1 min-h-0 overflow-y-auto pb-2">
         <Collapsible open={!isRunningCollapsed()}>
           <div class="px-2 py-1">
             <Collapsible.Trigger
@@ -280,7 +361,7 @@ export function WorkspaceSidebar() {
               <span class="text-11-regular text-text-weaker">{runningIds().length}</span>
             </Collapsible.Trigger>
             <Collapsible.Content>
-              <div class="flex flex-col gap-0.5">
+              <div class="flex flex-col gap-1.5">
                 <For each={runningIds()}>{(id) => <WorkspaceCard id={id} isRunning={true} />}</For>
               </div>
             </Collapsible.Content>
@@ -302,7 +383,7 @@ export function WorkspaceSidebar() {
               <span class="text-11-regular text-text-weaker">{idleIds().length}</span>
             </Collapsible.Trigger>
             <Collapsible.Content>
-              <div class="flex flex-col gap-0.5">
+              <div class="flex flex-col gap-1.5">
                 <For each={idleIds()}>{(id) => <WorkspaceCard id={id} isRunning={false} />}</For>
                 <Show when={filteredWorkspaces().length === 0}>
                   <div class="flex flex-col items-center justify-center py-8 text-text-weak">
@@ -352,7 +433,7 @@ function WorkspaceSessions(props: { id: string }) {
   const language = useLanguage()
   const t = language.t
   const { workspaces } = useWorkspace()
-  const { navigateToSession } = useWorkspaceNavigate()
+  const { navigateToSession, encodeDirectory: encodeDir } = useWorkspaceNavigate()
   const params = useParams()
   const [sessions, setSessions] = createSignal<SessionData[]>([])
   const [loading, setLoading] = createSignal(false)
@@ -396,12 +477,22 @@ function WorkspaceSessions(props: { id: string }) {
     }
   }
 
+  // Track whether initial load has been done
+  let loaded = false
+
   // Reload when the workspace's directories or device changes
   createEffect(
-    on([dirs, device], () => {
-      setSessions([])
-      setLimit(PAGE_SIZE)
-      load(PAGE_SIZE)
+    on([dirs, device], ([newDirs, newDevice], prev) => {
+      if (!loaded) {
+        loaded = true
+        load(PAGE_SIZE)
+        return
+      }
+      if (!prev || newDirs !== prev[0] || newDevice !== prev[1]) {
+        setSessions([])
+        setLimit(PAGE_SIZE)
+        load(PAGE_SIZE)
+      }
     }),
   )
 
@@ -411,8 +502,50 @@ function WorkspaceSessions(props: { id: string }) {
     load(next)
   }
 
+  // Watch current session ID: insert placeholder if not in list, remove stale placeholders
+  createEffect(
+    on(
+      () => params.id,
+      (id, prev) => {
+        // Remove previous placeholder if it had no real activity (title still empty)
+        if (prev) {
+          setSessions((list) => list.filter((s) => s.id !== prev || s.title))
+        }
+        // Insert placeholder for new session not yet in list
+        if (id && !sessions().some((s) => s.id === id)) {
+          const primary = dirs()[0]
+          if (primary) {
+            setSessions((list) => [
+              {
+                id,
+                title: "",
+                directory: primary.path,
+                time: { created: Date.now() },
+              },
+              ...list,
+            ])
+          }
+        }
+      },
+    ),
+  )
+
   const click = (session: SessionData) => {
-    navigateToSession(session.id, { workspaceId: props.id })
+    navigateToSession(session.id, { workspaceId: props.id, dir: encodeDir(session.directory) })
+  }
+
+  const archive = async (session: SessionData) => {
+    const uid = device()
+    if (!uid) return
+    const url = getProxyUrl(uid)
+    await fetch(`${url}/session`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: session.id, directory: session.directory, time: { archived: Date.now() } }),
+    }).catch(() => null)
+    setSessions((prev) => prev.filter((s) => s.id !== session.id))
+    if (params.id === session.id) navigateToSession("", { workspaceId: props.id, dir: encodeDir(session.directory) })
   }
 
   return (
@@ -423,29 +556,43 @@ function WorkspaceSessions(props: { id: string }) {
             {(session) => {
               const active = () => params.id === session.id
               return (
-                <button
-                  class="flex items-center gap-1.5 px-2 h-8 rounded text-left transition-colors w-full"
-                  classList={{
-                    "bg-surface-base-active": active(),
-                    "hover:bg-surface-raised-base-hover/50": !active(),
-                  }}
-                  onClick={() => click(session)}
-                >
-                  <Icon
-                    name="bubble-5"
-                    class="size-3 shrink-0"
-                    classList={{ "text-icon-base": active(), "text-text-weaker": !active() }}
-                  />
-                  <span
-                    class="text-12-regular truncate flex-1"
-                    classList={{ "text-text-strong": active(), "text-text-base": !active() }}
+                <div class="group/session relative">
+                  <button
+                    class="flex items-center gap-1.5 px-2 h-8 rounded-md text-left transition-all w-full group-hover/session:pr-7"
+                    classList={{
+                      "bg-surface-base-active": active(),
+                      "hover:bg-surface-raised-base-hover/50": !active(),
+                    }}
+                    onClick={() => click(session)}
                   >
-                    {session.title || t("workspace.session.new")}
-                  </span>
-                  <span class="text-10-regular text-text-weaker shrink-0">
-                    {DateTime.fromMillis(session.time.updated ?? session.time.created).toRelative()}
-                  </span>
-                </button>
+                    <Icon
+                      name="bubble-5"
+                      class="size-3 shrink-0"
+                      classList={{ "text-icon-base": active(), "text-text-weaker": !active() }}
+                    />
+                    <span
+                      class="text-12-regular truncate flex-1"
+                      classList={{ "text-text-strong": active(), "text-text-base": !active() }}
+                    >
+                      {session.title || t("workspace.session.new")}
+                    </span>
+                  </button>
+                  <div class="absolute top-0.5 right-0.5 flex items-center opacity-0 pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto transition-opacity">
+                    <Tooltip value={t("common.archive")} placement="top">
+                      <IconButton
+                        icon="archive"
+                        variant="ghost"
+                        class="size-6 rounded-md"
+                        aria-label={t("common.archive")}
+                        onClick={(event: MouseEvent) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          archive(session)
+                        }}
+                      />
+                    </Tooltip>
+                  </div>
+                </div>
               )
             }}
           </For>
@@ -466,6 +613,11 @@ function WorkspaceSessions(props: { id: string }) {
         <div class="flex items-center gap-2 py-2 px-2">
           <Spinner class="size-3.5" />
           <span class="text-11-regular text-text-weaker">{t("workspace.loadingSessions")}</span>
+        </div>
+      </Show>
+      <Show when={!loading() && sessions().length === 0}>
+        <div class="flex items-center gap-2 py-2 px-2">
+          <span class="text-11-regular text-text-weaker">{t("workspace.emptySessions")}</span>
         </div>
       </Show>
     </div>

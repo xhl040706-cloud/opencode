@@ -22,7 +22,7 @@ export function WorkspaceHistorySidebar(props: WorkspaceHistorySidebarProps) {
   const t = language.t
   const globalSync = useGlobalSync()
   const active = useActiveWorkspace()!
-  const { navigateToSession, navigateToNewSession } = useWorkspaceNavigate()
+  const { navigateToSession, navigateToNewSession, encodeDirectory } = useWorkspaceNavigate()
   const [isLoading, setIsLoading] = createSignal(false)
 
   const directories = createMemo(() => props.workspace?.directories ?? [])
@@ -72,13 +72,16 @@ export function WorkspaceHistorySidebar(props: WorkspaceHistorySidebarProps) {
   const handleSessionClick = (session: Session) => {
     const workspaceId = props.workspace?.id ?? active.id
     if (!workspaceId) return
-    navigateToSession(session.id, { workspaceId })
+    navigateToSession(session.id, { workspaceId, dir: encodeDirectory(session.directory) })
   }
 
   const handleNewSession = () => {
     const workspaceId = props.workspace?.id ?? active.id
     if (!workspaceId) return
-    navigateToNewSession({ workspaceId })
+    const dirs = directories()
+    const primary = dirs.find((d) => d.isDefault) ?? dirs[0]
+    const dir = primary ? encodeDirectory(primary.path) : "default"
+    navigateToNewSession({ workspaceId, dir })
   }
 
   return (

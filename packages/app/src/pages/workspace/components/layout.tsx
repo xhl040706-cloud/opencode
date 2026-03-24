@@ -191,7 +191,9 @@ export default function WorkspaceLayout(props: ParentProps) {
         <WorkspaceServerProvider>
           <WorkspaceActivation>
             <div class="flex h-full w-full min-h-0">
-              <WorkspaceSidebar />
+              <div class="shrink-0 w-[280px] h-full">
+                <WorkspaceSidebar />
+              </div>
               <WorkspaceContent>{props.children}</WorkspaceContent>
             </div>
           </WorkspaceActivation>
@@ -241,11 +243,12 @@ function WorkspaceActivation(props: ParentProps) {
     const id = params.workspaceID
     if (!id) return
 
-    untrack(() => {
-      const target = workspace.workspaces().find((w: Workspace) => w.id === id)
-      if (!target?.deviceUniqueId) return
+    const all = workspace.workspaces()
+    const target = all.find((w: Workspace) => w.id === id)
+    if (!target?.deviceUniqueId) return
 
-      const key = ServerConnection.Key.make(getProxyUrl(target.deviceUniqueId))
+    untrack(() => {
+      const key = ServerConnection.Key.make(getProxyUrl(target.deviceUniqueId!))
       const isClosed = workspace.closedWorkspaceIds().includes(id)
       const enabled = workspace.enabledWorkspaceIds().includes(id)
       if (!isClosed && !enabled) workspace.enableWorkspace(id)
@@ -260,8 +263,10 @@ function WorkspaceActivation(props: ParentProps) {
 function WorkspaceContent(props: ParentProps) {
   const server = useServer()
   return (
-    <Show when={server.key} keyed fallback={<div class="flex-1 h-full min-h-0 overflow-hidden bg-background-base">{props.children}</div>}>
-      {(_key) => <AppInterface>{props.children}</AppInterface>}
-    </Show>
+    <div class="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
+      <Show when={server.key} keyed fallback={<div class="size-full bg-background-base" />}>
+        {(_key) => <AppInterface>{props.children}</AppInterface>}
+      </Show>
+    </div>
   )
 }

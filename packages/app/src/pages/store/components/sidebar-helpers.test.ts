@@ -66,7 +66,7 @@ describe("repoItemClass", () => {
 describe("capabilityItemClass", () => {
   test("active state includes active classes", () => {
     const cls = capabilityItemClass(true)
-    expect(cls).toContain("bg-surface-raised-strong")
+    expect(cls).toContain("bg-surface-base")
     expect(cls).toContain("text-text-strong")
     expect(cls).toContain("font-medium")
   })
