@@ -48,12 +48,6 @@ export function WorkspaceSidebar() {
   const handleOpenWorkspace = (workspace: Workspace) => {
     if (!workspace.deviceUniqueId) return
     enableWorkspace(workspace.id)
-    selectWorkspace(workspace.id)
-    active.setActive(workspace.id, workspace)
-    server.setActive(ServerConnection.Key.make(getProxyUrl(workspace.deviceUniqueId)))
-    const primaryDir = getPrimaryDirectory(workspace)
-    const dirSlug = primaryDir ? encodeDirectory(primaryDir.path) : "default"
-    navigateToNewSession({ workspaceId: workspace.id, dir: dirSlug })
   }
 
   const handleCloseWorkspace = (workspace: Workspace) => {
@@ -63,7 +57,13 @@ export function WorkspaceSidebar() {
   }
 
   const handleSelectWorkspace = (workspace: Workspace) => {
+    if (!workspace.deviceUniqueId) return
     selectWorkspace(workspace.id)
+    active.setActive(workspace.id, { ...workspace })
+    server.setActive(ServerConnection.Key.make(getProxyUrl(workspace.deviceUniqueId)))
+    const primaryDir = getPrimaryDirectory(workspace)
+    const dirSlug = primaryDir ? encodeDirectory(primaryDir.path) : "default"
+    navigateToNewSession({ workspaceId: workspace.id, dir: dirSlug })
   }
 
   const [workspaceSearchQuery, setWorkspaceSearchQuery] = createSignal("")
