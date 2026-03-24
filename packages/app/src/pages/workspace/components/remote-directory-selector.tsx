@@ -8,6 +8,7 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
 import { cloudDeviceFileApi, type FileNode, checkCloudFileSupport } from "../lib/cloud-device-api"
 import type { Device } from "../types"
+import { useLanguage } from "@/context/language"
 
 export interface RemoteDirectorySelectorProps {
   device: Device
@@ -76,7 +77,8 @@ function useDirectoryCache(deviceId: () => string) {
     const controller = new AbortController()
     pending.set(key, controller)
 
-    const request = cloudDeviceFileApi.list(deviceId(), path)
+    const request = cloudDeviceFileApi
+      .list(deviceId(), path)
       .then((result) => {
         pending.delete(key)
         return result || []
@@ -110,6 +112,8 @@ function useDirectoryCache(deviceId: () => string) {
 }
 
 export function RemoteDirectorySelector(props: RemoteDirectorySelectorProps) {
+  const language = useLanguage()
+  const t = language.t
   const [currentPath, setCurrentPath] = createSignal("/")
   const [selectedPath, setSelectedPath] = createSignal<string | null>(null)
   const [notSupported, setNotSupported] = createSignal<string | null>(null)
@@ -136,7 +140,7 @@ export function RemoteDirectorySelector(props: RemoteDirectorySelectorProps) {
   const checkSupport = async () => {
     const result = await checkCloudFileSupport(props.device.deviceId)
     if (!result.supported) {
-      setNotSupported(result.error || "设备不支持云端文件访问")
+      setNotSupported(result.error || t("workspace.directory.notSupported"))
     } else {
       loadPath(currentPath())
     }
@@ -150,11 +154,7 @@ export function RemoteDirectorySelector(props: RemoteDirectorySelectorProps) {
 
     const searchData = dirs.map((d) => {
       const display = displayPath(d.absolute)
-      const searchFields = [
-        d.name,
-        d.absolute,
-        d.absolute.replace(/\\/g, "/"),
-      ].join(" ")
+      const searchFields = [d.name, d.absolute, d.absolute.replace(/\\/g, "/")].join(" ")
 
       return {
         ...d,
@@ -174,7 +174,7 @@ export function RemoteDirectorySelector(props: RemoteDirectorySelectorProps) {
 
     const filtered = fuzzysort.go(normalizedQuery, searchData, {
       key: "searchFields",
-      limit: 50
+      limit: 50,
     })
 
     return filtered.map((x) => ({
@@ -226,46 +226,50 @@ export function RemoteDirectorySelector(props: RemoteDirectorySelectorProps) {
   }
 
   return (
-    <div class="flex flex-col" style={{ height: "400px", "max-height": "80vh" }}>
-      {/* 路径导航栏 */}
-      <div class="flex items-center gap-2 px-4 py-2 border-b border-border-weak-base bg-surface-base shrink-0">
+    <div class="flex flex-col" style={{ height: "360px", "max-height": "70vh" }}>
+      {/* Path bar */}
+      <div class="flex items-center gap-2 px-3 py-1.5 border-b border-border-weak-base shrink-0">
         <button
           type="button"
-          class="p-1.5 rounded-md hover:bg-surface-base-hover disabled:opacity-50 transition-colors"
+          class="p-1 rounded hover:bg-surface-base-hover disabled:opacity-40 transition-colors"
           onClick={navigateUp}
           disabled={currentPath() === "/" || !!notSupported()}
         >
-          <Icon name="arrow-up" class="size-4" />
+          <Icon name="arrow-up" class="size-3.5" />
         </button>
-        <div class="flex items-center gap-1 text-13-regular text-text-weak flex-1 min-w-0">
-          <Icon name="folder" class="size-4 shrink-0" />
+        <div class="flex items-center gap-1.5 text-12-regular text-text-weak flex-1 min-w-0">
+          <Icon name="folder" class="size-3.5 shrink-0" />
           <span class="truncate">{currentPathDisplay()}</span>
         </div>
-        <span class="text-12-regular text-text-weaker">
-          {directories().length} 个目录
+        <span class="text-11-regular text-text-weaker shrink-0">
+          {t("workspace.directory.count", { count: directories().length })}
         </span>
       </div>
 
-      {/* 不支持提示 */}
+      {/* Not supported warning */}
       <Show when={notSupported()}>
-        <div class="flex flex-col items-center justify-center p-6 text-text-weak shrink-0">
-          <Icon name="warning" class="size-10 mb-3 text-yellow-500" />
-          <p class="text-14-medium text-center">{notSupported()}</p>
-          <p class="text-12-regular text-text-weaker mt-2 text-center">
-            请在设备上创建 cloud.json 配置文件并设置 &quot;allowAbsolutePaths&quot;: true
-          </p>
+        <div class="flex flex-col items-center justify-center p-5 text-text-weak shrink-0">
+          <Icon name="warning" class="size-8 mb-2 text-yellow-500" />
+          <p class="text-13-medium text-center">{notSupported()}</p>
+          <p class="text-11-regular text-text-weaker mt-1.5 text-center">{t("workspace.directory.notSupportedHint")}</p>
         </div>
       </Show>
 
-      {/* 目录列表 */}
-      <div class="flex-1 min-h-0 overflow-hidden" style={{ "max-height": "240px" }}>
+      {/* Directory list */}
+      <div class="flex-1 min-h-0 overflow-hidden">
         <List
           search={{
-            placeholder: notSupported() ? "设备不支持云端访问" : "搜索目录或输入绝对路径如 D:/...",
-            autofocus: true
+            placeholder: notSupported() ? t("workspace.directory.notSupported") : t("workspace.directory.search"),
+            autofocus: true,
           }}
-          emptyMessage={loading() ? "加载中..." : notSupported() ? "设备不支持云端文件访问" : "暂无目录"}
-          loadingMessage="加载中..."
+          emptyMessage={
+            loading()
+              ? t("workspace.directory.loading")
+              : notSupported()
+                ? t("workspace.directory.notSupported")
+                : t("workspace.directory.empty")
+          }
+          loadingMessage={t("workspace.directory.loading")}
           items={items}
           key={(x: Row) => x.absolute}
           filterKeys={["search"]}
@@ -298,9 +302,9 @@ export function RemoteDirectorySelector(props: RemoteDirectorySelectorProps) {
                   navigateTo(item.absolute)
                 }}
               >
-                <div class="flex items-center gap-x-3 grow min-w-0">
+                <div class="flex items-center gap-x-2.5 grow min-w-0">
                   <FileIcon node={{ path: item.absolute, type: "directory" }} class="shrink-0 size-4" />
-                  <div class="flex items-center text-14-regular min-w-0">
+                  <div class="flex items-center text-13-regular min-w-0">
                     <span class="text-text-weak whitespace-nowrap overflow-hidden overflow-ellipsis truncate min-w-0">
                       {path.parent}
                     </span>
@@ -314,41 +318,36 @@ export function RemoteDirectorySelector(props: RemoteDirectorySelectorProps) {
         </List>
       </div>
 
-      {/* 已选择路径预览 */}
-      <div class="px-4 py-2 border-t border-border-weak-base bg-surface-base shrink-0">
-        <div class="flex items-center gap-2">
-          <span class="text-12-regular text-text-weak shrink-0">已选择:</span>
-          <div class="flex-1 min-w-0 flex items-center gap-1 text-13-regular bg-surface-base-active px-2 py-1 rounded-md">
-            <Icon name="folder" class="size-4 text-text-strong" />
-            <span class="text-text-strong truncate">{highlightedPath()}</span>
-          </div>
+      {/* Bottom actions */}
+      <div class="flex items-center justify-between gap-2 px-3 py-2 border-t border-border-weak-base shrink-0">
+        <div class="flex-1 min-w-0 flex items-center gap-1.5 text-12-regular text-text-weak">
+          <Icon name="folder" class="size-3.5 shrink-0 text-text-strong" />
+          <span class="text-text-strong truncate">{highlightedPath()}</span>
         </div>
-      </div>
-
-      {/* 底部按钮 */}
-      <div class="flex items-center justify-end gap-2 px-4 py-2 border-t border-border-weak-base shrink-0">
-        <Button
-          type="button"
-          variant="ghost"
-          size="normal"
-          onClick={() => {
-            props.onSelect(null)
-            if (props.onCancel) {
-              props.onCancel()
-            }
-          }}
-        >
-          取消
-        </Button>
-        <Button
-          type="button"
-          variant="primary"
-          size="normal"
-          onClick={() => resolve(highlightedPath())}
-          disabled={!!notSupported()}
-        >
-          选择此目录
-        </Button>
+        <div class="flex items-center gap-2 shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="small"
+            onClick={() => {
+              props.onSelect(null)
+              if (props.onCancel) {
+                props.onCancel()
+              }
+            }}
+          >
+            {t("workspace.directory.cancel")}
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            size="small"
+            onClick={() => resolve(highlightedPath())}
+            disabled={!!notSupported()}
+          >
+            {t("workspace.directory.select")}
+          </Button>
+        </div>
       </div>
     </div>
   )

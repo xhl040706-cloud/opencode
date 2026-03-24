@@ -19,7 +19,7 @@ export function initCloudNotifier(baseUrl: string, deviceToken: string, deviceId
   log.info("cloud notifier initialized", { deviceId })
 }
 
-export async function notifyCloud(payload: InterventionPayload): Promise<void> {
+export async function notifyCloud(payload: InterventionPayload, path: string): Promise<void> {
   if (!_baseUrl || !_deviceToken || !_deviceId) return
 
   const url = `${_baseUrl}/cloud/device/notify`
@@ -32,6 +32,7 @@ export async function notifyCloud(payload: InterventionPayload): Promise<void> {
       },
       body: JSON.stringify({
         deviceID: _deviceId,
+        path: path,
         type: payload.type,
         sessionID: payload.sessionID,
         data: payload.data,

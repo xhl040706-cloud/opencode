@@ -15,8 +15,11 @@ import { ServerConnection, useServer } from "@/context/server"
 import { getProxyUrl } from "../lib/url"
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { useActiveWorkspace } from "../active-workspace"
+import { useLanguage } from "@/context/language"
 
 export function WorkspaceSidebar() {
+  const language = useLanguage()
+  const t = language.t
   const dialog = useDialog()
   const active = useActiveWorkspace()!
   const {
@@ -75,11 +78,11 @@ export function WorkspaceSidebar() {
   const getDeviceStatusDot = (status?: DeviceStatus) => {
     switch (status) {
       case "online":
-        return { online: true, offline: false, text: "在线" }
+        return { online: true, offline: false, text: t("workspace.device.online") }
       case "offline":
-        return { online: false, offline: true, text: "离线" }
+        return { online: false, offline: true, text: t("workspace.device.offline") }
       default:
-        return { online: false, offline: false, text: "未绑定" }
+        return { online: false, offline: false, text: t("workspace.device.unbound") }
     }
   }
 
@@ -203,7 +206,11 @@ export function WorkspaceSidebar() {
               </Show>
 
               <div class="shrink-0 flex flex-col w-8 border-l border-border-weak-base opacity-0 group-hover/workspace:opacity-100 transition-opacity self-stretch">
-                <Tooltip placement="left" value={cardProps.isRunning ? "关闭" : "运行"} class="flex-1">
+                <Tooltip
+                  placement="left"
+                  value={cardProps.isRunning ? t("workspace.close") : t("workspace.run")}
+                  class="flex-1"
+                >
                   <div
                     class="h-full flex items-center justify-center cursor-pointer hover:bg-surface-raised-base-hover transition-colors rounded-tr-md"
                     onClick={(e: MouseEvent) => {
@@ -218,7 +225,7 @@ export function WorkspaceSidebar() {
                     />
                   </div>
                 </Tooltip>
-                <Tooltip placement="left" value="删除" class="flex-1">
+                <Tooltip placement="left" value={t("workspace.delete")} class="flex-1">
                   <div
                     class="h-full flex items-center justify-center cursor-pointer hover:bg-surface-critical-weak transition-colors rounded-br-md"
                     onClick={(e: MouseEvent) => {
@@ -249,7 +256,7 @@ export function WorkspaceSidebar() {
           <Icon name="magnifying-glass" class="size-4 text-text-weak shrink-0" />
           <input
             type="text"
-            placeholder="搜索工作空间..."
+            placeholder={t("workspace.search.placeholder")}
             value={workspaceSearchQuery()}
             onInput={(e: Event) => setWorkspaceSearchQuery((e.target as HTMLInputElement).value)}
             class="flex-1 text-13-regular bg-transparent placeholder:text-text-weak focus:outline-none"
@@ -269,7 +276,7 @@ export function WorkspaceSidebar() {
                 size="small"
                 class="size-4 text-icon-weak shrink-0"
               />
-              <span class="text-12-medium text-text-weak">运行中</span>
+              <span class="text-12-medium text-text-weak">{t("workspace.running")}</span>
               <span class="text-11-regular text-text-weaker">{runningIds().length}</span>
             </Collapsible.Trigger>
             <Collapsible.Content>
@@ -291,7 +298,7 @@ export function WorkspaceSidebar() {
                 size="small"
                 class="size-4 text-icon-weak shrink-0"
               />
-              <span class="text-12-medium text-text-weak">空闲</span>
+              <span class="text-12-medium text-text-weak">{t("workspace.idle")}</span>
               <span class="text-11-regular text-text-weaker">{idleIds().length}</span>
             </Collapsible.Trigger>
             <Collapsible.Content>
@@ -300,8 +307,8 @@ export function WorkspaceSidebar() {
                 <Show when={filteredWorkspaces().length === 0}>
                   <div class="flex flex-col items-center justify-center py-8 text-text-weak">
                     <Icon name="folder" class="size-8 mb-2 opacity-30" />
-                    <span class="text-12-regular">暂无工作空间</span>
-                    <span class="text-11-regular text-text-weaker mt-1">从下方设备列表创建</span>
+                    <span class="text-12-regular">{t("workspace.empty")}</span>
+                    <span class="text-11-regular text-text-weaker mt-1">{t("workspace.emptyHint")}</span>
                   </div>
                 </Show>
               </div>
@@ -342,6 +349,8 @@ const PAGE_SIZE = 10
  * SolidJS <For> reference-reuse bugs.
  */
 function WorkspaceSessions(props: { id: string }) {
+  const language = useLanguage()
+  const t = language.t
   const { workspaces } = useWorkspace()
   const { navigateToSession } = useWorkspaceNavigate()
   const params = useParams()
@@ -431,7 +440,7 @@ function WorkspaceSessions(props: { id: string }) {
                     class="text-12-regular truncate flex-1"
                     classList={{ "text-text-strong": active(), "text-text-base": !active() }}
                   >
-                    {session.title || "新会话"}
+                    {session.title || t("workspace.session.new")}
                   </span>
                   <span class="text-10-regular text-text-weaker shrink-0">
                     {DateTime.fromMillis(session.time.updated ?? session.time.created).toRelative()}
@@ -446,7 +455,7 @@ function WorkspaceSessions(props: { id: string }) {
               disabled={loading()}
               onClick={loadMore}
             >
-              <Show when={loading()} fallback="加载更多">
+              <Show when={loading()} fallback={t("workspace.loadMore")}>
                 <Spinner class="size-3" />
               </Show>
             </button>
@@ -456,7 +465,7 @@ function WorkspaceSessions(props: { id: string }) {
       <Show when={loading() && sessions().length === 0}>
         <div class="flex items-center gap-2 py-2 px-2">
           <Spinner class="size-3.5" />
-          <span class="text-11-regular text-text-weaker">加载会话...</span>
+          <span class="text-11-regular text-text-weaker">{t("workspace.loadingSessions")}</span>
         </div>
       </Show>
     </div>

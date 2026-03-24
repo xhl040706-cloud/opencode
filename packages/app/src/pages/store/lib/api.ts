@@ -445,10 +445,13 @@ export const registryApi = {
 }
 
 export const itemApi = {
-  listMy: (ownerId: string, type?: string) =>
-    apiFetch<{ items: CapabilityItem[] }>(
-      `/api/items/my?ownerId=${encodeURIComponent(ownerId)}${type ? `&type=${type}` : ""}`,
-    ),
+  listMy: (ownerId: string, opts?: { type?: string; page?: number; pageSize?: number }) => {
+    const p = new URLSearchParams({ ownerId })
+    if (opts?.type) p.set("type", opts.type)
+    if (opts?.page) p.set("page", String(opts.page))
+    if (opts?.pageSize) p.set("pageSize", String(opts.pageSize))
+    return apiFetch<{ items: CapabilityItem[]; total: number }>(`/api/items/my?${p.toString()}`)
+  },
 
   list: (params?: {
     type?: string

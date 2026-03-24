@@ -12,10 +12,13 @@ import { useAuth } from "@/context/auth"
 import { AppInterface } from "@/app-interface"
 import { getProxyUrl } from "../lib/url"
 import { ActiveWorkspaceProvider } from "../active-workspace"
+import { useLanguage } from "@/context/language"
 
 let inWorkspace = false
 
 export default function WorkspaceLayout(props: ParentProps) {
+  const language = useLanguage()
+  const t = language.t
   const [workspaces, setWorkspaces] = createStore<Workspace[]>([])
   const [devices, setDevices] = createStore<Device[]>([])
   const [isLoading, setIsLoading] = createSignal(false)
@@ -37,8 +40,8 @@ export default function WorkspaceLayout(props: ParentProps) {
       setDevices(reconcile(devicesRes.devices, { key: "id", merge: false }))
     } catch (err) {
       showToast({
-        title: "加载失败",
-        description: "无法加载工作空间或设备数据",
+        title: t("workspace.loading.failed"),
+        description: t("workspace.loading.dataFailed"),
       })
     } finally {
       setIsLoading(false)
@@ -88,7 +91,7 @@ export default function WorkspaceLayout(props: ParentProps) {
     const device = devices.find((d) => d.id === deviceId)
     if (device) {
       showToast({
-        title: "已选择设备",
+        title: t("workspace.device.selected"),
         description: device.displayName,
       })
     }
@@ -117,11 +120,11 @@ export default function WorkspaceLayout(props: ParentProps) {
   const handleCreateWorkspace = async (deviceId: string, directory: string) => {
     const device = devices.find((d) => d.id === deviceId)
     if (!device) {
-      showToast({ title: "创建失败", description: "设备不存在" })
+      showToast({ title: t("workspace.create.failed"), description: t("workspace.create.deviceNotFound") })
       return
     }
     if (device.status === "offline") {
-      showToast({ title: "创建失败", description: "设备处于离线状态" })
+      showToast({ title: t("workspace.create.failed"), description: t("workspace.create.deviceOffline") })
       return
     }
     try {
@@ -137,12 +140,12 @@ export default function WorkspaceLayout(props: ParentProps) {
       setSelectedWorkspaceId(newWorkspace.id)
       await refreshWorkspaces()
       showToast({
-        title: "创建工作空间成功",
-        description: `在 ${device.displayName} 上创建了 ${newWorkspace.name}`,
+        title: t("workspace.create.success"),
+        description: t("workspace.create.successDetail", { name: newWorkspace.name, device: device.displayName }),
       })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "未知错误"
-      showToast({ title: "创建工作空间失败", description: msg })
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      showToast({ title: t("workspace.create.failedTitle"), description: msg })
       throw err
     }
   }
@@ -152,13 +155,17 @@ export default function WorkspaceLayout(props: ParentProps) {
     if (!workspace) return
     try {
       await workspaceApi.delete(workspaceId)
-      setWorkspaces((prev) => prev.filter((w) => w.id !== workspaceId))
       handleDisableWorkspace(workspaceId)
-      await refreshWorkspaces()
-      showToast({ title: "删除工作空间成功", description: workspace.name })
+      setWorkspaces(
+        reconcile(
+          workspaces.filter((w) => w.id !== workspaceId),
+          { key: "id", merge: false },
+        ),
+      )
+      showToast({ title: t("workspace.delete.success"), description: workspace.name })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "未知错误"
-      showToast({ title: "删除工作空间失败", description: msg })
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      showToast({ title: t("workspace.delete.failedTitle"), description: msg })
     }
   }
 
@@ -210,14 +217,12 @@ function WorkspaceServerProvider(props: ParentProps) {
     enabledWorkspaces().map((w) => ({
       type: "http" as const,
       http: { url: getProxyUrl(w.deviceUniqueId!) },
-    }))
+    })),
   )
 
   const defaultServer = createMemo<ServerConnection.Key>(() => {
     const first = enabledWorkspaces()[0]
-    return first
-      ? ServerConnection.Key.make(getProxyUrl(first.deviceUniqueId!))
-      : ("" as ServerConnection.Key)
+    return first ? ServerConnection.Key.make(getProxyUrl(first.deviceUniqueId!)) : ("" as ServerConnection.Key)
   })
 
   return (

@@ -32,6 +32,8 @@ logs/
 .roo
 .claude
 .gemini
+.gemini.log
+
 .opencode
 .costrict
 .cospec

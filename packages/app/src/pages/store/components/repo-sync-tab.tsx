@@ -1,9 +1,11 @@
 import { Button } from "@opencode-ai/ui/button"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
 import { For, Show, createEffect } from "solid-js"
 import { createStore } from "solid-js/store"
 import { repoRegistryApi, syncApi, type CapabilityRegistry } from "../lib/api"
 import { useLanguage } from "@/context/language"
+import { ConfirmDialog } from "./confirm-dialog"
 
 const inputClass =
   "w-full h-8 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
@@ -30,6 +32,7 @@ export function RepoSyncTab(props: RepoSyncTabProps) {
     conflictStrategy: "keep_remote",
   })
   const language = useLanguage()
+  const dialog = useDialog()
 
   async function loadRegistries() {
     setStore("loading", true)
@@ -119,18 +122,19 @@ export function RepoSyncTab(props: RepoSyncTabProps) {
     }
   }
 
-  async function removeRegistry(registryId: string) {
-    if (!window.confirm(language.t("store.sync.confirmRemove"))) return
-    try {
-      await repoRegistryApi.remove(props.repoId, registryId)
-      setStore("registries", (items) => items.filter((item) => item.id !== registryId))
-      showToast({ title: language.t("store.sync.toast.removed") })
-    } catch (error) {
-      showToast({
-        title: language.t("store.sync.toast.removeFailed"),
-        description: error instanceof Error ? error.message : String(error),
-      })
-    }
+  function removeRegistry(registryId: string) {
+    dialog.show(() => (
+      <ConfirmDialog
+        title={language.t("common.delete")}
+        description={language.t("store.sync.confirmRemove")}
+        confirm={language.t("common.delete")}
+        onConfirm={async () => {
+          await repoRegistryApi.remove(props.repoId, registryId)
+          setStore("registries", (items) => items.filter((item) => item.id !== registryId))
+          showToast({ title: language.t("store.sync.toast.removed") })
+        }}
+      />
+    ))
   }
 
   return (
@@ -262,7 +266,7 @@ export function RepoSyncTab(props: RepoSyncTabProps) {
                       <Button size="small" variant="ghost" onClick={() => void runSync(registry.id)}>
                         {language.t("store.sync.syncNow")}
                       </Button>
-                      <Button size="small" variant="ghost" onClick={() => void removeRegistry(registry.id)}>
+                      <Button size="small" variant="ghost" onClick={() => removeRegistry(registry.id)}>
                         {language.t("store.sync.remove")}
                       </Button>
                     </div>
