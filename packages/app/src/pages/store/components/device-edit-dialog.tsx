@@ -3,14 +3,14 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
 import { createStore } from "solid-js/store"
-import type { Device } from "@/pages/workspace/types"
+import type { Device, UpdateDeviceRequest } from "@/pages/workspace/types"
 
 const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
 
 type DeviceEditDialogProps = {
   device: Device
-  onSaved: (updated: Device) => void
+  onSaved: (data: UpdateDeviceRequest) => Promise<void> | void
 }
 
 export function DeviceEditDialog(props: DeviceEditDialogProps) {
@@ -21,23 +21,23 @@ export function DeviceEditDialog(props: DeviceEditDialogProps) {
     saving: false,
   })
 
-  const handleSubmit = (e: SubmitEvent) => {
+  const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault()
     if (!form.displayName.trim()) {
       showToast({ variant: "error", icon: "circle-x", title: "设备名称不能为空" })
       return
     }
+
     setForm("saving", true)
-    setTimeout(() => {
-      props.onSaved({
-        ...props.device,
+    try {
+      await props.onSaved({
         displayName: form.displayName.trim(),
-        description: form.description.trim(),
-        updatedAt: new Date().toISOString(),
+        workspaceId: props.device.workspaceId,
       })
-      showToast({ variant: "success", icon: "circle-check", title: "设备信息已更新" })
       d.close()
-    }, 300)
+    } finally {
+      setForm("saving", false)
+    }
   }
 
   return (
@@ -61,8 +61,9 @@ export function DeviceEditDialog(props: DeviceEditDialogProps) {
             <input
               value={form.description}
               onInput={(e) => setForm("description", e.currentTarget.value)}
-              placeholder="输入设备描述（可选）"
+              placeholder="当前版本暂未提交描述字段"
               class={inputClass}
+              disabled
             />
           </div>
         </div>

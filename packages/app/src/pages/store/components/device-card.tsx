@@ -1,20 +1,24 @@
 import { Button } from "@opencode-ai/ui/button"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Icon } from "@opencode-ai/ui/icon"
-import { Show } from "solid-js"
-import type { Device } from "@/pages/workspace/types"
+import type { UpdateDeviceRequest, Device } from "@/pages/workspace/types"
 import { DeviceEditDialog } from "./device-edit-dialog"
 
 type DeviceCardProps = {
   device: Device
-  onUpdate: (updated: Device) => void
+  onUpdate: (payload: { deviceId: string; data: UpdateDeviceRequest }) => Promise<void> | void
 }
 
 export function DeviceCard(props: DeviceCardProps) {
   const dialog = useDialog()
 
   const handleEdit = () => {
-    dialog.show(() => <DeviceEditDialog device={props.device} onSaved={props.onUpdate} />)
+    dialog.show(() => (
+      <DeviceEditDialog
+        device={props.device}
+        onSaved={(data) => props.onUpdate({ deviceId: props.device.id, data })}
+      />
+    ))
   }
 
   const statusInfo = () => {
@@ -29,14 +33,13 @@ export function DeviceCard(props: DeviceCardProps) {
   }
 
   return (
-    <div class="group flex flex-col rounded-xl border border-border-weak-base bg-background-base overflow-hidden transition-shadow duration-150 hover:shadow-sm">
-      {/* 卡片头部：名称 */}
-      <div class="flex items-start justify-between px-4 py-3 shrink-0">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="text-sm font-medium text-text-strong truncate">{props.device.displayName}</span>
+    <div class="group flex flex-col overflow-hidden rounded-xl border border-border-weak-base bg-background-base transition-shadow duration-150 hover:shadow-sm">
+      <div class="shrink-0 px-4 py-3 flex items-start justify-between">
+        <div class="min-w-0 flex items-center gap-2">
+          <span class="truncate text-sm font-medium text-text-strong">{props.device.displayName}</span>
         </div>
         <button
-          class="text-text-weak hover:text-text-strong transition-colors opacity-0 group-hover:opacity-100"
+          class="text-text-weak transition-colors opacity-0 group-hover:opacity-100 hover:text-text-strong"
           onClick={handleEdit}
           title="编辑设备"
         >
@@ -44,8 +47,7 @@ export function DeviceCard(props: DeviceCardProps) {
         </button>
       </div>
 
-      {/* 设备信息 - flex-1 撑开 */}
-      <div class="flex-1 px-4 pb-2 flex flex-col gap-1.5">
+      <div class="flex flex-1 flex-col gap-1.5 px-4 pb-2">
         <div class="flex items-center gap-2">
           <span
             class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-11-medium"
@@ -70,14 +72,10 @@ export function DeviceCard(props: DeviceCardProps) {
         <div class="text-xs text-text-weak">
           {props.device.platform} · v{props.device.version}
         </div>
-        {/* 描述区域 - 始终占位 */}
-        <p class="text-xs text-text-weak line-clamp-2 min-h-8 mt-1">
-          {props.device.description || ""}
-        </p>
+        <p class="mt-1 min-h-8 line-clamp-2 text-xs text-text-weak">{props.device.description || ""}</p>
       </div>
 
-      {/* 底部操作栏 */}
-      <div class="border-t border-border-weak-base px-4 py-2 flex justify-end shrink-0">
+      <div class="shrink-0 border-t border-border-weak-base px-4 py-2 flex justify-end">
         <Button size="small" variant="ghost" class="h-7 px-2 text-xs" onClick={handleEdit}>
           编辑
         </Button>

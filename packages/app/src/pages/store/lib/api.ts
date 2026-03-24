@@ -1,4 +1,5 @@
 import { env } from "@/lib/env"
+import type { Device, ListDevicesResponse, UpdateDeviceRequest } from "@/pages/workspace/types"
 
 // In dev the Vite proxy forwards /api/* to the real backend.
 // Set VITE_API_URL only for standalone mode (packages/store dev server on port 3002).
@@ -258,6 +259,11 @@ type MemberResponse = RepoMember & {
   orgId?: string
 }
 
+type DeviceResponse = Device
+
+function normalizeDevice(device: DeviceResponse): Device {
+  return device
+}
 function normalizeRepository(repo: RepositoryResponse): Repository {
   return {
     id: repo.id,
@@ -287,12 +293,26 @@ function normalizeMember(member: MemberResponse, repoId: string): RepoMember {
   }
 }
 
+export const deviceApi = {
+  async list() {
+    const res = await apiFetch<ListDevicesResponse>("/api/devices")
+    return { devices: (res.devices ?? []).map(normalizeDevice) }
+  },
+
+  async update(deviceId: string, data: UpdateDeviceRequest) {
+    const res = await apiFetch<{ device: DeviceResponse }>(`/api/devices/${deviceId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    })
+    return { device: normalizeDevice(res.device) }
+  },
+}
+
 export const repoRegistryApi = {
   async list(repoId: string) {
     const res = await apiFetch<{ registries: RegistryResponse[] }>(`/api/repositories/${repoId}/registries`)
     return { registries: (res.registries ?? []).map(normalizeRegistry) }
   },
-
   async add(repoId: string, data: CreateSyncRegistryInput) {
     const res = await apiFetch<RegistryResponse>(`/api/repositories/${repoId}/registries`, {
       method: "POST",
