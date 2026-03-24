@@ -15,7 +15,7 @@ export function StoreCreateButton(props: {
   }
 
   return (
-    <Button size="small" onClick={openCreateDialog}>
+    <Button size="small" class="!h-7" onClick={openCreateDialog}>
       <Icon name="plus" class="size-4" />
       {props.label}
     </Button>

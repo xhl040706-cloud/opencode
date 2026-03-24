@@ -4,13 +4,13 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { useLanguage } from "@/context/language"
 import { artifactApi, type CapabilityItem } from "../lib/api"
 import { categoryKey } from "../lib/constants"
-import SecurityBadge from "./security-badge"
+import SecurityTag from "./security-tag"
 
 const TYPE_COLOR: Record<string, string> = {
-  skill: "text-yellow-500",
-  subagent: "text-blue-500",
-  command: "text-green-500",
-  mcp: "text-purple-500",
+  skill: "rgb(234,179,8)",
+  subagent: "rgb(59,130,246)",
+  command: "rgb(34,197,94)",
+  mcp: "rgb(168,85,247)",
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -45,67 +45,83 @@ export default function ItemCard(props: { item: CapabilityItem }) {
   return (
     <A
       href={`/store/items/${props.item.id}?type=${props.item.itemType}`}
-      class="group flex flex-col px-4 py-3 rounded-md border border-border-weak-base bg-background-base cursor-pointer hover:border-border-weak-base hover:shadow-xs-border-base hover:-translate-y-px active:translate-y-0 transition-all duration-150"
+      class="group flex flex-col rounded-lg border border-border-weak-base bg-background-base cursor-pointer hover:shadow-xs-border-base hover:-translate-y-px active:translate-y-0 transition-all duration-150"
+      style={{ "border-top": `2px solid ${color()}` }}
     >
-      <div class="flex items-start justify-between gap-2 mb-3">
-        <div class="flex items-center gap-1.5 min-w-0">
-          <span class={`text-sm shrink-0 ${color()}`}>{label()}</span>
-          <span class="font-medium text-sm truncate text-text-strong group-hover:text-text-strong transition-colors">
-            {props.item.name}
-          </span>
+      <div class="flex flex-col flex-1 px-4 py-3.5">
+        <div class="flex items-start justify-between gap-2 mb-2.5">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-sm font-semibold shrink-0" style={{ color: color() }}>
+              {label()}
+            </span>
+            <span class="font-semibold text-sm truncate text-text-strong">{props.item.name}</span>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <Show when={props.item.sourceType === "archive"}>
+              <span
+                class="text-xs text-text-weak p-0.5 rounded inline-flex items-center"
+                style={{ "background-color": "rgba(156,163,175,0.12)" }}
+                title={language.t("store.sourceType.archive")}
+              >
+                <Icon name="cloud-upload" size="small" />
+              </span>
+            </Show>
+            <Show when={props.item.version}>
+              <span
+                class="text-xs text-text-weak px-1.5 py-0.5 rounded"
+                style={{ "background-color": "rgba(156,163,175,0.12)" }}
+              >
+                v{props.item.version}
+              </span>
+            </Show>
+          </div>
         </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-          <Show when={props.item.sourceType === "archive"}>
+
+        <p class="text-xs text-text-weak line-clamp-2 mb-4 flex-1 min-h-[2rem] leading-relaxed">
+          {props.item.description}
+        </p>
+
+        <div class="flex items-center gap-2 flex-wrap mt-auto">
+          <Show when={props.item.category}>
             <span
-              class="text-xs text-text-weak bg-bg-muted p-0.5 rounded inline-flex items-center"
-              title={language.t("store.sourceType.archive")}
+              class="inline-flex items-center rounded-[10px] px-2.5 py-[2px] text-xs font-medium text-text-weak"
+              style={{ "background-color": "rgba(156,163,175,0.15)" }}
             >
-              <Icon name="cloud-upload" size="small" />
+              {language.t(categoryKey(props.item.category))}
             </span>
           </Show>
-          <Show when={props.item.version}>
-            <span class="text-xs text-text-weak bg-bg-muted px-1.5 py-0.5 rounded">v{props.item.version}</span>
-          </Show>
-        </div>
-      </div>
-
-      <Show when={props.item.description}>
-        <p class="text-xs text-text-weak line-clamp-2 mb-4 flex-1">{props.item.description}</p>
-      </Show>
-
-      <div class="flex items-center gap-2 flex-wrap mb-3">
-        <Show when={props.item.category}>
-          <span class="text-xs text-text-weak">#{language.t(categoryKey(props.item.category))}</span>
-        </Show>
-        <span class="text-xs text-text-weak">{orgName() ?? "public"}</span>
-        <SecurityBadge status={props.item.securityStatus} size="sm" showIcon={false} />
-      </div>
-
-      <div class="flex items-center gap-1 mt-auto pt-3 border-t border-border-weak-base">
-        <button
-          onClick={handleCopy}
-          class="flex items-center gap-1 px-2 py-1 rounded text-xs text-text-weak cursor-pointer hover:text-text-strong hover:bg-bg-muted hover:shadow-xs-border-base transition-all duration-150"
-          title={language.t("store.itemCard.copyInstall")}
-        >
-          {copied() ? (
-            <span class="text-green-500">{language.t("store.itemCard.copied")}</span>
-          ) : (
-            <span>{language.t("store.itemCard.copy")}</span>
-          )}
-        </button>
-        <Show when={latestArtifact()}>
-          {(artifact) => (
-            <a
-              href={artifactApi.downloadUrl(artifact().id)}
-              download=""
-              onClick={(e) => e.stopPropagation()}
-              class="flex items-center gap-1 px-2 py-1 rounded text-xs text-text-weak cursor-pointer hover:text-text-strong hover:bg-bg-muted hover:shadow-xs-border-base transition-all duration-150 ml-auto"
-              title={language.t("store.itemCard.downloadLatest")}
+          <Show when={orgName()}>
+            <span
+              class="inline-flex items-center rounded-[10px] px-2.5 py-[2px] text-xs font-medium text-text-weak"
+              style={{ "background-color": "rgba(156,163,175,0.15)" }}
             >
-              {language.t("store.itemCard.download")}
-            </a>
-          )}
-        </Show>
+              {orgName()}
+            </span>
+          </Show>
+          <SecurityTag status={props.item.securityStatus} />
+          <div class="flex items-center gap-0.5 ml-auto">
+            <button
+              onClick={handleCopy}
+              class="inline-flex items-center justify-center size-6 rounded text-icon-weak cursor-pointer hover:text-icon-strong hover:bg-bg-muted transition-colors duration-150"
+              title={language.t("store.itemCard.copyInstall")}
+            >
+              <Icon name={copied() ? "check-small" : "copy"} size="small" class={copied() ? "text-green-500" : ""} />
+            </button>
+            <Show when={latestArtifact()}>
+              {(artifact) => (
+                <a
+                  href={artifactApi.downloadUrl(artifact().id)}
+                  download=""
+                  onClick={(e) => e.stopPropagation()}
+                  class="inline-flex items-center justify-center size-6 rounded text-icon-weak cursor-pointer hover:text-icon-strong hover:bg-bg-muted transition-colors duration-150"
+                  title={language.t("store.itemCard.downloadLatest")}
+                >
+                  <Icon name="download" size="small" />
+                </a>
+              )}
+            </Show>
+          </div>
+        </div>
       </div>
     </A>
   )

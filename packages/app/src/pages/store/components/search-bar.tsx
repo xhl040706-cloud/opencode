@@ -1,3 +1,6 @@
+import { Icon } from "@opencode-ai/ui/icon"
+import { Button } from "@opencode-ai/ui/button"
+
 export default function SearchBar(props: {
   value: string
   onChange: (v: string) => void
@@ -11,25 +14,25 @@ export default function SearchBar(props: {
   }
 
   return (
-    <div class="relative flex gap-2">
+    <div class="relative flex gap-1.5">
       <div class="relative flex-1">
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-weak text-sm">⌕</span>
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-icon-base">
+          <Icon name="magnifying-glass" class="size-3.5" />
+        </span>
         <input
           type="text"
           value={props.value}
           onInput={(e) => props.onChange(e.currentTarget.value)}
           onKeyDown={handleKeyDown}
           placeholder={props.placeholder ?? "Search..."}
-          class="w-full pl-8 pr-3 py-2 text-sm border border-border-weak-base rounded-md bg-bg-base text-text-strong placeholder:text-text-weak focus:outline-none focus:ring-1 focus:ring-border-weak-base"
+          style={{ outline: "none" }}
+          class="w-full h-7 pl-7.5 pr-3 text-xs font-medium border-0 rounded-md bg-button-secondary-base text-text-strong shadow-xs-border-base placeholder:text-text-weak focus:shadow-xs-border-focus"
         />
       </div>
       {props.onSearch && (
-        <button
-          onClick={props.onSearch}
-          class="px-4 py-2 text-sm font-medium text-text-strong bg-bg-muted border border-border-weak-base rounded-md hover:bg-bg-muted/80 transition-colors focus:outline-none focus:ring-1 focus:ring-border-weak-base"
-        >
-          检索
-        </button>
+        <Button size="small" class="!h-7" variant="secondary" onClick={props.onSearch} title="Semantic search">
+          <Icon name="magnifying-glass-menu" class="size-3.5" />
+        </Button>
       )}
     </div>
   )
