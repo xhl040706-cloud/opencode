@@ -69,7 +69,10 @@ export async function installSkill(
 ): Promise<void> {
   log.info("installing skill", { slug: item.slug })
   const token = await resolveToken(registryUrl)
-  const dest = path.join(Discovery.dir(), item.slug)
+  const dest =
+    scope === "global"
+      ? path.join(Global.Path.config, "skills", item.slug)
+      : path.join(Instance.worktree, ".costrict", "skills", item.slug)
   await Promise.all(item.files.map((f) => downloadFile(registryUrl, item.slug, f, dest, token)))
   await addSkillUrl(registryUrl, scope)
 }
@@ -80,7 +83,10 @@ export async function uninstallSkill(
   scope: InstallScope,
 ): Promise<void> {
   log.info("uninstalling skill", { slug })
-  const dest = path.join(Discovery.dir(), slug)
+  const dest =
+    scope === "global"
+      ? path.join(Global.Path.config, "skills", slug)
+      : path.join(Instance.worktree, ".costrict", "skills", slug)
   const { rm } = await import("fs/promises")
   await rm(dest, { recursive: true, force: true })
   const allInstalled = await Filesystem.readJson<{ items: Array<{ slug: string; registry: string }> }>(

@@ -1,6 +1,6 @@
 import type { Config } from "../../config/config"
 
-export type RegistryItemType = "skill" | "subagent" | "command" | "mcp"
+export type RegistryItemType = "skill" | "subagent" | "command" | "hook" | "mcp" | "plugin"
 
 export type RegistryItemFile = {
   slug: string
@@ -75,4 +75,86 @@ export class AlreadyInstalledError extends Error {
     super(`${slug} is already installed. Run: cs plugin update ${slug}`)
     this.name = "AlreadyInstalledError"
   }
+}
+
+export interface CreateRegistryRequest {
+  name: string
+  description: string
+  sourceType: "git" | "s3" | "local"
+  visibility: "public" | "private"
+  ownerId: string
+  syncEnabled: boolean
+  syncInterval?: number
+}
+
+export interface CreateRegistryResponse {
+  id: string
+  name: string
+  description: string
+  sourceType: "git" | "s3" | "local"
+  visibility: "public" | "private"
+  ownerId: string
+  createdAt: string
+}
+
+export class PackValidationError extends Error {
+  field?: string
+
+  constructor(message: string, field?: string) {
+    super(message)
+    this.name = "PackValidationError"
+    this.field = field
+  }
+}
+
+export class SkillNotFoundError extends Error {
+  constructor(pluginPath: string) {
+    super(`SKILL.md not found in ${pluginPath}`)
+    this.name = "SkillNotFoundError"
+  }
+}
+
+export class PackError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "PackError"
+  }
+}
+
+export interface CreateItemRequest {
+  slug: string
+  itemType: RegistryItemType
+  name: string
+  description: string
+  category: string
+  version: string
+  content: string
+  createdBy: string
+}
+
+export interface CreateItemResponse {
+  id: string
+  registryId: string
+  slug: string
+  itemType: RegistryItemType
+  name: string
+  description: string
+  category: string
+  version: string
+  content: string
+  createdBy: string
+  createdAt: string
+}
+
+export interface UploadArtifactResponse {
+  id: string
+  itemId: string
+  filename: string
+  fileSize: number
+  checksumSha256: string
+  mimeType: string
+  artifactVersion: string
+  isLatest: boolean
+  uploadedBy: string
+  createdAt: string
 }

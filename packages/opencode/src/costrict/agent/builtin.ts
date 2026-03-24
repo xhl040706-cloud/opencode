@@ -27,16 +27,14 @@ import AGENT_22 from "./locales/en/spec-plan.txt"
 import AGENT_23 from "./locales/zh-CN/spec-plan.txt"
 import AGENT_24 from "./locales/en/spec-requirement.txt"
 import AGENT_25 from "./locales/zh-CN/spec-requirement.txt"
-import AGENT_26 from "./locales/en/spec-search.txt"
-import AGENT_27 from "./locales/zh-CN/spec-search.txt"
-import AGENT_28 from "./locales/en/spec-task.txt"
-import AGENT_29 from "./locales/zh-CN/spec-task.txt"
-import AGENT_30 from "./locales/en/strict-plan.txt"
-import AGENT_31 from "./locales/zh-CN/strict-plan.txt"
-import AGENT_32 from "./locales/en/strict-spec.txt"
-import AGENT_33 from "./locales/zh-CN/strict-spec.txt"
-import AGENT_34 from "./locales/en/tdd.txt"
-import AGENT_35 from "./locales/zh-CN/tdd.txt"
+import AGENT_26 from "./locales/en/spec-task.txt"
+import AGENT_27 from "./locales/zh-CN/spec-task.txt"
+import AGENT_28 from "./locales/en/strict-plan.txt"
+import AGENT_29 from "./locales/zh-CN/strict-plan.txt"
+import AGENT_30 from "./locales/en/strict-spec.txt"
+import AGENT_31 from "./locales/zh-CN/strict-spec.txt"
+import AGENT_32 from "./locales/en/tdd.txt"
+import AGENT_33 from "./locales/zh-CN/tdd.txt"
 
 export type AgentEntry = {
   locales: Record<string, string>
@@ -57,9 +55,8 @@ export const BUILTIN_AGENTS: Record<string, AgentEntry> = {
   "spec-plan-manager": { locales: { "en": AGENT_20, "zh-CN": AGENT_21 } },
   "spec-plan": { locales: { "en": AGENT_22, "zh-CN": AGENT_23 } },
   "spec-requirement": { locales: { "en": AGENT_24, "zh-CN": AGENT_25 } },
-  "spec-search": { locales: { "en": AGENT_26, "zh-CN": AGENT_27 } },
-  "spec-task": { locales: { "en": AGENT_28, "zh-CN": AGENT_29 } },
-  "strict-plan": { locales: { "en": AGENT_30, "zh-CN": AGENT_31 } },
-  "strict-spec": { locales: { "en": AGENT_32, "zh-CN": AGENT_33 } },
-  "tdd": { locales: { "en": AGENT_34, "zh-CN": AGENT_35 } }
+  "spec-task": { locales: { "en": AGENT_26, "zh-CN": AGENT_27 } },
+  "strict-plan": { locales: { "en": AGENT_28, "zh-CN": AGENT_29 } },
+  "strict-spec": { locales: { "en": AGENT_30, "zh-CN": AGENT_31 } },
+  "tdd": { locales: { "en": AGENT_32, "zh-CN": AGENT_33 } }
 }

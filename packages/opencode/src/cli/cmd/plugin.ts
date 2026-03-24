@@ -1,18 +1,29 @@
+import path from "path"
+import { copyFile, mkdir } from "fs/promises"
 import { cmd } from "./cmd"
 import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import { Instance } from "../../project/instance"
-import { fetchIndex, resolveToken, invalidateAccessCache } from "../../costrict/registry/client"
+import { fetchIndex, resolveToken, invalidateAccessCache, createRegistry, createItem, uploadArtifact } from "../../costrict/registry/client"
 import { install, uninstall } from "../../costrict/registry/install"
 import * as Record from "../../costrict/registry/record"
-import { AlreadyInstalledError, ForbiddenError, NotLoggedInError, UnauthorizedError } from "../../costrict/registry/types"
-import type { InstallScope, RegistryItem } from "../../costrict/registry/types"
+import { AlreadyInstalledError, ForbiddenError, NotLoggedInError, UnauthorizedError, PackValidationError, SkillNotFoundError, PackError } from "../../costrict/registry/types"
+import type { InstallScope, RegistryItem, CreateRegistryResponse, CreateItemResponse, UploadArtifactResponse, RegistryItemType } from "../../costrict/registry/types"
 import { getCoStrictBaseURL } from "../../costrict/provider/auth"
+import { validatePlugin, packPlugin, readSkillMarkdown, getPluginMetadata } from "../../costrict/registry/pack"
+import { Global } from "../../global"
+import { TTYCheck } from "./tui/util/tty-check"
 
 const DEFAULT_ORG = "public"
 
+// function registryBase(): string {
+//   const env = process.env.COSTRICT_REGISTRY_BASE_URL
+//   if (env) return env.replace(/\/$/, "")
+//   return `${getCoStrictBaseURL()}/registry`
+// }
+
 function registryBase(): string {
-  const env = process.env.COSTRICT_REGISTRY_BASE_URL
+  const env = "https://costrict.sangfor.com:30443/costrict-web-api"
   if (env) return env.replace(/\/$/, "")
   return `${getCoStrictBaseURL()}/registry`
 }
@@ -30,7 +41,184 @@ function formatError(err: unknown): string {
   if (err instanceof UnauthorizedError) return err.message
   if (err instanceof ForbiddenError) return err.message
   if (err instanceof AlreadyInstalledError) return err.message
+  if (err instanceof PackValidationError) return err.field ? `${err.message} (${err.field})` : err.message
+  if (err instanceof SkillNotFoundError) return err.message
+  if (err instanceof PackError) return err.message
   return err instanceof Error ? err.message : String(err)
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return "0 B"
+  const units = ["B", "KB", "MB", "GB"]
+  const k = 1024
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  const unit = units[Math.min(i, units.length - 1)]
+  const value = bytes / Math.pow(k, i)
+  return `${value.toFixed(1)} ${unit}`
+}
+
+// 输出普通日志（非交互模式始终输出，交互模式可选）
+function logNonInteractive(message: string, isInteractive: boolean): void {
+  if (!isInteractive) {
+    console.log(message)
+  }
+}
+
+// 输出错误信息（两种模式都输出）
+function errorNonInteractive(message: string, isInteractive: boolean): void {
+  console.error(message)
+}
+
+// 输出开始信息（对应 spinner 开始，非交互模式始终输出）
+function logSpinnerStart(message: string, isInteractive: boolean): void {
+  if (!isInteractive) {
+    console.log(message)
+  }
+}
+
+// 输出完成信息（对应 spinner 结束，非交互模式始终输出）
+function logSpinnerStop(message: string, isInteractive: boolean, isError?: boolean): void {
+  if (!isInteractive) {
+    if (isError) {
+      console.error(`Error: ${message}`)
+    } else {
+      console.log(message)
+    }
+  }
+}
+
+// Upload command types and helper functions
+interface UploadOptions {
+  path: string
+  registry?: string
+  slug?: string
+  name?: string
+  type: RegistryItemType
+  version: string
+  description?: string
+  category?: string
+}
+
+async function promptForMissingOptions(options: Partial<UploadOptions>, interactive: boolean): Promise<UploadOptions> {
+  const resolved = { ...options } as UploadOptions
+
+  // Check if path is provided
+  if (!resolved.path) {
+    const errorMsg = interactive
+      ? "Error: Missing required argument: <path>. Please specify the plugin directory path."
+      : "Error: Missing required argument: <path>. Run with --help for usage."
+    throw new Error(errorMsg)
+  }
+
+  // Resolve absolute path
+  resolved.path = path.resolve(resolved.path)
+
+  // Try to read metadata from plugin.json
+  let metadata: { slug?: string; name?: string; description?: string; type?: RegistryItemType } = {}
+  try {
+    const metadataResult = await getPluginMetadata(resolved.path)
+    metadata = {
+      slug: metadataResult.slug,
+      name: metadataResult.name,
+      description: metadataResult.description,
+      type: metadataResult.type,
+    }
+  } catch {
+    // Ignore errors, will prompt for missing values
+  }
+
+  // Helper to get value from prompt or metadata or default
+  const getValue = async <T extends string>({
+    value,
+    metadataValue,
+    defaultValue,
+    name,
+  }: {
+    value: T | undefined
+    metadataValue: T | undefined
+    defaultValue: T
+    name: string
+  }): Promise<T> => {
+    if (value) return value
+    if (metadataValue) return metadataValue
+
+    if (!interactive) {
+      const errorMsg = `Error: Missing required argument: --${name}. Run with --help for usage.`
+      console.error(errorMsg)
+      throw new Error(errorMsg)
+    }
+
+    return defaultValue
+  }
+
+  // Prompt for slug if not provided and not in metadata
+  resolved.slug = await getValue({
+    value: resolved.slug,
+    metadataValue: metadata.slug,
+    defaultValue: path.basename(resolved.path),
+    name: "slug",
+  })
+
+  // Prompt for name if not provided and not in metadata
+  resolved.name = await getValue({
+    value: resolved.name,
+    metadataValue: metadata.name,
+    defaultValue: resolved.slug,
+    name: "name",
+  })
+
+  // Set type with default
+  resolved.type = resolved.type || metadata.type || "skill"
+
+  // Set version with default
+  resolved.version = resolved.version || "1.0.0"
+
+  // Set optional fields from metadata if available
+  if (!resolved.description && metadata.description) {
+    resolved.description = metadata.description
+  }
+
+  return resolved
+}
+
+async function resolveRegistryId(name: string | undefined, interactive: boolean): Promise<{ registryId: string; baseUrl: string }> {
+  const baseUrl = registryBase()
+  const registryName = name || DEFAULT_ORG
+
+  // For now, we'll create a new registry if it doesn't exist
+  // In a real implementation, you might want to list existing registries first
+  const spinner = prompts.spinner()
+  spinner.start("Creating registry...")
+
+  try {
+    const registry = await createRegistry(baseUrl, {
+      name: registryName,
+      description: `Registry for ${registryName}`,
+      sourceType: "local",
+      visibility: "public",
+      ownerId: "cli-user",
+      syncEnabled: false,
+    })
+    spinner.stop(`Registry created: ${registry.name}`)
+    return { registryId: registry.id, baseUrl }
+  } catch (err) {
+    spinner.stop("Failed to create registry", 1)
+    throw err
+  }
+}
+
+function formatUploadResult(registry: CreateRegistryResponse, item: CreateItemResponse, artifact: UploadArtifactResponse): string {
+  const lines = [
+    `✓ Upload successful!`,
+    ``,
+    `Registry: ${registry.name}`,
+    `Item: ${item.slug} (${item.name})`,
+    `Type: ${item.itemType}`,
+    `Version: ${item.version}`,
+    `Artifact ID: ${artifact.id}`,
+    `File: ${artifact.filename} (${(artifact.fileSize / 1024).toFixed(1)} KB)`,
+  ]
+  return lines.join("\n")
 }
 
 async function resolveScope(interactive: boolean): Promise<InstallScope> {
@@ -245,6 +433,208 @@ const PluginUpdateCommand = cmd({
   },
 })
 
+const PluginUploadCommand = cmd({
+  command: "upload <type> [path]",
+  describe: "upload a plugin to the registry",
+  builder: (yargs) =>
+    yargs
+      .positional("type", {
+        type: "string",
+        describe: "plugin type (skill|subagent|command|hook|mcp|plugin)",
+        demandOption: true,
+        choices: ["skill", "subagent", "command", "hook", "mcp", "plugin"]
+      })
+      .positional("path", { type: "string", describe: "plugin directory path"}),
+  async handler(args) {
+    const type = args.type as RegistryItemType
+    await Instance.provide({
+      directory: process.cwd(),
+      async fn() {
+        UI.empty()
+        prompts.intro("Upload extension")
+
+
+
+        // 使用 TTYCheck 更准确地判断交互式环境
+        const isInteractive = TTYCheck.canUseTUI()
+        logNonInteractive("Upload extension\n", isInteractive)
+
+        // Parse initial options from args
+        // const initialOptions: Partial<UploadOptions> = {
+        //   path: args.path,
+        //   registry: args.registry,
+        //   slug: args.slug,
+        //   name: args.name,
+        //   type: args.type as RegistryItemType,
+        //   version: args.version,
+        //   description: args.description,
+        //   category: args.category,
+        // }
+
+        const initialOptions: Partial<UploadOptions> = {
+          path: args.path,
+          registry: "xixing",
+          slug: "playwright-skill",
+          name: "playwright-skill",
+          type: type,
+          version: "1.0.0",
+          description: "网页测试技能",
+          category: "skill",
+        }
+
+        // Prompt for missing options
+        let options: UploadOptions
+        try {
+          options = await promptForMissingOptions(initialOptions, isInteractive)
+        } catch (err) {
+          const errorMessage = formatError(err)
+          prompts.log.error(errorMessage)
+          errorNonInteractive(`Error: ${errorMessage}`, isInteractive)
+          prompts.outro("Done")
+          return
+        }
+
+        prompts.outro("Done")
+
+        // Validate plugin directory
+        const validateSpinner = prompts.spinner()
+        logSpinnerStart("Validating plugin...", isInteractive)
+        validateSpinner.start("Validating plugin...")
+        try {
+          await validatePlugin(options.path)
+          validateSpinner.stop("Plugin validated")
+          logSpinnerStop("Plugin validated", isInteractive)
+        } catch (err) {
+          validateSpinner.stop("Validation failed", 1)
+          const errorMessage = formatError(err)
+          prompts.log.error(errorMessage)
+          errorNonInteractive(`Error: ${errorMessage}`, isInteractive)
+          prompts.outro("Done")
+          return
+        }
+
+        // Pack plugin
+        const packSpinner = prompts.spinner()
+        logSpinnerStart("Packing plugin...", isInteractive)
+        packSpinner.start("Packing plugin...")
+        let packResult
+        try {
+          const tempDir = path.join(Global.Path.cache, "plugin-uploads")
+          packResult = await packPlugin(options.path, tempDir)
+          
+          // Save packed file to local for verification
+          const localPackDir = path.join(Global.Path.data, "packed-plugins")
+          await mkdir(localPackDir, { recursive: true })
+          const localPackPath = path.join(localPackDir, path.basename(packResult.archivePath))
+          await copyFile(packResult.archivePath, localPackPath)
+          packSpinner.stop(`Plugin packed (${formatBytes(packResult.size)}, saved to: ${localPackPath})`)
+          logSpinnerStop(`Plugin packed (${formatBytes(packResult.size)})`, isInteractive)
+        } catch (err) {
+          packSpinner.stop("Packing failed", 1)
+          const errorMessage = formatError(err)
+          prompts.log.error(errorMessage)
+          errorNonInteractive(`Error: ${errorMessage}`, isInteractive)
+          prompts.outro("Done")
+          return
+        }
+
+        // Read SKILL.md content
+        let skillContent = ""
+        try {
+          skillContent = await readSkillMarkdown(options.path)
+        } catch {
+          if (options.type === "skill") {
+            prompts.log.warn("SKILL.md not found, using empty content")
+          }
+        }
+
+        // Resolve or create registry
+        const registrySpinner = prompts.spinner()
+        logSpinnerStart("Resolving registry...", isInteractive)
+        registrySpinner.start("Resolving registry...")
+        let registry: CreateRegistryResponse
+        let baseUrl: string
+        try {
+          const result = await resolveRegistryId(options.registry, true)
+          registry = { id: result.registryId, name: options.registry || DEFAULT_ORG, description: "", sourceType: "local", visibility: "public", ownerId: "", createdAt: new Date().toISOString() }
+          baseUrl = result.baseUrl
+          registrySpinner.stop(`Registry resolved: ${registry.name}`)
+          logSpinnerStop(`Registry resolved: ${registry.name}`, isInteractive)
+        } catch (err) {
+          registrySpinner.stop("Failed to resolve registry", 1)
+          const errorMessage = formatError(err)
+          prompts.log.error(errorMessage)
+          errorNonInteractive(`Error: ${errorMessage}`, isInteractive)
+          prompts.outro("Done")
+          return
+        }
+
+        // Create item
+        const itemSpinner = prompts.spinner()
+        logSpinnerStart("Creating item...", isInteractive)
+        itemSpinner.start("Creating item...")
+        let item: CreateItemResponse
+        try {
+          item = await createItem(baseUrl, registry.id, {
+            slug: options.slug!,
+            itemType: options.type,
+            name: options.name!,
+            description: options.description || "",
+            category: options.category || "general",
+            version: options.version,
+            content: skillContent,
+            createdBy: "cli-user",
+          })
+          itemSpinner.stop(`Item created: ${item.slug}`)
+          logSpinnerStop(`Item created: ${item.slug}`, isInteractive)
+        } catch (err) {
+          itemSpinner.stop("Failed to create item", 1)
+          const errorMessage = formatError(err)
+          prompts.log.error(errorMessage)
+          errorNonInteractive(`Error: ${errorMessage}`, isInteractive)
+          prompts.outro("Done")
+          return
+        }
+
+        // Upload artifact
+        const uploadSpinner = prompts.spinner()
+        logSpinnerStart("Uploading artifact...", isInteractive)
+        uploadSpinner.start("Uploading artifact...")
+        let artifact: UploadArtifactResponse
+        try {
+          const archivePath = packResult.archivePath
+          artifact = await uploadArtifact(
+            baseUrl,
+            item.id,
+            archivePath,
+            options.version,
+            (loaded, total) => {
+              const percent = Math.round((loaded / total) * 100)
+              uploadSpinner.message(`Uploading artifact... ${percent}% (${formatBytes(loaded)} / ${formatBytes(total)})`)
+            }
+          )
+          uploadSpinner.stop("Artifact uploaded")
+          logSpinnerStop("Artifact uploaded", isInteractive)
+        } catch (err) {
+          uploadSpinner.stop("Failed to upload artifact", 1)
+          const errorMessage = formatError(err)
+          prompts.log.error(errorMessage)
+          errorNonInteractive(`Error: ${errorMessage}`, isInteractive)
+          prompts.outro("Done")
+          return
+        }
+
+        // Display success message
+        const resultMessage = formatUploadResult(registry, item, artifact)
+        prompts.log.success(resultMessage)
+        logNonInteractive(resultMessage, isInteractive)
+        prompts.outro("Done")
+        logNonInteractive("Done\n", isInteractive)
+      },
+    })
+  },
+})
+
 export const PluginCommand = cmd({
   command: "plugin",
   describe: "manage extensions (skills, agents, commands, mcp)",
@@ -254,6 +644,7 @@ export const PluginCommand = cmd({
       .command(PluginRemoveCommand)
       .command(PluginListCommand)
       .command(PluginUpdateCommand)
+      .command(PluginUploadCommand)
       .demandCommand(),
   async handler() {},
 })

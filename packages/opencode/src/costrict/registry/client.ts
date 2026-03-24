@@ -5,7 +5,7 @@ import { Log } from "../../util/log"
 import { loadCoStrictCredentials } from "../provider/credentials"
 import { isCoStrictTokenValid, refreshCoStrictToken } from "../provider/token"
 import { ForbiddenError, NotLoggedInError, UnauthorizedError } from "./types"
-import type { AccessCache, IndexJson, RegistryAccess } from "./types"
+import type { AccessCache, CreateItemRequest, CreateItemResponse, CreateRegistryRequest, CreateRegistryResponse, IndexJson, RegistryAccess, UploadArtifactResponse } from "./types"
 
 const log = Log.create({ service: "registry-client" })
 
@@ -118,4 +118,164 @@ export async function invalidateAccessCache(registryUrl: string): Promise<void> 
   if (!parsed) return
   const p = accessCachePath(parsed.origin, parsed.org)
   await Filesystem.write(p, "").catch(() => {})
+}
+
+export async function createRegistry(
+  baseUrl: string,
+  request: CreateRegistryRequest
+): Promise<CreateRegistryResponse> {
+  const url = `${baseUrl.replace(/\/$/, "")}/api/registries`
+  const token = await resolveToken(url)
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  console.log(`→ POST ${url}`)
+  console.log(`  Headers: ${JSON.stringify({ ...headers, Authorization: token ? "Bearer ***" : undefined })}`)
+  console.log(`  Body: ${JSON.stringify(request)}`)
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(request),
+  }).catch((err) => {
+    console.log(`  Error: ${err.message}`)
+    throw new Error(`Failed to create registry: ${err.message}`)
+  })
+
+  console.log(`← ${res.status} ${res.statusText}`)
+
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 403) throw new ForbiddenError()
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    console.log(`  Response: ${text}`)
+    throw new Error(`Failed to create registry: ${res.status}`)
+  }
+
+  const data = await res.json() as CreateRegistryResponse
+  console.log(`  Response: ${JSON.stringify(data)}`)
+  return data
+}
+
+export async function createItem(
+  baseUrl: string,
+  registryId: string,
+  request: CreateItemRequest
+): Promise<CreateItemResponse> {
+  const url = `${baseUrl.replace(/\/$/, "")}/api/registries/${registryId}/items`
+  const token = await resolveToken(url)
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  console.log(`→ POST ${url}`)
+  console.log(`  Headers: ${JSON.stringify({ ...headers, Authorization: token ? "Bearer ***" : undefined })}`)
+  console.log(`  Body: ${JSON.stringify({ ...request, content: request.content ? "[SKILL.md content]" : undefined })}`)
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(request),
+  }).catch((err) => {
+    console.log(`  Error: ${err.message}`)
+    throw new Error(`Failed to create item: ${err.message}`)
+  })
+
+  console.log(`← ${res.status} ${res.statusText}`)
+
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 403) throw new ForbiddenError()
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    console.log(`  Response: ${text}`)
+    throw new Error(`Failed to create item: ${res.status}`)
+  }
+
+  const data = await res.json() as CreateItemResponse
+  console.log(`  Response: ${JSON.stringify(data)}`)
+  return data
+}
+
+export async function uploadArtifact(
+  baseUrl: string,
+  itemId: string,
+  filePath: string,
+  version?: string,
+  onProgress?: (loaded: number, total: number) => void
+): Promise<UploadArtifactResponse> {
+  const url = `${baseUrl.replace(/\/$/, "")}/api/artifacts/upload`
+  const token = await resolveToken(url)
+
+  const file = Bun.file(filePath)
+  const filename = path.basename(filePath)
+  const total = file.size
+
+  console.log(`→ POST ${url}`)
+  console.log(`  Headers: ${JSON.stringify({ Authorization: token ? "Bearer ***" : undefined })}`)
+  console.log(`  File: ${filename} (${total} bytes)`)
+  console.log(`  Item ID: ${itemId}`)
+  if (version) console.log(`  Version: ${version}`)
+
+  let fileBlob: Blob
+
+  // 如果提供了进度回调，创建 TransformStream 来跟踪上传进度
+  if (onProgress && total > 0) {
+    let loaded = 0
+    const progressTransform = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        loaded += chunk.byteLength
+        onProgress(loaded, total)
+        controller.enqueue(chunk)
+      },
+    })
+    const fileStream = file.stream().pipeThrough(progressTransform)
+    // Bun 支持将 ReadableStream 直接传递给 Blob 构造函数（使用类型断言绕过 TypeScript 限制）
+    fileBlob = new Blob([fileStream as unknown as BlobPart])
+  } else {
+    fileBlob = file
+  }
+
+  const formData = new FormData()
+  formData.append("file", fileBlob, filename)
+  formData.append("item_id", itemId)
+  if (version) {
+    formData.append("version", version)
+  }
+
+  const headers: Record<string, string> = {}
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+  }).catch((err) => {
+    console.log(`  Error: ${err.message}`)
+    throw new Error(`Failed to upload artifact: ${err.message}`)
+  })
+
+  console.log(`← ${res.status} ${res.statusText}`)
+
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 403) throw new ForbiddenError()
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    console.log(`  Response: ${text}`)
+    throw new Error(`Failed to upload artifact: ${res.status}`)
+  }
+
+  const data = await res.json() as UploadArtifactResponse
+  console.log(`  Response: ${JSON.stringify(data)}`)
+  return data
 }
