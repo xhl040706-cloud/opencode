@@ -24,10 +24,9 @@ function NavButton(props: {
         aria-label={props.label}
         onClick={props.onClick}
         classList={{
-          "flex items-center justify-center size-10 p-1 rounded-lg overflow-hidden transition-colors cursor-default": true,
-          "bg-transparent border-2 border-icon-strong-base hover:bg-surface-base-hover": props.active,
-          "bg-transparent border border-transparent hover:bg-surface-base-hover hover:border-border-weak-base":
-            !props.active,
+          "flex items-center justify-center size-10 rounded-lg transition-colors cursor-default outline-none": true,
+          "bg-surface-base text-icon-strong-base shadow-xs-border-base/30": props.active,
+          "text-icon-weak-base hover:bg-surface-base-hover hover:text-icon-base": !props.active,
         }}
       >
         <Icon name={props.icon} size="normal" />
