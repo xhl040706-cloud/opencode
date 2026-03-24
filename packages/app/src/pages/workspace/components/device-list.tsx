@@ -4,6 +4,7 @@ import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { Collapsible } from "@opencode-ai/ui/collapsible"
 import type { Device, DeviceStatus } from "../types"
+import { useLanguage } from "@/context/language"
 
 export type DeviceListProps = {
   devices: () => Device[]
@@ -16,28 +17,32 @@ export type DeviceListProps = {
   onToggleCollapse: () => void
 }
 
-function getStatusText(status: DeviceStatus): string {
+function getStatusText(status: DeviceStatus, t: (key: string) => string): string {
   switch (status) {
     case "online":
-      return "在线"
+      return t("workspace.device.online")
     case "offline":
-      return "离线"
+      return t("workspace.device.offline")
     case "":
     default:
-      return "离线"
+      return t("workspace.device.offline")
   }
 }
 
 export function DeviceList(props: DeviceListProps) {
+  const language = useLanguage()
+  const t = language.t
   const filteredDevices = createMemo(() => {
     const query = props.searchQuery().toLowerCase()
     if (!query) return props.devices()
-    return props.devices().filter(
-      (device) =>
-        device.displayName.toLowerCase().includes(query) ||
-        device.deviceId.toLowerCase().includes(query) ||
-        device.platform.toLowerCase().includes(query)
-    )
+    return props
+      .devices()
+      .filter(
+        (device) =>
+          device.displayName.toLowerCase().includes(query) ||
+          device.deviceId.toLowerCase().includes(query) ||
+          device.platform.toLowerCase().includes(query),
+      )
   })
 
   const isSelected = createSelector(() => props.selectedDeviceId())
@@ -54,21 +59,21 @@ export function DeviceList(props: DeviceListProps) {
             size="small"
             class="size-4 text-icon-weak shrink-0"
           />
-          <span class="text-12-medium text-text-weak">设备列表</span>
+          <span class="text-12-medium text-text-weak">{t("workspace.device.list")}</span>
           <span class="text-11-regular text-text-weaker">{filteredDevices().length}</span>
         </Collapsible.Trigger>
 
         <Collapsible.Content>
           <div class="flex flex-col gap-2 px-2">
-              <div class="flex items-center gap-2 h-8 px-2 bg-surface-base rounded-md border border-border-weak-base focus-within:border-border-strong-base">
-                <Icon name="magnifying-glass" class="size-4 text-text-weak shrink-0" />
-                <input
-                  type="text"
-                  placeholder="搜索设备..."
-                  value={props.searchQuery()}
-                  onInput={(e: Event) => props.onSearchChange((e.target as HTMLInputElement).value)}
-                  class="flex-1 text-13-regular bg-transparent placeholder:text-text-weak focus:outline-none"
-                />
+            <div class="flex items-center gap-2 h-8 px-2 bg-surface-base rounded-md border border-border-weak-base focus-within:border-border-strong-base">
+              <Icon name="magnifying-glass" class="size-4 text-text-weak shrink-0" />
+              <input
+                type="text"
+                placeholder={t("workspace.device.search")}
+                value={props.searchQuery()}
+                onInput={(e: Event) => props.onSearchChange((e.target as HTMLInputElement).value)}
+                class="flex-1 text-13-regular bg-transparent placeholder:text-text-weak focus:outline-none"
+              />
             </div>
 
             <div class="flex flex-col gap-1 max-h-60 overflow-y-auto">
@@ -87,14 +92,10 @@ export function DeviceList(props: DeviceListProps) {
                             "bg-border-weak-base": device.status === "",
                           }}
                         />
-                        <span class="text-13-medium text-text-strong truncate">
-                          {device.displayName}
-                        </span>
+                        <span class="text-13-medium text-text-strong truncate">{device.displayName}</span>
                       </div>
                       <div class="flex flex-col gap-0.5 pl-4">
-                        <span class="text-11-regular text-text-weak truncate">
-                          ID: {device.deviceId}
-                        </span>
+                        <span class="text-11-regular text-text-weak truncate">ID: {device.deviceId}</span>
                         <span class="text-11-regular text-text-weaker truncate">
                           {device.platform} • {device.version}
                         </span>
@@ -103,7 +104,11 @@ export function DeviceList(props: DeviceListProps) {
 
                     <Tooltip
                       placement="top"
-                      value={device.status === "offline" ? "设备离线，无法创建工作空间" : "创建工作空间"}
+                      value={
+                        device.status === "offline"
+                          ? t("workspace.device.offlineHint")
+                          : t("workspace.device.createWorkspace")
+                      }
                       class="self-stretch"
                     >
                       <div
@@ -123,7 +128,7 @@ export function DeviceList(props: DeviceListProps) {
               <Show when={filteredDevices().length === 0}>
                 <div class="flex flex-col items-center justify-center py-4 text-text-weak">
                   <Icon name="magnifying-glass" class="size-8 mb-2 opacity-50" />
-                  <span class="text-12-regular">未找到设备</span>
+                  <span class="text-12-regular">{t("workspace.device.notFound")}</span>
                 </div>
               </Show>
             </div>

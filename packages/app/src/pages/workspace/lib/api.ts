@@ -13,6 +13,11 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error || `Request failed: ${res.status}`)
   }
+
+  if (res.status === 204 || res.status === 205) {
+    return null as T
+  }
+  
   return res.json()
 }
 
