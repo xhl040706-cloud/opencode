@@ -528,7 +528,6 @@ async function runSession(gatewayURL: string, deviceId: string, deviceToken: str
 
   await Promise.race([loop(), session.waitClose()])
   session.close()
-  throw new Error("tunnel session ended")
 }
 
 export async function connect(localPort: number): Promise<void> {
@@ -550,14 +549,16 @@ export async function connect(localPort: number): Promise<void> {
       clearGatewayCache()
       const gatewayURL = await assignGateway(device)
       await runSession(gatewayURL, device.device_id, device.device_token, localPort)
+      // session was established then closed gracefully — reset backoff
+      log.info("tunnel session ended, reconnecting", { attempt })
       attempt = 0
+      await new Promise<void>((resolve) => setTimeout(resolve, INITIAL_DELAY))
     } catch (e: any) {
       log.warn("tunnel disconnected", { error: e.message })
       const delay = Math.min(INITIAL_DELAY * Math.pow(2, attempt), MAX_DELAY)
       attempt++
       log.info("reconnecting after delay", { delay, attempt })
       await new Promise<void>((resolve) => setTimeout(resolve, delay))
-      continue
     }
   }
 }
