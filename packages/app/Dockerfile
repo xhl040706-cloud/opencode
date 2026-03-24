@@ -19,20 +19,15 @@ COPY packages/plugin/package.json ./packages/plugin/
 COPY packages/script/package.json ./packages/script/
 COPY packages/opencode/package.json ./packages/opencode/
 
-# Install workspace dependencies
-RUN bun install
-
-# Install devDependencies for packages/app specifically
-WORKDIR /app/packages/app
-RUN bun install
-
-WORKDIR /app
-
-# Copy source code
+# Copy source code first, then install dependencies
+# (avoids COPY overwriting node_modules installed in packages/app)
 COPY packages/app ./packages/app
 COPY packages/sdk/js ./packages/sdk/js
 COPY packages/ui ./packages/ui
 COPY packages/util ./packages/util
+
+# Install all workspace dependencies
+RUN bun install
 
 # Build arguments for environment variables
 ARG VITE_CLOUD_SERVER_HOST=localhost

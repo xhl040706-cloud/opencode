@@ -22,6 +22,15 @@ if [ -f "/app/packages/app/dist/index.html" ]; then
   content=$(envsubst "$ENV_VARS" < /app/packages/app/dist/index.html)
   printf '%s\n' "$content" > /app/packages/app/dist/index.html
   echo "Runtime environment variables injected into index.html"
+
+  # Rewrite asset paths in index.html to include base path prefix
+  # This allows deploying under a sub-path without rebuilding the image
+  BASE_PATH=$(echo "$VITE_BASE_PATH" | sed 's:/*$::')
+  if [ -n "$BASE_PATH" ]; then
+    sed -i "s|src=\"/|src=\"${BASE_PATH}/|g" /app/packages/app/dist/index.html
+    sed -i "s|href=\"/|href=\"${BASE_PATH}/|g" /app/packages/app/dist/index.html
+    echo "Asset paths rewritten with base path: ${BASE_PATH}"
+  fi
 fi
 
 # Execute the CMD
