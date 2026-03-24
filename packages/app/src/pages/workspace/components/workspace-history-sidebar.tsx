@@ -10,6 +10,7 @@ import { sortedRootSessions } from "@/pages/layout/helpers"
 import type { Session } from "@opencode-ai/sdk/v2/client"
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { useActiveWorkspace } from "../active-workspace"
+import { useLanguage } from "@/context/language"
 
 export type WorkspaceHistorySidebarProps = {
   workspace: Workspace | undefined
@@ -17,6 +18,8 @@ export type WorkspaceHistorySidebarProps = {
 }
 
 export function WorkspaceHistorySidebar(props: WorkspaceHistorySidebarProps) {
+  const language = useLanguage()
+  const t = language.t
   const globalSync = useGlobalSync()
   const active = useActiveWorkspace()!
   const { navigateToSession, navigateToNewSession } = useWorkspaceNavigate()
@@ -40,7 +43,10 @@ export function WorkspaceHistorySidebar(props: WorkspaceHistorySidebarProps) {
     }
 
     return allSessions
-      .sort((a, b) => (b.session.time.updated ?? b.session.time.created) - (a.session.time.updated ?? a.session.time.created))
+      .sort(
+        (a, b) =>
+          (b.session.time.updated ?? b.session.time.created) - (a.session.time.updated ?? a.session.time.created),
+      )
       .slice(0, 20)
   })
 
@@ -59,8 +65,8 @@ export function WorkspaceHistorySidebar(props: WorkspaceHistorySidebarProps) {
         } finally {
           setIsLoading(false)
         }
-      }
-    )
+      },
+    ),
   )
 
   const handleSessionClick = (session: Session) => {
@@ -80,7 +86,7 @@ export function WorkspaceHistorySidebar(props: WorkspaceHistorySidebarProps) {
       <div class="shrink-0 flex items-center justify-between p-3 border-b border-border-weak-base">
         <div class="flex items-center gap-2">
           <Icon name="bubble-5" class="size-4 text-text-weak" />
-          <span class="text-14-medium text-text-strong">会话历史</span>
+          <span class="text-14-medium text-text-strong">{t("workspace.history.title")}</span>
         </div>
         <IconButton icon="close" variant="ghost" size="small" onClick={props.onClose} />
       </div>
@@ -97,7 +103,7 @@ export function WorkspaceHistorySidebar(props: WorkspaceHistorySidebarProps) {
 
             <div class="shrink-0 p-2">
               <Button size="small" icon="plus-small" class="w-full" onClick={handleNewSession}>
-                新建会话
+                {t("workspace.history.createSession")}
               </Button>
             </div>
 
@@ -115,7 +121,7 @@ export function WorkspaceHistorySidebar(props: WorkspaceHistorySidebarProps) {
                   fallback={
                     <div class="flex flex-col items-center justify-center py-8 text-text-weak">
                       <Icon name="bubble-5" class="size-8 mb-2 opacity-30" />
-                      <span class="text-12-regular">暂无会话历史</span>
+                      <span class="text-12-regular">{t("workspace.history.empty")}</span>
                     </div>
                   }
                 >
@@ -129,13 +135,11 @@ export function WorkspaceHistorySidebar(props: WorkspaceHistorySidebarProps) {
                           <div class="flex items-center gap-2">
                             <Icon name="bubble-5" class="size-3.5 text-text-weak shrink-0" />
                             <span class="text-13-regular text-text-strong truncate flex-1">
-                              {session.title || "新会话"}
+                              {session.title || t("workspace.session.new")}
                             </span>
                           </div>
                           <div class="flex items-center gap-2 pl-5.5">
-                            <span class="text-11-regular text-text-weak truncate">
-                              {directory.name}
-                            </span>
+                            <span class="text-11-regular text-text-weak truncate">{directory.name}</span>
                             <span class="text-10-regular text-text-weaker">
                               {DateTime.fromMillis(session.time.updated ?? session.time.created).toRelative()}
                             </span>
