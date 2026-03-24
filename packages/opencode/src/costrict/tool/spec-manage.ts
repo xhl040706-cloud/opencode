@@ -174,6 +174,342 @@ export const SpecManageTool = Tool.define('spec-manage', async () => {
             output: `Error: ${error instanceof Error ? error.message : String(error)}`,
           };
         }
+      }else if (mode === 'specpath') {
+        const specDir = resolve(resolvedPath, '.cospec', 'spec');
+        
+        try {
+          const entries = await fs.readdir(specDir, { withFileTypes: true });
+          const dirs: string[] = [];
+          
+          for (const entry of entries) {
+            if (entry.isDirectory()) dirs.push(entry.name);
+          }
+
+          dirs.sort();
+
+          log.info('Spec mode completed', { path: projectPath, dirs: dirs.length });
+
+          if (dirs.length === 0) {
+            return {
+              title: 'CoSpec Spec 为空',
+              metadata: {
+                path: projectPath,
+                error: '',
+                changes_count: 0,
+              },
+              output: '当前spec为空',
+            };
+          }
+
+          const paths = dirs.map(dir => `.cospec/spec/${dir}/spec.md`);
+
+          return {
+            title: `CoSpec Spec: ${dirs.length} 个功能`,
+            metadata: {
+              path: projectPath,
+              error: '',
+              changes_count: 0,
+            },
+            output: paths.join('\n'),
+          };
+        } catch (error) {
+          log.error('Spec mode failed', {
+            error: error instanceof Error ? error.message : String(error),
+            path: projectPath,
+          });
+          return {
+            title: '获取 Spec 目录失败',
+            metadata: {
+              path: projectPath,
+              error: error instanceof Error ? error.message : String(error),
+              changes_count: 0,
+            },
+            output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      }else if (mode === 'techpath') {
+        const specDir = resolve(resolvedPath, '.cospec', 'spec');
+        
+        try {
+          const entries = await fs.readdir(specDir, { withFileTypes: true });
+          const dirs: string[] = [];
+          
+          for (const entry of entries) {
+            if (entry.isDirectory()) dirs.push(entry.name);
+          }
+
+          dirs.sort();
+
+          log.info('Spec mode completed', { path: projectPath, dirs: dirs.length });
+
+          if (dirs.length === 0) {
+            return {
+              title: 'CoSpec Spec 为空',
+              metadata: {
+                path: projectPath,
+                error: '',
+                changes_count: 0,
+              },
+              output: '当前spec为空',
+            };
+          }
+
+          const paths = dirs.map(dir => `.cospec/spec/${dir}/tech.md`);
+
+          return {
+            title: `CoSpec Spec: ${dirs.length} 个功能`,
+            metadata: {
+              path: projectPath,
+              error: '',
+              changes_count: 0,
+            },
+            output: paths.join('\n'),
+          };
+        } catch (error) {
+          log.error('Spec mode failed', {
+            error: error instanceof Error ? error.message : String(error),
+            path: projectPath,
+          });
+          return {
+            title: '获取 Spec 目录失败',
+            metadata: {
+              path: projectPath,
+              error: error instanceof Error ? error.message : String(error),
+              changes_count: 0,
+            },
+            output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      } else if (mode === 'planpath') {
+        const specDir = resolve(resolvedPath, '.cospec', 'spec');
+        
+        try {
+          const entries = await fs.readdir(specDir, { withFileTypes: true });
+          const dirs: string[] = [];
+          
+          for (const entry of entries) {
+            if (entry.isDirectory()) dirs.push(entry.name);
+          }
+
+          dirs.sort();
+
+          log.info('Spec mode completed', { path: projectPath, dirs: dirs.length });
+
+          if (dirs.length === 0) {
+            return {
+              title: 'CoSpec Spec 为空',
+              metadata: {
+                path: projectPath,
+                error: '',
+                changes_count: 0,
+              },
+              output: '当前spec为空',
+            };
+          }
+
+          const paths = dirs.map(dir => `.cospec/spec/${dir}/plan.md`);
+
+          return {
+            title: `CoSpec Spec: ${dirs.length} 个功能`,
+            metadata: {
+              path: projectPath,
+              error: '',
+              changes_count: 0,
+            },
+            output: paths.join('\n'),
+          };
+        } catch (error) {
+          log.error('Spec mode failed', {
+            error: error instanceof Error ? error.message : String(error),
+            path: projectPath,
+          });
+          return {
+            title: '获取 Spec 目录失败',
+            metadata: {
+              path: projectPath,
+              error: error instanceof Error ? error.message : String(error),
+              changes_count: 0,
+            },
+            output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      } else if (mode === 'readspec') {
+        const specDir = resolve(resolvedPath, '.cospec', 'spec');
+        
+        try {
+          const entries = await fs.readdir(specDir, { withFileTypes: true });
+          const dirs = entries.filter(e => e.isDirectory()).map(e => e.name).sort();
+
+          log.info('Readspec mode completed', { path: projectPath, dirs: dirs.length });
+
+          if (dirs.length === 0) {
+            return {
+              title: 'CoSpec Spec 为空',
+              metadata: {
+                path: projectPath,
+                error: '',
+                changes_count: 0,
+              },
+              output: '当前spec为空',
+            };
+          }
+
+          const contents = await Promise.all(
+            dirs.map(async dir => {
+              const path = resolve(specDir, dir, 'spec.md');
+              try {
+                const file = Bun.file(path);
+                const text = await file.text();
+                return `${text}`;
+              } catch {
+                return `=== ${dir} ===\n[无法读取文件]`;
+              }
+            })
+          );
+
+          return {
+            title: `CoSpec Spec: ${dirs.length} 个功能`,
+            metadata: {
+              path: projectPath,
+              error: '',
+              changes_count: 0,
+            },
+            output: contents.join('\n\n'),
+          };
+        } catch (error) {
+          log.error('Readspec mode failed', {
+            error: error instanceof Error ? error.message : String(error),
+            path: projectPath,
+          });
+          return {
+            title: '获取 Spec 目录失败',
+            metadata: {
+              path: projectPath,
+              error: error instanceof Error ? error.message : String(error),
+              changes_count: 0,
+            },
+            output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      } else if (mode === 'readtech') {
+        const specDir = resolve(resolvedPath, '.cospec', 'spec');
+        
+        try {
+          const entries = await fs.readdir(specDir, { withFileTypes: true });
+          const dirs = entries.filter(e => e.isDirectory()).map(e => e.name).sort();
+
+          log.info('Readspec mode completed', { path: projectPath, dirs: dirs.length });
+
+          if (dirs.length === 0) {
+            return {
+              title: 'CoSpec Spec 为空',
+              metadata: {
+                path: projectPath,
+                error: '',
+                changes_count: 0,
+              },
+              output: '当前spec为空',
+            };
+          }
+
+          const contents = await Promise.all(
+            dirs.map(async dir => {
+              const path = resolve(specDir, dir, 'tech.md');
+              try {
+                const file = Bun.file(path);
+                const text = await file.text();
+                return `${text}`;
+              } catch {
+                return `=== ${dir} ===\n[无法读取文件]`;
+              }
+            })
+          );
+
+          return {
+            title: `CoSpec Spec: ${dirs.length} 个功能`,
+            metadata: {
+              path: projectPath,
+              error: '',
+              changes_count: 0,
+            },
+            output: contents.join('\n\n'),
+          };
+        } catch (error) {
+          log.error('Readspec mode failed', {
+            error: error instanceof Error ? error.message : String(error),
+            path: projectPath,
+          });
+          return {
+            title: '获取 Spec 目录失败',
+            metadata: {
+              path: projectPath,
+              error: error instanceof Error ? error.message : String(error),
+              changes_count: 0,
+            },
+            output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      } else if (mode === 'specstage') {
+        const specDir = resolve(resolvedPath, '.cospec', 'spec');
+
+        try {
+          const fileExists = async (dir: string, name: string): Promise<boolean> => {
+            if (!existsSync(dir)) return false;
+            const files = await fs.readdir(dir, { recursive: true });
+            return files.some(f => f === name || f.endsWith('/' + name) || f.endsWith('\\' + name));
+          };
+
+          const hasPlan = await fileExists(specDir, 'plan.md');
+          const hasTech = await fileExists(specDir, 'tech.md');
+          const hasSpec = await fileExists(specDir, 'spec.md');
+          const hasUser = await fileExists(specDir, 'user.md');
+
+          log.info('Specstage check', { path: projectPath, hasPlan, hasTech, hasSpec, hasUser });
+
+          let stage: string;
+          let title: string;
+
+          if (hasPlan) {
+            stage = 'implementation';
+            title = '方案执行阶段';
+          } else if (hasTech) {
+            stage = 'task';
+            title = '开发任务拆分阶段->方案执行阶段';
+          } else if (hasSpec) {
+            stage = 'design';
+            title = '架构设计阶段->开发任务拆分阶段->方案执行阶段';
+          } else if (hasUser) {
+            stage = 'explore';
+            title = '需求明确阶段->架构设计阶段->开发任务拆分阶段->方案执行阶段';
+          } else {
+            stage = 'input';
+            title = '需求明确阶段->架构设计阶段->开发任务拆分阶段->方案执行阶段';
+          }
+
+          return {
+            title: `当前阶段: ${title}`,
+            metadata: {
+              path: projectPath,
+              error: '',
+              changes_count: 0,
+            },
+            output: title,
+          };
+        } catch (error) {
+          log.error('Specstage mode failed', {
+            error: error instanceof Error ? error.message : String(error),
+            path: projectPath,
+          });
+          return {
+            title: '获取阶段信息失败',
+            metadata: {
+              path: projectPath,
+              error: error instanceof Error ? error.message : String(error),
+              changes_count: 0,
+            },
+            output: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
       }
 
       // 默认模式：展示 changes 目录下的变更
