@@ -306,7 +306,7 @@ export function WorkspaceSidebar() {
                     handleOpenWorkspace(ws())
                   }}
                 >
-                  <Icon name="circle-check" size="small" class="text-icon-weak" />
+                  <Icon name="arrow-up" size="small" class="text-icon-weak" />
                 </div>
               </Tooltip>
               <Tooltip placement="left" value={t("workspace.delete")} class="flex-1">
@@ -329,7 +329,10 @@ export function WorkspaceSidebar() {
 
   return (
     <div class="flex flex-col h-full w-full bg-background-stronger border-r border-border-weak-base">
-      <div class="shrink-0 p-2 border-b border-border-weak-base flex items-center gap-1">
+      <div class="h-10 shrink-0 flex items-center px-4">
+        <span class="text-13-medium">{t("workspace.page.title")}</span>
+      </div>
+      <div class="shrink-0 p-2 flex items-center gap-1 border-t border-border-weak-base">
         <div class="flex-1 flex items-center gap-2 h-8 px-2 bg-background-base rounded-md border border-border-weak-base focus-within:border-border-strong-base">
           <Icon name="magnifying-glass" class="size-4 text-text-weak shrink-0" />
           <input
@@ -342,7 +345,7 @@ export function WorkspaceSidebar() {
         </div>
       </div>
 
-      <div class="flex-1 min-h-0 overflow-y-auto py-2">
+      <div class="flex-1 min-h-0 overflow-y-auto pb-2">
         <Collapsible open={!isRunningCollapsed()}>
           <div class="px-2 py-1">
             <Collapsible.Trigger
