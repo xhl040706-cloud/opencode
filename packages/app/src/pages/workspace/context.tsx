@@ -9,14 +9,12 @@ type WorkspaceContextValue = {
   enabledWorkspaceIds: Accessor<string[]>
   closedWorkspaceIds: Accessor<string[]>
   isLoading: Accessor<boolean>
-  showHistorySidebar: Accessor<boolean>
   selectWorkspace: (id: string) => void
   selectDevice: (id: string) => void
   enableWorkspace: (id: string) => void
   disableWorkspace: (id: string) => void
   createWorkspace: (deviceId: string, directory: string) => Promise<void>
   deleteWorkspace: (workspaceId: string) => void
-  closeHistorySidebar: () => void
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue>()

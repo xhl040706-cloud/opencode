@@ -33,7 +33,7 @@ export default function Skills() {
     loading: true,
     category: "all",
     search: "",
-    offset: 0,
+    page: 1,
     useSemanticSearch: false,
   })
 
@@ -42,7 +42,7 @@ export default function Skills() {
   async function load(reset: boolean, useSemanticSearch = false) {
     setState("loading", true)
     try {
-      const offset = reset ? 0 : state.offset
+      const page = reset ? 1 : state.page
       const searchQuery = state.search
 
       if (useSemanticSearch && searchQuery) {
@@ -51,25 +51,25 @@ export default function Skills() {
           query: searchQuery,
           types: ["skill"],
           categories: state.category !== "all" ? [state.category] : undefined,
-          limit: PER_PAGE,
-          offset,
+          pageSize: PER_PAGE,
+          page,
         })
         setState({
           items: reset ? res.items.map((i) => i.item) : [...state.items, ...res.items.map((i) => i.item)],
           total: res.total,
           hasMore: res.hasMore,
-          offset: reset ? res.items.length : state.offset + res.items.length,
+          page: reset ? 2 : state.page + 1,
           loading: false,
           useSemanticSearch: true,
         })
       } else {
         // Use regular list API
-        const res = await itemApi.list({ type: "skill", search: searchQuery || undefined, limit: PER_PAGE, offset })
+        const res = await itemApi.list({ type: "skill", search: searchQuery || undefined, pageSize: PER_PAGE, page })
         setState({
           items: reset ? res.items : [...state.items, ...res.items],
           total: res.total,
           hasMore: res.hasMore,
-          offset: reset ? res.items.length : state.offset + res.items.length,
+          page: reset ? 2 : state.page + 1,
           loading: false,
           useSemanticSearch: false,
         })
@@ -81,7 +81,7 @@ export default function Skills() {
 
   // Handle search button click
   function handleSearch() {
-    setState("offset", 0)
+    setState("page", 1)
     void load(true, true)
   }
 
@@ -91,7 +91,7 @@ export default function Skills() {
       () => [selectedRepo(), state.category] as const,
       ([repo]) => {
         if (repo) return // repository mode handled by useRepoItems
-        setState("offset", 0)
+        setState("page", 1)
         void load(true, false)
       },
     ),

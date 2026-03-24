@@ -1,8 +1,8 @@
-import { createResource, createMemo, createEffect, on, onMount, onCleanup, For, Show } from "solid-js"
+import { createMemo, createEffect, on, onMount, onCleanup, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Icon } from "@opencode-ai/ui/icon"
 import { useAuth } from "../hooks/use-auth"
-import { itemApi } from "../lib/api"
+import { itemApi, type CapabilityItem } from "../lib/api"
 import { useRepoFilter } from "../context/repo-filter"
 import { useRepoItems } from "../hooks/use-repo-items"
 import ItemCard from "../components/item-card"
@@ -25,20 +25,69 @@ export default function Subagents() {
   }
   const { items: repoItems, loading: repoLoading } = useRepoItems(repoSelection, "subagent")
 
-  // Global mode: fetch all at once (limit 500), same as original
-  const [global, { refetch }] = createResource(
-    () => ({ active: !selectedRepo(), refreshKey: refreshKey.value }),
-    ({ active }) => (active ? itemApi.list({ type: "subagent", limit: 500 }) : Promise.resolve(null)),
+  // Global mode: server-side pagination with search
+  const [state, setState] = createStore({
+    items: [] as CapabilityItem[],
+    total: 0,
+    hasMore: false,
+    loading: true,
+    category: "all",
+    search: "",
+    page: 1,
+  })
+
+  let sentinel: HTMLDivElement | undefined
+
+  async function load(reset: boolean) {
+    setState("loading", true)
+    try {
+      const page = reset ? 1 : state.page
+      const res = await itemApi.list({
+        type: "subagent",
+        search: state.search || undefined,
+        pageSize: PER_PAGE,
+        page,
+      })
+      setState({
+        items: reset ? res.items : [...state.items, ...res.items],
+        total: res.total,
+        hasMore: res.hasMore,
+        page: reset ? 2 : state.page + 1,
+        loading: false,
+      })
+    } catch {
+      setState("loading", false)
+    }
+  }
+
+  // Reset and reload when not in repository mode or category changes
+  createEffect(
+    on(
+      () => [selectedRepo(), state.category] as const,
+      ([repo]) => {
+        if (repo) return
+        setState("page", 1)
+        void load(true)
+      },
+    ),
   )
 
-  const [state, setState] = createStore({ category: "all", search: "", count: PER_PAGE })
+  onMount(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !selectedRepo() && state.hasMore && !state.loading) {
+          load(false)
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" },
+    )
+    if (sentinel) observer.observe(sentinel)
+    onCleanup(() => observer.disconnect())
+  })
 
-  // Source switches between repository mode and global mode
-  const source = () => (selectedRepo() ? repoItems() : (global()?.items ?? []))
-  const loading = () => (selectedRepo() ? repoLoading() : global.loading)
+  const isRepo = () => !!selectedRepo()
 
-  // Reset pagination when repository changes
-  createEffect(on(selectedRepo, () => setState({ category: "all", search: "", count: PER_PAGE }), { defer: true }))
+  const source = () => (isRepo() ? repoItems() : state.items)
 
   const categories = createMemo(() => {
     const counts = new Map<string, number>()
@@ -50,32 +99,23 @@ export default function Subagents() {
       .sort((a, b) => b.count - a.count)
   })
 
-  const filtered = createMemo(() => {
-    let f = source()
-    if (state.category !== "all") f = f.filter((i) => i.category === state.category)
-    if (state.search) {
-      const q = state.search.toLowerCase()
-      f = f.filter((i) => i.name.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q))
-    }
-    return f
+  const repoFiltered = createMemo(() => {
+    let items = repoItems()
+    if (state.category !== "all") items = items.filter((i) => i.category === state.category)
+    if (!state.search) return items
+    const q = state.search.toLowerCase()
+    return items.filter((i) => i.name.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q))
   })
 
-  const displayed = () => filtered().slice(0, state.count)
-  const hasMore = () => state.count < filtered().length
-
-  let sentinel: HTMLDivElement | undefined
-  onMount(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore()) setState("count", (c) => c + PER_PAGE)
-      },
-      { threshold: 0.1, rootMargin: "100px" },
-    )
-    if (sentinel) observer.observe(sentinel)
-    onCleanup(() => observer.disconnect())
+  const globalFiltered = createMemo(() => {
+    let items = state.items
+    if (state.category !== "all") items = items.filter((i) => i.category === state.category)
+    return items
   })
 
-  const total = () => (selectedRepo() ? repoItems().length : (global()?.total ?? 0))
+  const items = () => (isRepo() ? repoFiltered() : globalFiltered())
+  const loading = () => (isRepo() ? repoLoading() : state.loading && state.items.length === 0)
+  const total = () => (isRepo() ? repoItems().length : state.total)
 
   return (
     <div class="px-8 py-8">
@@ -93,7 +133,7 @@ export default function Subagents() {
               label={language.t("store.page.newSubagent")}
               onCreated={() => {
                 setRefreshKey("value", (value) => value + 1)
-                if (!selectedRepo()) void refetch()
+                if (!selectedRepo()) void load(true)
               }}
             />
           </Show>
@@ -104,17 +144,15 @@ export default function Subagents() {
           value={state.search}
           onChange={(v) => {
             setState("search", v)
-            setState("count", PER_PAGE)
+            setState("page", 1)
+            void load(true)
           }}
           placeholder={language.t("store.searchSubagents")}
         />
       </div>
       <div class="flex gap-2 flex-wrap mb-6">
         <button
-          onClick={() => {
-            setState("category", "all")
-            setState("count", PER_PAGE)
-          }}
+          onClick={() => setState("category", "all")}
           class={`px-3 py-1.5 text-sm rounded-md transition-colors ${state.category === "all" ? "bg-bg-muted text-text-strong" : "text-text-weak hover:text-text-strong hover:bg-bg-muted"}`}
         >
           {language.t("store.console.filters.all")}
@@ -122,10 +160,7 @@ export default function Subagents() {
         <For each={categories()}>
           {(cat) => (
             <button
-              onClick={() => {
-                setState("category", cat.id)
-                setState("count", PER_PAGE)
-              }}
+              onClick={() => setState("category", cat.id)}
               class={`px-3 py-1.5 text-sm rounded-md transition-colors ${state.category === cat.id ? "bg-bg-muted text-text-strong" : "text-text-weak hover:text-text-strong hover:bg-bg-muted"}`}
             >
               {language.t(categoryKey(cat.id))} ({cat.count})
@@ -138,27 +173,29 @@ export default function Subagents() {
         fallback={<div class="flex justify-center py-16 text-text-weak">{language.t("store.loading")}</div>}
       >
         <Show
-          when={filtered().length > 0}
+          when={items().length > 0}
           fallback={<div class="text-center py-16 text-text-weak">{language.t("store.noResults")}</div>}
         >
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            <For each={displayed()}>{(item) => <ItemCard item={item} />}</For>
+            <For each={items()}>{(item) => <ItemCard item={item} />}</For>
           </div>
         </Show>
       </Show>
-      <div ref={sentinel} class="py-8 flex justify-center">
-        <Show when={hasMore()}>
-          <span class="text-text-weak text-sm">{language.t("store.loadingMore")}</span>
-        </Show>
-        <Show when={!hasMore() && displayed().length > 0}>
-          <p class="text-sm text-text-weak">
-            {language.t("store.showingAll", {
-              count: filtered().length,
-              type: language.t("store.sidebar.nav.subagents").toLowerCase(),
-            })}
-          </p>
-        </Show>
-      </div>
+      <Show when={!isRepo()}>
+        <div ref={sentinel} class="py-8 flex justify-center">
+          <Show when={state.loading && state.items.length > 0}>
+            <span class="text-text-weak text-sm">{language.t("store.loadingMore")}</span>
+          </Show>
+          <Show when={!state.hasMore && state.items.length > 0 && !state.loading}>
+            <p class="text-sm text-text-weak">
+              {language.t("store.showingAll", {
+                count: items().length,
+                type: language.t("store.sidebar.nav.subagents").toLowerCase(),
+              })}
+            </p>
+          </Show>
+        </div>
+      </Show>
     </div>
   )
 }

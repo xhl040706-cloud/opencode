@@ -189,6 +189,7 @@ export interface CapabilityItem {
   sourceType?: string
   securityStatus?: SecurityStatus
   lastScanId?: string
+  repoName?: string
   createdBy: string
   createdByName?: string
   createdAt: string
@@ -418,8 +419,8 @@ export const itemApi = {
     search?: string
     category?: string
     registryId?: string
-    limit?: number
-    offset?: number
+    page?: number
+    pageSize?: number
     status?: string
   }) => {
     const p = new URLSearchParams()
@@ -427,8 +428,8 @@ export const itemApi = {
     if (params?.search) p.set("search", params.search)
     if (params?.category) p.set("category", params.category)
     if (params?.registryId) p.set("registryId", params.registryId)
-    if (params?.limit) p.set("limit", String(params.limit))
-    if (params?.offset) p.set("offset", String(params.offset))
+    if (params?.page) p.set("page", String(params.page))
+    if (params?.pageSize) p.set("pageSize", String(params.pageSize))
     if (params?.status) p.set("status", params.status)
     return apiFetch<{ items: CapabilityItem[]; total: number; hasMore: boolean }>(`/api/items?${p.toString()}`)
   },
@@ -500,6 +501,12 @@ export const itemApi = {
   delete: (id: string) => apiFetch<{ message: string }>(`/api/items/${id}`, { method: "DELETE" }),
 
   get: (id: string) => apiFetch<CapabilityItem>(`/api/items/${id}`),
+
+  transfer: (id: string, targetRepoId: string) =>
+    apiFetch<CapabilityItem>(`/api/items/${id}/transfer`, {
+      method: "PUT",
+      body: JSON.stringify({ targetRepoId }),
+    }),
 }
 
 export const registryApi2 = {
@@ -534,8 +541,8 @@ export const scanApi = {
 
 export interface SearchRequest {
   query: string
-  limit?: number
-  offset?: number
+  page?: number
+  pageSize?: number
   types?: string[]
   categories?: string[]
   registryIds?: string[]

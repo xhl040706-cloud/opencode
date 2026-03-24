@@ -19,14 +19,9 @@ import { EditCapabilityDialog } from "../components/edit-capability-dialog"
 import { EditRepoDialog } from "../components/edit-repo-dialog"
 import { MoveCapabilityDialog } from "../components/move-capability-dialog"
 import { RepoSyncTab } from "../components/repo-sync-tab"
-import { typeKey, categoryKey } from "../lib/constants"
+import { typeKey } from "../lib/constants"
 
-const ITEM_TYPE_COLORS: Record<string, string> = {
-  skill: "bg-surface-info-base/20 text-text-info-base",
-  subagent: "bg-surface-warning-base/20 text-text-warning-base",
-  command: "bg-surface-success-base/20 text-text-success-base",
-  mcp: "bg-surface-selected-base/40 text-text-strong",
-}
+const PAGE_SIZE = 10
 
 export default function Dashboard() {
   const dialog = useDialog()
@@ -38,6 +33,7 @@ export default function Dashboard() {
     loadingRepos: false,
     loadingItems: false,
     itemTypeFilter: "all",
+    itemPage: 1,
     expandedSyncRepo: null as string | null,
   })
 
@@ -86,6 +82,13 @@ export default function Dashboard() {
     state.itemTypeFilter === "all" ? state.items : state.items.filter((item) => item.itemType === state.itemTypeFilter),
   )
 
+  const totalPages = createMemo(() => Math.max(1, Math.ceil(filteredItems().length / PAGE_SIZE)))
+
+  const pagedItems = createMemo(() => {
+    const start = (state.itemPage - 1) * PAGE_SIZE
+    return filteredItems().slice(start, start + PAGE_SIZE)
+  })
+
   const openCreateRepo = () => {
     if (!userId()) return
     dialog.show(() => (
@@ -128,12 +131,9 @@ export default function Dashboard() {
   }
 
   const openMoveCapability = (item: CapabilityItem) => {
-    if (!userId()) return
     dialog.show(() => (
       <MoveCapabilityDialog
         item={item}
-        userId={userId()}
-        username={username()}
         repositories={state.repos}
         onMoved={(updated) =>
           setState("items", (items) => items.map((current) => (current.id === updated.id ? updated : current)))
@@ -171,11 +171,6 @@ export default function Dashboard() {
   }
 
   const typeLabel = (type: string) => language.t(typeKey(type))
-
-  const categoryLabel = (category?: string | null) => {
-    if (!category) return "—"
-    return language.t(categoryKey(category))
-  }
 
   const visibilityLabel = (visibility?: string | null) => {
     if (!visibility || visibility === "public") return language.t("store.capabilityDialog.visibility.public")
@@ -360,7 +355,10 @@ export default function Dashboard() {
                             "border-border-weak-base text-text-weak hover:text-text-strong":
                               state.itemTypeFilter !== type,
                           }}
-                          onClick={() => setState("itemTypeFilter", type)}
+                          onClick={() => {
+                            setState("itemTypeFilter", type)
+                            setState("itemPage", 1)
+                          }}
                         >
                           {type === "all" ? language.t("store.console.filters.all") : typeLabel(type)}
                         </button>
@@ -394,9 +392,6 @@ export default function Dashboard() {
                               {language.t("store.console.capabilities.type")}
                             </th>
                             <th class="px-4 py-3 text-left text-12-medium text-text-weak">
-                              {language.t("store.console.capabilities.category")}
-                            </th>
-                            <th class="px-4 py-3 text-left text-12-medium text-text-weak">
                               {language.t("store.console.capabilities.visibility")}
                             </th>
                             <th class="px-4 py-3 text-left text-12-medium text-text-weak">
@@ -406,7 +401,7 @@ export default function Dashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          <For each={filteredItems()}>
+                          <For each={pagedItems()}>
                             {(item) => (
                               <tr class="border-b border-border-weak-base last:border-0">
                                 <td class="px-4 py-3">
@@ -414,51 +409,14 @@ export default function Dashboard() {
                                   <div class="mt-1 text-12-regular text-text-weak">{item.slug}</div>
                                 </td>
                                 <td class="px-4 py-3">
-                                  <span
-                                    class={`rounded-full px-2 py-1 text-11-medium ${ITEM_TYPE_COLORS[item.itemType] ?? "bg-surface-selected-base text-text-strong"}`}
-                                  >
+                                  <span class="rounded py-0.5 text-xs bg-bg-muted text-text-weak">
                                     {typeLabel(item.itemType)}
                                   </span>
                                 </td>
-                                <td class="px-4 py-3 text-12-regular text-text-weak">{categoryLabel(item.category)}</td>
-                                <td class="px-4 py-3">
-                                  <span
-                                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-11-medium"
-                                    classList={{
-                                      "bg-surface-success-base/15 text-text-success-base":
-                                        (item.visibility || "public") === "public",
-                                      "bg-surface-warning-base/15 text-text-warning-base":
-                                        item.visibility === "private",
-                                      "bg-surface-selected-base text-text-weak":
-                                        item.visibility !== "public" &&
-                                        item.visibility !== "private" &&
-                                        item.visibility !== undefined,
-                                    }}
-                                  >
-                                    <Icon name={item.visibility === "private" ? "eye" : "sparkles"} size="small" />
-                                    {visibilityLabel(item.visibility || "public")}
-                                  </span>
+                                <td class="px-4 py-3 text-12-regular capitalize text-text-weak">
+                                  {visibilityLabel(item.visibility || "public")}
                                 </td>
-                                <td class="px-4 py-3 text-12-regular text-text-weak">
-                                  {(() => {
-                                    const repo = state.repos.find((r) => r.id === item.registry?.repoId)
-                                    const name =
-                                      repo?.displayName || repo?.name || item.registry?.name || item.registry?.orgId
-                                    if (!name) return "—"
-                                    if (!item.registry?.externalUrl) return <span>{name}</span>
-                                    return (
-                                      <a
-                                        href={item.registry.externalUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="inline-flex items-center gap-1 text-text-info-base hover:underline"
-                                      >
-                                        {name}
-                                        <Icon name="link" size="small" />
-                                      </a>
-                                    )
-                                  })()}
-                                </td>
+                                <td class="px-4 py-3 text-12-regular text-text-weak">{item.repoName || "—"}</td>
                                 <td class="px-4 py-3">
                                   <div class="flex items-center justify-end gap-1">
                                     <Button
@@ -496,6 +454,52 @@ export default function Dashboard() {
                         </tbody>
                       </table>
                     </div>
+
+                    <Show when={totalPages() > 1}>
+                      <div class="mt-4 flex items-center justify-between">
+                        <p class="text-xs text-text-weak">
+                          {language.t("store.console.capabilities.showing", {
+                            from: (state.itemPage - 1) * PAGE_SIZE + 1,
+                            to: Math.min(state.itemPage * PAGE_SIZE, filteredItems().length),
+                            total: filteredItems().length,
+                          })}
+                        </p>
+                        <div class="flex items-center gap-1">
+                          <Button
+                            size="small"
+                            variant="ghost"
+                            class="h-8 px-2 text-xs"
+                            disabled={state.itemPage <= 1}
+                            onClick={() => setState("itemPage", (p) => Math.max(1, p - 1))}
+                          >
+                            <Icon name="chevron-left" size="small" />
+                          </Button>
+                          <For each={Array.from({ length: totalPages() }, (_, i) => i + 1)}>
+                            {(p) => (
+                              <button
+                                class="flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-xs transition-colors"
+                                classList={{
+                                  "bg-bg-muted text-text-strong font-medium": state.itemPage === p,
+                                  "text-text-weak hover:text-text-strong hover:bg-bg-muted": state.itemPage !== p,
+                                }}
+                                onClick={() => setState("itemPage", p)}
+                              >
+                                {p}
+                              </button>
+                            )}
+                          </For>
+                          <Button
+                            size="small"
+                            variant="ghost"
+                            class="h-8 px-2 text-xs"
+                            disabled={state.itemPage >= totalPages()}
+                            onClick={() => setState("itemPage", (p) => Math.min(totalPages(), p + 1))}
+                          >
+                            <Icon name="chevron-right" size="small" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Show>
                   </Show>
                 </Show>
               </section>
