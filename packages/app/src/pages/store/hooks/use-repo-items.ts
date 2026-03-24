@@ -32,7 +32,7 @@ export function useRepoItems(selectedRepo: () => Repository | null, itemType: st
           setLoading(false)
           return
         }
-        return itemApi.list({ type: itemType, registryId: registry.id, limit: 100 })
+        return itemApi.list({ type: itemType, registryId: registry.id, pageSize: 100 })
       })
       .then((res) => {
         setItems(res?.items ?? [])

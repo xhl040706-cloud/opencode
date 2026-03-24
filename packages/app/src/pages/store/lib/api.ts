@@ -99,6 +99,32 @@ export interface RepoMember {
   createdAt: string
 }
 
+export interface SearchedUser {
+  email: string
+  id: string
+  name: string
+  owner: string
+  picture: string
+  preferred_username: string
+  sub: string
+}
+
+export interface Invitation {
+  id: string
+  inviteeId: string
+  inviteeUsername: string
+  inviterId: string
+  inviterUsername: string
+  repoId: string
+  role: string
+  status: string
+  autoAccepted: boolean
+  createdAt: string
+  updatedAt: string
+  expiresAt: string
+  repository: Repository
+}
+
 export interface CapabilityRegistry {
   id: string
   name: string
@@ -189,6 +215,7 @@ export interface CapabilityItem {
   sourceType?: string
   securityStatus?: SecurityStatus
   lastScanId?: string
+  repoName?: string
   createdBy: string
   createdByName?: string
   createdAt: string
@@ -346,6 +373,16 @@ export const repoApi = {
 
   removeMember: (repoId: string, userId: string) =>
     apiFetch<{ message: string }>(`/api/repositories/${repoId}/members/${userId}`, { method: "DELETE" }),
+
+  invite: (repoId: string, data: { inviteeId: string; inviteeUsername: string; role: string }) =>
+    apiFetch<Invitation>(`/api/repositories/${repoId}/invitations`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+}
+
+export const userApi = {
+  search: (q: string) => apiFetch<{ users: SearchedUser[] }>(`/api/users/search?q=${encodeURIComponent(q)}`),
 }
 
 export const syncApi = {
@@ -418,8 +455,8 @@ export const itemApi = {
     search?: string
     category?: string
     registryId?: string
-    limit?: number
-    offset?: number
+    page?: number
+    pageSize?: number
     status?: string
   }) => {
     const p = new URLSearchParams()
@@ -427,8 +464,8 @@ export const itemApi = {
     if (params?.search) p.set("search", params.search)
     if (params?.category) p.set("category", params.category)
     if (params?.registryId) p.set("registryId", params.registryId)
-    if (params?.limit) p.set("limit", String(params.limit))
-    if (params?.offset) p.set("offset", String(params.offset))
+    if (params?.page) p.set("page", String(params.page))
+    if (params?.pageSize) p.set("pageSize", String(params.pageSize))
     if (params?.status) p.set("status", params.status)
     return apiFetch<{ items: CapabilityItem[]; total: number; hasMore: boolean }>(`/api/items?${p.toString()}`)
   },
@@ -500,6 +537,12 @@ export const itemApi = {
   delete: (id: string) => apiFetch<{ message: string }>(`/api/items/${id}`, { method: "DELETE" }),
 
   get: (id: string) => apiFetch<CapabilityItem>(`/api/items/${id}`),
+
+  transfer: (id: string, targetRepoId: string) =>
+    apiFetch<CapabilityItem>(`/api/items/${id}/transfer`, {
+      method: "PUT",
+      body: JSON.stringify({ targetRepoId }),
+    }),
 }
 
 export const registryApi2 = {
@@ -534,8 +577,8 @@ export const scanApi = {
 
 export interface SearchRequest {
   query: string
-  limit?: number
-  offset?: number
+  page?: number
+  pageSize?: number
   types?: string[]
   categories?: string[]
   registryIds?: string[]
