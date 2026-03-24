@@ -49,13 +49,14 @@ async function removeSkillUrl(registryUrl: string, scope: InstallScope): Promise
 
 async function downloadFile(
   registryBase: string,
+  itemType: string,
   slug: string,
   file: string,
   destDir: string,
   token: string | undefined,
 ): Promise<void> {
   const base = registryBase.endsWith("/") ? registryBase : `${registryBase}/`
-  const url = new URL(`${slug}/${file}`, base).href
+  const url = new URL(`${itemType}/${slug}/${file}`, base).href
   const dest = path.join(destDir, file)
   await mkdir(path.dirname(dest), { recursive: true })
   const res = await fetchFile(url, token)
@@ -73,7 +74,7 @@ export async function installSkill(
     scope === "global"
       ? path.join(Global.Path.config, "skills", item.slug)
       : path.join(Instance.worktree, ".costrict", "skills", item.slug)
-  await Promise.all(item.files.map((f) => downloadFile(registryUrl, item.slug, f, dest, token)))
+  await Promise.all(item.files.map((f) => downloadFile(registryUrl,item.type, item.slug, f, dest, token)))
   await addSkillUrl(registryUrl, scope)
 }
 
@@ -106,16 +107,16 @@ export async function installFileItem(
 
   const dir =
     scope === "global"
-      ? path.join(Global.Path.config, item.type === "subagent" ? "agent" : "commands")
-      : path.join(Instance.worktree, ".costrict", item.type === "subagent" ? "agent" : "commands")
+      ? path.join(Global.Path.config, item.type === "subagent" ? "agents" : "commands")
+      : path.join(Instance.worktree, ".costrict", item.type === "subagent" ? "agents" : "commands")
 
   await mkdir(dir, { recursive: true })
 
   for (const file of item.files) {
-    await downloadFile(registryUrl, item.slug, file, dir, token)
+    await downloadFile(registryUrl,item.type, item.slug, file, dir, token)
   }
 
-  const primary = item.files[0] ?? `${item.slug}.md`
+  const primary = item.files[0] ?? `${item.name}.md`
   return path.join(dir, primary)
 }
 

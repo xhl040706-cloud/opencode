@@ -16,17 +16,18 @@ import { TTYCheck } from "./tui/util/tty-check"
 
 const DEFAULT_ORG = "public"
 
-// function registryBase(): string {
-//   const env = process.env.COSTRICT_REGISTRY_BASE_URL
-//   if (env) return env.replace(/\/$/, "")
-//   return `${getCoStrictBaseURL()}/registry`
-// }
-
 function registryBase(): string {
-  const env = "https://costrict.sangfor.com:30443/costrict-web-api"
+  const env = process.env.COSTRICT_REGISTRY_BASE_URL
   if (env) return env.replace(/\/$/, "")
   return `${getCoStrictBaseURL()}/registry`
 }
+
+// function registryBase(): string {
+//   // const env = "https://costrict.sangfor.com:30443/costrict-web-api"
+//   const env = "https://costrict.sangfor.com:30443/costrict-web-api/api/registry"
+//   if (env) return env.replace(/\/$/, "")
+//   return `${getCoStrictBaseURL()}/registry`
+// }
 
 function resolveRegistryUrl(slug: string | undefined): { registryUrl: string; itemSlug: string | undefined } {
   const base = registryBase()
@@ -251,6 +252,8 @@ const PluginAddCommand = cmd({
         prompts.intro("Install extension")
 
         const { registryUrl, itemSlug } = resolveRegistryUrl(args.slug)
+
+        prompts.intro(`Install URL: ${registryUrl}`)
 
         const spinner = prompts.spinner()
         spinner.start("Fetching registry...")
