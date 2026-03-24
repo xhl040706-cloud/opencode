@@ -137,8 +137,7 @@ async function triggerNotification(data: InterventionData) {
     if (!NotificationMode.isEnabled()) {
       return
     }
-  } catch {
-  }
+  } catch {}
 
   const key = getNotificationKey(data)
   if (shouldSkipNotification(key)) {
@@ -157,12 +156,15 @@ async function triggerNotification(data: InterventionData) {
     )
   } catch {}
 
-  notifyCloud({ type: data.type, sessionID: data.sessionID, data: data.data }).catch(() => {})
+  const session = await Session.get(data.sessionID).catch(() => null)
+  const directory = session?.directory ?? ""
+
+  notifyCloud({ type: data.type, sessionID: data.sessionID, data: data.data }, directory).catch(() => {})
 }
 
 export function cleanupSessionHistory(sessionID: string) {
   mainSessions.delete(sessionID)
-  
+
   const timer = IDLE_DEBOUNCE_TIMERS.get(sessionID)
   if (timer) {
     clearTimeout(timer)
