@@ -27,8 +27,11 @@ if [ -f "/app/packages/app/dist/index.html" ]; then
   # This allows deploying under a sub-path without rebuilding the image
   BASE_PATH=$(echo "$VITE_BASE_PATH" | sed 's:/*$::')
   if [ -n "$BASE_PATH" ]; then
+    # 1) Rewrite absolute paths: src="/..." and href="/..."
     sed -i "s|src=\"/|src=\"${BASE_PATH}/|g" /app/packages/app/dist/index.html
     sed -i "s|href=\"/|href=\"${BASE_PATH}/|g" /app/packages/app/dist/index.html
+    # 2) Inject <base> tag for relative URL resolution (e.g. "assets/index.js")
+    sed -i "s|<head>|<head>\n    <base href=\"${BASE_PATH}/\">|" /app/packages/app/dist/index.html
     echo "Asset paths rewritten with base path: ${BASE_PATH}"
   fi
 fi
