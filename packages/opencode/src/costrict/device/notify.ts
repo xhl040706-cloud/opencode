@@ -11,12 +11,14 @@ export interface InterventionPayload {
 let _baseUrl: string | null = null
 let _deviceToken: string | null = null
 let _deviceId: string | null = null
+let _path: string | null = null
 
-export function initCloudNotifier(baseUrl: string, deviceToken: string, deviceId: string) {
+export function initCloudNotifier(baseUrl: string, deviceToken: string, deviceId: string, path: string) {
   _baseUrl = baseUrl
   _deviceToken = deviceToken
   _deviceId = deviceId
-  log.info("cloud notifier initialized", { deviceId })
+  _path = path
+  log.info("cloud notifier initialized", { deviceId, path: path })
 }
 
 export async function notifyCloud(payload: InterventionPayload): Promise<void> {
@@ -32,6 +34,7 @@ export async function notifyCloud(payload: InterventionPayload): Promise<void> {
       },
       body: JSON.stringify({
         deviceID: _deviceId,
+        path: _path,
         type: payload.type,
         sessionID: payload.sessionID,
         data: payload.data,
