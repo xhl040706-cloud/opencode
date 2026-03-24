@@ -1,6 +1,7 @@
 import { createContext, useContext, type ParentProps } from "solid-js"
 import { env } from "@/lib/env"
 const PREFIX = env.API_PREFIX
+const BASE_PATH = env.BASE_PATH || "/"
 import { createStore } from "solid-js/store"
 import { onMount } from "solid-js"
 import type { CasdoorUser } from "@/pages/store/lib/auth"
@@ -64,7 +65,7 @@ export function AuthProvider(props: ParentProps) {
   const logout = async () => {
     await fetch(`${PREFIX}/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {})
     setState("user", null)
-    window.location.href = "/"
+    window.location.href = BASE_PATH
   }
 
   return (
