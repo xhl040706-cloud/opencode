@@ -1145,6 +1145,7 @@ export const dict = {
   "workspace.close": "Close",
   "workspace.run": "Run",
   "workspace.delete": "Delete",
+  "workspace.more": "More actions",
   "workspace.newSession": "New Session",
   "workspace.loadMore": "Load more",
   "workspace.loadingSessions": "Loading sessions...",

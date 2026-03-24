@@ -1122,6 +1122,7 @@ export const dict = {
   "workspace.close": "关闭",
   "workspace.run": "运行",
   "workspace.delete": "删除",
+  "workspace.more": "更多操作",
   "workspace.newSession": "新建会话",
   "workspace.loadMore": "加载更多",
   "workspace.loadingSessions": "加载会话...",

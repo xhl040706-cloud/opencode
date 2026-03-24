@@ -70,18 +70,18 @@ export function useWorkspaceNavigate() {
    */
   const navigateToSession = (
     sessionId: string,
-    options?: { workspaceId?: string; dir?: string; replace?: boolean }
+    options: { dir: string; workspaceId?: string; replace?: boolean }
   ) => {
     workspaceNavigate(`/session/${sessionId}`, options)
   }
 
   /**
    * 导航到新会话
-   * @param options - 可选参数
+   * @param options - 参数
    */
-  const navigateToNewSession = (options?: {
+  const navigateToNewSession = (options: {
+    dir: string
     workspaceId?: string
-    dir?: string
     replace?: boolean
   }) => {
     workspaceNavigate("/session", options)
