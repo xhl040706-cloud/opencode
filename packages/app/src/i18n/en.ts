@@ -1149,6 +1149,7 @@ export const dict = {
   "workspace.newSession": "New Session",
   "workspace.loadMore": "Load more",
   "workspace.loadingSessions": "Loading sessions...",
+  "workspace.emptySessions": "No sessions yet, click above to create one",
   "workspace.session.new": "New session",
 
   "workspace.history.title": "Session History",

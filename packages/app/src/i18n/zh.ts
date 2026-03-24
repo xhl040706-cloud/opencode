@@ -1126,6 +1126,7 @@ export const dict = {
   "workspace.newSession": "新建会话",
   "workspace.loadMore": "加载更多",
   "workspace.loadingSessions": "加载会话...",
+  "workspace.emptySessions": "暂无会话，点击上方按钮新建",
   "workspace.session.new": "新会话",
 
   "workspace.history.title": "会话历史",
