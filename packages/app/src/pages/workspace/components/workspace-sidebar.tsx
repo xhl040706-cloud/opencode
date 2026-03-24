@@ -245,6 +245,8 @@ export function WorkspaceSidebar() {
                       aria-label={t("workspace.newSession")}
                       onClick={(event: MouseEvent) => {
                         event.stopPropagation()
+                        if (!mounted()) setMounted(true)
+                        if (!open()) setOpen(true)
                         const dir = primaryDir()
                         const dirSlug = dir ? encodeDirectory(dir.path) : "default"
                         navigateToNewSession({ workspaceId: cardProps.id, dir: dirSlug })
@@ -326,7 +328,7 @@ export function WorkspaceSidebar() {
   }
 
   return (
-    <div class="flex flex-col h-full w-72 bg-background-stronger border-r border-border-weak-base">
+    <div class="flex flex-col h-full w-full bg-background-stronger border-r border-border-weak-base">
       <div class="shrink-0 p-2 border-b border-border-weak-base flex items-center gap-1">
         <div class="flex-1 flex items-center gap-2 h-8 px-2 bg-background-base rounded-md border border-border-weak-base focus-within:border-border-strong-base">
           <Icon name="magnifying-glass" class="size-4 text-text-weak shrink-0" />
@@ -497,6 +499,34 @@ function WorkspaceSessions(props: { id: string }) {
     load(next)
   }
 
+  // Watch current session ID: insert placeholder if not in list, remove stale placeholders
+  createEffect(
+    on(
+      () => params.id,
+      (id, prev) => {
+        // Remove previous placeholder if it had no real activity (title still empty)
+        if (prev) {
+          setSessions((list) => list.filter((s) => s.id !== prev || s.title))
+        }
+        // Insert placeholder for new session not yet in list
+        if (id && !sessions().some((s) => s.id === id)) {
+          const primary = dirs()[0]
+          if (primary) {
+            setSessions((list) => [
+              {
+                id,
+                title: "",
+                directory: primary.path,
+                time: { created: Date.now() },
+              },
+              ...list,
+            ])
+          }
+        }
+      },
+    ),
+  )
+
   const click = (session: SessionData) => {
     navigateToSession(session.id, { workspaceId: props.id, dir: encodeDir(session.directory) })
   }
@@ -580,6 +610,11 @@ function WorkspaceSessions(props: { id: string }) {
         <div class="flex items-center gap-2 py-2 px-2">
           <Spinner class="size-3.5" />
           <span class="text-11-regular text-text-weaker">{t("workspace.loadingSessions")}</span>
+        </div>
+      </Show>
+      <Show when={!loading() && sessions().length === 0}>
+        <div class="flex items-center gap-2 py-2 px-2">
+          <span class="text-11-regular text-text-weaker">{t("workspace.emptySessions")}</span>
         </div>
       </Show>
     </div>
