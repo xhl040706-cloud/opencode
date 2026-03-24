@@ -49,3 +49,34 @@ export default function SecurityTag(props: { status?: SecurityStatus }) {
     </Show>
   )
 }
+
+export type Verdict = "safe" | "caution" | "reject"
+
+const VERDICT_COLORS: Record<Verdict, [string, string]> = {
+  safe: ["rgba(34,197,94,0.12)", "rgb(22,163,74)"],
+  caution: ["rgba(240,159,20,0.12)", "rgb(202,138,4)"],
+  reject: ["rgba(252,74,74,0.12)", "rgb(220,38,38)"],
+}
+
+const VERDICT_KEYS: Record<Verdict, string> = {
+  safe: "store.verdict.safe",
+  caution: "store.verdict.caution",
+  reject: "store.verdict.reject",
+}
+
+export function VerdictTag(props: { verdict?: Verdict }) {
+  const language = useLanguage()
+  const verdict = () => props.verdict ?? "safe"
+
+  return (
+    <Show when={props.verdict}>
+      <span
+        class="inline-flex items-center justify-center rounded-[10px] px-2.5 py-[2px] text-xs font-medium"
+        style={{ "background-color": VERDICT_COLORS[verdict()][0], color: VERDICT_COLORS[verdict()][1] }}
+        title={language.t(VERDICT_KEYS[verdict()])}
+      >
+        {language.t(VERDICT_KEYS[verdict()])}
+      </span>
+    </Show>
+  )
+}

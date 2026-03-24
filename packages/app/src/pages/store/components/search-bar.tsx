@@ -1,5 +1,5 @@
+import { Show, createEffect } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
-import { Button } from "@opencode-ai/ui/button"
 
 export default function SearchBar(props: {
   value: string
@@ -7,33 +7,55 @@ export default function SearchBar(props: {
   onSearch?: () => void
   placeholder?: string
 }) {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && props.onSearch) {
-      props.onSearch()
-    }
+  let ref!: HTMLInputElement
+
+  createEffect(() => {
+    if (ref.value !== props.value) ref.value = props.value
+  })
+
+  const input = (e: InputEvent & { currentTarget: HTMLInputElement }) => {
+    const v = e.currentTarget.value
+    if (v !== props.value) props.onChange(v)
   }
 
+  const submit = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && props.onSearch) props.onSearch()
+  }
+
+  const clear = () => props.onChange("")
+
   return (
-    <div class="relative flex gap-1.5">
-      <div class="relative flex-1">
-        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-icon-base">
+    <div class="group/search flex items-center h-10 w-full rounded-full bg-surface-inset-base border border-border-weak-base transition-all duration-200 pr-1">
+      <input
+        ref={ref}
+        type="search"
+        onInput={input}
+        onKeyDown={submit}
+        placeholder={props.placeholder ?? "Search..."}
+        class="flex-1 min-w-0 h-full pl-4 bg-transparent border-0 text-sm text-text-strong placeholder:text-text-weak focus:outline-none [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+      />
+
+      <Show when={props.value}>
+        <button
+          type="button"
+          onClick={clear}
+          class="flex items-center justify-center size-6 rounded-full text-icon-weak hover:text-icon-strong hover:bg-surface-inset-base transition-colors cursor-pointer mr-0.5"
+          title="Clear"
+        >
+          <Icon name="close" class="size-3.5" />
+        </button>
+      </Show>
+
+      <Show when={props.onSearch}>
+        <button
+          type="button"
+          onClick={props.onSearch}
+          class="flex items-center justify-center size-8 rounded-full text-icon-weak hover:text-icon-strong hover:bg-surface-inset-base-hover transition-colors cursor-pointer shrink-0"
+          title="Search"
+        >
           <Icon name="magnifying-glass" class="size-3.5" />
-        </span>
-        <input
-          type="text"
-          value={props.value}
-          onInput={(e) => props.onChange(e.currentTarget.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={props.placeholder ?? "Search..."}
-          style={{ outline: "none" }}
-          class="w-full h-7 pl-7.5 pr-3 text-xs font-medium border-0 rounded-md bg-button-secondary-base text-text-strong shadow-xs-border-base placeholder:text-text-weak focus:shadow-xs-border-focus"
-        />
-      </div>
-      {props.onSearch && (
-        <Button size="small" class="!h-7" variant="secondary" onClick={props.onSearch} title="Semantic search">
-          <Icon name="magnifying-glass-menu" class="size-3.5" />
-        </Button>
-      )}
+        </button>
+      </Show>
     </div>
   )
 }

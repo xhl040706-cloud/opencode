@@ -59,8 +59,8 @@ export default function ItemCard(props: { item: CapabilityItem }) {
           <div class="flex items-center gap-1.5 shrink-0">
             <Show when={props.item.sourceType === "archive"}>
               <span
-                class="text-xs text-text-weak p-0.5 rounded inline-flex items-center"
-                style={{ "background-color": "rgba(156,163,175,0.12)" }}
+                class="text-xs px-1.5 py-0.5 rounded inline-flex items-center"
+                style={{ "background-color": "rgba(59,130,246,0.12)", color: "rgb(59,130,246)" }}
                 title={language.t("store.sourceType.archive")}
               >
                 <Icon name="cloud-upload" size="small" />
