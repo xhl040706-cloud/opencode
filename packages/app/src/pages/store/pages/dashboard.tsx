@@ -6,7 +6,6 @@ import { useLanguage } from "@/context/language"
 import { createEffect, createMemo, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useAuth } from "../hooks/use-auth"
-import { getLoginUrl } from "../lib/auth"
 import {
   itemApi,
   repoApi,
@@ -19,6 +18,8 @@ import { EditCapabilityDialog } from "../components/edit-capability-dialog"
 import { EditRepoDialog } from "../components/edit-repo-dialog"
 import { MoveCapabilityDialog } from "../components/move-capability-dialog"
 import { RepoSyncTab } from "../components/repo-sync-tab"
+import { NotificationChannelsSection } from "../components/notification-channels-section"
+import { DevicesSection } from "../components/devices-section"
 import { typeKey, categoryKey } from "../lib/constants"
 
 const ITEM_TYPE_COLORS: Record<string, string> = {
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const dialog = useDialog()
   const language = useLanguage()
   const { user, loading } = useAuth()
+
   const [state, setState] = createStore({
     repos: [] as Repository[],
     items: [] as CapabilityItem[],
@@ -186,6 +188,7 @@ export default function Dashboard() {
 
   return (
     <div class="min-h-full px-6 py-6">
+      {/* DEV: login check temporarily bypassed for local development
       <Show
         when={!loading()}
         fallback={<div class="flex justify-center py-16 text-text-weak">{language.t("store.loading")}</div>}
@@ -207,6 +210,7 @@ export default function Dashboard() {
             </div>
           }
         >
+      END DEV */}
           <div class="flex flex-col gap-6">
             <div class="flex items-start justify-between gap-4">
               <div>
@@ -216,6 +220,8 @@ export default function Dashboard() {
             </div>
 
             <div class="flex flex-col gap-6">
+              <DevicesSection />
+
               <section class="rounded-2xl border border-border-weak-base bg-surface-raised-base p-5">
                 <div class="mb-5 flex items-start justify-between gap-4">
                   <div>
@@ -499,10 +505,11 @@ export default function Dashboard() {
                   </Show>
                 </Show>
               </section>
+
+              <NotificationChannelsSection />
             </div>
           </div>
-        </Show>
-      </Show>
+        {/* DEV: </Show> </Show> */}
     </div>
   )
 }
