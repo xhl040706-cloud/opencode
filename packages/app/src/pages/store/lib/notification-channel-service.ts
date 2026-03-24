@@ -20,15 +20,38 @@ const MOCK_WECOM_CHANNELS: WecomChannel[] = [
       errors: false,
     },
   },
+  {
+    id: "mock-wecom-2",
+    name: "值班告警群",
+    webhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=alert-mock-key",
+    webhookKey: "alert-mock-key",
+    enabled: false,
+    events: {
+      agent: false,
+      permissions: true,
+      errors: true,
+    },
+  },
 ]
+
+function toTriggerEvents(events: WecomChannel["events"]) {
+  return ([
+    events.agent ? "agent" : null,
+    events.permissions ? "permissions" : null,
+    events.errors ? "errors" : null,
+  ].filter(Boolean) as Array<"agent" | "permissions" | "errors">)
+}
 
 function toPayload(channel: Omit<WecomChannel, "id">): WecomChannelPayload {
   return {
+    channelType: "wecom",
     name: channel.name,
-    webhook: channel.webhook,
-    webhookKey: channel.webhookKey,
     enabled: channel.enabled,
-    events: channel.events,
+    triggerEvents: toTriggerEvents(channel.events),
+    userConfig: {
+      webhook: channel.webhook,
+      webhookKey: channel.webhookKey,
+    },
   }
 }
 
@@ -93,10 +116,15 @@ const realNotificationChannelService = {
   async updateWecom(channelId: string, patch: Partial<WecomChannel>) {
     const res = await notificationChannelApi.updateWecom(channelId, {
       name: patch.name,
-      webhook: patch.webhook,
-      webhookKey: patch.webhookKey,
       enabled: patch.enabled,
-      events: patch.events,
+      triggerEvents: patch.events ? toTriggerEvents(patch.events) : undefined,
+      userConfig:
+        patch.webhook !== undefined || patch.webhookKey !== undefined
+          ? {
+              webhook: patch.webhook ?? "",
+              webhookKey: patch.webhookKey ?? "",
+            }
+          : undefined,
     })
     return res.channel
   },

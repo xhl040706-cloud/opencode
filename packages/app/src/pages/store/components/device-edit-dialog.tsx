@@ -18,6 +18,8 @@ export function DeviceEditDialog(props: DeviceEditDialogProps) {
   const [form, setForm] = createStore({
     displayName: props.device.displayName,
     description: props.device.description || "",
+    label: props.device.label || "",
+    workspaceId: props.device.workspaceId || "",
     saving: false,
   })
 
@@ -32,7 +34,9 @@ export function DeviceEditDialog(props: DeviceEditDialogProps) {
     try {
       await props.onSaved({
         displayName: form.displayName.trim(),
-        workspaceId: props.device.workspaceId,
+        description: form.description.trim(),
+        label: form.label.trim() || undefined,
+        workspaceId: form.workspaceId.trim() || undefined,
       })
       d.close()
     } finally {
@@ -41,9 +45,10 @@ export function DeviceEditDialog(props: DeviceEditDialogProps) {
   }
 
   return (
-    <Dialog title="编辑设备" class="w-full max-w-md mx-auto">
-      <form onSubmit={handleSubmit} class="flex flex-col">
-        <div class="flex flex-col gap-4 px-6 py-4">
+    <Dialog title="编辑设备" class="mx-auto w-full max-w-md">
+      <form onSubmit={handleSubmit} class="flex max-h-[calc(100vh-120px)] flex-col overflow-hidden">
+        <div class="flex-1 overflow-y-auto px-6 pb-6 pt-2">
+          <div class="flex flex-col gap-4">
           <div>
             <label class="mb-1.5 block text-xs font-medium text-text-strong">
               设备名称 <span class="text-icon-info-base">*</span>
@@ -58,16 +63,16 @@ export function DeviceEditDialog(props: DeviceEditDialogProps) {
           </div>
           <div>
             <label class="mb-1.5 block text-xs font-medium text-text-strong">设备描述</label>
-            <input
+            <textarea
               value={form.description}
               onInput={(e) => setForm("description", e.currentTarget.value)}
-              placeholder="当前版本暂未提交描述字段"
-              class={inputClass}
-              disabled
+              placeholder="输入设备描述"
+              class={`${inputClass} min-h-24 resize-y py-2`}
             />
           </div>
+          </div>
         </div>
-        <div class="flex items-center justify-end gap-2 border-t border-border-weak-base px-6 py-4">
+        <div class="flex shrink-0 items-center justify-end gap-2 border-t border-border-weak-base bg-surface-base px-6 py-4">
           <Button type="button" variant="ghost" onClick={() => d.close()}>
             取消
           </Button>

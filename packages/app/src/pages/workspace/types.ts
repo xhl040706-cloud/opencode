@@ -124,7 +124,9 @@ export interface RegisterDeviceResponse {
 }
 
 export interface UpdateDeviceRequest {
+  description?: string
   displayName?: string
+  label?: string
   workspaceId?: string
 }
 

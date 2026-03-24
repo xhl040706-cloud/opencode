@@ -259,44 +259,93 @@ type MemberResponse = RepoMember & {
   orgId?: string
 }
 
-type DeviceResponse = Device
+type DeviceResponse = Partial<Device> & {
+  id: string
+  deviceId: string
+  displayName?: string
+  platform?: string
+  version?: string
+  userId?: string
+  workspaceId?: string
+  status?: Device["status"] | null
+  label?: string | null
+  description?: string | null
+  tokenRotatedAt?: string | null
+  lastConnectedAt?: string | null
+  lastSeenAt?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+type NotificationChannelType = "wecom" | "feishu" | "webhook"
+
+type NotificationTriggerEvent = "agent" | "permissions" | "errors"
 
 type WecomChannelResponse = {
   id: string
+  channelType: NotificationChannelType
   name: string
-  webhook: string
-  webhookKey: string
   enabled: boolean
-  events: {
-    agent: boolean
-    permissions: boolean
-    errors: boolean
+  triggerEvents?: string[]
+  userConfig?: {
+    webhook?: string
+    webhookKey?: string
   }
+  systemChannelId?: string
+  userId?: string
+  lastError?: string
+  lastUsedAt?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export type WecomChannelPayload = {
+  channelType: "wecom"
   name: string
-  webhook: string
-  webhookKey: string
   enabled?: boolean
-  events: {
-    agent: boolean
-    permissions: boolean
-    errors: boolean
+  triggerEvents: NotificationTriggerEvent[]
+  userConfig: {
+    webhook: string
+    webhookKey: string
   }
+  systemChannelId?: string
 }
 
 function normalizeDevice(device: DeviceResponse): Device {
-  return device
+  return {
+    id: device.id,
+    deviceId: device.deviceId,
+    displayName: device.displayName ?? device.label ?? device.deviceId,
+    platform: device.platform ?? "",
+    version: device.version ?? "",
+    userId: device.userId ?? "",
+    workspaceId: device.workspaceId ?? undefined,
+    status: device.status ?? "",
+    label: device.label ?? undefined,
+    description: device.description ?? undefined,
+    tokenRotatedAt: device.tokenRotatedAt ?? undefined,
+    lastConnectedAt: device.lastConnectedAt ?? undefined,
+    lastSeenAt: device.lastSeenAt ?? undefined,
+    createdAt: device.createdAt ?? "",
+    updatedAt: device.updatedAt ?? "",
+  }
 }
 
-function normalizeWecomChannel(channel: WecomChannelResponse): WecomChannelResponse {
+function normalizeWecomChannel(channel: WecomChannelResponse) {
+  const triggerEvents = new Set(channel.triggerEvents ?? [])
+  const webhook = channel.userConfig?.webhook ?? ""
+  const webhookKey = channel.userConfig?.webhookKey ?? ""
+
   return {
-    ...channel,
+    id: channel.id,
+    name: channel.name,
+    webhook,
+    webhookKey,
+    enabled: Boolean(channel.enabled),
     events: {
-      agent: Boolean(channel.events?.agent),
-      permissions: Boolean(channel.events?.permissions),
-      errors: Boolean(channel.events?.errors),
+      agent: triggerEvents.has("agent"),
+      permissions: triggerEvents.has("permissions"),
+      errors: triggerEvents.has("errors"),
     },
   }
 }
@@ -335,6 +384,11 @@ export const deviceApi = {
     return { devices: (res.devices ?? []).map(normalizeDevice) }
   },
 
+  async get(deviceId: string) {
+    const res = await apiFetch<{ device: DeviceResponse }>(`/api/devices/${deviceId}`)
+    return { device: normalizeDevice(res.device) }
+  },
+
   async update(deviceId: string, data: UpdateDeviceRequest) {
     const res = await apiFetch<{ device: DeviceResponse }>(`/api/devices/${deviceId}`, {
       method: "PUT",
@@ -342,24 +396,41 @@ export const deviceApi = {
     })
     return { device: normalizeDevice(res.device) }
   },
+
+  async listByWorkspace(workspaceId: string, page = 1, pageSize = 20) {
+    const res = await apiFetch<{ devices?: DeviceResponse[]; total: number; page: number; pageSize: number; hasMore: boolean }>(
+      `/api/workspaces/${workspaceId}/devices?page=${page}&pageSize=${pageSize}`,
+    )
+    return {
+      ...res,
+      devices: (res.devices ?? []).map(normalizeDevice),
+    }
+  },
 }
 
 export const notificationChannelApi = {
   async listWecom() {
-    const res = await apiFetch<{ channels: WecomChannelResponse[] }>("/api/notification-channels/wecom")
-    return { channels: (res.channels ?? []).map(normalizeWecomChannel) }
+    const res = await apiFetch<{ channels: WecomChannelResponse[] }>("/api/notification-channels")
+    return {
+      channels: (res.channels ?? [])
+        .filter((channel) => channel.channelType === "wecom")
+        .map(normalizeWecomChannel),
+    }
   },
 
   async createWecom(data: WecomChannelPayload) {
-    const res = await apiFetch<{ channel: WecomChannelResponse }>("/api/notification-channels/wecom", {
+    const res = await apiFetch<{ channel: WecomChannelResponse }>("/api/notification-channels", {
       method: "POST",
       body: JSON.stringify(data),
     })
     return { channel: normalizeWecomChannel(res.channel) }
   },
 
-  async updateWecom(channelId: string, data: Partial<WecomChannelPayload>) {
-    const res = await apiFetch<{ channel: WecomChannelResponse }>(`/api/notification-channels/wecom/${channelId}`, {
+  async updateWecom(
+    channelId: string,
+    data: Partial<Pick<WecomChannelPayload, "name" | "enabled" | "triggerEvents" | "userConfig">>,
+  ) {
+    const res = await apiFetch<{ channel: WecomChannelResponse }>(`/api/notification-channels/${channelId}`, {
       method: "PUT",
       body: JSON.stringify(data),
     })
@@ -367,15 +438,19 @@ export const notificationChannelApi = {
   },
 
   removeWecom(channelId: string) {
-    return apiFetch<{ message: string }>(`/api/notification-channels/wecom/${channelId}`, {
+    return apiFetch<{ message: string }>(`/api/notification-channels/${channelId}`, {
       method: "DELETE",
     })
   },
 
-  testWecom(channelId: string) {
-    return apiFetch<{ message: string }>(`/api/notification-channels/wecom/${channelId}/test`, {
+  async testWecom(channelId: string) {
+    const res = await apiFetch<{ success: boolean }>(`/api/notification-channels/${channelId}/test`, {
       method: "POST",
     })
+    return {
+      ...res,
+      message: res.success ? "测试消息已发送" : "测试发送失败",
+    }
   },
 }
 

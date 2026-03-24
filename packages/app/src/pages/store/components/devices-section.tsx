@@ -1,7 +1,7 @@
 import { showToast } from "@opencode-ai/ui/toast"
 import { createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
-import type { Device } from "@/pages/workspace/types"
+import type { Device, UpdateDeviceRequest } from "@/pages/workspace/types"
 import { DeviceCard } from "./device-card"
 import { deviceManagementService } from "../lib/device-management-service"
 
@@ -21,15 +21,24 @@ export function DevicesSection() {
     const search = deviceSearch().toLowerCase().trim()
     const list = devices() ?? []
     if (!search) return list
-    return list.filter(
-      (d) =>
-        d.displayName.toLowerCase().includes(search) ||
-        d.deviceId.toLowerCase().includes(search) ||
-        d.platform.toLowerCase().includes(search),
-    )
+    return list.filter((d) => {
+      const displayName = d.displayName.toLowerCase()
+      const deviceId = d.deviceId.toLowerCase()
+      const platform = d.platform.toLowerCase()
+      const description = d.description?.toLowerCase() ?? ""
+      const label = d.label?.toLowerCase() ?? ""
+
+      return (
+        displayName.includes(search) ||
+        deviceId.includes(search) ||
+        platform.includes(search) ||
+        description.includes(search) ||
+        label.includes(search)
+      )
+    })
   })
 
-  const handleUpdateDevice = async (payload: { deviceId: string; data: { displayName?: string; workspaceId?: string } }) => {
+  const handleUpdateDevice = async (payload: { deviceId: string; data: UpdateDeviceRequest }) => {
     const current = devices() ?? []
     const target = current.find((item) => item.id === payload.deviceId)
     if (!target) return
@@ -38,6 +47,8 @@ export function DevicesSection() {
       ...target,
       displayName: payload.data.displayName ?? target.displayName,
       workspaceId: payload.data.workspaceId ?? target.workspaceId,
+      description: payload.data.description ?? target.description,
+      label: payload.data.label ?? target.label,
       updatedAt: new Date().toISOString(),
     }
 
