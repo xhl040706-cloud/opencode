@@ -254,16 +254,8 @@ function WorkspaceActivation(props: ParentProps) {
 
 function WorkspaceContent(props: ParentProps) {
   const server = useServer()
-  const workspace = useWorkspace()
-  const active = createMemo(() => {
-    const id = workspace.selectedWorkspaceId()
-    if (id) return workspace.workspaces().find((w) => w.id === id)
-    const enabled = workspace.enabledWorkspaceIds()
-    if (enabled.length === 0) return undefined
-    return workspace.workspaces().find((w) => w.id === enabled[0])
-  })
   return (
-    <Show when={server.key} keyed fallback={<div class="flex-1 min-h-0 bg-background-base" />}>
+    <Show when={server.key} keyed fallback={<div class="flex-1 h-full min-h-0 overflow-hidden bg-background-base">{props.children}</div>}>
       {(_key) => <AppInterface>{props.children}</AppInterface>}
     </Show>
   )
