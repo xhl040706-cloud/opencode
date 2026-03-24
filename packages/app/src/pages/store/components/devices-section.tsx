@@ -57,13 +57,17 @@ export function DevicesSection() {
     try {
       const updated = await deviceManagementService.update(payload.deviceId, payload.data)
       mutate((items) => (items ?? []).map((item) => (item.id === payload.deviceId ? updated : item)))
-      showToast({ variant: "success", icon: "circle-check", title: "设备信息已更新" })
+      showToast({
+        variant: "success",
+        icon: "circle-check",
+        title: language.t("store.devices.toast.updated"),
+      })
     } catch (error) {
       mutate(current)
       showToast({
         variant: "error",
         icon: "circle-x",
-        title: language.t("store.console.capabilities.toast.loadFailed"),
+        title: language.t("store.devices.toast.updateFailed"),
         description: error instanceof Error ? error.message : String(error),
       })
     }
@@ -73,25 +77,25 @@ export function DevicesSection() {
     <section class="rounded-2xl border border-border-weak-base bg-surface-raised-base p-5">
       <div class="mb-5 flex items-start justify-between gap-4">
         <div>
-          <h2 class="text-lg font-semibold text-text-strong">设备管理</h2>
-          <p class="mt-1 text-sm text-text-weak">管理您的注册设备</p>
+          <h2 class="text-lg font-semibold text-text-strong">{language.t("store.devices.title")}</h2>
+          <p class="mt-1 text-sm text-text-weak">{language.t("store.devices.description")}</p>
         </div>
         <div class="w-48">
           <input
             value={deviceSearch()}
             onInput={(e) => setDeviceSearch(e.currentTarget.value)}
-            placeholder="搜索设备..."
+            placeholder={language.t("store.devices.searchPlaceholder")}
             class="w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
           />
         </div>
       </div>
 
-      <Show when={!devices.loading} fallback={<div class="text-sm text-text-weak">加载设备中...</div>}>
+      <Show when={!devices.loading} fallback={<div class="text-sm text-text-weak">{language.t("store.devices.loading")}</div>}>
         <Show
           when={filteredDevices().length > 0}
           fallback={
             <div class="rounded-xl border border-dashed border-border-weak-base px-8 py-10 text-center text-sm text-text-weak">
-              {deviceSearch() ? "未找到匹配的设备" : "暂无注册设备"}
+              {deviceSearch() ? language.t("store.devices.empty.search") : language.t("store.devices.empty.default")}
             </div>
           }
         >

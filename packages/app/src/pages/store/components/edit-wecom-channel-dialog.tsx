@@ -4,6 +4,7 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { createStore } from "solid-js/store"
 import { type WecomChannel } from "@/context/settings"
+import { useLanguage } from "@/context/language"
 
 const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
@@ -15,6 +16,7 @@ type EditWecomChannelDialogProps = {
 
 export function EditWecomChannelDialog(props: EditWecomChannelDialogProps) {
   const dialog = useDialog()
+  const language = useLanguage()
   const [form, setForm] = createStore({
     name: props.channel.name,
     webhook: props.channel.webhook,
@@ -30,11 +32,11 @@ export function EditWecomChannelDialog(props: EditWecomChannelDialogProps) {
   const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault()
     if (!form.name.trim()) {
-      setForm("error", "请填写渠道名称")
+      setForm("error", language.t("store.notificationChannels.dialog.error.nameRequired"))
       return
     }
     if (!form.webhook.trim()) {
-      setForm("error", "请填写 Webhook URL")
+      setForm("error", language.t("store.notificationChannels.dialog.error.webhookRequired"))
       return
     }
     setForm("error", "")
@@ -66,52 +68,52 @@ export function EditWecomChannelDialog(props: EditWecomChannelDialogProps) {
   }
 
   return (
-    <Dialog title="编辑企微通知渠道" class="w-full max-w-md mx-auto">
+    <Dialog title={language.t("store.notificationChannels.dialog.editTitle")} class="w-full max-w-md mx-auto">
       <form onSubmit={handleSubmit} class="flex flex-col">
         <div class="flex flex-col gap-4 px-6 py-4">
           <div>
             <label class="mb-1.5 block text-xs font-medium text-text-strong">
-              渠道名称 <span class="text-icon-info-base">*</span>
+              {language.t("store.notificationChannels.dialog.name")} <span class="text-icon-info-base">*</span>
             </label>
             <input
               autofocus
               value={form.name}
               onInput={(e) => setForm("name", e.currentTarget.value)}
-              placeholder="例：研发报警群机器人"
+              placeholder={language.t("store.notificationChannels.dialog.namePlaceholder")}
               class={inputClass}
             />
           </div>
           <div>
             <label class="mb-1.5 block text-xs font-medium text-text-strong">
-              Webhook URL <span class="text-icon-info-base">*</span>
+              {language.t("store.notificationChannels.dialog.webhook")} <span class="text-icon-info-base">*</span>
             </label>
             <input
               value={form.webhook}
               onInput={(e) => setForm("webhook", e.currentTarget.value)}
-              placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
+              placeholder={language.t("store.notificationChannels.dialog.webhookPlaceholder")}
               class={inputClass}
             />
           </div>
           <div>
-            <label class="mb-2 block text-xs font-medium text-text-strong">通知事件</label>
+            <label class="mb-2 block text-xs font-medium text-text-strong">{language.t("store.notificationChannels.dialog.events")}</label>
             <div class="flex flex-col gap-2 text-sm text-text-strong">
               <Checkbox
                 checked={form.events.agent}
                 onChange={(checked) => setForm("events", "agent", checked)}
               >
-                Agent（完成 / 需要关注）
+                {language.t("store.notificationChannels.event.agent")}
               </Checkbox>
               <Checkbox
                 checked={form.events.permissions}
                 onChange={(checked) => setForm("events", "permissions", checked)}
               >
-                权限请求
+                {language.t("store.notificationChannels.event.permissions")}
               </Checkbox>
               <Checkbox
                 checked={form.events.errors}
                 onChange={(checked) => setForm("events", "errors", checked)}
               >
-                错误通知
+                {language.t("store.notificationChannels.event.errors")}
               </Checkbox>
             </div>
           </div>
@@ -119,10 +121,10 @@ export function EditWecomChannelDialog(props: EditWecomChannelDialogProps) {
         </div>
         <div class="flex shrink-0 items-center justify-end gap-2 border-t border-border-weak-base bg-surface-base px-6 py-4">
           <Button type="button" variant="ghost" onClick={() => dialog.close()}>
-            取消
+            {language.t("common.cancel")}
           </Button>
           <Button type="submit" disabled={form.saving}>
-            {form.saving ? "保存中..." : "保存"}
+            {form.saving ? language.t("common.saving") : language.t("common.save")}
           </Button>
         </div>
       </form>

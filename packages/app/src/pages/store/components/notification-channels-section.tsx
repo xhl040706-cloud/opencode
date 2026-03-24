@@ -3,6 +3,7 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
 import { createMemo, createResource, For, Show } from "solid-js"
 import type { WecomChannel } from "@/context/settings"
+import { useLanguage } from "@/context/language"
 import { AddWecomChannelDialog } from "./add-wecom-channel-dialog"
 import { EditWecomChannelDialog } from "./edit-wecom-channel-dialog"
 import { WecomChannelCard } from "./wecom-channel-card"
@@ -10,6 +11,7 @@ import { notificationChannelService } from "../lib/notification-channel-service"
 
 export function NotificationChannelsSection() {
   const dialog = useDialog()
+  const language = useLanguage()
   const [channels, { mutate, refetch }] = createResource(async () => notificationChannelService.listWecom())
 
   const wecomChannels = createMemo(() => channels() ?? [])
@@ -21,12 +23,12 @@ export function NotificationChannelsSection() {
           try {
             const created = await notificationChannelService.createWecom(payload)
             mutate((list) => [created, ...(list ?? [])])
-            showToast({ variant: "success", icon: "circle-check", title: "通知渠道已创建" })
+            showToast({ variant: "success", icon: "circle-check", title: language.t("store.notificationChannels.toast.created") })
           } catch (error) {
             showToast({
               variant: "error",
               icon: "circle-x",
-              title: "通知渠道创建失败",
+              title: language.t("store.notificationChannels.toast.createFailed"),
               description: error instanceof Error ? error.message : String(error),
             })
             throw error
@@ -61,12 +63,13 @@ export function NotificationChannelsSection() {
     try {
       const updated = await notificationChannelService.updateWecom(id, patch)
       mutate((list) => (list ?? []).map((item) => (item.id === id ? updated : item)))
+      showToast({ variant: "success", icon: "circle-check", title: language.t("store.notificationChannels.toast.updated") })
     } catch (error) {
       mutate(current)
       showToast({
         variant: "error",
         icon: "circle-x",
-        title: "通知渠道更新失败",
+        title: language.t("store.notificationChannels.toast.updateFailed"),
         description: error instanceof Error ? error.message : String(error),
       })
     }
@@ -77,13 +80,13 @@ export function NotificationChannelsSection() {
     mutate((list) => (list ?? []).filter((item) => item.id !== id))
     try {
       await notificationChannelService.removeWecom(id)
-      showToast({ variant: "success", icon: "circle-check", title: "通知渠道已删除" })
+      showToast({ variant: "success", icon: "circle-check", title: language.t("store.notificationChannels.toast.deleted") })
     } catch (error) {
       mutate(current)
       showToast({
         variant: "error",
         icon: "circle-x",
-        title: "通知渠道删除失败",
+        title: language.t("store.notificationChannels.toast.deleteFailed"),
         description: error instanceof Error ? error.message : String(error),
       })
     }
@@ -95,14 +98,14 @@ export function NotificationChannelsSection() {
       showToast({
         variant: "success",
         icon: "circle-check",
-        title: "测试消息已发送",
-        description: res.message || "请查看企微机器人群是否收到消息",
+        title: language.t("store.notificationChannels.toast.testSent"),
+        description: res.message || language.t("store.notificationChannels.toast.testSentDescription"),
       })
     } catch (error) {
       showToast({
         variant: "error",
         icon: "circle-x",
-        title: "测试发送失败",
+        title: language.t("store.notificationChannels.toast.testFailed"),
         description: error instanceof Error ? error.message : String(error),
       })
     }
@@ -112,20 +115,20 @@ export function NotificationChannelsSection() {
     <section class="rounded-2xl border border-border-weak-base bg-surface-raised-base p-5">
       <div class="mb-5 flex items-start justify-between gap-4">
         <div>
-          <h2 class="text-lg font-semibold text-text-strong">通知渠道</h2>
-          <p class="mt-1 text-sm text-text-weak">配置企业微信机器人，接收 Agent 事件推送</p>
+          <h2 class="text-lg font-semibold text-text-strong">{language.t("store.notificationChannels.title")}</h2>
+          <p class="mt-1 text-sm text-text-weak">{language.t("store.notificationChannels.description")}</p>
         </div>
         <Button size="small" variant="ghost" class="border border-border-weak-base" onClick={openAddDialog}>
-          添加渠道
+          {language.t("store.notificationChannels.add")}
         </Button>
       </div>
 
-      <Show when={!channels.loading} fallback={<div class="text-sm text-text-weak">加载通知渠道中...</div>}>
+      <Show when={!channels.loading} fallback={<div class="text-sm text-text-weak">{language.t("store.notificationChannels.loading")}</div>}>
         <Show
           when={wecomChannels().length > 0}
           fallback={
             <div class="rounded-xl border border-dashed border-border-weak-base px-8 py-10 text-center text-sm text-text-weak">
-              暂无通知渠道，点击「添加渠道」创建企微机器人通知
+              {language.t("store.notificationChannels.empty")}
             </div>
           }
         >

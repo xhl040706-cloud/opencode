@@ -72,7 +72,7 @@ const mockNotificationChannelService = {
   async updateWecom(channelId: string, patch: Partial<WecomChannel>) {
     await wait(300)
     const current = mockChannels.find((item) => item.id === channelId)
-    if (!current) throw new Error("通知渠道不存在")
+    if (!current) throw new Error("Notification channel not found")
     const updated: WecomChannel = {
       ...current,
       ...patch,
@@ -93,8 +93,8 @@ const mockNotificationChannelService = {
   async testWecom(channelId: string) {
     await wait(300)
     const current = mockChannels.find((item) => item.id === channelId)
-    if (!current) throw new Error("通知渠道不存在")
-    return { message: "测试消息已发送" }
+    if (!current) throw new Error("Notification channel not found")
+    return { message: "Test message sent" }
   },
 }
 

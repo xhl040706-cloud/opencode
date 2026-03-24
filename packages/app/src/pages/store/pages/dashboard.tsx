@@ -173,7 +173,6 @@ export default function Dashboard() {
 
   return (
     <div class="min-h-full px-6 py-6">
-      {/* DEV: login check temporarily bypassed for local development
       <Show
         when={!loading()}
         fallback={<div class="flex justify-center py-16 text-text-weak">{language.t("store.loading")}</div>}
@@ -200,7 +199,6 @@ export default function Dashboard() {
             </div>
           }
         >
-      END DEV */}
           <div class="flex flex-col gap-6">
             <div class="flex items-start justify-between gap-4">
               <div>
@@ -539,7 +537,8 @@ export default function Dashboard() {
               <NotificationChannelsSection />
             </div>
           </div>
-        {/* DEV: </Show> </Show> */}
+        </Show> 
+      </Show>
     </div>
   )
 }

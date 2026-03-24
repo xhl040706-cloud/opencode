@@ -1,21 +1,22 @@
 import { Button } from "@opencode-ai/ui/button"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Icon } from "@opencode-ai/ui/icon"
+import { useLanguage } from "@/context/language"
 import type { UpdateDeviceRequest, Device } from "@/pages/workspace/types"
 import { DeviceEditDialog } from "./device-edit-dialog"
 
 const STATUS_META = {
   online: {
     dotClass: "bg-icon-success-base",
-    title: "在线",
+    titleKey: "store.devices.status.online",
   },
   offline: {
     dotClass: "bg-icon-critical-base",
-    title: "离线",
+    titleKey: "store.devices.status.offline",
   },
   unknown: {
     dotClass: "bg-border-weak-base",
-    title: "未知",
+    titleKey: "store.devices.status.unknown",
   },
 } as const
 
@@ -26,6 +27,7 @@ type DeviceCardProps = {
 
 export function DeviceCard(props: DeviceCardProps) {
   const dialog = useDialog()
+  const language = useLanguage()
 
   const handleEdit = () => {
     dialog.show(() => (
@@ -63,24 +65,31 @@ export function DeviceCard(props: DeviceCardProps) {
         </div>
         <span
           class={`size-2.5 shrink-0 rounded-full ${statusInfo().dotClass}`}
-          title={statusInfo().title}
-          aria-label={statusInfo().title}
+          title={language.t(statusInfo().titleKey)}
+          aria-label={language.t(statusInfo().titleKey)}
         />
       </div>
 
       <div class="flex flex-1 flex-col gap-2 px-4 pb-3">
         <div class="flex items-center gap-2">
-          {props.device.workspaceId ? <span class="text-xs text-text-weak">工作空间: {props.device.workspaceId}</span> : null}
+          {props.device.workspaceId ? (
+            <span class="text-xs text-text-weak">
+              {language.t("store.devices.workspace")}: {props.device.workspaceId}
+            </span>
+          ) : null}
         </div>
-        <div class="text-xs text-text-weak">{props.device.platform || "未知平台"}{props.device.version ? ` · v${props.device.version}` : ""}</div>
+        <div class="text-xs text-text-weak">
+          {props.device.platform || language.t("store.devices.unknownPlatform")}
+          {props.device.version ? ` · v${props.device.version}` : ""}
+        </div>
         <p class="min-h-10 text-xs leading-relaxed text-text-weak">
-          {props.device.description?.trim() || "暂无设备描述"}
+          {props.device.description?.trim() || language.t("store.devices.empty.description")}
         </p>
       </div>
 
       <div class="flex shrink-0 justify-end border-t border-border-weak-base px-4 py-2">
         <Button size="small" variant="ghost" class="h-7 px-2 text-xs" onClick={handleEdit}>
-          编辑
+          {language.t("common.edit")}
         </Button>
       </div>
     </div>
