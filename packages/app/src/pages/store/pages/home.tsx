@@ -15,10 +15,10 @@ export default function Home() {
 
   // Global mode: only fetch when no repo is selected
   const global = () => !selectedRepo() || undefined
-  const [skills] = createResource(global, () => itemApi.list({ type: "skill", limit: 8 }))
-  const [subagents] = createResource(global, () => itemApi.list({ type: "subagent", limit: 8 }))
-  const [commands] = createResource(global, () => itemApi.list({ type: "command", limit: 8 }))
-  const [mcps] = createResource(global, () => itemApi.list({ type: "mcp", limit: 8 }))
+  const [skills] = createResource(global, () => itemApi.list({ type: "skill", pageSize: 8 }))
+  const [subagents] = createResource(global, () => itemApi.list({ type: "subagent", pageSize: 8 }))
+  const [commands] = createResource(global, () => itemApi.list({ type: "command", pageSize: 8 }))
+  const [mcps] = createResource(global, () => itemApi.list({ type: "mcp", pageSize: 8 }))
 
   // Repo mode
   const { items: repoSkills, loading: repoSkillsLoading } = useRepoItems(repo, "skill")

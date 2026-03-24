@@ -1,6 +1,6 @@
 import type { ParentProps } from "solid-js"
 import { createSignal, createMemo, onMount, Show, createEffect, untrack, onCleanup } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createStore, reconcile } from "solid-js/store"
 import { useParams } from "@solidjs/router"
 import { showToast } from "@opencode-ai/ui/toast"
 import type { Device, Workspace, CreateWorkspaceRequest } from "../types"
@@ -21,7 +21,6 @@ export default function WorkspaceLayout(props: ParentProps) {
   const [isLoading, setIsLoading] = createSignal(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = createSignal<string | undefined>(undefined)
   const [selectedDeviceId, setSelectedDeviceId] = createSignal<string | undefined>(undefined)
-  const [showHistorySidebar, setShowHistorySidebar] = createSignal(false)
   const [enabledIds, setEnabledIds] = createSignal<string[]>([])
   const closed = new Set<string>()
   const auth = useAuth()
@@ -34,7 +33,7 @@ export default function WorkspaceLayout(props: ParentProps) {
         workspaceApi.list().catch(() => ({ workspaces: [] })),
         deviceApi.list().catch(() => ({ devices: [] })),
       ])
-      setWorkspaces(workspacesRes.workspaces)
+      setWorkspaces(reconcile(workspacesRes.workspaces, { key: "id", merge: false }))
       setDevices(devicesRes.devices)
     } catch (err) {
       showToast({
@@ -61,7 +60,7 @@ export default function WorkspaceLayout(props: ParentProps) {
       if (!changed) return
       const prevOnlineIds = new Set(workspaces.filter((w) => w.deviceStatus === "online").map((w) => w.id))
       const wsRes = await workspaceApi.list().catch(() => ({ workspaces: [] as Workspace[] }))
-      setWorkspaces(wsRes.workspaces)
+      setWorkspaces(reconcile(wsRes.workspaces, { key: "id", merge: false }))
       const enabled = enabledIds()
       wsRes.workspaces
         .filter((w) => prevOnlineIds.has(w.id) && w.deviceStatus !== "online" && enabled.includes(w.id))
@@ -109,7 +108,7 @@ export default function WorkspaceLayout(props: ParentProps) {
   const refreshWorkspaces = async () => {
     try {
       const res = await workspaceApi.list()
-      setWorkspaces(res.workspaces)
+      setWorkspaces(reconcile(res.workspaces, { key: "id", merge: false }))
     } catch (err) {
       console.error("Failed to refresh workspaces:", err)
     }
@@ -171,14 +170,12 @@ export default function WorkspaceLayout(props: ParentProps) {
     enabledWorkspaceIds: enabledIds,
     closedWorkspaceIds: () => Array.from(closed),
     isLoading,
-    showHistorySidebar,
     selectWorkspace: handleSelectWorkspace,
     selectDevice: handleSelectDevice,
     enableWorkspace: handleEnableWorkspace,
     disableWorkspace: handleDisableWorkspace,
     createWorkspace: handleCreateWorkspace,
     deleteWorkspace: handleDeleteWorkspace,
-    closeHistorySidebar: () => setShowHistorySidebar(false),
   }
 
   return (
@@ -257,14 +254,17 @@ function WorkspaceActivation(props: ParentProps) {
 
 function WorkspaceContent(props: ParentProps) {
   const server = useServer()
+  const workspace = useWorkspace()
+  const active = createMemo(() => {
+    const id = workspace.selectedWorkspaceId()
+    if (id) return workspace.workspaces().find((w) => w.id === id)
+    const enabled = workspace.enabledWorkspaceIds()
+    if (enabled.length === 0) return undefined
+    return workspace.workspaces().find((w) => w.id === enabled[0])
+  })
   return (
-    <Show
-      when={server.key}
-      fallback={<div class="flex-1 min-h-0 bg-background-base" />}
-    >
-      <AppInterface>
-        {props.children}
-      </AppInterface>
+    <Show when={server.key} keyed fallback={<div class="flex-1 min-h-0 bg-background-base" />}>
+      {(_key) => <AppInterface>{props.children}</AppInterface>}
     </Show>
   )
 }
