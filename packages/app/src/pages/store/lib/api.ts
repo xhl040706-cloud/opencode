@@ -588,15 +588,12 @@ export interface SearchRequest {
   minScore?: number
 }
 
-export interface SearchResultItem {
-  item: CapabilityItem
-  score: number
-}
-
 export interface SearchResult {
-  items: SearchResultItem[]
+  items: CapabilityItem[]
   total: number
   hasMore: boolean
+  query: string
+  durationMs: number
 }
 
 export const searchApi = {

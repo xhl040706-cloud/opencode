@@ -1,6 +1,5 @@
 import { createMemo, createEffect, on, onMount, onCleanup, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
-import { Icon } from "@opencode-ai/ui/icon"
 import { useAuth } from "../hooks/use-auth"
 import { itemApi, type CapabilityItem } from "../lib/api"
 import { useRepoFilter } from "../context/repo-filter"
@@ -115,58 +114,58 @@ export default function Subagents() {
 
   const items = () => (isRepo() ? repoFiltered() : globalFiltered())
   const loading = () => (isRepo() ? repoLoading() : state.loading && state.items.length === 0)
-  const total = () => (isRepo() ? repoItems().length : state.total)
 
   return (
     <div class="px-8 py-8">
-      <div class="mb-8">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h1 class="text-2xl font-semibold mb-1 flex items-center gap-2.5 text-text-strong">
-              <Icon name="models" class="text-blue-500" /> {language.t("store.sidebar.nav.subagents")}
-            </h1>
-            <p class="text-sm text-text-weak">{language.t("store.subagents", { count: total() })}</p>
+      <div class="mb-6">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-semibold text-text-strong">{language.t("store.sidebar.nav.subagents")}</h1>
           </div>
-          <Show when={user()}>
-            <StoreCreateButton
-              itemType="subagent"
-              label={language.t("store.page.newSubagent")}
-              onCreated={() => {
-                setRefreshKey("value", (value) => value + 1)
-                if (!selectedRepo()) void load(true)
-              }}
-            />
-          </Show>
+          <div class="flex items-center gap-2 shrink-0">
+            <div class="w-72">
+              <SearchBar
+                value={state.search}
+                onChange={(v) => {
+                  setState("search", v)
+                  setState("page", 1)
+                  void load(true)
+                }}
+                placeholder={language.t("store.searchSubagents")}
+              />
+            </div>
+            <Show when={user()}>
+              <StoreCreateButton
+                itemType="subagent"
+                label={language.t("store.page.newSubagent")}
+                onCreated={() => {
+                  setRefreshKey("value", (value) => value + 1)
+                  if (!selectedRepo()) void load(true)
+                }}
+              />
+            </Show>
+          </div>
         </div>
       </div>
-      <div class="mb-6 max-w-sm">
-        <SearchBar
-          value={state.search}
-          onChange={(v) => {
-            setState("search", v)
-            setState("page", 1)
-            void load(true)
-          }}
-          placeholder={language.t("store.searchSubagents")}
-        />
-      </div>
-      <div class="flex gap-2 flex-wrap mb-6">
-        <button
-          onClick={() => setState("category", "all")}
-          class={`px-3 py-1.5 text-sm rounded-md transition-colors ${state.category === "all" ? "bg-bg-muted text-text-strong" : "text-text-weak hover:text-text-strong hover:bg-bg-muted"}`}
-        >
-          {language.t("store.console.filters.all")}
-        </button>
-        <For each={categories()}>
-          {(cat) => (
-            <button
-              onClick={() => setState("category", cat.id)}
-              class={`px-3 py-1.5 text-sm rounded-md transition-colors ${state.category === cat.id ? "bg-bg-muted text-text-strong" : "text-text-weak hover:text-text-strong hover:bg-bg-muted"}`}
-            >
-              {language.t(categoryKey(cat.id))} ({cat.count})
-            </button>
-          )}
-        </For>
+      <div class="flex justify-center mb-6">
+        <div class="inline-flex items-center gap-1">
+          <button
+            onClick={() => setState("category", "all")}
+            class={`px-4 py-1.5 text-sm rounded-full transition-colors cursor-pointer ${state.category === "all" ? "bg-surface-inset-base border border-border-weak-base text-text-strong" : "text-text-weak hover:text-text-strong hover:bg-surface-inset-base"}`}
+          >
+            {language.t("store.console.filters.all")}
+          </button>
+          <For each={categories()}>
+            {(cat) => (
+              <button
+                onClick={() => setState("category", cat.id)}
+                class={`px-4 py-1.5 text-sm rounded-full transition-colors cursor-pointer ${state.category === cat.id ? "bg-surface-inset-base border border-border-weak-base text-text-strong" : "text-text-weak hover:text-text-strong hover:bg-surface-inset-base"}`}
+              >
+                {language.t(categoryKey(cat.id))}
+              </button>
+            )}
+          </For>
+        </div>
       </div>
       <Show
         when={!loading()}
