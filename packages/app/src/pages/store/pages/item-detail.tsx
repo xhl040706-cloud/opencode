@@ -5,16 +5,13 @@ import { itemApi, artifactApi, scanApi, type CapabilityItem, type ScanResult } f
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
 import { categoryKey, formatBytes } from "../lib/constants"
-import SecurityBadge, { VerdictBadge, type Verdict } from "../components/security-badge"
+import SecurityTag, { VerdictTag, type Verdict } from "../components/security-tag"
 
-const TYPE_META: Record<
-  string,
-  { color: string; back: string; label: string; icon: "sparkles" | "models" | "console" | "server" }
-> = {
-  skill: { color: "text-yellow-500", back: "/store/skills", label: "store.sidebar.nav.skills", icon: "sparkles" },
-  subagent: { color: "text-blue-500", back: "/store/subagents", label: "store.sidebar.nav.subagents", icon: "models" },
-  command: { color: "text-green-500", back: "/store/commands", label: "store.sidebar.nav.commands", icon: "console" },
-  mcp: { color: "text-purple-500", back: "/store/mcp-servers", label: "store.sidebar.nav.mcpServers", icon: "server" },
+const TYPE_META: Record<string, { accent: string; back: string; label: string }> = {
+  skill: { accent: "rgb(234,179,8)", back: "/store/skills", label: "store.sidebar.nav.skills" },
+  subagent: { accent: "rgb(59,130,246)", back: "/store/subagents", label: "store.sidebar.nav.subagents" },
+  command: { accent: "rgb(34,197,94)", back: "/store/commands", label: "store.sidebar.nav.commands" },
+  mcp: { accent: "rgb(168,85,247)", back: "/store/mcp-servers", label: "store.sidebar.nav.mcpServers" },
 }
 
 function formatDate(iso: string) {
@@ -40,14 +37,13 @@ function installCmd(item: CapabilityItem) {
 
 function renderMd(content: string) {
   return content.split("\n").map((line) => {
-    if (line.startsWith("# ")) return <h1 class="text-2xl font-semibold mt-6 mb-3 text-text-strong">{line.slice(2)}</h1>
-    if (line.startsWith("## ")) return <h2 class="text-xl font-medium mt-5 mb-2 text-text-strong">{line.slice(3)}</h2>
-    if (line.startsWith("### "))
-      return <h3 class="text-base font-medium mt-4 mb-2 text-text-strong">{line.slice(4)}</h3>
+    if (line.startsWith("# ")) return <h1 class="text-20-medium text-text-strong mt-6 mb-3">{line.slice(2)}</h1>
+    if (line.startsWith("## ")) return <h2 class="text-16-medium text-text-strong mt-5 mb-2">{line.slice(3)}</h2>
+    if (line.startsWith("### ")) return <h3 class="text-14-medium text-text-strong mt-4 mb-2">{line.slice(4)}</h3>
     if (line.startsWith("- ")) return <li class="ml-5 list-disc mb-1 text-text-weak">{line.slice(2)}</li>
     if (/^\d+\. /.test(line))
       return <li class="ml-5 list-decimal mb-1 text-text-weak">{line.replace(/^\d+\. /, "")}</li>
-    if (line.startsWith("```")) return <div class="font-mono text-xs bg-bg-muted px-3 py-1 rounded my-1">{line}</div>
+    if (line.startsWith("```")) return <div class="text-12-mono bg-bg-muted px-3 py-1.5 rounded my-2">{line}</div>
     if (line.trim()) return <p class="mb-2 leading-relaxed text-text-weak">{line}</p>
     return <br />
   })
@@ -58,17 +54,17 @@ function ScanRow(props: { scan: ScanResult }) {
   const language = useLanguage()
 
   return (
-    <div class="rounded-xl border border-border-weak-base bg-bg-muted">
+    <div class="rounded-lg border border-border-weak-base">
       <div
         onClick={() => setOpen((v) => !v)}
-        class="flex w-full cursor-pointer items-center gap-4 px-5 py-4 transition hover:bg-bg-base/50"
+        class="flex w-full cursor-pointer items-center gap-4 px-4 py-3 transition hover:bg-bg-muted/50"
       >
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 mb-1">
-            <SecurityBadge status={props.scan.riskLevel as any} size="sm" />
-            <VerdictBadge verdict={props.scan.verdict as Verdict} size="sm" />
+            <SecurityTag status={props.scan.riskLevel as any} />
+            <VerdictTag verdict={props.scan.verdict as Verdict} />
           </div>
-          <p class="text-sm text-text-strong">{props.scan.summary || "No summary available"}</p>
+          <p class="text-12-regular text-text-strong">{props.scan.summary || "No summary available"}</p>
           <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-text-weak">
             <span>{formatDate(props.scan.createdAt)}</span>
           </div>
@@ -85,64 +81,50 @@ function ScanRow(props: { scan: ScanResult }) {
         {(() => {
           const perms = Object.entries(props.scan.permissions ?? {})
           return (
-            <div class="space-y-4 px-5 pb-4 pt-1 text-sm text-text-weak">
-              <div class="grid gap-3 rounded-lg border border-border-weak-base bg-bg-base/50 p-4 sm:grid-cols-2">
+            <div class="space-y-3 px-4 pb-4 pt-1 text-12-regular text-text-weak">
+              <div class="grid gap-3 rounded-lg bg-bg-muted p-3 sm:grid-cols-2">
                 <div>
-                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
-                    {language.t("store.scanResults.model")}
-                  </div>
+                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.model")}</div>
                   <div class="text-text-strong">{props.scan.scanModel}</div>
                 </div>
                 <div>
-                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
-                    {language.t("store.scanResults.trigger")}
-                  </div>
+                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.trigger")}</div>
                   <div class="capitalize text-text-strong">{props.scan.triggerType}</div>
                 </div>
                 <div>
-                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
-                    {language.t("store.scanResults.duration")}
-                  </div>
+                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.duration")}</div>
                   <div class="text-text-strong">{formatDuration(props.scan.durationMs)}</div>
                 </div>
                 <div>
-                  <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-weak/70">Finished</div>
+                  <div class="mb-0.5 text-xs text-text-weak/70">Finished</div>
                   <div class="text-text-strong">{formatDate(props.scan.finishedAt)}</div>
                 </div>
               </div>
 
               <div class="grid gap-3 lg:grid-cols-2">
-                <div class="rounded-lg border border-border-weak-base bg-bg-base/50 p-4">
-                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
-                    {language.t("store.security.suggestions")}
-                  </div>
+                <div class="rounded-lg bg-bg-muted p-3">
+                  <div class="mb-1.5 text-xs text-text-weak/70">{language.t("store.security.suggestions")}</div>
                   <Show
                     when={props.scan.recommendations.length > 0}
                     fallback={<div class="text-text-weak">{language.t("store.scanResults.noRecommendations")}</div>}
                   >
-                    <ul class="space-y-2">
+                    <ul class="space-y-1.5">
                       <For each={props.scan.recommendations}>
-                        {(item) => (
-                          <li class="rounded-md bg-bg-muted px-3 py-2 text-text-strong">{formatValue(item)}</li>
-                        )}
+                        {(item) => <li class="text-text-strong">{formatValue(item)}</li>}
                       </For>
                     </ul>
                   </Show>
                 </div>
 
-                <div class="rounded-lg border border-border-weak-base bg-bg-base/50 p-4">
-                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
-                    {language.t("store.security.foundIssues")}
-                  </div>
+                <div class="rounded-lg bg-bg-muted p-3">
+                  <div class="mb-1.5 text-xs text-text-weak/70">{language.t("store.security.foundIssues")}</div>
                   <Show
                     when={props.scan.redFlags.length > 0}
                     fallback={<div class="text-text-weak">{language.t("store.scanResults.noRedFlags")}</div>}
                   >
-                    <ul class="space-y-2">
+                    <ul class="space-y-1.5">
                       <For each={props.scan.redFlags}>
-                        {(item) => (
-                          <li class="rounded-md bg-bg-muted px-3 py-2 text-text-strong">{formatValue(item)}</li>
-                        )}
+                        {(item) => <li class="text-text-strong">{formatValue(item)}</li>}
                       </For>
                     </ul>
                   </Show>
@@ -150,16 +132,14 @@ function ScanRow(props: { scan: ScanResult }) {
               </div>
 
               <Show when={perms.length > 0}>
-                <div class="rounded-lg border border-border-weak-base bg-bg-base/50 p-4">
-                  <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-weak/70">
-                    {language.t("store.security.permissionNeeds")}
-                  </div>
+                <div class="rounded-lg bg-bg-muted p-3">
+                  <div class="mb-1.5 text-xs text-text-weak/70">{language.t("store.security.permissionNeeds")}</div>
                   <dl class="grid gap-2 sm:grid-cols-2">
                     <For each={perms}>
                       {(entry) => (
-                        <div class="rounded-md bg-bg-muted px-3 py-2">
-                          <dt class="text-xs uppercase tracking-wide text-text-weak/70">{entry[0]}</dt>
-                          <dd class="mt-1 text-text-strong">{formatValue(entry[1])}</dd>
+                        <div>
+                          <dt class="text-xs text-text-weak/70">{entry[0]}</dt>
+                          <dd class="mt-0.5 text-text-strong">{formatValue(entry[1])}</dd>
                         </div>
                       )}
                     </For>
@@ -212,82 +192,107 @@ export default function ItemDetail() {
         fallback={
           <div class="flex flex-col items-center justify-center py-16 gap-4">
             <p class="text-text-weak">{language.t("store.detail.notFound")}</p>
-            <button onClick={() => navigate(-1)} class="text-sm text-text-weak hover:text-text-strong">
+            <button onClick={() => navigate(-1)} class="text-12-regular text-text-weak hover:text-text-strong">
               {language.t("store.detail.back")}
             </button>
           </div>
         }
       >
         {(data) => (
-          <div class="px-8 py-10 w-full max-w-4xl mx-auto">
+          <div class="px-8 py-8 w-full max-w-3xl mx-auto">
             <button
               onClick={() => navigate(meta().back)}
-              class="inline-flex items-center gap-2 text-sm text-text-weak cursor-pointer hover:text-text-strong hover:-translate-x-px transition-all duration-150 mb-8"
+              class="inline-flex items-center gap-1 text-12-regular text-text-weak cursor-pointer hover:text-text-strong transition-colors duration-150 mb-6"
             >
-              {language.t("store.detail.backTo", { type: language.t(meta().label) })}
+              <Icon name="chevron-left" size="small" />
+              {language.t("store.detail.back")}
             </button>
 
+            {/* Hero */}
             <div class="mb-8">
-              <div class="flex items-start justify-between gap-4 mb-4">
-                <div class="flex items-center gap-3">
-                  <span class={`text-2xl ${meta().color}`}>
-                    <Icon name={meta().icon} />
-                  </span>
-                  <h1 class="text-2xl font-semibold text-text-strong">{data().name}</h1>
+              <div class="rounded-lg overflow-hidden border border-border-weak-base">
+                <div class="px-5 pt-5 pb-4 bg-bg-muted/50">
+                  <div class="flex items-start justify-between gap-4 mb-3">
+                    <h1
+                      class="font-bold text-text-strong"
+                      style={{ "font-size": "24px", "letter-spacing": "-0.02em", "line-height": "1.3" }}
+                    >
+                      {data().name}
+                    </h1>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <Show when={data().sourceType === "archive"}>
+                        <span
+                          class="text-xs px-1.5 py-0.5 rounded inline-flex items-center"
+                          style={{ "background-color": "rgba(59,130,246,0.12)", color: "rgb(59,130,246)" }}
+                          title={language.t("store.sourceType.archive")}
+                        >
+                          <Icon name="cloud-upload" size="small" />
+                        </span>
+                      </Show>
+                      <Show when={data().version}>
+                        <span
+                          class="text-xs text-text-weak px-1.5 py-0.5 rounded"
+                          style={{ "background-color": "rgba(156,163,175,0.12)" }}
+                        >
+                          v{data().version}
+                        </span>
+                      </Show>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-2 mb-3">
+                    <span
+                      class="inline-flex items-center rounded-[10px] px-2.5 py-[2px] text-xs font-medium"
+                      style={{
+                        "background-color": `color-mix(in srgb, ${meta().accent} 12%, transparent)`,
+                        color: meta().accent,
+                      }}
+                    >
+                      {language.t("store.capability.type." + (item()?.itemType ?? "skill"))}
+                    </span>
+                    <Show when={data().category}>
+                      <span
+                        class="inline-flex items-center rounded-[10px] px-2.5 py-[2px] text-xs font-medium text-text-weak"
+                        style={{ "background-color": "rgba(156,163,175,0.12)" }}
+                      >
+                        {language.t(categoryKey(data().category))}
+                      </span>
+                    </Show>
+                    <SecurityTag status={data().securityStatus} />
+                  </div>
+
+                  <Show when={data().description}>
+                    <p class="text-12-regular text-text-weak leading-relaxed">{data().description}</p>
+                  </Show>
                 </div>
-                <button
-                  onClick={copy}
-                  class="p-2 rounded text-text-weak cursor-pointer hover:text-text-strong hover:bg-bg-muted hover:shadow-xs-border-base transition-all duration-150"
-                  title={language.t("store.itemCard.copyInstall")}
-                >
-                  {copied() ? "✓" : "⎘"}
-                </button>
+
+                {/* Install command — integrated into hero card */}
+                <div class="flex items-center gap-3 px-5 py-3 border-t border-border-weak-base bg-bg-muted/30">
+                  <div class="min-w-0 flex-1">
+                    <code class="text-12-mono text-text-weak select-all">{installCmd(data())}</code>
+                  </div>
+                  <button
+                    onClick={copy}
+                    class="inline-flex items-center justify-center size-7 rounded text-text-weak cursor-pointer hover:text-text-strong hover:bg-bg-muted transition-all duration-150 shrink-0"
+                    title={language.t("store.itemCard.copyInstall")}
+                  >
+                    <Icon
+                      name={copied() ? "check-small" : "copy"}
+                      size="small"
+                      class={copied() ? "text-green-500" : ""}
+                    />
+                  </button>
+                </div>
               </div>
-              <div class="flex flex-wrap items-center gap-2 mb-4">
-                <span class="px-2 py-0.5 text-xs rounded bg-bg-muted text-text-weak">
-                  {language.t("store.capability.type." + (item()?.itemType ?? "skill"))}
-                </span>
-                <Show when={data().version}>
-                  <span class="px-2 py-0.5 text-xs rounded border border-border-weak-base text-text-weak">
-                    v{data().version}
-                  </span>
-                </Show>
-                <Show when={data().category}>
-                  <span class="px-2 py-0.5 text-xs rounded border border-border-weak-base text-text-weak">
-                    #{language.t(categoryKey(data().category))}
-                  </span>
-                </Show>
-                <SecurityBadge status={data().securityStatus} size="sm" />
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded border border-border-weak-base text-text-weak">
-                  <Icon name={data().sourceType === "archive" ? "cloud-upload" : "pencil-line"} size="small" />
-                  {language.t(data().sourceType === "archive" ? "store.sourceType.archive" : "store.sourceType.direct")}
-                </span>
-              </div>
-              <Show when={data().description}>
-                <p class="text-text-weak">{data().description}</p>
-              </Show>
             </div>
 
-            <div class="mb-10 p-4 bg-bg-muted rounded-lg border border-border-weak-base flex items-center justify-between gap-3">
-              <div>
-                <p class="text-xs text-text-weak mb-1 font-medium">{language.t("store.detail.quickInstall")}</p>
-                <code class="text-sm font-mono text-text-strong">{installCmd(data())}</code>
-              </div>
-              <button
-                onClick={copy}
-                class="p-2 rounded text-text-weak cursor-pointer hover:text-text-strong hover:bg-bg-base hover:shadow-xs-border-base transition-all duration-150 shrink-0"
-              >
-                {copied() ? "✓" : "⎘"}
-              </button>
-            </div>
-
-            <div class="space-y-10">
+            <div class="space-y-8">
               <Show when={data().content}>
                 <section>
-                  <h2 class="text-sm font-semibold text-text-weak uppercase tracking-wide mb-4">
+                  <h2 class="text-16-medium text-text-strong mb-3">
                     {language.t("store.capabilityDialog.field.content")}
                   </h2>
-                  <div class="bg-bg-muted rounded-xl p-6 border border-border-weak-base text-sm leading-relaxed">
+                  <div class="rounded-lg bg-bg-muted/50 border border-border-weak-base p-5 text-14-regular leading-7 max-h-[480px] overflow-y-auto thin-scrollbar">
                     {renderMd(data().content)}
                   </div>
                 </section>
@@ -295,30 +300,37 @@ export default function ItemDetail() {
 
               <Show when={(artifacts() ?? []).length > 0}>
                 <section>
-                  <h2 class="text-sm font-semibold text-text-weak uppercase tracking-wide mb-4">
-                    {language.t("store.detail.artifacts")}
-                  </h2>
-                  <div class="space-y-3">
+                  <h2 class="text-16-medium text-text-strong mb-3">{language.t("store.detail.artifacts")}</h2>
+                  <div class="rounded-lg border border-border-weak-base overflow-hidden">
                     <For each={artifacts() ?? []}>
                       {(artifact) => (
-                        <div class="flex items-center justify-between gap-4 p-4 rounded-xl border border-border-weak-base bg-bg-muted hover:border-border-weak-base/80 hover:shadow-xs-border-base transition-all duration-150">
+                        <div class="flex items-center justify-between gap-4 px-4 py-3 border-b border-border-weak-base last:border-b-0 hover:bg-bg-muted/40 transition-colors duration-150">
                           <div class="min-w-0">
-                            <div class="font-medium truncate text-text-strong">{artifact.filename}</div>
-                            <div class="text-sm text-text-weak">
-                              v{artifact.version} · {formatBytes(artifact.fileSize)} · {artifact.downloadCount}{" "}
-                              {language.t("store.detail.downloads")}
+                            <div class="flex items-center gap-2">
+                              <span class="text-14-medium truncate text-text-strong">{artifact.filename}</span>
                               <Show when={artifact.isLatest}>
-                                <span class="ml-2 px-1.5 py-0.5 text-xs bg-bg-base rounded">
+                                <span
+                                  class="inline-flex items-center rounded-[10px] px-2 py-[1px] text-xs font-medium"
+                                  style={{
+                                    "background-color": `color-mix(in srgb, ${meta().accent} 12%, transparent)`,
+                                    color: meta().accent,
+                                  }}
+                                >
                                   {language.t("store.detail.latest")}
                                 </span>
                               </Show>
+                            </div>
+                            <div class="text-12-regular text-text-weak mt-0.5">
+                              {artifact.version ? `v${artifact.version} · ` : ""}
+                              {formatBytes(artifact.fileSize)}
                             </div>
                           </div>
                           <a
                             href={artifactApi.downloadUrl(artifact.id)}
                             download=""
-                            class="px-3 py-1.5 text-sm bg-bg-base border border-border-weak-base rounded text-text-strong cursor-pointer hover:bg-bg-muted hover:shadow-xs-border-base transition-all duration-150"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-12-medium rounded-lg cursor-pointer transition-all duration-150 text-text-weak hover:text-text-strong hover:bg-bg-muted"
                           >
+                            <Icon name="download" size="small" />
                             {language.t("store.itemCard.download")}
                           </a>
                         </div>
@@ -329,45 +341,38 @@ export default function ItemDetail() {
               </Show>
 
               <section>
-                <h2 class="text-sm font-semibold text-text-weak uppercase tracking-wide mb-4">
-                  {language.t("store.detail.details")}
-                </h2>
-                <div class="bg-bg-muted rounded-xl border border-border-weak-base overflow-hidden">
-                  <dl class="divide-y divide-border-weak-base">
-                    <div class="flex items-center justify-between px-5 py-3.5">
-                      <dt class="text-text-weak">{language.t("store.console.capabilities.type")}</dt>
-                      <dd class="font-medium text-text-strong">
-                        {language.t("store.capability.type." + (data().itemType ?? "skill"))}
-                      </dd>
-                    </div>
-                    <div class="flex items-center justify-between px-5 py-3.5">
-                      <dt class="text-text-weak">{language.t("store.console.capabilities.visibility")}</dt>
-                      <dd class="capitalize text-text-strong">{data().visibility}</dd>
-                    </div>
-                    <Show when={data().createdByName}>
-                      <div class="flex items-center justify-between px-5 py-3.5">
-                        <dt class="text-text-weak">{language.t("store.detail.author")}</dt>
-                        <dd class="font-medium text-text-strong">{data().createdByName || "-"}</dd>
-                      </div>
-                    </Show>
-                    <div class="flex items-center justify-between px-5 py-3.5">
-                      <dt class="text-text-weak">{language.t("store.detail.created")}</dt>
-                      <dd class="text-text-strong">{formatDate(data().createdAt)}</dd>
-                    </div>
-                    <div class="flex items-center justify-between px-5 py-3.5">
-                      <dt class="text-text-weak">{language.t("store.detail.updated")}</dt>
-                      <dd class="text-text-strong">{formatDate(data().updatedAt)}</dd>
-                    </div>
+                <h2 class="text-16-medium text-text-strong mb-3">{language.t("store.detail.details")}</h2>
+                <div class="rounded-lg border border-border-weak-base overflow-hidden">
+                  <dl>
+                    <For
+                      each={
+                        [
+                          [
+                            language.t("store.console.capabilities.type"),
+                            language.t("store.capability.type." + (data().itemType ?? "skill")),
+                          ],
+                          [language.t("store.console.capabilities.visibility"), data().visibility],
+                          ...(data().createdByName ? [[language.t("store.detail.author"), data().createdByName]] : []),
+                          [language.t("store.detail.created"), formatDate(data().createdAt)],
+                          [language.t("store.detail.updated"), formatDate(data().updatedAt)],
+                        ] as [string, string][]
+                      }
+                    >
+                      {(row) => (
+                        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border-weak-base last:border-b-0">
+                          <dt class="text-12-regular text-text-weak">{row[0]}</dt>
+                          <dd class="text-12-medium text-text-strong">{row[1]}</dd>
+                        </div>
+                      )}
+                    </For>
                   </dl>
                 </div>
               </section>
 
               <Show when={(scans() ?? []).length > 0}>
                 <section>
-                  <h2 class="text-sm font-semibold uppercase tracking-wide text-text-weak mb-4">
-                    {language.t("store.scanResults.securityScan")}
-                  </h2>
-                  <div class="space-y-3">
+                  <h2 class="text-16-medium text-text-strong mb-3">{language.t("store.scanResults.securityScan")}</h2>
+                  <div class="space-y-2">
                     <For each={scans() ?? []}>{(scan) => <ScanRow scan={scan} />}</For>
                   </div>
                 </section>

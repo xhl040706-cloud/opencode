@@ -829,4 +829,7 @@ export const dict = {
   "store.inviteDialog.toast.success": "邀請已發送",
   "store.inviteDialog.toast.successMessage": "邀請 {{name}} 成功",
   "store.inviteDialog.toast.failed": "邀請發送失敗",
+  "store.itemCard.download": "下載",
+  "store.detail.back": "返回",
+  "store.detail.quickInstall": "安裝命令",
 } satisfies Partial<Record<Keys, string>>

@@ -1,36 +1,61 @@
+import { Show, createEffect } from "solid-js"
+import { Icon } from "@opencode-ai/ui/icon"
+
 export default function SearchBar(props: {
   value: string
   onChange: (v: string) => void
   onSearch?: () => void
   placeholder?: string
 }) {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && props.onSearch) {
-      props.onSearch()
-    }
+  let ref!: HTMLInputElement
+
+  createEffect(() => {
+    if (ref.value !== props.value) ref.value = props.value
+  })
+
+  const input = (e: InputEvent & { currentTarget: HTMLInputElement }) => {
+    const v = e.currentTarget.value
+    if (v !== props.value) props.onChange(v)
   }
 
+  const submit = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && props.onSearch) props.onSearch()
+  }
+
+  const clear = () => props.onChange("")
+
   return (
-    <div class="relative flex gap-2">
-      <div class="relative flex-1">
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-weak text-sm">⌕</span>
-        <input
-          type="text"
-          value={props.value}
-          onInput={(e) => props.onChange(e.currentTarget.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={props.placeholder ?? "Search..."}
-          class="w-full pl-8 pr-3 py-2 text-sm border border-border-weak-base rounded-md bg-bg-base text-text-strong placeholder:text-text-weak focus:outline-none focus:ring-1 focus:ring-border-weak-base"
-        />
-      </div>
-      {props.onSearch && (
+    <div class="group/search flex items-center h-10 w-full rounded-full bg-surface-inset-base border border-border-weak-base transition-all duration-200 pr-1">
+      <input
+        ref={ref}
+        type="search"
+        onInput={input}
+        onKeyDown={submit}
+        placeholder={props.placeholder ?? "Search..."}
+        class="flex-1 min-w-0 h-full pl-4 bg-transparent border-0 text-sm text-text-strong placeholder:text-text-weak focus:outline-none [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+      />
+
+      <Show when={props.value}>
         <button
-          onClick={props.onSearch}
-          class="px-4 py-2 text-sm font-medium text-text-strong bg-bg-muted border border-border-weak-base rounded-md hover:bg-bg-muted/80 transition-colors focus:outline-none focus:ring-1 focus:ring-border-weak-base"
+          type="button"
+          onClick={clear}
+          class="flex items-center justify-center size-6 rounded-full text-icon-weak hover:text-icon-strong hover:bg-surface-inset-base transition-colors cursor-pointer mr-0.5"
+          title="Clear"
         >
-          检索
+          <Icon name="close" class="size-3.5" />
         </button>
-      )}
+      </Show>
+
+      <Show when={props.onSearch}>
+        <button
+          type="button"
+          onClick={props.onSearch}
+          class="flex items-center justify-center size-8 rounded-full text-icon-weak hover:text-icon-strong hover:bg-surface-inset-base-hover transition-colors cursor-pointer shrink-0"
+          title="Search"
+        >
+          <Icon name="magnifying-glass" class="size-3.5" />
+        </button>
+      </Show>
     </div>
   )
 }
