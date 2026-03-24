@@ -261,8 +261,44 @@ type MemberResponse = RepoMember & {
 
 type DeviceResponse = Device
 
+type WecomChannelResponse = {
+  id: string
+  name: string
+  webhook: string
+  webhookKey: string
+  enabled: boolean
+  events: {
+    agent: boolean
+    permissions: boolean
+    errors: boolean
+  }
+}
+
+export type WecomChannelPayload = {
+  name: string
+  webhook: string
+  webhookKey: string
+  enabled?: boolean
+  events: {
+    agent: boolean
+    permissions: boolean
+    errors: boolean
+  }
+}
+
 function normalizeDevice(device: DeviceResponse): Device {
   return device
+}
+
+function normalizeWecomChannel(channel: WecomChannelResponse): WecomChannelResponse {
+  return {
+    ...channel,
+    events: {
+      agent: Boolean(channel.events?.agent),
+      permissions: Boolean(channel.events?.permissions),
+      errors: Boolean(channel.events?.errors),
+    },
+  }
 }
 function normalizeRepository(repo: RepositoryResponse): Repository {
   return {
@@ -308,12 +344,46 @@ export const deviceApi = {
   },
 }
 
+export const notificationChannelApi = {
+  async listWecom() {
+    const res = await apiFetch<{ channels: WecomChannelResponse[] }>("/api/notification-channels/wecom")
+    return { channels: (res.channels ?? []).map(normalizeWecomChannel) }
+  },
+
+  async createWecom(data: WecomChannelPayload) {
+    const res = await apiFetch<{ channel: WecomChannelResponse }>("/api/notification-channels/wecom", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+    return { channel: normalizeWecomChannel(res.channel) }
+  },
+
+  async updateWecom(channelId: string, data: Partial<WecomChannelPayload>) {
+    const res = await apiFetch<{ channel: WecomChannelResponse }>(`/api/notification-channels/wecom/${channelId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    })
+    return { channel: normalizeWecomChannel(res.channel) }
+  },
+
+  removeWecom(channelId: string) {
+    return apiFetch<{ message: string }>(`/api/notification-channels/wecom/${channelId}`, {
+      method: "DELETE",
+    })
+  },
+
+  testWecom(channelId: string) {
+    return apiFetch<{ message: string }>(`/api/notification-channels/wecom/${channelId}/test`, {
+      method: "POST",
+    })
+  },
+}
+
 export const repoRegistryApi = {
   async list(repoId: string) {
     const res = await apiFetch<{ registries: RegistryResponse[] }>(`/api/repositories/${repoId}/registries`)
     return { registries: (res.registries ?? []).map(normalizeRegistry) }
-  },
-  async add(repoId: string, data: CreateSyncRegistryInput) {
+  },  async add(repoId: string, data: CreateSyncRegistryInput) {
     const res = await apiFetch<RegistryResponse>(`/api/repositories/${repoId}/registries`, {
       method: "POST",
       body: JSON.stringify(data),

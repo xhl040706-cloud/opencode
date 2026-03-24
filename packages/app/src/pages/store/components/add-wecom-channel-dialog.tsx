@@ -8,7 +8,7 @@ const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
 
 type AddWecomChannelDialogProps = {
-  onCreated: (ch: WecomChannel) => void
+  onCreated: (ch: Omit<WecomChannel, "id">) => Promise<void> | void
 }
 
 export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
@@ -18,9 +18,10 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
     webhook: "",
     webhookKey: "",
     error: "",
+    saving: false,
   })
 
-  const handleSubmit = (e: SubmitEvent) => {
+  const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault()
     if (!form.name.trim()) {
       setForm("error", "请填写渠道名称")
@@ -31,18 +32,24 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
       return
     }
     if (!form.webhookKey.trim()) {
-      setForm("error", "请填写 WECOM_WEBHOOK_KEY")
+      setForm("error", "请填写 Webhook Key")
       return
     }
-    props.onCreated({
-      id: `wecom-${Date.now()}`,
-      name: form.name.trim(),
-      webhook: form.webhook.trim(),
-      webhookKey: form.webhookKey.trim(),
-      enabled: true,
-      events: { agent: true, permissions: true, errors: false },
-    })
-    dialog.close()
+
+    setForm("error", "")
+    setForm("saving", true)
+    try {
+      await props.onCreated({
+        name: form.name.trim(),
+        webhook: form.webhook.trim(),
+        webhookKey: form.webhookKey.trim(),
+        enabled: true,
+        events: { agent: true, permissions: true, errors: false },
+      })
+      dialog.close()
+    } finally {
+      setForm("saving", false)
+    }
   }
 
   return (
@@ -74,7 +81,7 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
           </div>
           <div>
             <label class="mb-1.5 block text-xs font-medium text-text-strong">
-              WECOM_WEBHOOK_KEY <span class="text-icon-info-base">*</span>
+              Webhook Key <span class="text-icon-info-base">*</span>
             </label>
             <input
               value={form.webhookKey}
@@ -89,7 +96,9 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
           <Button type="button" variant="ghost" onClick={() => dialog.close()}>
             取消
           </Button>
-          <Button type="submit">确认添加</Button>
+          <Button type="submit" disabled={form.saving}>
+            {form.saving ? "添加中..." : "确认添加"}
+          </Button>
         </div>
       </form>
     </Dialog>
