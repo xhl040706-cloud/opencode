@@ -7,7 +7,6 @@ export interface WecomChannel {
   id: string
   name: string
   webhook: string
-  webhookKey: string
   enabled: boolean
   events: {
     agent: boolean
@@ -95,7 +94,6 @@ const defaultSettings: Settings = {
         id: "mock-wecom-1",
         name: "企微机器人",
         webhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=mock-key",
-        webhookKey: "mock-key",
         enabled: true,
         events: {
           agent: true,

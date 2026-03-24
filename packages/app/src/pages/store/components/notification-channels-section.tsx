@@ -4,6 +4,7 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { createMemo, createResource, For, Show } from "solid-js"
 import type { WecomChannel } from "@/context/settings"
 import { AddWecomChannelDialog } from "./add-wecom-channel-dialog"
+import { EditWecomChannelDialog } from "./edit-wecom-channel-dialog"
 import { WecomChannelCard } from "./wecom-channel-card"
 import { notificationChannelService } from "../lib/notification-channel-service"
 
@@ -17,10 +18,29 @@ export function NotificationChannelsSection() {
     dialog.show(() => (
       <AddWecomChannelDialog
         onCreated={async (payload) => {
-          const created = await notificationChannelService.createWecom(payload)
-          mutate((list) => [created, ...(list ?? [])])
-          showToast({ variant: "success", icon: "circle-check", title: "通知渠道已创建" })
+          try {
+            const created = await notificationChannelService.createWecom(payload)
+            mutate((list) => [created, ...(list ?? [])])
+            showToast({ variant: "success", icon: "circle-check", title: "通知渠道已创建" })
+          } catch (error) {
+            showToast({
+              variant: "error",
+              icon: "circle-x",
+              title: "通知渠道创建失败",
+              description: error instanceof Error ? error.message : String(error),
+            })
+            throw error
+          }
         }}
+      />
+    ))
+  }
+
+  const openEditDialog = (channel: WecomChannel) => {
+    dialog.show(() => (
+      <EditWecomChannelDialog
+        channel={channel}
+        onSaved={handleUpdate}
       />
     ))
   }
@@ -114,6 +134,7 @@ export function NotificationChannelsSection() {
               {(channel) => (
                 <WecomChannelCard
                   channel={channel}
+                  onEdit={openEditDialog}
                   onUpdate={handleUpdate}
                   onRemove={handleRemove}
                   onTest={handleTest}

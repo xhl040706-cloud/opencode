@@ -2,7 +2,7 @@ import type { WecomChannel } from "@/context/settings"
 import { env } from "@/lib/env"
 import { notificationChannelApi, type WecomChannelPayload } from "./api"
 
-export const NOTIFICATION_CHANNEL_USE_MOCK = true
+export const NOTIFICATION_CHANNEL_USE_MOCK = import.meta.env.DEV
 
 const nowId = () => `wecom-${Date.now()}`
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -12,7 +12,6 @@ const MOCK_WECOM_CHANNELS: WecomChannel[] = [
     id: "mock-wecom-1",
     name: "企微机器人",
     webhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=mock-key",
-    webhookKey: "mock-key",
     enabled: true,
     events: {
       agent: true,
@@ -24,7 +23,6 @@ const MOCK_WECOM_CHANNELS: WecomChannel[] = [
     id: "mock-wecom-2",
     name: "值班告警群",
     webhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=alert-mock-key",
-    webhookKey: "alert-mock-key",
     enabled: false,
     events: {
       agent: false,
@@ -46,11 +44,9 @@ function toPayload(channel: Omit<WecomChannel, "id">): WecomChannelPayload {
   return {
     channelType: "wecom",
     name: channel.name,
-    enabled: channel.enabled,
     triggerEvents: toTriggerEvents(channel.events),
     userConfig: {
       webhook: channel.webhook,
-      webhookKey: channel.webhookKey,
     },
   }
 }
@@ -116,13 +112,11 @@ const realNotificationChannelService = {
   async updateWecom(channelId: string, patch: Partial<WecomChannel>) {
     const res = await notificationChannelApi.updateWecom(channelId, {
       name: patch.name,
-      enabled: patch.enabled,
       triggerEvents: patch.events ? toTriggerEvents(patch.events) : undefined,
       userConfig:
-        patch.webhook !== undefined || patch.webhookKey !== undefined
+        patch.webhook !== undefined
           ? {
               webhook: patch.webhook ?? "",
-              webhookKey: patch.webhookKey ?? "",
             }
           : undefined,
     })

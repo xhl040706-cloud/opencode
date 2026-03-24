@@ -289,7 +289,6 @@ type WecomChannelResponse = {
   triggerEvents?: string[]
   userConfig?: {
     webhook?: string
-    webhookKey?: string
   }
   systemChannelId?: string
   userId?: string
@@ -302,11 +301,9 @@ type WecomChannelResponse = {
 export type WecomChannelPayload = {
   channelType: "wecom"
   name: string
-  enabled?: boolean
   triggerEvents: NotificationTriggerEvent[]
   userConfig: {
     webhook: string
-    webhookKey: string
   }
   systemChannelId?: string
 }
@@ -334,13 +331,11 @@ function normalizeDevice(device: DeviceResponse): Device {
 function normalizeWecomChannel(channel: WecomChannelResponse) {
   const triggerEvents = new Set(channel.triggerEvents ?? [])
   const webhook = channel.userConfig?.webhook ?? ""
-  const webhookKey = channel.userConfig?.webhookKey ?? ""
 
   return {
     id: channel.id,
     name: channel.name,
     webhook,
-    webhookKey,
     enabled: Boolean(channel.enabled),
     events: {
       agent: triggerEvents.has("agent"),
@@ -428,7 +423,7 @@ export const notificationChannelApi = {
 
   async updateWecom(
     channelId: string,
-    data: Partial<Pick<WecomChannelPayload, "name" | "enabled" | "triggerEvents" | "userConfig">>,
+    data: Partial<Pick<WecomChannelPayload, "name" | "triggerEvents" | "userConfig">>,
   ) {
     const res = await apiFetch<{ channel: WecomChannelResponse }>(`/api/notification-channels/${channelId}`, {
       method: "PUT",
@@ -438,7 +433,7 @@ export const notificationChannelApi = {
   },
 
   removeWecom(channelId: string) {
-    return apiFetch<{ message: string }>(`/api/notification-channels/${channelId}`, {
+    return apiFetch<{ success: boolean }>(`/api/notification-channels/${channelId}`, {
       method: "DELETE",
     })
   },
@@ -447,10 +442,8 @@ export const notificationChannelApi = {
     const res = await apiFetch<{ success: boolean }>(`/api/notification-channels/${channelId}/test`, {
       method: "POST",
     })
-    return {
-      ...res,
-      message: res.success ? "测试消息已发送" : "测试发送失败",
-    }
+    if (!res.success) throw new Error("测试发送失败")
+    return { success: true, message: "测试消息已发送" }
   },
 }
 

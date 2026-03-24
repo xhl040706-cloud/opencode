@@ -8,19 +8,20 @@ import { type WecomChannel } from "@/context/settings"
 const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
 
-type AddWecomChannelDialogProps = {
-  onCreated: (ch: Omit<WecomChannel, "id">) => Promise<void> | void
+type EditWecomChannelDialogProps = {
+  channel: WecomChannel
+  onSaved: (id: string, patch: Partial<WecomChannel>) => Promise<void> | void
 }
 
-export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
+export function EditWecomChannelDialog(props: EditWecomChannelDialogProps) {
   const dialog = useDialog()
   const [form, setForm] = createStore({
-    name: "",
-    webhook: "",
+    name: props.channel.name,
+    webhook: props.channel.webhook,
     events: {
-      agent: true,
-      permissions: true,
-      errors: false,
+      agent: props.channel.events.agent,
+      permissions: props.channel.events.permissions,
+      errors: props.channel.events.errors,
     },
     error: "",
     saving: false,
@@ -39,16 +40,25 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
     setForm("error", "")
     setForm("saving", true)
     try {
-      await props.onCreated({
-        name: form.name.trim(),
-        webhook: form.webhook.trim(),
-        enabled: true,
-        events: {
+      const patch: Partial<WecomChannel> = {}
+      if (form.name.trim() !== props.channel.name) {
+        patch.name = form.name.trim()
+      }
+      if (form.webhook.trim() !== props.channel.webhook) {
+        patch.webhook = form.webhook.trim()
+      }
+      if (
+        form.events.agent !== props.channel.events.agent ||
+        form.events.permissions !== props.channel.events.permissions ||
+        form.events.errors !== props.channel.events.errors
+      ) {
+        patch.events = {
           agent: form.events.agent,
           permissions: form.events.permissions,
           errors: form.events.errors,
-        },
-      })
+        }
+      }
+      await props.onSaved(props.channel.id, patch)
       dialog.close()
     } finally {
       setForm("saving", false)
@@ -56,7 +66,7 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
   }
 
   return (
-    <Dialog title="添加企微通知渠道" class="w-full max-w-md mx-auto">
+    <Dialog title="编辑企微通知渠道" class="w-full max-w-md mx-auto">
       <form onSubmit={handleSubmit} class="flex flex-col">
         <div class="flex flex-col gap-4 px-6 py-4">
           <div>
@@ -112,7 +122,7 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
             取消
           </Button>
           <Button type="submit" disabled={form.saving}>
-            {form.saving ? "添加中..." : "确认添加"}
+            {form.saving ? "保存中..." : "保存"}
           </Button>
         </div>
       </form>
