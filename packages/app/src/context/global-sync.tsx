@@ -12,11 +12,10 @@ import { getFilename } from "@opencode-ai/util/path"
 import {
   createContext,
   getOwner,
-  Match,
   onCleanup,
   onMount,
   type ParentProps,
-  Switch,
+  Show,
   untrack,
   useContext,
 } from "solid-js"
@@ -58,6 +57,7 @@ function createGlobalSync() {
 
   const sdkCache = new Map<string, OpencodeClient>()
   const booting = new Map<string, Promise<void>>()
+  const booted = new Map<string, number>()
   const sessionLoads = new Map<string, Promise<void>>()
   const sessionMeta = new Map<string, { limit: number }>()
 
@@ -98,7 +98,7 @@ function createGlobalSync() {
       cacheProjects()
       return
     }
-    setGlobalStore("project", next)
+    setGlobalStore("project", reconcile(next, { key: "id" }))
     cacheProjects()
   }
 
@@ -243,7 +243,11 @@ function createGlobalSync() {
   async function bootstrapInstance(directory: string) {
     if (!directory) return
     const pending = booting.get(directory)
-    if (pending) return pending
+    if (pending) {
+      return pending
+    }
+    const last = booted.get(directory)
+    if (last && Date.now() - last < BOOT_COOLDOWN_MS) return
 
     children.pin(directory)
     const promise = (async () => {
@@ -265,6 +269,7 @@ function createGlobalSync() {
     booting.set(directory, promise)
     promise.finally(() => {
       booting.delete(directory)
+      booted.set(directory, Date.now())
       children.unpin(directory)
     })
     return promise
@@ -282,8 +287,14 @@ function createGlobalSync() {
         setGlobalProject: setProjects,
       })
       if (event.type === "server.connected" || event.type === "global.disposed") {
-        if (event.type === "global.disposed" || !globalSDK.isReconnect()) {
-          for (const directory of Object.keys(children.children)) {
+        if (event.type === "global.disposed") {
+          lastBoot = 0
+          booted.clear()
+        }
+        const skip = event.type !== "global.disposed" && globalSDK.isReconnect()
+        const dirs = Object.keys(children.children)
+        if (!skip) {
+          for (const directory of dirs) {
             queue.push(directory)
           }
         }
@@ -294,6 +305,9 @@ function createGlobalSync() {
     const existing = children.children[directory]
     if (!existing) return
     children.mark(directory)
+    if (event.type === "server.instance.disposed") {
+      booted.delete(directory)
+    }
     const [store, setStore] = existing
     applyDirectoryEvent({
       event,
@@ -321,8 +335,16 @@ function createGlobalSync() {
     }
   })
 
+  let pending: Promise<void> | undefined
+  let lastBoot = 0
+  const BOOT_COOLDOWN_MS = 2_000
+
   async function bootstrap() {
-    await bootstrapGlobal({
+    if (pending) {
+      return pending
+    }
+    if (Date.now() - lastBoot < BOOT_COOLDOWN_MS) return
+    pending = bootstrapGlobal({
       globalSDK: globalSDK.client,
       connectErrorTitle: language.t("dialog.server.add.error"),
       connectErrorDescription: language.t("error.globalSync.connectFailed", {
@@ -332,7 +354,11 @@ function createGlobalSync() {
       translate: language.t,
       formatMoreCount: (count) => language.t("common.moreCountSuffix", { count }),
       setGlobalStore: setBootStore,
+    }).finally(() => {
+      pending = undefined
+      lastBoot = Date.now()
     })
+    await pending
   }
 
   onMount(() => {
@@ -351,6 +377,8 @@ function createGlobalSync() {
 
   const updateConfig = async (config: Config) => {
     setGlobalStore("reload", "pending")
+    lastBoot = 0
+    booted.clear()
     return globalSDK.client.global.config
       .update({ config })
       .then(bootstrap)
@@ -388,13 +416,12 @@ const GlobalSyncContext = createContext<ReturnType<typeof createGlobalSync>>()
 
 export function GlobalSyncProvider(props: ParentProps) {
   const value = createGlobalSync()
+
   return (
-    <Switch>
-      <Match when={value.ready}>
-        <GlobalSyncContext.Provider value={value}>{props.children}</GlobalSyncContext.Provider>
-      </Match>
-      <Match when={!value.ready}>
-        <GlobalSyncContext.Provider value={value}>
+    <GlobalSyncContext.Provider value={value}>
+      <Show
+        when={value.ready}
+        fallback={
           <div class="flex h-full w-full min-h-0">
             <div class="flex flex-col gap-2 p-3 w-[var(--sidebar-width,280px)] shrink-0 border-r border-border-base">
               <div class="h-6 w-3/4 rounded-md bg-surface-raised-base opacity-60 animate-pulse" />
@@ -408,9 +435,11 @@ export function GlobalSyncProvider(props: ParentProps) {
               <div class="h-5 w-5 rounded-full border-2 border-border-base border-t-text-dimmed animate-spin" />
             </div>
           </div>
-        </GlobalSyncContext.Provider>
-      </Match>
-    </Switch>
+        }
+      >
+        {props.children}
+      </Show>
+    </GlobalSyncContext.Provider>
   )
 }
 
