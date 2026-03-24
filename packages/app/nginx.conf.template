@@ -15,7 +15,10 @@ server {
     }
 
     # SPA fallback - serve index.html for all routes
-    location / {
+    # When deployed under a sub-path (NGINX_PREFIX), strip the prefix so
+    # static files in the root are resolved correctly.
+    location ${NGINX_PREFIX}/ {
+        alias /usr/share/nginx/html/;
         try_files $uri $uri/ /index.html;
     }
 

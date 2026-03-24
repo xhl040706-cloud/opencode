@@ -4,9 +4,14 @@ const host = process.env.VITE_CLOUD_SERVER_HOST ?? "localhost"
 const port = process.env.VITE_CLOUD_SERVER_PORT ?? "18080"
 const appPort = parseInt(process.env.VITE_APP_PORT ?? "3000")
 const prefix = process.env.VITE_API_PREFIX ?? ""
+const basePath = (process.env.VITE_BASE_PATH ?? "").replace(/\/+$/, "") // e.g. "/costrict-web-portal"
 const dist = join(import.meta.dir, "../dist")
 
 const rewrite = (p: string) => p.replace(new RegExp(`^${prefix}`), "")
+
+/** Strip the deployment base path prefix so static files resolve to dist/ */
+const stripBase = (p: string) =>
+  basePath && p.startsWith(basePath) ? p.slice(basePath.length) || "/" : p
 
 const proxyHttp = async (req: Request) => {
   const url = new URL(req.url)
@@ -32,7 +37,8 @@ Bun.serve({
 
     if (path.startsWith(`${prefix}/api`)) return proxyHttp(req)
 
-    const file = Bun.file(join(dist, path))
+    const filePath = stripBase(path)
+    const file = Bun.file(join(dist, filePath))
     return file.exists().then((ok) => (ok ? new Response(file) : new Response(Bun.file(join(dist, "index.html")))))
   },
   websocket: {
