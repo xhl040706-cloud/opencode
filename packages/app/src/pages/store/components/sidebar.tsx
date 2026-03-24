@@ -1,10 +1,9 @@
 import { A, useLocation, useNavigate } from "@solidjs/router"
-import { createSignal, createEffect, For, Show } from "solid-js"
+import { createSignal, For, Show } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
-import { repoApi, type Repository } from "../lib/api"
+import type { Repository } from "../lib/api"
 import { useRepoFilter } from "../context/repo-filter"
-import { useAuth } from "../hooks/use-auth"
 import { useLanguage } from "@/context/language"
 import { navItemsForRepo, capabilityItemClass } from "./sidebar-helpers"
 
@@ -36,23 +35,9 @@ function NavItem(props: {
 export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { selectedRepo, setSelectedRepo } = useRepoFilter()
-  const { user } = useAuth()
-  const [repos, setRepos] = createSignal<Repository[]>([])
+  const { selectedRepo, setSelectedRepo, repos } = useRepoFilter()
   const [repoMenuOpen, setRepoMenuOpen] = createSignal(false)
   const language = useLanguage()
-
-  createEffect(() => {
-    const u = user()
-    if (u?.sub) {
-      repoApi
-        .listMy(u.sub)
-        .then((res) => setRepos(res.repositories ?? []))
-        .catch(() => {})
-    } else {
-      setRepos([])
-    }
-  })
 
   function select(repo: Repository | null) {
     setSelectedRepo(repo)

@@ -6,7 +6,7 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
 import { createMemo, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
-import { itemApi, type CapabilityItem, type Repository } from "../lib/api"
+import { itemApi, registryApi2, type CapabilityItem, type Repository } from "../lib/api"
 
 type MoveCapabilityDialogProps = {
   item: CapabilityItem
@@ -21,9 +21,7 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
   const dialog = useDialog()
   const language = useLanguage()
   const [store, setStore] = createStore({
-    namespace: props.item.registry?.repoId
-      ? `repo:${props.item.registry.repoId}`
-      : "public",
+    namespace: props.item.registry?.repoId ? `repo:${props.item.registry.repoId}` : "public",
     saving: false,
     error: "",
     repoId: "",
@@ -33,7 +31,10 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
 
   const targets = createMemo(() => props.repositories.filter((r) => r.repoType !== "sync"))
 
-  const selected = createMemo(() => targets().find((r) => r.id === store.repoId))
+  const selected = createMemo(() => {
+    if (store.repoId === "__public__") return null
+    return targets().find((r) => r.id === store.repoId)
+  })
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
@@ -41,7 +42,12 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
     setStore("saving", true)
     setStore("error", "")
     try {
-      const updated = await itemApi.transfer(props.item.id, store.repoId)
+      let target = store.repoId
+      if (target === "__public__") {
+        const pub = await registryApi2.getPublic()
+        target = pub.repoId
+      }
+      const updated = await itemApi.transfer(props.item.id, target)
       props.onMoved?.(updated)
       showToast({ title: language.t("store.capabilityDialog.toast.moved") })
       dialog.close()
@@ -96,6 +102,7 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
                     <option value="" disabled>
                       {language.t("store.capabilityDialog.move.selectRepository")}
                     </option>
+                    <option value="__public__">{language.t("store.capabilityDialog.visibility.public")}</option>
                     <For each={targets()}>
                       {(repo) => <option value={repo.id}>{repo.displayName || repo.name}</option>}
                     </For>
@@ -103,11 +110,14 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
                 </div>
               </div>
 
-              <Show when={selected()}>
+              <Show when={selected() || store.repoId === "__public__"}>
                 <p class="mt-3 text-12-regular text-text-weak">
                   {language.t("store.capabilityDialog.move.transferHint", {
                     name: props.item.name,
-                    repo: selected()!.displayName || selected()!.name,
+                    repo:
+                      store.repoId === "__public__"
+                        ? language.t("store.capabilityDialog.visibility.public")
+                        : selected()!.displayName || selected()!.name,
                   })}
                 </p>
               </Show>
