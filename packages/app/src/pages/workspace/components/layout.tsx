@@ -34,7 +34,7 @@ export default function WorkspaceLayout(props: ParentProps) {
         deviceApi.list().catch(() => ({ devices: [] })),
       ])
       setWorkspaces(reconcile(workspacesRes.workspaces, { key: "id", merge: false }))
-      setDevices(devicesRes.devices)
+      setDevices(reconcile(devicesRes.devices, { key: "id", merge: false }))
     } catch (err) {
       showToast({
         title: "加载失败",
@@ -55,7 +55,7 @@ export default function WorkspaceLayout(props: ParentProps) {
     try {
       const prevStatuses = devices.map((d) => ({ id: d.id, status: d.status }))
       const res = await deviceApi.list().catch(() => ({ devices: [] }))
-      setDevices(res.devices)
+      setDevices(reconcile(res.devices, { key: "id", merge: false }))
       const changed = res.devices.some((d) => prevStatuses.find((p) => p.id === d.id)?.status !== d.status)
       if (!changed) return
       const prevOnlineIds = new Set(workspaces.filter((w) => w.deviceStatus === "online").map((w) => w.id))
