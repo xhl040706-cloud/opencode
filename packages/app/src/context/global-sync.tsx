@@ -176,6 +176,7 @@ function createGlobalSync() {
   }
 
   async function loadSessions(directory: string) {
+    if (!active) return
     const pending = sessionLoads.get(directory)
     if (pending) return pending
 
@@ -201,6 +202,7 @@ function createGlobalSync() {
       list: (query) => globalSDK.client.session.list(query),
     })
       .then((x) => {
+        if (!active) return
         const nonArchived = (x.data ?? [])
           .filter((s) => !!s?.id)
           .filter((s) => !s.time?.archived)
@@ -241,6 +243,7 @@ function createGlobalSync() {
   }
 
   async function bootstrapInstance(directory: string) {
+    if (!active) return
     if (!directory) return
     const pending = booting.get(directory)
     if (pending) {
@@ -251,6 +254,7 @@ function createGlobalSync() {
 
     children.pin(directory)
     const promise = (async () => {
+      if (!active) return
       const child = children.ensureChild(directory)
       const cache = children.vcsCache.get(directory)
       if (!cache) return
@@ -276,6 +280,7 @@ function createGlobalSync() {
   }
 
   const unsub = globalSDK.event.listen((e) => {
+    if (!active) return
     const directory = e.name
     const event = e.details
 
@@ -318,9 +323,13 @@ function createGlobalSync() {
       setSessionTodo,
       vcsCache: children.vcsCache.get(directory),
       loadLsp: () => {
+        if (!active) return
         sdkFor(directory)
           .lsp.status()
-          .then((x) => setStore("lsp", x.data ?? []))
+          .then((x) => {
+            if (!active) return
+            setStore("lsp", x.data ?? [])
+          })
       },
     })
   })
@@ -340,6 +349,7 @@ function createGlobalSync() {
   const BOOT_COOLDOWN_MS = 2_000
 
   async function bootstrap() {
+    if (!active) return
     if (pending) {
       return pending
     }
