@@ -261,11 +261,13 @@ function WorkspaceActivation(props: ParentProps) {
 }
 
 function WorkspaceContent(props: ParentProps) {
+  const params = useParams()
   const server = useServer()
+  const ready = createMemo(() => !!params.workspaceID && !!server.key)
   return (
     <div class="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
-      <Show when={server.key} keyed fallback={<div class="size-full bg-background-base" />}>
-        {(_key) => <AppInterface>{props.children}</AppInterface>}
+      <Show when={ready()} fallback={props.children}>
+        <AppInterface>{props.children}</AppInterface>
       </Show>
     </div>
   )
