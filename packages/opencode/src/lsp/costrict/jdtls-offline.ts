@@ -240,6 +240,7 @@ export namespace JDTLS_OFFLINE {
         ],
         {
           cwd: root,
+          windowsHide: process.platform === "win32",
         },
       ),
     }

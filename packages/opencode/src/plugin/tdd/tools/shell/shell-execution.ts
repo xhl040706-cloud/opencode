@@ -89,6 +89,7 @@ export class ShellExecutionService {
         windowsVerbatimArguments: isWindows ? false : undefined,
         shell: false,
         detached: !isWindows,
+        windowsHide: isWindows,
         env: {
           ...process.env,
           GEMINI_CLI: "1",
@@ -174,7 +175,7 @@ export class ShellExecutionService {
           timeoutTriggered = true
           if (child.pid && !exited) {
             if (isWindows) {
-              spawn("taskkill", ["/pid", child.pid.toString(), "/f", "/t"], { stdio: "ignore" })
+              spawn("taskkill", ["/pid", child.pid.toString(), "/f", "/t"], { stdio: "ignore", windowsHide: true })
             } else {
               try {
                 process.kill(-child.pid, "SIGTERM")

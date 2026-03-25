@@ -1634,6 +1634,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         ...shellEnv.env,
         TERM: "dumb",
       },
+      windowsHide: process.platform === "win32",
     })
 
     let output = ""

@@ -56,7 +56,7 @@ export namespace Disk {
     try {
       const { execSync } = await import("child_process")
       const drive = path.split(":")[0] + ":"
-      const result = execSync(`wmic logicaldisk where "DeviceID='${drive}'" get FreeSpace,Size`, { encoding: "utf-8" })
+      const result = execSync(`wmic logicaldisk where "DeviceID='${drive}'" get FreeSpace,Size`, { encoding: "utf-8", windowsHide: true })
       const lines = result.trim().split("\n")
       if (lines.length < 2) {
         throw new Error("Unexpected wmic output")

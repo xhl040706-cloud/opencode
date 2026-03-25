@@ -200,6 +200,7 @@ export namespace GOPLS_OFFLINE {
     return {
       process: spawn(binPath, [], {
         cwd: root,
+        windowsHide: process.platform === "win32",
       }),
     }
   }
