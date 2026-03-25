@@ -1,7 +1,7 @@
 import type { ParentProps } from "solid-js"
 import { createSignal, createMemo, onMount, Show, createEffect, untrack, onCleanup } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { useParams } from "@solidjs/router"
+import { useNavigate, useParams } from "@solidjs/router"
 import { showToast, Toast } from "@opencode-ai/ui/toast"
 import type { Device, Workspace, CreateWorkspaceRequest } from "../types"
 import { workspaceApi, deviceApi } from "../lib/api"
@@ -11,7 +11,7 @@ import { ServerConnection, ServerProvider, useServer } from "@/context/server"
 import { useAuth } from "@/context/auth"
 import { AppInterface } from "@/app-interface"
 import { getProxyUrl } from "../lib/url"
-import { ActiveWorkspaceProvider } from "../active-workspace"
+import { ActiveWorkspaceProvider, useActiveWorkspace } from "../active-workspace"
 import { useLanguage } from "@/context/language"
 
 let inWorkspace = false
@@ -27,6 +27,9 @@ export default function WorkspaceLayout(props: ParentProps) {
   const [enabledIds, setEnabledIds] = createSignal<string[]>([])
   const closed = new Set<string>()
   const auth = useAuth()
+  const navigate = useNavigate()
+  const active = useActiveWorkspace()
+  const params = useParams()
 
   onMount(async () => {
     if (!auth.user()) return
@@ -48,6 +51,27 @@ export default function WorkspaceLayout(props: ParentProps) {
     }
   })
 
+  const DISABLE_DELAY_MS = 1_500
+  const pending = new Map<string, ReturnType<typeof setTimeout>>()
+
+  const deferDisable = (id: string) => {
+    if (pending.has(id)) return
+    showToast({
+      variant: "error",
+      title: t("workspace.device.offline"),
+      description: t("workspace.error.disconnected"),
+    })
+    pending.set(
+      id,
+      setTimeout(() => {
+        pending.delete(id)
+        if (params.workspaceID === id) navigate("/workspace")
+        if (active?.id === id) active.clear()
+        handleDisableWorkspace(id)
+      }, DISABLE_DELAY_MS),
+    )
+  }
+
   let loading = false
   const loadDevices = async () => {
     if (!auth.user()) return
@@ -67,7 +91,7 @@ export default function WorkspaceLayout(props: ParentProps) {
       const enabled = enabledIds()
       wsRes.workspaces
         .filter((w) => prevOnlineIds.has(w.id) && w.deviceStatus !== "online" && enabled.includes(w.id))
-        .forEach((w) => handleDisableWorkspace(w.id))
+        .forEach((w) => deferDisable(w.id))
     } finally {
       loading = false
     }
@@ -80,6 +104,8 @@ export default function WorkspaceLayout(props: ParentProps) {
     inWorkspace = false
     clearInterval(timer)
     document.removeEventListener("visibilitychange", loadDevices)
+    for (const t of pending.values()) clearTimeout(t)
+    pending.clear()
   })
 
   const handleSelectWorkspace = (workspaceId: string) => {

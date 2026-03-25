@@ -806,6 +806,7 @@ export const dict = {
   "workspace.reset.success.title": "工作区已重置",
   "workspace.reset.success.description": "工作区已与默认分支保持一致。",
   "workspace.error.stillPreparing": "工作区仍在准备中",
+  "workspace.error.disconnected": "设备已断开连接，工作区不再可用。",
   "workspace.status.checking": "正在检查未合并的更改...",
   "workspace.status.error": "无法验证 git 状态。",
   "workspace.status.clean": "未检测到未合并的更改。",

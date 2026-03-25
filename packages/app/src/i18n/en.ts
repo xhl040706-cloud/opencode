@@ -1111,6 +1111,7 @@ export const dict = {
   "workspace.reset.success.title": "Workspace reset",
   "workspace.reset.success.description": "Workspace now matches the default branch.",
   "workspace.error.stillPreparing": "Workspace is still preparing",
+  "workspace.error.disconnected": "Device disconnected. The workspace is no longer available.",
   "workspace.status.checking": "Checking for unmerged changes...",
   "workspace.status.error": "Unable to verify git status.",
   "workspace.status.clean": "No unmerged changes detected.",
