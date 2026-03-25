@@ -3,6 +3,8 @@ import { ConfigMarkdown } from "../config/markdown"
 import { withTimeout } from "../util/timeout"
 import { Tool } from "../tool/tool"
 import { ToolRegistry } from "../tool/registry"
+import { SessionID, MessageID } from "../session/schema"
+import { ModelID, ProviderID } from "../provider/schema"
 
 export interface ToolCall {
   toolId: string
@@ -42,8 +44,8 @@ export function parseToolCalls(content: string): ToolCall[] {
 }
 
 function createMinimalContext(): Tool.Context {
-  const sessionID = crypto.randomUUID()
-  const messageID = crypto.randomUUID()
+  const sessionID = SessionID.make(crypto.randomUUID())
+  const messageID = MessageID.make(crypto.randomUUID())
   const abortController = new AbortController()
   
   return {
@@ -67,7 +69,7 @@ async function executeToolCalls(content: string): Promise<string> {
   const placeholders = matches.map(m => m[0])
   
   // 获取可用工具
-  const tools = await ToolRegistry.tools({ modelID: "", providerID: "" })
+  const tools = await ToolRegistry.tools({ modelID: ModelID.make(""), providerID: ProviderID.make("") })
   
   const results = await Promise.all(
     toolCalls.map(async (toolCall, index) => {

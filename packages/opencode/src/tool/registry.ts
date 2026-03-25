@@ -151,6 +151,14 @@ export namespace ToolRegistry {
     const result = await Promise.all(
       tools
         .filter((t) => {
+          // visible 过滤逻辑 - 如果工具设置为不可见，需要Agent显式启用
+          if (t.visible === false) {
+            // 如果Agent没有显式启用此工具，则过滤掉
+            if (agent?.tools?.[t.id] !== true) {
+              return false
+            }
+          }
+
           // Enable websearch/codesearch for zen users OR via enable flag
           if (t.id === "codesearch" || t.id === "websearch") {
             return model.providerID === ProviderID.opencode || Flag.COSTRICT_ENABLE_EXA

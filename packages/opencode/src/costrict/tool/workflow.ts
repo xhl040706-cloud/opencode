@@ -74,4 +74,4 @@ export const WorkflowTool = Tool.define('workflow', async () => {
       };
     },
   };
-});
+}, { visible: false });

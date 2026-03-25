@@ -606,4 +606,4 @@ export const SpecManageTool = Tool.define('spec-manage', async () => {
       }
     },
   };
-});
+}, { visible: false });

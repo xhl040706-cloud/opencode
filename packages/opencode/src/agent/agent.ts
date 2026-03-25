@@ -46,6 +46,7 @@ export namespace Agent {
       model_prompts: z.record(z.string(), z.string()).optional(),
       options: z.record(z.string(), z.any()),
       steps: z.number().int().positive().optional(),
+      tools: z.record(z.string(), z.boolean()).optional(),
     })
     .meta({
       ref: "Agent",
