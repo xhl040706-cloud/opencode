@@ -106,6 +106,22 @@ async function runWorker() {
   process.on("SIGTERM", shutdown)
   process.on("SIGINT", shutdown)
 
+  // On Windows, process.kill(pid, "SIGTERM") calls TerminateProcess() which
+  // bypasses signal handlers entirely.  Poll for a stop-signal file instead
+  // so we get a chance to run the graceful shutdown path above.
+  if (process.platform === "win32") {
+    const file = Daemon.stopFile()
+    Daemon.removeStop()
+    const timer = setInterval(() => {
+      try {
+        fs.statSync(file)
+        clearInterval(timer)
+        shutdown()
+      } catch {}
+    }, 500)
+    timer.unref()
+  }
+
   if (process.send) {
     process.send({ ready: true, pid: process.pid })
   }

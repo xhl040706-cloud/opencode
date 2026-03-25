@@ -5,6 +5,7 @@ import { Global } from "../../global"
 
 const PID_FILE = path.join(Global.Path.state, "cloud.pid")
 const LOG_FILE = path.join(Global.Path.log, "cloud.log")
+const STOP_FILE = path.join(Global.Path.state, "cloud.stop")
 
 export namespace Daemon {
   export function pidFile() {
@@ -62,23 +63,53 @@ export namespace Daemon {
       removePid()
       return false
     }
-    try {
-      if (process.platform === "win32") {
-        // Use taskkill /T to kill the entire process tree on Windows
+
+    if (process.platform === "win32") {
+      // On Windows process.kill(pid, "SIGTERM") calls TerminateProcess() which
+      // kills the process immediately without running any shutdown handler.
+      // Instead, write a stop-signal file that the worker polls for, giving it
+      // a chance to call Instance.disposeAll() and clean up child processes.
+      // If the worker doesn't exit within 5 seconds, force-kill the tree.
+      try {
+        fs.writeFileSync(STOP_FILE, String(Date.now()))
+      } catch {}
+
+      const deadline = Date.now() + 5_000
+      while (Date.now() < deadline) {
+        if (!isRunning(pid)) break
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200)
+      }
+
+      if (isRunning(pid)) {
         spawn("taskkill", ["/pid", String(pid), "/f", "/t"], { stdio: "ignore", windowsHide: true })
-      } else {
+      }
+    } else {
+      try {
         // Kill the entire process group (daemon is group leader due to detached: true).
         // This ensures child processes (LSP, MCP, PTY) are terminated even if the
         // SIGTERM handler in the worker fails to run.
         process.kill(-pid, "SIGTERM")
+      } catch {
+        try {
+          process.kill(pid, "SIGTERM")
+        } catch {}
       }
-    } catch {
-      try {
-        process.kill(pid, "SIGTERM")
-      } catch {}
     }
+
     removePid()
+    removeStop()
     return true
+  }
+
+  /** Write the stop-signal file path so the worker can poll it. */
+  export function stopFile() {
+    return STOP_FILE
+  }
+
+  export function removeStop() {
+    try {
+      fs.unlinkSync(STOP_FILE)
+    } catch {}
   }
 
   export function openLogFd(): number {
