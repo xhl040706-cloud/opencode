@@ -30,7 +30,22 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     })()
 
     const currentServer = server.current
-    if (!currentServer) throw new Error("No server available")
+    if (!currentServer) {
+      onCleanup(() => abort.abort())
+      const emitter = createGlobalEmitter<{ [key: string]: Event }>()
+      return {
+        url: "",
+        client: undefined as unknown as ReturnType<typeof createSdkForServer>,
+        event: emitter,
+        isReconnect: () => false,
+        get ready() {
+          return false
+        },
+        createClient() {
+          throw new Error("Server not available")
+        },
+      } as any
+    }
 
     const eventSdk = createSdkForServer({
       signal: abort.signal,
@@ -227,8 +242,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       event: emitter,
       isReconnect: () => reconnecting,
       createClient(opts: Omit<Parameters<typeof createSdkForServer>[0], "server" | "fetch">) {
-        const s = server.current
-        if (!s) throw new Error("Server not available")
+        const s = server.current ?? currentServer
         return createSdkForServer({
           server: s.http,
           fetch: platform.fetch,
