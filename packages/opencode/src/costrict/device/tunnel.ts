@@ -74,8 +74,8 @@ class YamuxStream {
     return new Promise((resolve) => this.resolvers.push(resolve))
   }
 
-  async write(data: Buffer, bypassWindow = false) {
-    await this.session.sendData(this.id, data, bypassWindow)
+  async write(data: Buffer) {
+    await this.session.sendData(this.id, data)
   }
 
   close() {
@@ -142,12 +142,8 @@ class YamuxSession {
     return new Promise((resolve) => this.closeResolvers.push(resolve))
   }
 
-  async sendData(streamId: number, data: Buffer, bypassWindow = false) {
+  async sendData(streamId: number, data: Buffer) {
     if (this.closed) return
-    if (bypassWindow) {
-      this.ws.send(buildFrame(TYPE_DATA, 0, streamId, data))
-      return
-    }
     let offset = 0
     while (offset < data.length) {
       while (true) {
@@ -353,10 +349,10 @@ async function serializeStreamingResponse(resp: Response, stream: YamuxStream) {
     headerStr += `${k}: ${v}\r\n`
   })
   headerStr += "transfer-encoding: chunked\r\n\r\n"
-  await stream.write(Buffer.from(headerStr), true)
+  await stream.write(Buffer.from(headerStr))
 
   if (!resp.body) {
-    await stream.write(Buffer.from("0\r\n\r\n"), true)
+    await stream.write(Buffer.from("0\r\n\r\n"))
     return
   }
 
@@ -365,11 +361,14 @@ async function serializeStreamingResponse(resp: Response, stream: YamuxStream) {
     const { done, value } = await reader.read()
     if (done) break
     const chunk = Buffer.from(value)
-    await stream.write(Buffer.from(`${chunk.length.toString(16)}\r\n`), true)
-    await stream.write(chunk, true)
-    await stream.write(Buffer.from("\r\n"), true)
+    const frame = Buffer.concat([
+      Buffer.from(`${chunk.length.toString(16)}\r\n`),
+      chunk,
+      Buffer.from("\r\n"),
+    ])
+    await stream.write(frame)
   }
-  await stream.write(Buffer.from("0\r\n\r\n"), true)
+  await stream.write(Buffer.from("0\r\n\r\n"))
 }
 
 function statusText(code: number): string {
@@ -397,39 +396,40 @@ async function handleWebSocketStream(stream: YamuxStream, req: { method: string;
   rawReq += "\r\n"
   socket.write(rawReq)
 
-  let headerBuf = Buffer.alloc(0)
-  let headerDone = false
-  let upgradeSent = false
+  // Read socket data with backpressure: pause socket while waiting for yamux window
+  const socketToStream = async () => {
+    let headerBuf = Buffer.alloc(0)
+    let headerDone = false
 
-  socket.on("data", async (chunk: Buffer) => {
-    if (!headerDone) {
-      headerBuf = Buffer.concat([headerBuf, chunk])
-      const sep = headerBuf.indexOf("\r\n\r\n")
-      if (sep === -1) return
-      headerDone = true
-      const headerSection = headerBuf.slice(0, sep + 4)
-      const rest = headerBuf.slice(sep + 4)
-      if (!upgradeSent) {
-        upgradeSent = true
-        await stream.write(headerSection, true)
-        if (rest.length > 0) await stream.write(rest, true)
+    for await (const chunk of socket as AsyncIterable<Buffer>) {
+      if (!headerDone) {
+        headerBuf = Buffer.concat([headerBuf, chunk])
+        const sep = headerBuf.indexOf("\r\n\r\n")
+        if (sep === -1) continue
+        headerDone = true
+        const headerSection = headerBuf.slice(0, sep + 4)
+        const rest = headerBuf.slice(sep + 4)
+        await stream.write(headerSection)
+        if (rest.length > 0) await stream.write(rest)
+      } else {
+        await stream.write(chunk)
       }
-    } else {
-      await stream.write(chunk, true)
     }
-  })
+    stream.close()
+  }
 
-  socket.on("end", () => stream.close())
-  socket.on("error", () => stream.close())
-
-  ;(async () => {
+  const streamToSocket = async () => {
     while (true) {
       const chunk = await stream.read()
       if (!chunk) break
       socket.write(chunk)
     }
     socket.destroy()
-  })()
+  }
+
+  socket.on("error", () => stream.close())
+
+  await Promise.race([socketToStream(), streamToSocket()]).catch(() => {})
 }
 
 async function handleStream(stream: YamuxStream, localPort: number) {
