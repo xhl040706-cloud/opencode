@@ -590,6 +590,7 @@ function WorkspaceSessions(props: { id: string }) {
     on(
       () => params.id,
       (id) => {
+        if (params.workspaceID !== props.id) return
         // Insert placeholder for new session not yet in list
         if (id && !sessions().some((s) => s.id === id)) {
           const primary = dirs()[0]
@@ -613,6 +614,7 @@ function WorkspaceSessions(props: { id: string }) {
   createEffect(
     on(
       () => {
+        if (params.workspaceID !== props.id) return undefined
         const id = params.id
         if (!id) return undefined
         const s = sessions().find((x) => x.id === id)
@@ -621,11 +623,14 @@ function WorkspaceSessions(props: { id: string }) {
       (id) => {
         if (!id) return
         let stopped = false
+        let attempts = 0
+        const MAX_ATTEMPTS = 30
 
         const poll = async () => {
           while (!stopped) {
             await new Promise((r) => setTimeout(r, 2000))
             if (stopped) break
+            if (++attempts > MAX_ATTEMPTS) break
             const uid = device()
             if (!uid) break
             const directories = dirs()
