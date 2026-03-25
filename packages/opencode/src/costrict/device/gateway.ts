@@ -1,4 +1,5 @@
 import { type DeviceInfo } from "./client"
+import { Installation } from "../../installation"
 import { Log } from "../../util/log"
 
 const log = Log.create({ service: "device-gateway" })
@@ -23,7 +24,7 @@ export async function assignGateway(device: DeviceInfo): Promise<string> {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${device.device_token}`,
     },
-    body: JSON.stringify({ deviceID: device.device_id }),
+    body: JSON.stringify({ deviceID: device.device_id, version: Installation.VERSION }),
     signal: controller.signal,
   }).finally(() => clearTimeout(timer))
 
