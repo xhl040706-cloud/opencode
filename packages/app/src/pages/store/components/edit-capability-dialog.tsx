@@ -29,7 +29,6 @@ export function EditCapabilityDialog(props: EditCapabilityDialogProps) {
     name: props.item.name,
     description: props.item.description || "",
     category: props.item.category || "utilities",
-    visibility: props.item.visibility || "public",
     content: props.item.content || "",
     contentMode: usableMode(canArchive(props.item.itemType), sourceTypeToMode(props.item.sourceType)) as ContentMode,
     file: null as File | null,
@@ -59,7 +58,6 @@ export function EditCapabilityDialog(props: EditCapabilityDialogProps) {
         name: store.name.trim(),
         description: store.description.trim(),
         category: store.category,
-        visibility: store.visibility,
         content: contentValue(mode(), store.content),
         ...(mode() === "archive" && store.file ? { file: store.file } : {}),
       })
@@ -129,15 +127,17 @@ export function EditCapabilityDialog(props: EditCapabilityDialogProps) {
               <label class="mb-2 block text-12-medium text-text-strong">
                 {language.t("store.capabilityDialog.field.visibility")}
               </label>
-              <select
-                value={store.visibility}
-                onInput={(e) => setStore("visibility", e.currentTarget.value)}
-                class={inputClass}
-              >
-                <option value="public">{language.t("store.capabilityDialog.visibility.public")}</option>
-                <option value="private">{language.t("store.capabilityDialog.visibility.private")}</option>
-                <option value="repo">{language.t("store.capabilityDialog.visibility.repository")}</option>
-              </select>
+              <input
+                value={
+                  props.item.repoVisibility === "public"
+                    ? language.t("store.capabilityDialog.visibility.public")
+                    : props.item.repoVisibility === "private"
+                      ? language.t("store.capabilityDialog.visibility.private")
+                      : "-"
+                }
+                disabled
+                class={inputClass + " cursor-not-allowed opacity-60"}
+              />
             </div>
           </div>
 

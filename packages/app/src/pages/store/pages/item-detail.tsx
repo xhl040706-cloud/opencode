@@ -345,7 +345,11 @@ export default function ItemDetail() {
                           ],
                           [
                             language.t("store.console.capabilities.visibility"),
-                            data().registry?.visibility ?? data().visibility,
+                            data().repoVisibility === "public"
+                              ? language.t("store.capability.visibility.public")
+                              : data().repoVisibility === "private"
+                                ? language.t("store.capability.visibility.private")
+                                : "-",
                           ],
                           ...(data().createdByName ? [[language.t("store.detail.author"), data().createdByName]] : []),
                           [language.t("store.detail.created"), formatDate(data().createdAt)],

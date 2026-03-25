@@ -193,7 +193,26 @@ export function WorkspaceSidebar() {
             when={renaming()}
             fallback={
               <>
-                <span class="text-13-medium text-text-strong truncate">{workspace()?.name}</span>
+                <Tooltip placement="top" value={t("workspace.rename")}>
+                  <span
+                    class="text-13-medium text-text-strong truncate cursor-pointer hover:text-text-base"
+                    onClick={(e: MouseEvent) => {
+                      e.stopPropagation()
+                      startRename()
+                    }}
+                  >
+                    {workspace()?.name}
+                  </span>
+                </Tooltip>
+                <Icon
+                  name="edit"
+                  size="small"
+                  class="shrink-0 text-icon-weaker opacity-0 group-hover/workspace:opacity-60 transition-opacity cursor-pointer"
+                  onClick={(e: MouseEvent) => {
+                    e.stopPropagation()
+                    startRename()
+                  }}
+                />
                 <Show when={workspace()?.isDefault}>
                   <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">
                     {t("common.default")}
@@ -240,13 +259,36 @@ export function WorkspaceSidebar() {
           when={renaming()}
           fallback={
             <>
-              <span class="text-14-regular text-text-strong truncate">{workspace()?.name}</span>
+              <Tooltip placement="top" value={t("workspace.rename")}>
+                <span
+                  class="text-14-regular text-text-strong truncate cursor-pointer hover:text-text-base"
+                  onClick={(e: MouseEvent) => {
+                    e.stopPropagation()
+                    startRename()
+                  }}
+                >
+                  {workspace()?.name}
+                </span>
+              </Tooltip>
+              <Icon
+                name="edit"
+                size="small"
+                class="shrink-0 text-icon-weaker opacity-0 group-hover/workspace:opacity-60 transition-opacity cursor-pointer"
+                onClick={(e: MouseEvent) => {
+                  e.stopPropagation()
+                  startRename()
+                }}
+              />
               <Show when={workspace()?.isDefault}>
                 <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">
                   {t("common.default")}
                 </span>
               </Show>
-              <Icon name={open() ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-weak" />
+              <Icon
+                name={open() ? "chevron-down" : "chevron-right"}
+                size="small"
+                class="shrink-0 text-icon-weak ml-auto"
+              />
             </>
           }
         >
@@ -298,9 +340,6 @@ export function WorkspaceSidebar() {
                       <DropdownMenu.Content>
                         <DropdownMenu.Item onSelect={() => handleCloseWorkspace(ws())}>
                           <DropdownMenu.ItemLabel>{t("workspace.close")}</DropdownMenu.ItemLabel>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item onSelect={startRename}>
-                          <DropdownMenu.ItemLabel>{t("workspace.rename")}</DropdownMenu.ItemLabel>
                         </DropdownMenu.Item>
                         <DropdownMenu.Separator />
                         <DropdownMenu.Item onSelect={() => deleteWorkspace(cardProps.id)}>
@@ -379,17 +418,6 @@ export function WorkspaceSidebar() {
                   }}
                 >
                   <Icon name="arrow-up" size="small" class="text-icon-weak" />
-                </div>
-              </Tooltip>
-              <Tooltip placement="left" value={t("workspace.rename")} class="flex-1">
-                <div
-                  class="size-full flex items-center justify-center cursor-pointer hover:bg-surface-raised-base-hover transition-colors"
-                  onClick={(e: MouseEvent) => {
-                    e.stopPropagation()
-                    startRename()
-                  }}
-                >
-                  <Icon name="edit" size="small" class="text-icon-weak" />
                 </div>
               </Tooltip>
               <Tooltip placement="left" value={t("workspace.delete")} class="flex-1">
@@ -695,7 +723,7 @@ function WorkspaceSessions(props: { id: string }) {
                     onClick={() => click(session)}
                   >
                     <Icon
-                      name="bubble-5"
+                      name={active() ? "speech-bubble" : "dash"}
                       class="size-3 shrink-0"
                       classList={{ "text-icon-base": active(), "text-text-weaker": !active() }}
                     />

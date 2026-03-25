@@ -899,6 +899,8 @@ export const dict = {
   "store.console.capabilities.type": "类型",
   "store.console.capabilities.category": "分类",
   "store.console.capabilities.visibility": "可见性",
+  "store.capability.visibility.public": "公开",
+  "store.capability.visibility.private": "私有",
   "store.console.capabilities.source": "来源仓库",
   "store.console.capabilities.toast.loadFailed": "加载能力失败",
   "store.console.capabilities.toast.deleteSuccess": "能力已删除",
