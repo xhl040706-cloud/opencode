@@ -352,7 +352,7 @@ export default function Dashboard() {
                     <For each={["all", "skill", "subagent", "command", "mcp"]}>
                       {(type) => (
                         <button
-                          class="rounded-md border px-3 py-1.5 text-sm transition-colors"
+                          class="cursor-pointer rounded-md border px-3 py-1.5 text-sm transition-colors"
                           classList={{
                             "border-border-strong bg-surface-info-base/20 text-text-strong":
                               state.itemTypeFilter === type,
@@ -403,7 +403,9 @@ export default function Dashboard() {
                             <th class="px-4 py-3 text-left text-12-medium text-text-weak">
                               {language.t("store.console.capabilities.source")}
                             </th>
-                            <th class="px-4 py-3" />
+                            <th class="px-4 py-3 text-left text-12-medium text-text-weak">
+                              {language.t("common.operation")}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -424,11 +426,11 @@ export default function Dashboard() {
                                 </td>
                                 <td class="px-4 py-3 text-12-regular text-text-weak">{item.repoName || "—"}</td>
                                 <td class="px-4 py-3">
-                                  <div class="flex items-center justify-end gap-1">
+                                  <div class="flex items-center gap-1">
                                     <Button
                                       size="small"
                                       variant="ghost"
-                                      class="h-8 w-8 p-0"
+                                      class="h-8 w-8 p-0 cursor-pointer"
                                       onClick={() => openMoveCapability(item)}
                                       title={language.t("store.console.capabilities.move")}
                                     >
@@ -437,7 +439,7 @@ export default function Dashboard() {
                                     <Button
                                       size="small"
                                       variant="ghost"
-                                      class="h-8 w-8 p-0"
+                                      class="h-8 w-8 p-0 cursor-pointer"
                                       onClick={() => openEditCapability(item)}
                                       title={language.t("store.console.capabilities.edit")}
                                     >
@@ -446,7 +448,7 @@ export default function Dashboard() {
                                     <Button
                                       size="small"
                                       variant="ghost"
-                                      class="h-8 w-8 p-0"
+                                      class="h-8 w-8 p-0 cursor-pointer"
                                       onClick={() => handleDeleteItem(item.id)}
                                       title={language.t("store.console.capabilities.delete")}
                                     >
@@ -495,7 +497,7 @@ export default function Dashboard() {
                                 }
                               >
                                 <button
-                                  class="flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-xs transition-colors"
+                                  class="flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-md px-2 text-xs transition-colors"
                                   classList={{
                                     "bg-bg-muted text-text-strong font-medium": state.itemPage === p,
                                     "text-text-weak hover:text-text-strong hover:bg-bg-muted": state.itemPage !== p,

@@ -52,7 +52,7 @@ export function CreateWorkspaceDialogContent(props: CreateWorkspaceDialogProps) 
 
   return (
     <Dialog
-      class="w-full max-w-[520px] mx-auto"
+      class="w-full max-w-[520px] mx-auto min-h-auto"
       title={
         <div class="flex items-center gap-2.5">
           <div class="flex items-center justify-center size-8 rounded-lg bg-surface-raised-base">

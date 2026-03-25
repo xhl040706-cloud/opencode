@@ -2,7 +2,7 @@ import type { ParentProps } from "solid-js"
 import { createSignal, createMemo, onMount, Show, createEffect, untrack, onCleanup } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { useParams } from "@solidjs/router"
-import { showToast } from "@opencode-ai/ui/toast"
+import { showToast, Toast } from "@opencode-ai/ui/toast"
 import type { Device, Workspace, CreateWorkspaceRequest } from "../types"
 import { workspaceApi, deviceApi } from "../lib/api"
 import { WorkspaceSidebar } from "./workspace-sidebar"
@@ -169,6 +169,23 @@ export default function WorkspaceLayout(props: ParentProps) {
     }
   }
 
+  const handleRenameWorkspace = async (workspaceId: string, name: string) => {
+    try {
+      const res = await workspaceApi.update(workspaceId, { name })
+      setWorkspaces(
+        reconcile(
+          workspaces.map((w) => (w.id === workspaceId ? res.workspace : w)),
+          { key: "id", merge: false },
+        ),
+      )
+      showToast({ title: t("workspace.rename.success"), description: name })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      showToast({ title: t("workspace.rename.failedTitle"), description: msg })
+      throw err
+    }
+  }
+
   const contextValue: WorkspaceContextValue = {
     workspaces: () => [...workspaces],
     devices: () => [...devices],
@@ -183,6 +200,7 @@ export default function WorkspaceLayout(props: ParentProps) {
     disableWorkspace: handleDisableWorkspace,
     createWorkspace: handleCreateWorkspace,
     deleteWorkspace: handleDeleteWorkspace,
+    renameWorkspace: handleRenameWorkspace,
   }
 
   return (
@@ -266,7 +284,15 @@ function WorkspaceContent(props: ParentProps) {
   const ready = createMemo(() => !!params.workspaceID && !!server.key)
   return (
     <div class="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
-      <Show when={ready()} fallback={props.children}>
+      <Show
+        when={ready()}
+        fallback={
+          <>
+            {props.children}
+            <Toast.Region />
+          </>
+        }
+      >
         <AppInterface>{props.children}</AppInterface>
       </Show>
     </div>
