@@ -113,7 +113,10 @@ export default function Dashboard() {
     dialog.show(() => (
       <EditRepoDialog
         repo={repo}
-        onSaved={(updated) => setRepos((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))}
+        onSaved={(updated) => {
+          setRepos((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+          void loadItems()
+        }}
       />
     ))
   }
@@ -422,7 +425,11 @@ export default function Dashboard() {
                                   </span>
                                 </td>
                                 <td class="px-4 py-3 text-12-regular capitalize text-text-weak">
-                                  {visibilityLabel(item.visibility || "public")}
+                                  {item.repoVisibility === "public"
+                                    ? language.t("store.capabilityDialog.visibility.public")
+                                    : item.repoVisibility === "private"
+                                      ? language.t("store.capabilityDialog.visibility.private")
+                                      : "-"}
                                 </td>
                                 <td class="px-4 py-3 text-12-regular text-text-weak">{item.repoName || "—"}</td>
                                 <td class="px-4 py-3">

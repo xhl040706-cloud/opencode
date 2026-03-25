@@ -211,6 +211,7 @@ export interface CapabilityItem {
   version: string
   content: string
   visibility: string
+  repoVisibility?: string
   status: string
   sourceType?: string
   securityStatus?: SecurityStatus
