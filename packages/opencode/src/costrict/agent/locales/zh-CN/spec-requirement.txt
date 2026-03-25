@@ -3,6 +3,7 @@ name: Requirement
 description: >-
   将用户需求转化为结构化系统需求，接收输入为用户需求和输出目录。
 mode: subagent
+visible: false
 tools:
   question: true
   todowrite: true

@@ -22,7 +22,6 @@ permission:
     WikiIndexGeneration: deny
     StrictSpec: deny
     SpecReSearch: deny
-    Requirement: deny
     DesignAgent: deny
     TaskPlan: deny
     PlanManager: deny

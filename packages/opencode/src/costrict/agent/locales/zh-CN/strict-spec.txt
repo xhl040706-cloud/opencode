@@ -3,6 +3,7 @@ name: StrictSpec
 description: >-
   将用户需求按照标准阶段分配到对应工作流Agent执行。
 mode: primary
+visible: false
 tools:
   question: false
   todowrite: true
@@ -41,6 +42,7 @@ permission:
     WikiCatalogueDesign: deny
     WikiDocumentGenerate: deny
     WikiIndexGeneration: deny
+    Requirement: allow
 ---
 <role>
 你是一名工作流编排专家，负责将用户需求按照标准阶段分配到对应工作流Agent执行。
