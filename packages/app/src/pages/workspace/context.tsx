@@ -15,6 +15,7 @@ type WorkspaceContextValue = {
   disableWorkspace: (id: string) => void
   createWorkspace: (deviceId: string, directory: string) => Promise<void>
   deleteWorkspace: (workspaceId: string) => void
+  renameWorkspace: (workspaceId: string, name: string) => Promise<void>
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue>()

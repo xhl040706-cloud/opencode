@@ -35,6 +35,7 @@ export function WorkspaceSidebar() {
     disableWorkspace,
     createWorkspace,
     deleteWorkspace,
+    renameWorkspace,
   } = useWorkspace()
 
   const server = useServer()
@@ -141,9 +142,37 @@ export function WorkspaceSidebar() {
     const selected = () => selectedWorkspaceId() === cardProps.id
     const [open, setOpen] = createSignal(false)
     const [mounted, setMounted] = createSignal(false)
+    const [renaming, setRenaming] = createSignal(false)
+    const [renameValue, setRenameValue] = createSignal("")
     const toggle = () => {
       if (!mounted()) setMounted(true)
       setOpen((v) => !v)
+    }
+
+    const startRename = () => {
+      setRenameValue(workspace()?.name ?? "")
+      setRenaming(true)
+    }
+
+    let committing = false
+    const commitRename = async () => {
+      if (committing) return
+      committing = true
+      setRenaming(false)
+      const val = renameValue().trim()
+      if (val && val !== workspace()?.name) {
+        await renameWorkspace(cardProps.id, val).catch(() => null)
+      }
+      committing = false
+    }
+
+    const handleRenameKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter") commitRename()
+      if (e.key === "Escape") {
+        committing = true
+        setRenaming(false)
+        committing = false
+      }
     }
 
     // Idle card: three-line layout
@@ -160,12 +189,34 @@ export function WorkspaceSidebar() {
               }}
             />
           </Tooltip>
-          <span class="text-13-medium text-text-strong truncate">{workspace()?.name}</span>
-          <Show when={workspace()?.isDefault}>
-            <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">{t("common.default")}</span>
+          <Show
+            when={renaming()}
+            fallback={
+              <>
+                <span class="text-13-medium text-text-strong truncate">{workspace()?.name}</span>
+                <Show when={workspace()?.isDefault}>
+                  <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">
+                    {t("common.default")}
+                  </span>
+                </Show>
+              </>
+            }
+          >
+            <input
+              class="flex-1 min-w-0 text-13-medium text-text-strong bg-background-base border border-border-strong-base rounded px-1 focus:outline-none"
+              value={renameValue()}
+              placeholder={t("workspace.rename.placeholder")}
+              onInput={(e: Event) => setRenameValue((e.target as HTMLInputElement).value)}
+              onBlur={commitRename}
+              onKeyDown={handleRenameKey}
+              ref={(el) => setTimeout(() => el?.focus(), 0)}
+              onClick={(e: MouseEvent) => e.stopPropagation()}
+            />
           </Show>
         </div>
-        <span class="text-11-regular text-text-weak truncate">{device()?.displayName ?? t("workspace.device.unbound")}</span>
+        <span class="text-11-regular text-text-weak truncate">
+          {device()?.displayName ?? t("workspace.device.unbound")}
+        </span>
         <Show when={primaryDir()}>
           <span class="text-11-regular text-text-weaker truncate">{primaryDir()!.path}</span>
         </Show>
@@ -185,11 +236,31 @@ export function WorkspaceSidebar() {
             }}
           />
         </Tooltip>
-        <span class="text-14-regular text-text-strong truncate">{workspace()?.name}</span>
-        <Show when={workspace()?.isDefault}>
-          <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">{t("common.default")}</span>
+        <Show
+          when={renaming()}
+          fallback={
+            <>
+              <span class="text-14-regular text-text-strong truncate">{workspace()?.name}</span>
+              <Show when={workspace()?.isDefault}>
+                <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">
+                  {t("common.default")}
+                </span>
+              </Show>
+              <Icon name={open() ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-weak" />
+            </>
+          }
+        >
+          <input
+            class="flex-1 min-w-0 text-13-medium text-text-strong bg-background-base border border-border-strong-base rounded px-1 focus:outline-none"
+            value={renameValue()}
+            placeholder={t("workspace.rename.placeholder")}
+            onInput={(e: Event) => setRenameValue((e.target as HTMLInputElement).value)}
+            onBlur={commitRename}
+            onKeyDown={handleRenameKey}
+            ref={(el) => setTimeout(() => el?.focus(), 0)}
+            onClick={(e: MouseEvent) => e.stopPropagation()}
+          />
         </Show>
-        <Icon name={open() ? "chevron-down" : "chevron-right"} size="small" class="shrink-0 text-icon-weak" />
       </div>
     )
 
@@ -198,9 +269,7 @@ export function WorkspaceSidebar() {
         <Show when={workspace()}>
           {(ws) => (
             <div>
-              <div
-                class="group/workspace flex items-center rounded-md border border-border-weak-base transition-colors cursor-default h-8 has-[.content-area:hover]:bg-surface-base-hover"
-              >
+              <div class="group/workspace flex items-center rounded-md border border-border-weak-base transition-colors cursor-default h-8 has-[.content-area:hover]:bg-surface-base-hover">
                 <div
                   classList={{
                     "shrink-0 w-1.5 self-stretch rounded-l-[calc(0.375rem-1px)] transition-colors": true,
@@ -229,6 +298,9 @@ export function WorkspaceSidebar() {
                       <DropdownMenu.Content>
                         <DropdownMenu.Item onSelect={() => handleCloseWorkspace(ws())}>
                           <DropdownMenu.ItemLabel>{t("workspace.close")}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item onSelect={startRename}>
+                          <DropdownMenu.ItemLabel>{t("workspace.rename")}</DropdownMenu.ItemLabel>
                         </DropdownMenu.Item>
                         <DropdownMenu.Separator />
                         <DropdownMenu.Item onSelect={() => deleteWorkspace(cardProps.id)}>
@@ -285,15 +357,15 @@ export function WorkspaceSidebar() {
                 "hover:bg-surface-base-hover": !dot().offline,
                 "cursor-not-allowed opacity-60": dot().offline,
               }}
-              onClick={() => {
-                if (dot().offline) return
-                handleSelectWorkspace(ws())
-              }}
             >
               {idleContent()}
             </div>
             <div class="shrink-0 flex flex-col w-10 border-l border-border-weak-base opacity-0 group-hover/workspace:opacity-100 transition-opacity self-stretch">
-              <Tooltip placement="left" value={dot().offline ? t("workspace.device.offline") : t("workspace.run")} class="flex-1">
+              <Tooltip
+                placement="left"
+                value={dot().offline ? t("workspace.device.offline") : t("workspace.run")}
+                class="flex-1"
+              >
                 <div
                   classList={{
                     "size-full flex items-center justify-center transition-colors rounded-tr-md": true,
@@ -307,6 +379,17 @@ export function WorkspaceSidebar() {
                   }}
                 >
                   <Icon name="arrow-up" size="small" class="text-icon-weak" />
+                </div>
+              </Tooltip>
+              <Tooltip placement="left" value={t("workspace.rename")} class="flex-1">
+                <div
+                  class="size-full flex items-center justify-center cursor-pointer hover:bg-surface-raised-base-hover transition-colors"
+                  onClick={(e: MouseEvent) => {
+                    e.stopPropagation()
+                    startRename()
+                  }}
+                >
+                  <Icon name="edit" size="small" class="text-icon-weak" />
                 </div>
               </Tooltip>
               <Tooltip placement="left" value={t("workspace.delete")} class="flex-1">
@@ -502,15 +585,11 @@ function WorkspaceSessions(props: { id: string }) {
     load(next)
   }
 
-  // Watch current session ID: insert placeholder if not in list, remove stale placeholders
+  // Watch current session ID: insert placeholder if not in list
   createEffect(
     on(
       () => params.id,
-      (id, prev) => {
-        // Remove previous placeholder if it had no real activity (title still empty)
-        if (prev) {
-          setSessions((list) => list.filter((s) => s.id !== prev || s.title))
-        }
+      (id) => {
         // Insert placeholder for new session not yet in list
         if (id && !sessions().some((s) => s.id === id)) {
           const primary = dirs()[0]
@@ -525,6 +604,51 @@ function WorkspaceSessions(props: { id: string }) {
               ...list,
             ])
           }
+        }
+      },
+    ),
+  )
+
+  // When the active session is a placeholder (no title), poll the list until title appears
+  createEffect(
+    on(
+      () => {
+        const id = params.id
+        if (!id) return undefined
+        const s = sessions().find((x) => x.id === id)
+        return s && !s.title ? id : undefined
+      },
+      (id) => {
+        if (!id) return
+        let stopped = false
+
+        const poll = async () => {
+          while (!stopped) {
+            await new Promise((r) => setTimeout(r, 2000))
+            if (stopped) break
+            const uid = device()
+            if (!uid) break
+            const directories = dirs()
+            if (directories.length === 0) break
+            const url = getProxyUrl(uid)
+            for (const dir of directories) {
+              const qs = new URLSearchParams({ directory: dir.path, roots: "true", limit: String(PAGE_SIZE) })
+              const res = await fetch(`${url}/session?${qs}`, { credentials: "include" }).catch(() => null)
+              if (!res?.ok) continue
+              const body = await res.json().catch(() => null)
+              const items = (Array.isArray(body) ? body : (body.data ?? [])) as SessionData[]
+              const found = items.find((s) => s.id === id)
+              if (!found?.title) continue
+              setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, title: found.title } : s)))
+              stopped = true
+              break
+            }
+          }
+        }
+
+        void poll()
+        return () => {
+          stopped = true
         }
       },
     ),
