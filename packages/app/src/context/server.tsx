@@ -1,13 +1,13 @@
 import { createSimpleContext } from "@opencode-ai/ui/context"
-import { type Accessor, batch, createEffect, createMemo, onCleanup } from "solid-js"
+import { type Accessor, batch, createEffect, createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
 import { usePlatform } from "@/context/platform"
 import { Persist, persisted } from "@/utils/persist"
-import { checkServerHealth } from "@/utils/server-health"
+// import { checkServerHealth } from "@/utils/server-health"
 
 type StoredProject = { worktree: string; expanded: boolean }
 type StoredServer = string | ServerConnection.HttpBase | ServerConnection.Http
-const HEALTH_POLL_INTERVAL_MS = 10_000
+// const HEALTH_POLL_INTERVAL_MS = 10_000
 
 export function normalizeServerUrl(input: string) {
   const trimmed = input.trim()
@@ -143,30 +143,32 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
 
     const healthy = () => state.healthy
 
-    function startHealthPolling(conn: ServerConnection.Any) {
-      let alive = true
-      let busy = false
-
-      const run = () => {
-        if (busy) return
-        busy = true
-        void check(conn)
-          .then((next) => {
-            if (!alive) return
-            setState("healthy", next)
-          })
-          .finally(() => {
-            busy = false
-          })
-      }
-
-      run()
-      const interval = setInterval(run, HEALTH_POLL_INTERVAL_MS)
-      return () => {
-        alive = false
-        clearInterval(interval)
-      }
-    }
+    // Health polling disabled — device polling in workspace layout
+    // and SSE reconnection already cover server availability.
+    // function startHealthPolling(conn: ServerConnection.Any) {
+    //   let alive = true
+    //   let busy = false
+    //
+    //   const run = () => {
+    //     if (busy) return
+    //     busy = true
+    //     void check(conn)
+    //       .then((next) => {
+    //         if (!alive) return
+    //         setState("healthy", next)
+    //       })
+    //       .finally(() => {
+    //         busy = false
+    //       })
+    //   }
+    //
+    //   run()
+    //   const interval = setInterval(run, HEALTH_POLL_INTERVAL_MS)
+    //   return () => {
+    //     alive = false
+    //     clearInterval(interval)
+    //   }
+    // }
 
     function setActive(input: ServerConnection.Key) {
       if (state.active !== input) setState("active", input)
@@ -201,8 +203,8 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
 
     const isReady = createMemo(() => ready() && !!state.active)
 
-    const fetcher = platform.fetch ?? globalThis.fetch
-    const check = (conn: ServerConnection.Any) => checkServerHealth(conn.http, fetcher).then((x) => x.healthy)
+    // const fetcher = platform.fetch ?? globalThis.fetch
+    // const check = (conn: ServerConnection.Any) => checkServerHealth(conn.http, fetcher).then((x) => x.healthy)
 
     const provided = createMemo(() => {
       const list = props.servers ?? []
@@ -221,13 +223,14 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
       setState("active", props.defaultServer)
     })
 
-    createEffect(() => {
-      const current_ = current()
-      if (!current_) return
-
-      setState("healthy", undefined)
-      onCleanup(startHealthPolling(current_))
-    })
+    // Health polling disabled — see startHealthPolling above.
+    // createEffect(() => {
+    //   const current_ = current()
+    //   if (!current_) return
+    //
+    //   setState("healthy", undefined)
+    //   onCleanup(startHealthPolling(current_))
+    // })
 
     const origin = createMemo(() => projectsKey(state.active))
     const projectsList = createMemo(() => store.projects[origin()] ?? [])
