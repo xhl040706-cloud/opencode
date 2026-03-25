@@ -1,3 +1,4 @@
+import { spawn } from "child_process"
 import fs from "fs"
 import path from "path"
 import { Global } from "../../global"
@@ -62,8 +63,20 @@ export namespace Daemon {
       return false
     }
     try {
-      process.kill(pid, "SIGTERM")
-    } catch {}
+      if (process.platform === "win32") {
+        // Use taskkill /T to kill the entire process tree on Windows
+        spawn("taskkill", ["/pid", String(pid), "/f", "/t"], { stdio: "ignore", windowsHide: true })
+      } else {
+        // Kill the entire process group (daemon is group leader due to detached: true).
+        // This ensures child processes (LSP, MCP, PTY) are terminated even if the
+        // SIGTERM handler in the worker fails to run.
+        process.kill(-pid, "SIGTERM")
+      }
+    } catch {
+      try {
+        process.kill(pid, "SIGTERM")
+      } catch {}
+    }
     removePid()
     return true
   }
