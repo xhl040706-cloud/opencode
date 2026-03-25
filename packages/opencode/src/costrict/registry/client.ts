@@ -124,7 +124,7 @@ export async function createRegistry(
   baseUrl: string,
   request: CreateRegistryRequest
 ): Promise<CreateRegistryResponse> {
-  const url = `${baseUrl.replace(/\/$/, "")}/api/registries`
+  const url = `${baseUrl.replace(/\/$/, "")}`
   const token = await resolveToken(url)
 
   const headers: Record<string, string> = {

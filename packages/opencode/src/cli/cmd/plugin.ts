@@ -31,10 +31,11 @@ function registryBase(): string {
 
 function resolveRegistryUrl(slug: string | undefined): { registryUrl: string; itemSlug: string | undefined } {
   const base = registryBase()
-  if (!slug) return { registryUrl: `${base}/${DEFAULT_ORG}`, itemSlug: undefined }
+
+  if (!slug) return { registryUrl: `${base}/api/registry/${DEFAULT_ORG}`, itemSlug: undefined }
   const sep = slug.indexOf("/")
-  if (sep === -1) return { registryUrl: `${base}/${DEFAULT_ORG}`, itemSlug: slug }
-  return { registryUrl: `${base}/${slug.slice(0, sep)}`, itemSlug: slug.slice(sep + 1) }
+  if (sep === -1) return { registryUrl: `${base}/api/registry/${DEFAULT_ORG}`, itemSlug: slug }
+  return { registryUrl: `${base}/api/registry/${slug.slice(0, sep)}`, itemSlug: slug.slice(sep + 1) }
 }
 
 function formatError(err: unknown): string {
@@ -185,14 +186,14 @@ async function promptForMissingOptions(options: Partial<UploadOptions>, interact
 async function resolveRegistryId(name: string | undefined, interactive: boolean): Promise<{ registryId: string; baseUrl: string }> {
   const baseUrl = registryBase()
   const registryName = name || DEFAULT_ORG
-
+  const url = baseUrl + `/api/registries`
   // For now, we'll create a new registry if it doesn't exist
   // In a real implementation, you might want to list existing registries first
   const spinner = prompts.spinner()
   spinner.start("Creating registry...")
 
   try {
-    const registry = await createRegistry(baseUrl, {
+    const registry = await createRegistry(url, {
       name: registryName,
       description: `Registry for ${registryName}`,
       sourceType: "local",
@@ -238,10 +239,11 @@ async function resolveScope(interactive: boolean): Promise<InstallScope> {
 }
 
 const PluginAddCommand = cmd({
-  command: "add [slug]",
+  command: "add [itemType] [slug]",
   describe: "install an extension from the registry",
   builder: (yargs) =>
     yargs
+      .positional("itemType", { type: "string", describe: "type of the item to install" })
       .positional("slug", { type: "string", describe: "extension slug, optionally prefixed with org (org/slug)" })
       .option("global", { type: "boolean", alias: "g", describe: "install globally" }),
   async handler(args) {
@@ -249,11 +251,10 @@ const PluginAddCommand = cmd({
       directory: process.cwd(),
       async fn() {
         UI.empty()
-        prompts.intro("Install extension")
 
         const { registryUrl, itemSlug } = resolveRegistryUrl(args.slug)
 
-        prompts.intro(`Install URL: ${registryUrl}`)
+        prompts.intro(`Install extension : ${registryUrl}`)
 
         const spinner = prompts.spinner()
         spinner.start("Fetching registry...")
@@ -437,19 +438,19 @@ const PluginUpdateCommand = cmd({
 })
 
 const PluginUploadCommand = cmd({
-  command: "upload <type> [path]",
+  command: "upload [itemType] [path]",
   describe: "upload a plugin to the registry",
   builder: (yargs) =>
     yargs
-      .positional("type", {
+      .positional("itemType", {
         type: "string",
-        describe: "plugin type (skill|subagent|command|hook|mcp|plugin)",
+        describe: "plugin type (skill|subagent|command|mcp)",
         demandOption: true,
-        choices: ["skill", "subagent", "command", "hook", "mcp", "plugin"]
+        choices: ["skill", "subagent", "command", "mcp"]
       })
       .positional("path", { type: "string", describe: "plugin directory path"}),
   async handler(args) {
-    const type = args.type as RegistryItemType
+    const type = args.itemType as RegistryItemType
     await Instance.provide({
       directory: process.cwd(),
       async fn() {
@@ -482,7 +483,7 @@ const PluginUploadCommand = cmd({
           type: type,
           version: "1.0.0",
           description: "网页测试技能",
-          category: "skill",
+          category: type,
         }
 
         // Prompt for missing options

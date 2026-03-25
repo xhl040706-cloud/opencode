@@ -9,6 +9,7 @@ import { Config } from "../../config/config"
 import { modify, applyEdits } from "jsonc-parser"
 import { fetchFile, resolveToken } from "./client"
 import type { InstallScope, RegistryItem, RegistryItemFile } from "./types"
+import { PackValidationError } from "./types"
 
 const log = Log.create({ service: "registry-install" })
 
@@ -142,6 +143,9 @@ export async function uninstallFileItem(
 
 export async function installMcp(item: RegistryItem, registryUrl: string, scope: InstallScope): Promise<void> {
   if (item.type !== "mcp") return
+  if (!item.mcp || typeof item.mcp !== "object" || !("type" in item.mcp) || (item.mcp.type !== "local" && item.mcp.type !== "remote")) {
+    throw new PackValidationError(`${JSON.stringify(item)} MCP configuration for "${item.slug}" is invalid or empty. Please check the registry entry.`)
+  }
   log.info("installing mcp", { slug: item.slug })
   const configPath = scope === "global" ? globalConfigPath() : projectConfigPath()
   let text = "{}"
