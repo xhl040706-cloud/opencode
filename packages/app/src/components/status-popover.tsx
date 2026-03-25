@@ -7,17 +7,17 @@ import { Tabs } from "@opencode-ai/ui/tabs"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useNavigate } from "@solidjs/router"
 import { type Accessor, createEffect, createMemo, createSignal, For, type JSXElement, onCleanup, Show } from "solid-js"
-import { createStore, reconcile } from "solid-js/store"
+// import { createStore, reconcile } from "solid-js/store"
 import { ServerHealthIndicator, ServerRow } from "@/components/server/server-row"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useSDK } from "@/context/sdk"
 import { normalizeServerUrl, ServerConnection, useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
-import { checkServerHealth, type ServerHealth } from "@/utils/server-health"
+import { type ServerHealth } from "@/utils/server-health"
 import { DialogSelectServer } from "./dialog-select-server"
 
-const pollMs = 10_000
+// const pollMs = 10_000
 
 const pluginEmptyMessage = (value: string, file: string): JSXElement => {
   const parts = value.split(file)
@@ -53,34 +53,35 @@ const listServersByHealth = (
   })
 }
 
-const useServerHealth = (servers: Accessor<ServerConnection.Any[]>, fetcher: typeof fetch) => {
-  const [status, setStatus] = createStore({} as Record<ServerConnection.Key, ServerHealth | undefined>)
-
-  createEffect(() => {
-    const list = servers()
-    let dead = false
-
-    const refresh = async () => {
-      const results: Record<string, ServerHealth> = {}
-      await Promise.all(
-        list.map(async (conn) => {
-          results[ServerConnection.key(conn)] = await checkServerHealth(conn.http, fetcher)
-        }),
-      )
-      if (dead) return
-      setStatus(reconcile(results))
-    }
-
-    void refresh()
-    const id = setInterval(() => void refresh(), pollMs)
-    onCleanup(() => {
-      dead = true
-      clearInterval(id)
-    })
-  })
-
-  return status
-}
+// Health polling disabled — device polling and SSE reconnection cover availability.
+// const useServerHealth = (servers: Accessor<ServerConnection.Any[]>, fetcher: typeof fetch) => {
+//   const [status, setStatus] = createStore({} as Record<ServerConnection.Key, ServerHealth | undefined>)
+//
+//   createEffect(() => {
+//     const list = servers()
+//     let dead = false
+//
+//     const refresh = async () => {
+//       const results: Record<string, ServerHealth> = {}
+//       await Promise.all(
+//         list.map(async (conn) => {
+//           results[ServerConnection.key(conn)] = await checkServerHealth(conn.http, fetcher)
+//         }),
+//       )
+//       if (dead) return
+//       setStatus(reconcile(results))
+//     }
+//
+//     void refresh()
+//     const id = setInterval(() => void refresh(), pollMs)
+//     onCleanup(() => {
+//       dead = true
+//       clearInterval(id)
+//     })
+//   })
+//
+//   return status
+// }
 
 const useDefaultServerKey = (
   get: (() => string | Promise<string | null | undefined> | null | undefined) | undefined,
@@ -176,7 +177,8 @@ export function StatusPopover() {
     if (list.every((item) => ServerConnection.key(item) !== ServerConnection.key(current))) return [current, ...list]
     return [current, ...list.filter((item) => ServerConnection.key(item) !== ServerConnection.key(current))]
   })
-  const health = useServerHealth(servers, fetcher)
+  // const health = useServerHealth(servers, fetcher)
+  const health = {} as Record<ServerConnection.Key, ServerHealth | undefined>
   const sortedServers = createMemo(() => listServersByHealth(servers(), server.key, health))
   const mcp = useMcpToggle({ sync, sdk, language })
   const defaultServer = useDefaultServerKey(platform.getDefaultServerUrl)
