@@ -913,6 +913,7 @@ export const dict = {
   "common.delete": "Delete",
   "common.close": "Close",
   "common.edit": "Edit",
+  "common.operation": "Operation",
   "common.loadMore": "Load more",
   "common.key.esc": "ESC",
 
@@ -1198,6 +1199,10 @@ export const dict = {
   "workspace.emptyHint": "Create from device list below",
   "workspace.close": "Close",
   "workspace.run": "Run",
+  "workspace.rename": "Rename",
+  "workspace.rename.placeholder": "Workspace name",
+  "workspace.rename.success": "Workspace renamed",
+  "workspace.rename.failedTitle": "Failed to rename workspace",
   "workspace.delete": "Delete",
   "workspace.more": "More actions",
   "workspace.newSession": "New Session",

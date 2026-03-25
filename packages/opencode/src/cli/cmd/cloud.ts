@@ -9,6 +9,7 @@ import { initCloudNotifier } from "../../costrict/device/notify"
 import { Daemon } from "../../costrict/device/daemon"
 import { Log } from "../../util/log"
 import { Flag } from "../../flag/flag"
+import { Instance } from "../../project/instance"
 
 const log = Log.create({ service: "cloud-cmd" })
 
@@ -16,8 +17,55 @@ const READY_TIMEOUT_MS = 30_000
 
 const DEVICE_ENV_KEY = "__CLOUD_DEVICE__"
 
+// Patch child_process.spawn/spawnSync at the CJS module level so that
+// third-party CJS libraries (e.g. cross-spawn used by MCP SDK) automatically
+// get windowsHide: true on Windows.  ESM named imports are static bindings
+// and won't see this patch, so our own code also sets windowsHide explicitly.
+function patchSpawnForWindows() {
+  if (process.platform !== "win32") return
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const cp = require("child_process") as typeof import("child_process")
+
+  function inject(args: any[]): void {
+    const last = args[args.length - 1]
+    if (typeof last === "object" && last !== null && !Array.isArray(last)) {
+      if (last.windowsHide === undefined) last.windowsHide = true
+    }
+  }
+
+  const origSpawn = cp.spawn
+  ;(cp as any).spawn = function (...args: any[]) {
+    inject(args)
+    return origSpawn.apply(this, args as Parameters<typeof origSpawn>)
+  }
+
+  const origSpawnSync = cp.spawnSync
+  ;(cp as any).spawnSync = function (...args: any[]) {
+    inject(args)
+    return origSpawnSync.apply(this, args as Parameters<typeof origSpawnSync>)
+  }
+
+  const origExec = cp.exec
+  ;(cp as any).exec = function (...args: any[]) {
+    inject(args)
+    return origExec.apply(this, args as Parameters<typeof origExec>)
+  }
+
+  const origExecSync = cp.execSync
+  ;(cp as any).execSync = function (...args: any[]) {
+    inject(args)
+    return origExecSync.apply(this, args as Parameters<typeof origExecSync>)
+  }
+}
+
 async function runWorker() {
   Log.useStderr()
+
+  // Prevent child processes from allocating visible console windows.
+  // The daemon runs detached with no console; without this, every spawned
+  // child (LSP, MCP via cross-spawn, shell commands, etc.) would pop up a
+  // console window on Windows.
+  patchSpawnForWindows()
 
   // Handle TLS certificate verification setting before any network requests
   if (Flag.COSTRICT_INSECURE_SKIP_TLS_VERIFY) {
@@ -38,6 +86,25 @@ async function runWorker() {
   console.log(`internal server on port ${server.port}`)
 
   connect(server.port!).catch((e) => log.error("tunnel fatal", { error: e?.message ?? e }))
+
+  // Gracefully shut down all child processes (LSP, MCP, PTY, etc.) on termination.
+  // Without this, child processes spawned via Instance become orphaned when the
+  // daemon is killed because Daemon.stop() only signals this top-level process.
+  let stopping = false
+  const shutdown = async () => {
+    if (stopping) return
+    stopping = true
+    log.info("daemon shutting down, disposing instances")
+    try {
+      await Instance.disposeAll()
+    } catch (e: any) {
+      log.error("dispose error during shutdown", { error: e?.message ?? e })
+    }
+    server.stop(true)
+    process.exit(0)
+  }
+  process.on("SIGTERM", shutdown)
+  process.on("SIGINT", shutdown)
 
   if (process.send) {
     process.send({ ready: true, pid: process.pid })

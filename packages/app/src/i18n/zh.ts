@@ -566,6 +566,7 @@ export const dict = {
   "common.delete": "删除",
   "common.close": "关闭",
   "common.edit": "编辑",
+  "common.operation": "操作",
   "common.loadMore": "加载更多",
   "common.key.esc": "ESC",
 
@@ -1176,6 +1177,10 @@ export const dict = {
   "workspace.emptyHint": "从下方设备列表创建",
   "workspace.close": "关闭",
   "workspace.run": "运行",
+  "workspace.rename": "重命名",
+  "workspace.rename.placeholder": "工作空间名称",
+  "workspace.rename.success": "重命名成功",
+  "workspace.rename.failedTitle": "重命名失败",
   "workspace.delete": "删除",
   "workspace.more": "更多操作",
   "workspace.newSession": "新建会话",

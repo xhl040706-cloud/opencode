@@ -118,6 +118,7 @@ export namespace LSP {
                   ...process.env,
                   ...item.env,
                 },
+                windowsHide: process.platform === "win32",
               }),
               initialization: item.initialization,
             }

@@ -252,6 +252,7 @@ export namespace CLANGD_OFFLINE {
     return {
       process: spawn(clangdPath, [], {
         cwd: root,
+        windowsHide: process.platform === "win32",
       }),
     }
   }
