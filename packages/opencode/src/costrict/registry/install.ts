@@ -143,7 +143,19 @@ export async function uninstallFileItem(
 
 export async function installMcp(item: RegistryItem, registryUrl: string, scope: InstallScope): Promise<void> {
   if (item.type !== "mcp") return
-  if (!item.mcp || typeof item.mcp !== "object" || !("type" in item.mcp) || (item.mcp.type !== "local" && item.mcp.type !== "remote")) {
+
+  // Normalize mcp type: http/sse -> remote, default to local
+  if (item.mcp && typeof item.mcp === "object") {
+    const mcpType = item.mcp.type
+    if (mcpType === "http" || mcpType === "sse") {
+      ;(item.mcp as { type: string }).type = "remote"
+    } else if (!mcpType) {
+      ;(item.mcp as { type: string }).type = "local"
+    }
+  }
+
+  const mcpType = item.mcp?.type
+  if (!item.mcp || typeof item.mcp !== "object" || (mcpType !== "local" && mcpType !== "remote")) {
     throw new PackValidationError(`${JSON.stringify(item)} MCP configuration for "${item.slug}" is invalid or empty. Please check the registry entry.`)
   }
   log.info("installing mcp", { slug: item.slug })

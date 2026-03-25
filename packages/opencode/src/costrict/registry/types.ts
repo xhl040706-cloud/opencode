@@ -10,12 +10,25 @@ export type RegistryItemFile = {
   files: string[]
 }
 
+// Raw MCP from registry can have "http" or "sse" type that needs to be normalized
+export type McpInput = {
+  type: "local" | "remote" | "http" | "sse"
+  url?: string
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  enabled?: boolean
+  headers?: Record<string, string>
+  oauth?: Config.McpOAuth | false
+  timeout?: number
+}
+
 export type RegistryItemMcp = {
   slug: string
   type: "mcp"
   name: string
   description: string
-  mcp: Config.Mcp
+  mcp: McpInput
 }
 
 export type RegistryItem = RegistryItemFile | RegistryItemMcp
