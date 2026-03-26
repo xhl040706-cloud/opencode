@@ -49,7 +49,20 @@ export function DeviceList(props: DeviceListProps) {
           class="size-4 text-icon-weak shrink-0"
         />
         <span class="text-xs font-medium text-text-weak uppercase tracking-wider">{t("workspace.device.list")}</span>
-        <span class="text-[11px] text-text-weaker ml-auto">{filtered().length}</span>
+        <div class="ml-auto flex items-center gap-1.5">
+          <div
+            classList={{
+              "size-2 rounded-full": true,
+              "bg-icon-success-base": props.devices().length > 0 && props.devices().every((d) => d.status === "online"),
+              "bg-icon-critical-base": props.devices().some((d) => d.status === "offline"),
+              "bg-border-weak-base":
+                props.devices().length === 0 ||
+                (!props.devices().some((d) => d.status === "offline") &&
+                  !props.devices().every((d) => d.status === "online")),
+            }}
+          />
+          <span class="text-[11px] text-text-weaker">{filtered().length}</span>
+        </div>
       </button>
 
       <Show when={!props.isCollapsed()}>
@@ -77,7 +90,7 @@ export function DeviceList(props: DeviceListProps) {
         </div>
 
         {/* Device rows */}
-        <div class="flex flex-col gap-0.5 px-2 max-h-60 overflow-y-auto">
+        <div class="flex flex-col gap-0.5 px-2">
           <For each={filtered()}>
             {(device) => (
               <div

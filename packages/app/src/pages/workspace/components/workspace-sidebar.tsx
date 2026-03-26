@@ -434,7 +434,7 @@ export function WorkspaceSidebar() {
   return (
     <aside class="flex flex-col h-full w-full bg-surface-base border-r border-border-weak-base">
       {/* Header */}
-      <div class="shrink-0 px-3 py-3 border-b border-border-weak-base">
+      <div class="shrink-0 h-[41px] px-3 border-b border-border-weak-base flex items-center">
         <div class="flex items-center gap-2.5">
           <span class="text-sm font-semibold text-text-strong">{t("workspace.page.title")}</span>
         </div>
@@ -463,8 +463,8 @@ export function WorkspaceSidebar() {
         </div>
       </div>
 
-      {/* Workspace list */}
-      <div class="flex-1 min-h-0 overflow-y-auto py-1">
+      {/* Workspace list — 60% */}
+      <div class="flex-[3] min-h-0 overflow-y-auto thin-scrollbar py-1">
         {/* Running workspaces */}
         <Show when={runningIds().length > 0}>
           <div class="mb-2">
@@ -497,8 +497,8 @@ export function WorkspaceSidebar() {
         </div>
       </div>
 
-      {/* Device list */}
-      <div class="shrink-0 border-t border-border-weak-base max-h-80 overflow-y-auto">
+      {/* Device list — 40% */}
+      <div class="flex-[2] min-h-0 overflow-y-auto thin-scrollbar border-t border-border-weak-base">
         <DeviceList
           devices={devices}
           selectedDeviceId={selectedDeviceId}
@@ -695,7 +695,7 @@ function WorkspaceSessions(props: { id: string }) {
   }
 
   return (
-    <div class="pl-4 pr-1 py-1">
+    <div class="pl-2 pr-1 py-1">
       <Show when={sessions().length > 0}>
         <nav class="flex flex-col gap-0.5">
           <For each={sessions()}>
@@ -711,12 +711,19 @@ function WorkspaceSessions(props: { id: string }) {
                     }}
                     onClick={() => click(session)}
                   >
-                    <Icon
-                      name="bubble-5"
-                      size="small"
-                      class="shrink-0"
-                      classList={{ "text-icon-base": active(), "text-text-weaker": !active() }}
-                    />
+                    <Show
+                      when={active()}
+                      fallback={
+                        <Icon
+                          name="dash"
+                          class="size-3 shrink-0"
+                          size="small"
+                          classList={{ "text-text-weaker": true }}
+                        />
+                      }
+                    >
+                      <Spinner class="size-3.5 shrink-0" style={{ color: "var(--icon-interactive-base)" }} />
+                    </Show>
                     <span class="text-xs truncate flex-1">{session.title || t("workspace.session.new")}</span>
                   </button>
                   <div class="absolute top-0.5 right-0.5 flex items-center opacity-0 pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto transition-opacity duration-150">
