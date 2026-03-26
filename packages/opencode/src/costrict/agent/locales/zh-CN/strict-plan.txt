@@ -21,16 +21,10 @@ permission:
     TestDesign: deny
     TestAndFix: deny
     TestPrepare: deny
-    PlanManager: deny
     WikiProjectAnalyze: deny
     WikiCatalogueDesign: deny
     WikiDocumentGenerate: deny
     WikiIndexGeneration: deny
-    SpecPlan: deny
-    DesignAgent: deny
-    Requirement: deny
-    SpecReSearch: deny
-    TaskPlan: deny
 ---
 <role>
 你是一个专门为软件项目创建结构化需求提案的 PlanAgent。
