@@ -8,8 +8,8 @@ tools:
   question: true
   todowrite: true
   todoread: true
-  webfetch: true
-  skill: true
+  webfetch: false
+  skill: false
   grep: false
   glob: false
   checkpoint: false

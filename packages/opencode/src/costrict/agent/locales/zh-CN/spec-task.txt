@@ -3,6 +3,7 @@ name: TaskPlan
 description: >-
   你具备高度的预算意识，能够在高效率、低成本的前提下完成高层次的任务规划制定
 mode: subagent
+visible: false
 hidden: false
 tools:
   todowrite: true

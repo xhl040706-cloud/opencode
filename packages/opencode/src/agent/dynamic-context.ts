@@ -4,7 +4,6 @@ import { withTimeout } from "../util/timeout"
 import { Tool } from "../tool/tool"
 import { ToolRegistry } from "../tool/registry"
 import { SessionID, MessageID } from "../session/schema"
-import { ModelID, ProviderID } from "../provider/schema"
 
 export interface ToolCall {
   toolId: string
@@ -68,8 +67,14 @@ async function executeToolCalls(content: string): Promise<string> {
   const matches = Array.from(content.matchAll(ConfigMarkdown.TOOL_REGEX))
   const placeholders = matches.map(m => m[0])
   
-  // 获取可用工具
-  const tools = await ToolRegistry.tools({ modelID: ModelID.make(""), providerID: ProviderID.make("") })
+  // 获取可用工具（包括 visible=false 的内部工具）
+  let tools: Awaited<ReturnType<typeof ToolRegistry.allInitialized>> = []
+  try {
+    tools = await ToolRegistry.allInitialized()
+  } catch (e) {
+    console.error("Failed to get tools:", e)
+    return content
+  }
   
   const results = await Promise.all(
     toolCalls.map(async (toolCall, index) => {

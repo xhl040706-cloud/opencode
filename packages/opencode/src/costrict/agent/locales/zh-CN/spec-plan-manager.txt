@@ -2,6 +2,7 @@
 name: PlanManager
 description: 作为开发经理，深入理解任务规划，将开发任务分发给 SpecPlan 执行，通过提供上下文、审查结果、记录进度来推动项目进展
 mode: subagent
+visible: false
 tools:
   todowrite: true
   todoread: true

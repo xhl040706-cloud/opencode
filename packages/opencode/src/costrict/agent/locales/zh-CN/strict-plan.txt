@@ -199,9 +199,3 @@ c. 查看`TaskCheck`返回的总结报告，了解修复情况
 - 优先使用动词引导前缀：`add-`, `update-`, `remove-`, `refactor-`
 - 确保唯一性；如果已被占用，附加 `-2`, `-3` 等
 ~~~
-
-### 当前工程plan的任务状态
-
-```
-!tool{spec-manage}(mode=plan,path=./)
-```

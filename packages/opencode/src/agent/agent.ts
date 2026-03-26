@@ -241,6 +241,7 @@ export namespace Agent {
           mode: "all",
           permission: PermissionNext.merge(defaults, user),
           options: {},
+          tools: {},
           native: false,
         }
       if (value.model) item.model = Provider.parseModel(value.model)
@@ -257,6 +258,7 @@ export namespace Agent {
       item.steps = value.steps ?? item.steps
       item.options = mergeDeep(item.options, value.options ?? {})
       item.permission = PermissionNext.merge(item.permission, PermissionNext.fromConfig(value.permission ?? {}))
+      item.tools = mergeDeep(item.tools ?? {}, value.tools ?? {})
     }
 
     // Ensure Truncate.GLOB is allowed unless explicitly configured

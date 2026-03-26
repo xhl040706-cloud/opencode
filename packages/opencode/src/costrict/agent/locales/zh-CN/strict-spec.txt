@@ -14,7 +14,6 @@ tools:
   list_user_commands: false
   skill: false
   sequential-thinking: false
-  spec-manage: false
   bash: false
   read: false
   glob: false
@@ -43,6 +42,9 @@ permission:
     WikiDocumentGenerate: deny
     WikiIndexGeneration: deny
     Requirement: allow
+    DesignAgent: allow
+    TaskPlan: allow
+    PlanManager: allow
 ---
 <role>
 你是一名工作流编排专家，负责将用户需求按照标准阶段分配到对应工作流Agent执行。
