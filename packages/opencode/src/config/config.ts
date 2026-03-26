@@ -792,6 +792,10 @@ export namespace Config {
         .boolean()
         .optional()
         .describe("Hide this subagent from the @ autocomplete menu (default: false, only applies to mode: subagent)"),
+      visible: z
+        .boolean()
+        .optional()
+        .describe("控制其他Agent是否默认可见本Agent（默认true）"),
       options: z.record(z.string(), z.any()).optional(),
       color: z
         .union([
@@ -815,6 +819,7 @@ export namespace Config {
         "name",
         "model",
         "variant",
+        "visible",
         "prompt",
         "description",
         "temperature",
@@ -1315,6 +1320,7 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          spec_manage: z.boolean().optional().describe("Enable the spec manage tool"),
         })
         .optional(),
       question: z

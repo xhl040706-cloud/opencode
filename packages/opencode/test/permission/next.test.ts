@@ -1,10 +1,10 @@
 import { test, expect } from "bun:test"
 import os from "os"
+import { Schema } from "effect"
 import { Bus } from "../../src/bus"
-import { runtime } from "../../src/effect/runtime"
 import { PermissionNext } from "../../src/permission/next"
-import * as S from "../../src/permission/service"
 import { PermissionID } from "../../src/permission/schema"
+import { YoloMode } from "../../src/permission/yolo"
 import { Instance } from "../../src/project/instance"
 import { tmpdir } from "../fixture/fixture"
 import { MessageID, SessionID } from "../../src/session/schema"
@@ -26,6 +26,11 @@ async function waitForPending(count: number) {
     await Bun.sleep(0)
   }
   return PermissionNext.list()
+}
+
+async function yolo(fn: () => void | Promise<void>) {
+  YoloMode.setEnabled(true)
+  await Promise.resolve(fn()).finally(() => YoloMode.setEnabled(false))
 }
 
 // fromConfig tests
@@ -369,6 +374,32 @@ test("evaluate - merges multiple rulesets", () => {
   expect(result.action).toBe("deny")
 })
 
+test("evaluate - yolo keeps explicit deny", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      await yolo(() => {
+        const result = PermissionNext.evaluate("bash", "rm", [{ permission: "bash", pattern: "*", action: "deny" }])
+        expect(result.action).toBe("deny")
+      })
+    },
+  })
+})
+
+test("evaluate - yolo upgrades ask to allow", async () => {
+  await using tmp = await tmpdir()
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      await yolo(() => {
+        const result = PermissionNext.evaluate("bash", "ls", [{ permission: "bash", pattern: "*", action: "ask" }])
+        expect(result.action).toBe("allow")
+      })
+    },
+  })
+})
+
 // disabled tests
 
 test("disabled - returns empty set when all tools allowed", () => {
@@ -615,6 +646,52 @@ test("ask - publishes asked event", async () => {
   })
 })
 
+test("ask - yolo still throws DeniedError for explicit deny", async () => {
+  await using tmp = await tmpdir({ git: true })
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      await yolo(() =>
+        expect(
+          PermissionNext.ask({
+            sessionID: "session_test",
+            permission: "bash",
+            patterns: ["rm -rf /"],
+            metadata: {},
+            always: [],
+            ruleset: [{ permission: "bash", pattern: "*", action: "deny" }],
+          }),
+        ).rejects.toBeInstanceOf(PermissionNext.DeniedError),
+      )
+    },
+  })
+})
+
+test("ask - yolo skips pending for ask rules", async () => {
+  await using tmp = await tmpdir({ git: true })
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      let asked = false
+      const off = Bus.subscribe(PermissionNext.Event.Asked, () => {
+        asked = true
+      })
+      await yolo(async () => {
+        const result = await PermissionNext.ask({
+          sessionID: "session_test",
+          permission: "bash",
+          patterns: ["ls"],
+          metadata: {},
+          always: [],
+          ruleset: [{ permission: "bash", pattern: "*", action: "ask" }],
+        })
+        expect(result).toBeUndefined()
+      }).finally(off)
+      expect(asked).toBe(false)
+    },
+  })
+})
+
 // reply tests
 
 test("reply - once resolves the pending ask", async () => {
@@ -623,7 +700,7 @@ test("reply - once resolves the pending ask", async () => {
     directory: tmp.path,
     fn: async () => {
       const askPromise = PermissionNext.ask({
-        id: PermissionID.make("per_test1"),
+        id: PermissionID.make("per_test1") as unknown as string,
         sessionID: SessionID.make("session_test"),
         permission: "bash",
         patterns: ["ls"],
@@ -635,7 +712,7 @@ test("reply - once resolves the pending ask", async () => {
       await waitForPending(1)
 
       await PermissionNext.reply({
-        requestID: PermissionID.make("per_test1"),
+        requestID: PermissionID.make("per_test1") as unknown as string,
         reply: "once",
       })
 
@@ -650,7 +727,7 @@ test("reply - reject throws RejectedError", async () => {
     directory: tmp.path,
     fn: async () => {
       const askPromise = PermissionNext.ask({
-        id: PermissionID.make("per_test2"),
+        id: PermissionID.make("per_test2") as unknown as string,
         sessionID: SessionID.make("session_test"),
         permission: "bash",
         patterns: ["ls"],
@@ -662,7 +739,7 @@ test("reply - reject throws RejectedError", async () => {
       await waitForPending(1)
 
       await PermissionNext.reply({
-        requestID: PermissionID.make("per_test2"),
+        requestID: PermissionID.make("per_test2") as unknown as string,
         reply: "reject",
       })
 
@@ -677,7 +754,7 @@ test("reply - reject with message throws CorrectedError", async () => {
     directory: tmp.path,
     fn: async () => {
       const ask = PermissionNext.ask({
-        id: PermissionID.make("per_test2b"),
+        id: PermissionID.make("per_test2b") as unknown as string,
         sessionID: SessionID.make("session_test"),
         permission: "bash",
         patterns: ["ls"],
@@ -689,7 +766,7 @@ test("reply - reject with message throws CorrectedError", async () => {
       await waitForPending(1)
 
       await PermissionNext.reply({
-        requestID: PermissionID.make("per_test2b"),
+        requestID: PermissionID.make("per_test2b") as unknown as string,
         reply: "reject",
         message: "Use a safer command",
       })
@@ -707,7 +784,7 @@ test("reply - always persists approval and resolves", async () => {
     directory: tmp.path,
     fn: async () => {
       const askPromise = PermissionNext.ask({
-        id: PermissionID.make("per_test3"),
+        id: PermissionID.make("per_test3") as unknown as string,
         sessionID: SessionID.make("session_test"),
         permission: "bash",
         patterns: ["ls"],
@@ -719,7 +796,7 @@ test("reply - always persists approval and resolves", async () => {
       await waitForPending(1)
 
       await PermissionNext.reply({
-        requestID: PermissionID.make("per_test3"),
+        requestID: PermissionID.make("per_test3") as unknown as string,
         reply: "always",
       })
 
@@ -750,7 +827,7 @@ test("reply - reject cancels all pending for same session", async () => {
     directory: tmp.path,
     fn: async () => {
       const askPromise1 = PermissionNext.ask({
-        id: PermissionID.make("per_test4a"),
+        id: PermissionID.make("per_test4a") as unknown as string,
         sessionID: SessionID.make("session_same"),
         permission: "bash",
         patterns: ["ls"],
@@ -760,7 +837,7 @@ test("reply - reject cancels all pending for same session", async () => {
       })
 
       const askPromise2 = PermissionNext.ask({
-        id: PermissionID.make("per_test4b"),
+        id: PermissionID.make("per_test4b") as unknown as string,
         sessionID: SessionID.make("session_same"),
         permission: "edit",
         patterns: ["foo.ts"],
@@ -777,7 +854,7 @@ test("reply - reject cancels all pending for same session", async () => {
 
       // Reject the first one
       await PermissionNext.reply({
-        requestID: PermissionID.make("per_test4a"),
+        requestID: PermissionID.make("per_test4a") as unknown as string,
         reply: "reject",
       })
 
@@ -794,7 +871,7 @@ test("reply - always resolves matching pending requests in same session", async 
     directory: tmp.path,
     fn: async () => {
       const a = PermissionNext.ask({
-        id: PermissionID.make("per_test5a"),
+        id: PermissionID.make("per_test5a") as unknown as string,
         sessionID: SessionID.make("session_same"),
         permission: "bash",
         patterns: ["ls"],
@@ -804,7 +881,7 @@ test("reply - always resolves matching pending requests in same session", async 
       })
 
       const b = PermissionNext.ask({
-        id: PermissionID.make("per_test5b"),
+        id: PermissionID.make("per_test5b") as unknown as string,
         sessionID: SessionID.make("session_same"),
         permission: "bash",
         patterns: ["ls"],
@@ -816,7 +893,7 @@ test("reply - always resolves matching pending requests in same session", async 
       await waitForPending(2)
 
       await PermissionNext.reply({
-        requestID: PermissionID.make("per_test5a"),
+        requestID: PermissionID.make("per_test5a") as unknown as string,
         reply: "always",
       })
 
@@ -833,7 +910,7 @@ test("reply - always keeps other session pending", async () => {
     directory: tmp.path,
     fn: async () => {
       const a = PermissionNext.ask({
-        id: PermissionID.make("per_test6a"),
+        id: PermissionID.make("per_test6a") as unknown as string,
         sessionID: SessionID.make("session_a"),
         permission: "bash",
         patterns: ["ls"],
@@ -843,7 +920,7 @@ test("reply - always keeps other session pending", async () => {
       })
 
       const b = PermissionNext.ask({
-        id: PermissionID.make("per_test6b"),
+        id: PermissionID.make("per_test6b") as unknown as string,
         sessionID: SessionID.make("session_b"),
         permission: "bash",
         patterns: ["ls"],
@@ -855,12 +932,12 @@ test("reply - always keeps other session pending", async () => {
       await waitForPending(2)
 
       await PermissionNext.reply({
-        requestID: PermissionID.make("per_test6a"),
+        requestID: PermissionID.make("per_test6a") as unknown as string,
         reply: "always",
       })
 
       await expect(a).resolves.toBeUndefined()
-      expect((await PermissionNext.list()).map((x) => x.id)).toEqual([PermissionID.make("per_test6b")])
+      expect((await PermissionNext.list()).map((x) => x.id)).toEqual([PermissionID.make("per_test6b") as unknown as string])
 
       await rejectAll()
       await b.catch(() => {})
@@ -874,7 +951,7 @@ test("reply - publishes replied event", async () => {
     directory: tmp.path,
     fn: async () => {
       const ask = PermissionNext.ask({
-        id: PermissionID.make("per_test7"),
+        id: PermissionID.make("per_test7") as unknown as string,
         sessionID: SessionID.make("session_test"),
         permission: "bash",
         patterns: ["ls"],
@@ -885,19 +962,13 @@ test("reply - publishes replied event", async () => {
 
       await waitForPending(1)
 
-      let seen:
-        | {
-            sessionID: SessionID
-            requestID: PermissionID
-            reply: PermissionNext.Reply
-          }
-        | undefined
+      let seen: any
       const unsub = Bus.subscribe(PermissionNext.Event.Replied, (event) => {
-        seen = event.properties
+        seen = event.properties as any
       })
 
       await PermissionNext.reply({
-        requestID: PermissionID.make("per_test7"),
+        requestID: PermissionID.make("per_test7") as unknown as string,
         reply: "once",
       })
 
@@ -918,7 +989,7 @@ test("reply - does nothing for unknown requestID", async () => {
     directory: tmp.path,
     fn: async () => {
       await PermissionNext.reply({
-        requestID: PermissionID.make("per_unknown"),
+        requestID: PermissionID.make("per_unknown") as unknown as string,
         reply: "once",
       })
       expect(await PermissionNext.list()).toHaveLength(0)
@@ -1010,19 +1081,15 @@ test("ask - abort should clear pending request", async () => {
     directory: tmp.path,
     fn: async () => {
       const ctl = new AbortController()
-      const ask = runtime.runPromise(
-        S.PermissionService.use((svc) =>
-          svc.ask({
-            sessionID: SessionID.make("session_test"),
-            permission: "bash",
-            patterns: ["ls"],
-            metadata: {},
-            always: [],
-            ruleset: [{ permission: "bash", pattern: "*", action: "ask" }],
-          }),
-        ),
-        { signal: ctl.signal },
-      )
+      const ask = PermissionNext.ask({
+        id: PermissionID.make("per_abort_test") as unknown as string,
+        sessionID: SessionID.make("session_test"),
+        permission: "bash",
+        patterns: ["ls"],
+        metadata: {},
+        always: [],
+        ruleset: [{ permission: "bash", pattern: "*", action: "ask" }],
+      })
 
       await waitForPending(1)
       ctl.abort()

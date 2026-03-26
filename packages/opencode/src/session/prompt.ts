@@ -1290,7 +1290,15 @@ export namespace SessionPrompt {
         if (part.type === "agent") {
           // Check if this agent would be denied by task permission
           const perm = PermissionNext.evaluate("task", part.name, agent.permission)
-          const hint = perm.action === "deny" ? " . Invoked by user; guaranteed to exist." : ""
+          let hint = ""
+          if (perm.action === "deny") {
+            hint = " . Invoked by user; guaranteed to exist."
+            // Check if the agent is not visible by default
+            const targetAgent = await Agent.get(part.name)
+            if (targetAgent?.visible === false) {
+              hint += ` Note: ${part.name} is not visible to other agents by default. It requires explicit permission configuration to access.`
+            }
+          }
           return [
             {
               ...part,
