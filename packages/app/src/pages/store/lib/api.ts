@@ -1,4 +1,5 @@
 import { env } from "@/lib/env"
+import type { Device, ListDevicesResponse, UpdateDeviceRequest } from "@/pages/workspace/types"
 
 // In dev the Vite proxy forwards /api/* to the real backend.
 // Set VITE_API_URL only for standalone mode (packages/store dev server on port 3002).
@@ -259,6 +260,97 @@ type MemberResponse = RepoMember & {
   orgId?: string
 }
 
+type DeviceResponse = Partial<Device> & {
+  id: string
+  deviceId: string
+  displayName?: string
+  platform?: string
+  version?: string
+  userId?: string
+  workspaceId?: string
+  status?: Device["status"] | null
+  label?: string | null
+  description?: string | null
+  tokenRotatedAt?: string | null
+  lastConnectedAt?: string | null
+  lastSeenAt?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+type NotificationChannelType = "wecom" | "feishu" | "webhook"
+
+type NotificationTriggerEvent = "agent" | "permissions" | "errors"
+
+export type AvailableChannel = {
+  name: string
+  systemChannelId: string
+  type: NotificationChannelType
+}
+
+type WecomChannelResponse = {
+  id: string
+  channelType: NotificationChannelType
+  name: string
+  enabled: boolean
+  triggerEvents?: string[]
+  userConfig?: {
+    webhookUrl?: string
+  }
+  systemChannelId?: string
+  userId?: string
+  lastError?: string
+  lastUsedAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type WecomChannelPayload = {
+  channelType: "wecom"
+  name: string
+  triggerEvents: NotificationTriggerEvent[]
+  userConfig: {
+    webhookUrl: string
+  }
+  systemChannelId?: string
+}
+
+function normalizeDevice(device: DeviceResponse): Device {
+  return {
+    id: device.id,
+    deviceId: device.deviceId,
+    displayName: device.displayName ?? device.label ?? device.deviceId,
+    platform: device.platform ?? "",
+    version: device.version ?? "",
+    userId: device.userId ?? "",
+    workspaceId: device.workspaceId ?? undefined,
+    status: device.status ?? "",
+    label: device.label ?? undefined,
+    description: device.description ?? undefined,
+    tokenRotatedAt: device.tokenRotatedAt ?? undefined,
+    lastConnectedAt: device.lastConnectedAt ?? undefined,
+    lastSeenAt: device.lastSeenAt ?? undefined,
+    createdAt: device.createdAt ?? "",
+    updatedAt: device.updatedAt ?? "",
+  }
+}
+
+function normalizeWecomChannel(channel: WecomChannelResponse) {
+  const triggerEvents = new Set(channel.triggerEvents ?? [])
+  const webhook = channel.userConfig?.webhookUrl ?? ""
+
+  return {
+    id: channel.id,
+    name: channel.name,
+    webhook,
+    enabled: Boolean(channel.enabled),
+    events: {
+      agent: triggerEvents.has("agent"),
+      permissions: triggerEvents.has("permissions"),
+      errors: triggerEvents.has("errors"),
+    },
+  }
+}
 function normalizeRepository(repo: RepositoryResponse): Repository {
   return {
     id: repo.id,
@@ -288,12 +380,89 @@ function normalizeMember(member: MemberResponse, repoId: string): RepoMember {
   }
 }
 
+export const deviceApi = {
+  async list() {
+    const res = await apiFetch<ListDevicesResponse>("/api/devices")
+    return { devices: (res.devices ?? []).map(normalizeDevice) }
+  },
+
+  async get(deviceId: string) {
+    const res = await apiFetch<{ device: DeviceResponse }>(`/api/devices/${deviceId}`)
+    return { device: normalizeDevice(res.device) }
+  },
+
+  async update(deviceId: string, data: UpdateDeviceRequest) {
+    const res = await apiFetch<{ device: DeviceResponse }>(`/api/devices/${deviceId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    })
+    return { device: normalizeDevice(res.device) }
+  },
+
+  async listByWorkspace(workspaceId: string, page = 1, pageSize = 20) {
+    const res = await apiFetch<{
+      devices?: DeviceResponse[]
+      total: number
+      page: number
+      pageSize: number
+      hasMore: boolean
+    }>(`/api/workspaces/${workspaceId}/devices?page=${page}&pageSize=${pageSize}`)
+    return {
+      ...res,
+      devices: (res.devices ?? []).map(normalizeDevice),
+    }
+  },
+}
+
+export const notificationChannelApi = {
+  async listWecom() {
+    const res = await apiFetch<{ channels: WecomChannelResponse[] }>("/api/notification-channels")
+    return {
+      channels: (res.channels ?? []).filter((channel) => channel.channelType === "wecom").map(normalizeWecomChannel),
+    }
+  },
+
+  available: () => apiFetch<{ channelTypes: AvailableChannel[] }>("/api/notification-channels/available"),
+
+  async createWecom(data: WecomChannelPayload) {
+    const res = await apiFetch<{ channel: WecomChannelResponse }>("/api/notification-channels", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+    return { channel: normalizeWecomChannel(res.channel) }
+  },
+
+  async updateWecom(
+    channelId: string,
+    data: Partial<Pick<WecomChannelPayload, "name" | "triggerEvents" | "userConfig">>,
+  ) {
+    const res = await apiFetch<{ channel: WecomChannelResponse }>(`/api/notification-channels/${channelId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    })
+    return { channel: normalizeWecomChannel(res.channel) }
+  },
+
+  removeWecom(channelId: string) {
+    return apiFetch<{ success: boolean }>(`/api/notification-channels/${channelId}`, {
+      method: "DELETE",
+    })
+  },
+
+  async testWecom(channelId: string) {
+    const res = await apiFetch<{ success: boolean }>(`/api/notification-channels/${channelId}/test`, {
+      method: "POST",
+    })
+    if (!res.success) throw new Error("测试发送失败")
+    return { success: true, message: "测试消息已发送" }
+  },
+}
+
 export const repoRegistryApi = {
   async list(repoId: string) {
     const res = await apiFetch<{ registries: RegistryResponse[] }>(`/api/repositories/${repoId}/registries`)
     return { registries: (res.registries ?? []).map(normalizeRegistry) }
   },
-
   async add(repoId: string, data: CreateSyncRegistryInput) {
     const res = await apiFetch<RegistryResponse>(`/api/repositories/${repoId}/registries`, {
       method: "POST",

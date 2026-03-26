@@ -29,7 +29,11 @@ opencode-dev
 logs/
 *.bun-build
 
+.roo
 .claude
+.gemini
+.gemini.log
+
 .opencode
 .costrict
 .cospec

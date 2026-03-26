@@ -3,6 +3,19 @@ import { createEffect, createMemo } from "solid-js"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { persisted } from "@/utils/persist"
 
+export interface WecomChannel {
+  id: string
+  name: string
+  webhook: string
+  enabled: boolean
+  events: {
+    agent: boolean
+    permissions: boolean
+    errors: boolean
+  }
+  systemChannelId?: string
+}
+
 export interface NotificationSettings {
   agent: boolean
   permissions: boolean
@@ -39,6 +52,9 @@ export interface Settings {
   }
   notifications: NotificationSettings
   sounds: SoundSettings
+  channels: {
+    wecom: WecomChannel[]
+  }
 }
 
 const defaultSettings: Settings = {
@@ -72,6 +88,21 @@ const defaultSettings: Settings = {
     permissions: "staplebops-02",
     errorsEnabled: true,
     errors: "nope-03",
+  },
+  channels: {
+    wecom: [
+      {
+        id: "mock-wecom-1",
+        name: "企微机器人",
+        webhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=mock-key",
+        enabled: true,
+        events: {
+          agent: true,
+          permissions: true,
+          errors: false,
+        },
+      },
+    ],
   },
 }
 
@@ -228,6 +259,20 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         errors: withFallback(() => store.sounds?.errors, defaultSettings.sounds.errors),
         setErrors(value: string) {
           setStore("sounds", "errors", value)
+        },
+      },
+      channels: {
+        wecom: createMemo(() => store.channels?.wecom ?? defaultSettings.channels.wecom),
+        addWecom(channel: WecomChannel) {
+          setStore("channels", "wecom", (list = []) => [...list, channel])
+        },
+        updateWecom(id: string, patch: Partial<WecomChannel>) {
+          setStore("channels", "wecom", (list = []) =>
+            list.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+          )
+        },
+        removeWecom(id: string) {
+          setStore("channels", "wecom", (list = []) => list.filter((c) => c.id !== id))
         },
       },
     }

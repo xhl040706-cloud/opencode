@@ -16,6 +16,8 @@ import { EditRepoDialog } from "../components/edit-repo-dialog"
 import { InviteDialog } from "../components/invite-dialog"
 import { MoveCapabilityDialog } from "../components/move-capability-dialog"
 import { RepoSyncTab } from "../components/repo-sync-tab"
+import { NotificationChannelsSection } from "../components/notification-channels-section"
+import { DevicesSection } from "../components/devices-section"
 import { useRepoFilter } from "../context/repo-filter"
 import { typeKey } from "../lib/constants"
 
@@ -209,6 +211,8 @@ export default function Dashboard() {
             </div>
 
             <div class="flex flex-col gap-6">
+              <DevicesSection />
+
               <section class="rounded-2xl border border-border-weak-base bg-surface-raised-base p-5">
                 <div class="mb-5 flex items-start justify-between gap-4">
                   <div>
@@ -538,9 +542,11 @@ export default function Dashboard() {
                   </Show>
                 </Show>
               </section>
+
+              <NotificationChannelsSection />
             </div>
           </div>
-        </Show>
+        </Show> 
       </Show>
     </div>
   )

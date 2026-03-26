@@ -42,6 +42,44 @@ import type {
   ListWorkspaceDevicesResponse,
 } from "../types"
 
+type DeviceResponse = Partial<Device> & {
+  id: string
+  deviceId: string
+  displayName?: string
+  platform?: string
+  version?: string
+  userId?: string
+  workspaceId?: string
+  status?: Device["status"] | null
+  label?: string | null
+  description?: string | null
+  tokenRotatedAt?: string | null
+  lastConnectedAt?: string | null
+  lastSeenAt?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+function normalizeDevice(device: DeviceResponse): Device {
+  return {
+    id: device.id,
+    deviceId: device.deviceId,
+    displayName: device.displayName ?? device.label ?? device.deviceId,
+    platform: device.platform ?? "",
+    version: device.version ?? "",
+    userId: device.userId ?? "",
+    workspaceId: device.workspaceId ?? undefined,
+    status: device.status ?? "",
+    label: device.label ?? undefined,
+    description: device.description ?? undefined,
+    tokenRotatedAt: device.tokenRotatedAt ?? undefined,
+    lastConnectedAt: device.lastConnectedAt ?? undefined,
+    lastSeenAt: device.lastSeenAt ?? undefined,
+    createdAt: device.createdAt ?? "",
+    updatedAt: device.updatedAt ?? "",
+  }
+}
+
 // 工作空间 API
 export const workspaceApi = {
   // 列出用户所有工作空间
@@ -112,10 +150,16 @@ export const workspaceApi = {
 // 设备 API
 export const deviceApi = {
   // 列出用户所有设备
-  list: () => apiFetch<ListDevicesResponse>("/api/devices"),
+  async list() {
+    const res = await apiFetch<{ devices?: DeviceResponse[] }>("/api/devices")
+    return { devices: (res.devices ?? []).map(normalizeDevice) satisfies ListDevicesResponse["devices"] }
+  },
 
   // 获取设备详情
-  get: (deviceId: string) => apiFetch<GetDeviceResponse>(`/api/devices/${deviceId}`),
+  async get(deviceId: string) {
+    const res = await apiFetch<{ device: DeviceResponse }>(`/api/devices/${deviceId}`)
+    return { device: normalizeDevice(res.device) satisfies GetDeviceResponse["device"] }
+  },
 
   // 注册设备
   register: (data: RegisterDeviceRequest) =>
@@ -125,11 +169,13 @@ export const deviceApi = {
     }),
 
   // 更新设备
-  update: (deviceId: string, data: UpdateDeviceRequest) =>
-    apiFetch<GetDeviceResponse>(`/api/devices/${deviceId}`, {
+  async update(deviceId: string, data: UpdateDeviceRequest) {
+    const res = await apiFetch<{ device: DeviceResponse }>(`/api/devices/${deviceId}`, {
       method: "PUT",
       body: JSON.stringify(data),
-    }),
+    })
+    return { device: normalizeDevice(res.device) satisfies GetDeviceResponse["device"] }
+  },
 
   // 删除设备
   delete: (deviceId: string) =>
@@ -142,8 +188,13 @@ export const deviceApi = {
     }),
 
   // 获取工作空间下的设备列表（分页）
-  listByWorkspace: (workspaceId: string, page = 1, pageSize = 20) =>
-    apiFetch<ListWorkspaceDevicesResponse>(
+  async listByWorkspace(workspaceId: string, page = 1, pageSize = 20) {
+    const res = await apiFetch<ListWorkspaceDevicesResponse & { devices?: DeviceResponse[] }>(
       `/api/workspaces/${workspaceId}/devices?page=${page}&pageSize=${pageSize}`
-    ),
+    )
+    return {
+      ...res,
+      devices: (res.devices ?? []).map(normalizeDevice),
+    }
+  },
 }
