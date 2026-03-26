@@ -41,7 +41,9 @@ export function WecomChannelCard(props: WecomChannelCardProps) {
 
       <div class="flex flex-col gap-3 px-4 pt-3 pb-2">
         <div class="flex flex-col gap-1">
-          <span class="text-xs font-medium text-text-weak">{language.t("store.notificationChannels.dialog.webhook")}</span>
+          <span class="text-xs font-medium text-text-weak">
+            {language.t("store.notificationChannels.dialog.webhook")}
+          </span>
           <p class="break-all text-sm text-text-strong">{props.channel.webhook || "—"}</p>
         </div>
       </div>
@@ -73,18 +75,19 @@ export function WecomChannelCard(props: WecomChannelCardProps) {
       <div class="flex items-center justify-between gap-3 border-t border-border-weak-base px-4 py-3">
         <button
           class="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-weak transition-colors hover:text-text-danger"
-          onClick={() => {
-            if (window.confirm(language.t("store.notificationChannels.confirmDelete", { name: props.channel.name }))) {
-              void props.onRemove(props.channel.id)
-            }
-          }}
+          onClick={() => void props.onRemove(props.channel.id)}
           title={language.t("common.delete")}
         >
           <Icon name="trash" size="small" />
         </button>
 
         <div class="flex items-center justify-end gap-2">
-          <Button size="small" variant="ghost" class="border border-border-weak-base" onClick={() => props.onEdit(props.channel)}>
+          <Button
+            size="small"
+            variant="ghost"
+            class="border border-border-weak-base"
+            onClick={() => props.onEdit(props.channel)}
+          >
             {language.t("common.edit")}
           </Button>
 
@@ -95,7 +98,9 @@ export function WecomChannelCard(props: WecomChannelCardProps) {
             disabled={!props.channel.enabled || testing()}
             onClick={handleTest}
           >
-            {testing() ? language.t("store.notificationChannels.testing") : language.t("store.notificationChannels.test")}
+            {testing()
+              ? language.t("store.notificationChannels.testing")
+              : language.t("store.notificationChannels.test")}
           </Button>
         </div>
       </div>

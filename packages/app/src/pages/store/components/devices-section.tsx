@@ -10,12 +10,9 @@ export function DevicesSection() {
   const [deviceSearch, setDeviceSearch] = createSignal("")
   const [reloadKey, setReloadKey] = createSignal(0)
 
-  const [devices, { mutate }] = createResource(
-    reloadKey,
-    async () => {
-      return deviceManagementService.list()
-    },
-  )
+  const [devices, { mutate }] = createResource(reloadKey, async () => {
+    return deviceManagementService.list()
+  })
 
   const filteredDevices = createMemo(() => {
     const search = deviceSearch().toLowerCase().trim()
@@ -40,7 +37,7 @@ export function DevicesSection() {
 
   const handleUpdateDevice = async (payload: { deviceId: string; data: UpdateDeviceRequest }) => {
     const current = devices() ?? []
-    const target = current.find((item) => item.id === payload.deviceId)
+    const target = current.find((item) => item.deviceId === payload.deviceId)
     if (!target) return
 
     const optimistic: Device = {
@@ -52,11 +49,11 @@ export function DevicesSection() {
       updatedAt: new Date().toISOString(),
     }
 
-    mutate((items) => (items ?? []).map((item) => (item.id === payload.deviceId ? optimistic : item)))
+    mutate((items) => (items ?? []).map((item) => (item.deviceId === payload.deviceId ? optimistic : item)))
 
     try {
       const updated = await deviceManagementService.update(payload.deviceId, payload.data)
-      mutate((items) => (items ?? []).map((item) => (item.id === payload.deviceId ? updated : item)))
+      mutate((items) => (items ?? []).map((item) => (item.deviceId === payload.deviceId ? updated : item)))
       showToast({
         variant: "success",
         icon: "circle-check",
@@ -90,7 +87,10 @@ export function DevicesSection() {
         </div>
       </div>
 
-      <Show when={!devices.loading} fallback={<div class="text-sm text-text-weak">{language.t("store.devices.loading")}</div>}>
+      <Show
+        when={!devices.loading}
+        fallback={<div class="text-sm text-text-weak">{language.t("store.devices.loading")}</div>}
+      >
         <Show
           when={filteredDevices().length > 0}
           fallback={

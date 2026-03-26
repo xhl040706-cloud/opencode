@@ -281,6 +281,12 @@ type NotificationChannelType = "wecom" | "feishu" | "webhook"
 
 type NotificationTriggerEvent = "agent" | "permissions" | "errors"
 
+export type AvailableChannel = {
+  name: string
+  systemChannelId: string
+  type: NotificationChannelType
+}
+
 type WecomChannelResponse = {
   id: string
   channelType: NotificationChannelType
@@ -288,7 +294,7 @@ type WecomChannelResponse = {
   enabled: boolean
   triggerEvents?: string[]
   userConfig?: {
-    webhook?: string
+    webhookUrl?: string
   }
   systemChannelId?: string
   userId?: string
@@ -303,7 +309,7 @@ export type WecomChannelPayload = {
   name: string
   triggerEvents: NotificationTriggerEvent[]
   userConfig: {
-    webhook: string
+    webhookUrl: string
   }
   systemChannelId?: string
 }
@@ -330,7 +336,7 @@ function normalizeDevice(device: DeviceResponse): Device {
 
 function normalizeWecomChannel(channel: WecomChannelResponse) {
   const triggerEvents = new Set(channel.triggerEvents ?? [])
-  const webhook = channel.userConfig?.webhook ?? ""
+  const webhook = channel.userConfig?.webhookUrl ?? ""
 
   return {
     id: channel.id,
@@ -393,9 +399,13 @@ export const deviceApi = {
   },
 
   async listByWorkspace(workspaceId: string, page = 1, pageSize = 20) {
-    const res = await apiFetch<{ devices?: DeviceResponse[]; total: number; page: number; pageSize: number; hasMore: boolean }>(
-      `/api/workspaces/${workspaceId}/devices?page=${page}&pageSize=${pageSize}`,
-    )
+    const res = await apiFetch<{
+      devices?: DeviceResponse[]
+      total: number
+      page: number
+      pageSize: number
+      hasMore: boolean
+    }>(`/api/workspaces/${workspaceId}/devices?page=${page}&pageSize=${pageSize}`)
     return {
       ...res,
       devices: (res.devices ?? []).map(normalizeDevice),
@@ -407,11 +417,11 @@ export const notificationChannelApi = {
   async listWecom() {
     const res = await apiFetch<{ channels: WecomChannelResponse[] }>("/api/notification-channels")
     return {
-      channels: (res.channels ?? [])
-        .filter((channel) => channel.channelType === "wecom")
-        .map(normalizeWecomChannel),
+      channels: (res.channels ?? []).filter((channel) => channel.channelType === "wecom").map(normalizeWecomChannel),
     }
   },
+
+  available: () => apiFetch<{ channelTypes: AvailableChannel[] }>("/api/notification-channels/available"),
 
   async createWecom(data: WecomChannelPayload) {
     const res = await apiFetch<{ channel: WecomChannelResponse }>("/api/notification-channels", {
@@ -451,7 +461,8 @@ export const repoRegistryApi = {
   async list(repoId: string) {
     const res = await apiFetch<{ registries: RegistryResponse[] }>(`/api/repositories/${repoId}/registries`)
     return { registries: (res.registries ?? []).map(normalizeRegistry) }
-  },  async add(repoId: string, data: CreateSyncRegistryInput) {
+  },
+  async add(repoId: string, data: CreateSyncRegistryInput) {
     const res = await apiFetch<RegistryResponse>(`/api/repositories/${repoId}/registries`, {
       method: "POST",
       body: JSON.stringify(data),

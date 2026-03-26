@@ -256,12 +256,13 @@ export const dict = {
   "store.notificationChannels.description": "Configure WeCom bots to receive Agent event notifications",
   "store.notificationChannels.add": "Add channel",
   "store.notificationChannels.loading": "Loading notification channels...",
-  "store.notificationChannels.empty": "No notification channels yet. Click \"Add channel\" to create a WeCom bot notification.",
+  "store.notificationChannels.empty":
+    'No notification channels yet. Click "Add channel" to create a WeCom bot notification.',
   "store.notificationChannels.enabled": "Enabled",
   "store.notificationChannels.none": "None",
   "store.notificationChannels.test": "Test",
   "store.notificationChannels.testing": "Testing...",
-  "store.notificationChannels.confirmDelete": "Delete channel \"{{name}}\"?",
+  "store.notificationChannels.confirmDelete": 'Delete channel "{{name}}"?',
   "store.notificationChannels.event.agent": "Agent (completed / needs attention)",
   "store.notificationChannels.event.agentShort": "Agent",
   "store.notificationChannels.event.permissions": "Permission requests",
@@ -273,6 +274,7 @@ export const dict = {
   "store.notificationChannels.dialog.webhook": "Webhook URL",
   "store.notificationChannels.dialog.webhookPlaceholder": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...",
   "store.notificationChannels.dialog.events": "Notification events",
+  "store.notificationChannels.dialog.systemChannel": "Channel",
   "store.notificationChannels.dialog.confirmAdd": "Confirm add",
   "store.notificationChannels.dialog.adding": "Adding...",
   "store.notificationChannels.dialog.error.nameRequired": "Channel name is required",
@@ -284,7 +286,8 @@ export const dict = {
   "store.notificationChannels.toast.deleted": "Notification channel deleted",
   "store.notificationChannels.toast.deleteFailed": "Failed to delete notification channel",
   "store.notificationChannels.toast.testSent": "Test message sent",
-  "store.notificationChannels.toast.testSentDescription": "Please check whether the WeCom bot group received the message",
+  "store.notificationChannels.toast.testSentDescription":
+    "Please check whether the WeCom bot group received the message",
   "store.notificationChannels.toast.testFailed": "Failed to send test message",
 
   "store.home.hero.title": "Extend Claude with curated capabilities",

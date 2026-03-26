@@ -13,6 +13,7 @@ export interface WecomChannel {
     permissions: boolean
     errors: boolean
   }
+  systemChannelId?: string
 }
 
 export interface NotificationSettings {

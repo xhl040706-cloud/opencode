@@ -33,7 +33,7 @@ export function DeviceCard(props: DeviceCardProps) {
     dialog.show(() => (
       <DeviceEditDialog
         device={props.device}
-        onSaved={(data) => props.onUpdate({ deviceId: props.device.id, data })}
+        onSaved={(data) => props.onUpdate({ deviceId: props.device.deviceId, data })}
       />
     ))
   }
@@ -61,7 +61,7 @@ export function DeviceCard(props: DeviceCardProps) {
               </span>
             ) : null}
           </div>
-          <div class="mt-1 text-xs text-text-weak">ID: {props.device.deviceId}</div>
+          <div class="mt-1 text-xs text-text-weak">ID: {props.device.deviceId.slice(0, 8)}</div>
         </div>
         <span
           class={`size-2.5 shrink-0 rounded-full ${statusInfo().dotClass}`}

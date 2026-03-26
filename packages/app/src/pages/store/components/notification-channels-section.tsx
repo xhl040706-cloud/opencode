@@ -8,6 +8,7 @@ import { AddWecomChannelDialog } from "./add-wecom-channel-dialog"
 import { EditWecomChannelDialog } from "./edit-wecom-channel-dialog"
 import { WecomChannelCard } from "./wecom-channel-card"
 import { notificationChannelService } from "../lib/notification-channel-service"
+import { ConfirmDialog } from "./confirm-dialog"
 
 export function NotificationChannelsSection() {
   const dialog = useDialog()
@@ -23,7 +24,11 @@ export function NotificationChannelsSection() {
           try {
             const created = await notificationChannelService.createWecom(payload)
             mutate((list) => [created, ...(list ?? [])])
-            showToast({ variant: "success", icon: "circle-check", title: language.t("store.notificationChannels.toast.created") })
+            showToast({
+              variant: "success",
+              icon: "circle-check",
+              title: language.t("store.notificationChannels.toast.created"),
+            })
           } catch (error) {
             showToast({
               variant: "error",
@@ -39,12 +44,7 @@ export function NotificationChannelsSection() {
   }
 
   const openEditDialog = (channel: WecomChannel) => {
-    dialog.show(() => (
-      <EditWecomChannelDialog
-        channel={channel}
-        onSaved={handleUpdate}
-      />
-    ))
+    dialog.show(() => <EditWecomChannelDialog channel={channel} onSaved={handleUpdate} />)
   }
 
   const handleUpdate = async (id: string, patch: Partial<WecomChannel>) => {
@@ -63,7 +63,11 @@ export function NotificationChannelsSection() {
     try {
       const updated = await notificationChannelService.updateWecom(id, patch)
       mutate((list) => (list ?? []).map((item) => (item.id === id ? updated : item)))
-      showToast({ variant: "success", icon: "circle-check", title: language.t("store.notificationChannels.toast.updated") })
+      showToast({
+        variant: "success",
+        icon: "circle-check",
+        title: language.t("store.notificationChannels.toast.updated"),
+      })
     } catch (error) {
       mutate(current)
       showToast({
@@ -75,21 +79,34 @@ export function NotificationChannelsSection() {
     }
   }
 
-  const handleRemove = async (id: string) => {
-    const current = wecomChannels()
-    mutate((list) => (list ?? []).filter((item) => item.id !== id))
-    try {
-      await notificationChannelService.removeWecom(id)
-      showToast({ variant: "success", icon: "circle-check", title: language.t("store.notificationChannels.toast.deleted") })
-    } catch (error) {
-      mutate(current)
-      showToast({
-        variant: "error",
-        icon: "circle-x",
-        title: language.t("store.notificationChannels.toast.deleteFailed"),
-        description: error instanceof Error ? error.message : String(error),
-      })
-    }
+  const handleRemove = (id: string) => {
+    const target = wecomChannels().find((item) => item.id === id)
+    dialog.show(() => (
+      <ConfirmDialog
+        title={language.t("common.delete")}
+        description={language.t("store.notificationChannels.confirmDelete", { name: target?.name ?? "" })}
+        onConfirm={async () => {
+          const current = wecomChannels()
+          mutate((list) => (list ?? []).filter((item) => item.id !== id))
+          try {
+            await notificationChannelService.removeWecom(id)
+            showToast({
+              variant: "success",
+              icon: "circle-check",
+              title: language.t("store.notificationChannels.toast.deleted"),
+            })
+          } catch (error) {
+            mutate(current)
+            showToast({
+              variant: "error",
+              icon: "circle-x",
+              title: language.t("store.notificationChannels.toast.deleteFailed"),
+              description: error instanceof Error ? error.message : String(error),
+            })
+          }
+        }}
+      />
+    ))
   }
 
   const handleTest = async (id: string) => {
@@ -123,7 +140,10 @@ export function NotificationChannelsSection() {
         </Button>
       </div>
 
-      <Show when={!channels.loading} fallback={<div class="text-sm text-text-weak">{language.t("store.notificationChannels.loading")}</div>}>
+      <Show
+        when={!channels.loading}
+        fallback={<div class="text-sm text-text-weak">{language.t("store.notificationChannels.loading")}</div>}
+      >
         <Show
           when={wecomChannels().length > 0}
           fallback={

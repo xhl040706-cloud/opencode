@@ -1039,8 +1039,7 @@ export const dict = {
   "store.itemCrud.submit": "创建{{type}}",
   "store.itemCrud.signInRequired": "请先登录",
   "store.createdItems.title": "已创建项目目录",
-  "store.createdItems.description":
-    "以目录面板的方式记录你在所有命名空间下创建的能力。",
+  "store.createdItems.description": "以目录面板的方式记录你在所有命名空间下创建的能力。",
   "store.createdItems.total": "创建总数",
   "store.createdItems.loading": "正在加载已创建项目...",
   "store.createdItems.empty": "暂无已创建项目。",
@@ -1090,6 +1089,7 @@ export const dict = {
   "store.notificationChannels.dialog.webhook": "Webhook URL",
   "store.notificationChannels.dialog.webhookPlaceholder": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...",
   "store.notificationChannels.dialog.events": "通知事件",
+  "store.notificationChannels.dialog.systemChannel": "渠道",
   "store.notificationChannels.dialog.confirmAdd": "确认添加",
   "store.notificationChannels.dialog.adding": "添加中...",
   "store.notificationChannels.dialog.error.nameRequired": "请填写渠道名称",

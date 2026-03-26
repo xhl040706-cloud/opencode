@@ -2,8 +2,10 @@ import { Button } from "@opencode-ai/ui/button"
 import { Checkbox } from "@opencode-ai/ui/checkbox"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
+import { createResource } from "solid-js"
 import { createStore } from "solid-js/store"
 import { type WecomChannel } from "@/context/settings"
+import { notificationChannelApi } from "../lib/api"
 import { useLanguage } from "@/context/language"
 
 const inputClass =
@@ -27,6 +29,7 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
     error: "",
     saving: false,
   })
+  const [available] = createResource(() => notificationChannelApi.available())
 
   const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault()
@@ -40,6 +43,7 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
     }
     setForm("error", "")
     setForm("saving", true)
+    const wecom = (available()?.channelTypes ?? []).find((c) => c.type === "wecom")
     try {
       await props.onCreated({
         name: form.name.trim(),
@@ -50,6 +54,7 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
           permissions: form.events.permissions,
           errors: form.events.errors,
         },
+        ...(wecom ? { systemChannelId: wecom.systemChannelId } : {}),
       })
       dialog.close()
     } finally {
@@ -85,12 +90,11 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
             />
           </div>
           <div>
-            <label class="mb-2 block text-xs font-medium text-text-strong">{language.t("store.notificationChannels.dialog.events")}</label>
+            <label class="mb-2 block text-xs font-medium text-text-strong">
+              {language.t("store.notificationChannels.dialog.events")}
+            </label>
             <div class="flex flex-col gap-2 text-sm text-text-strong">
-              <Checkbox
-                checked={form.events.agent}
-                onChange={(checked) => setForm("events", "agent", checked)}
-              >
+              <Checkbox checked={form.events.agent} onChange={(checked) => setForm("events", "agent", checked)}>
                 {language.t("store.notificationChannels.event.agent")}
               </Checkbox>
               <Checkbox
@@ -99,10 +103,7 @@ export function AddWecomChannelDialog(props: AddWecomChannelDialogProps) {
               >
                 {language.t("store.notificationChannels.event.permissions")}
               </Checkbox>
-              <Checkbox
-                checked={form.events.errors}
-                onChange={(checked) => setForm("events", "errors", checked)}
-              >
+              <Checkbox checked={form.events.errors} onChange={(checked) => setForm("events", "errors", checked)}>
                 {language.t("store.notificationChannels.event.errors")}
               </Checkbox>
             </div>
