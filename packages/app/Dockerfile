@@ -1,7 +1,5 @@
-FROM oven/bun:1-alpine AS base
-
-# Stage 1: Build the Vite app
-FROM base AS builder
+# Stage 1: Build the Vite app - use BUILDPLATFORM for native execution (build output is platform-independent)
+FROM --platform=$BUILDPLATFORM oven/bun:1-alpine AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -42,8 +40,8 @@ ENV VITE_API_PREFIX=$VITE_API_PREFIX
 
 RUN cd /app/packages/app && bun run build
 
-# Stage 2: Production runner with bun
-FROM base AS runner
+# Stage 2: Production runner with bun (uses target platform automatically)
+FROM oven/bun:1-alpine AS runner
 
 # Install gettext for envsubst command (used in entrypoint)
 RUN apk add --no-cache gettext
