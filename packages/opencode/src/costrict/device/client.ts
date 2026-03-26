@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs"
 import { join } from "node:path"
 import { homedir } from "node:os"
-import { loadCoStrictCredentials, generateMachineId } from "../provider/credentials"
+import { loadCoStrictCredentials } from "../provider/credentials"
 import { Flag } from "../../flag/flag"
 import { Installation } from "../../installation"
 import { Log } from "../../util/log"
@@ -59,7 +59,9 @@ export async function register(): Promise<DeviceInfo> {
   if (!creds?.access_token) throw new Error("Not logged in. Please run `cs auth login` first.")
 
   const baseUrl = getCloudBaseUrl(creds.base_url)
-  const deviceId = generateMachineId()
+  const deviceId = creds.machine_id
+
+  log.info("registering device", { device_id: deviceId })
 
   const res = await fetch(`${baseUrl}/api/devices/register`, {
     method: "POST",
@@ -76,12 +78,25 @@ export async function register(): Promise<DeviceInfo> {
   })
 
   if (res.status === 409) {
-    const retry = await loadDevice()
-    if (retry) {
-      log.info("device already registered on server, reusing local", { device_id: retry.device_id })
-      return retry
+    const body = (await res.json().catch(() => ({}))) as {
+      device?: { deviceId: string }
+      token?: string
+      error?: string
     }
-    throw new Error("Device already registered on server but local device.json is missing. Please contact support.")
+
+    if (body.token && body.device?.deviceId) {
+      const info: DeviceInfo = {
+        device_id: body.device.deviceId,
+        device_token: body.token,
+        registered_at: new Date().toISOString(),
+        base_url: baseUrl,
+      }
+      await saveDevice(info)
+      log.info("device already registered by same user, recovered", { device_id: info.device_id })
+      return info
+    }
+
+    throw new Error(body.error || "Device already registered by another user.")
   }
 
   if (!res.ok) {
