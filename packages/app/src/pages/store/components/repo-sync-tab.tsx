@@ -1,6 +1,7 @@
 import { Button } from "@opencode-ai/ui/button"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
+import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { For, Show, createEffect } from "solid-js"
 import { createStore } from "solid-js/store"
 import { repoRegistryApi, syncApi, type CapabilityRegistry } from "../lib/api"
@@ -25,7 +26,7 @@ export function RepoSyncTab(props: RepoSyncTabProps) {
     externalUrl: "",
     externalBranch: "main",
     syncEnabled: true,
-    syncInterval: 3600,
+    syncInterval: 86400,
     includePatterns:
       "skills/**/SKILL.md\ncommands/**/*.md\nagents/**/*.md\n.claude-plugin/plugin.json\nhooks/hooks.json\n.mcp.json",
     excludePatterns: "node_modules/**",
@@ -78,7 +79,7 @@ export function RepoSyncTab(props: RepoSyncTabProps) {
         externalUrl: "",
         externalBranch: "main",
         syncEnabled: true,
-        syncInterval: 3600,
+        syncInterval: 86400,
         includePatterns:
           "skills/**/SKILL.md\ncommands/**/*.md\nagents/**/*.md\n.claude-plugin/plugin.json\nhooks/hooks.json\n.mcp.json",
         excludePatterns: "node_modules/**",
@@ -144,12 +145,9 @@ export function RepoSyncTab(props: RepoSyncTabProps) {
           <div class="text-12-medium text-text-strong">{language.t("store.sync.title")}</div>
           <div class="text-12-regular text-text-weak">{language.t("store.sync.description")}</div>
         </div>
-        <Button size="small" variant="ghost" onClick={() => setStore("adding", (value) => !value)}>
-          {store.adding ? language.t("store.sync.hideForm") : language.t("store.sync.addRegistry")}
-        </Button>
       </div>
 
-      <Show when={store.adding}>
+      <Show when={false}>
         <form
           onSubmit={handleAddRegistry}
           class="rounded-lg border border-border-weak-base bg-surface-raised-base p-3 space-y-3"
@@ -249,7 +247,9 @@ export function RepoSyncTab(props: RepoSyncTabProps) {
                 <div class="rounded-lg border border-border-weak-base bg-surface-raised-base p-3">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0 flex-1">
-                      <div class="truncate text-12-medium text-text-strong">{registry.externalUrl}</div>
+                      <Tooltip value={registry.externalUrl} placement="top">
+                        <div class="truncate text-12-medium text-text-strong">{registry.externalUrl}</div>
+                      </Tooltip>
                       <div class="mt-1 text-12-regular text-text-weak">
                         {registry.externalBranch || "main"} · {registry.syncStatus || "idle"}
                       </div>
@@ -263,10 +263,20 @@ export function RepoSyncTab(props: RepoSyncTabProps) {
                         />
                         {language.t("store.sync.auto")}
                       </label>
-                      <Button size="small" variant="ghost" onClick={() => void runSync(registry.id)}>
+                      <Button
+                        class="cursor-pointer"
+                        size="small"
+                        variant="ghost"
+                        onClick={() => void runSync(registry.id)}
+                      >
                         {language.t("store.sync.syncNow")}
                       </Button>
-                      <Button size="small" variant="ghost" onClick={() => removeRegistry(registry.id)}>
+                      <Button
+                        class="cursor-pointer"
+                        size="small"
+                        variant="ghost"
+                        onClick={() => removeRegistry(registry.id)}
+                      >
                         {language.t("store.sync.remove")}
                       </Button>
                     </div>
