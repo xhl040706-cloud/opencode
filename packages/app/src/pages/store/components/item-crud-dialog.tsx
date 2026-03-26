@@ -210,16 +210,16 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
   }
 
   return (
-    <Dialog title={language.t("store.itemCrud.title", { type: typeLabel() })} class="mx-auto w-full max-w-[760px]">
-      <form onSubmit={handleSubmit} class="flex max-h-[calc(100vh-96px)] flex-col overflow-hidden">
-        <div class="flex-1 overflow-y-auto px-6 pb-6 pt-3">
+    <Dialog title={language.t("store.itemCrud.title", { type: typeLabel() })} size="x-large">
+      <form onSubmit={handleSubmit} class="flex h-full flex-col overflow-hidden">
+        <div class="flex-1 overflow-y-auto px-6 pb-4 pt-3">
           <div class="overflow-hidden rounded-2xl border border-border-weak-base bg-surface-raised-base">
-            <div class="border-b border-border-weak-base px-5 py-5">
+            <div class="border-b border-border-weak-base px-4 py-3">
               <div class="flex items-center gap-1 text-14-medium text-text-strong">
                 <span>{language.t("store.capabilityDialog.field.ownerPackage")}</span>
                 <span class="text-icon-info-base">*</span>
               </div>
-              <div class="mt-4 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
+              <div class="mt-3 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
                 <div>
                   <Select
                     options={namespaceOptions()}
@@ -242,13 +242,13 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
                   required
                 />
               </div>
-              <p class="mt-3 text-12-regular text-text-weak">
+              <p class="mt-2 text-12-regular text-text-weak">
                 {language.t("store.itemCrud.fullIdentifier")}{" "}
                 {(selectedNamespace()?.label ?? "public") + "/" + (store.slug || `${slugPrefix()}my-${props.itemType}`)}
               </p>
             </div>
 
-            <div class="border-b border-border-weak-base px-5 py-5">
+            <div class="border-b border-border-weak-base px-4 py-3">
               <label class="mb-2 flex items-center gap-1 text-12-medium text-text-strong">
                 <span>{language.t("store.capabilityDialog.field.displayName")}</span>
                 <span class="text-icon-info-base">*</span>
@@ -263,7 +263,7 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
               />
             </div>
 
-            <div class="border-b border-border-weak-base px-5 py-5">
+            <div class="border-b border-border-weak-base px-4 py-3">
               <label class="mb-2 block text-12-medium text-text-strong">
                 {language.t("store.capabilityDialog.field.description")}
               </label>
@@ -275,7 +275,7 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
               />
             </div>
 
-            <div class="grid gap-5 border-b border-border-weak-base px-5 py-5 md:grid-cols-2">
+            <div class="grid gap-3 border-b border-border-weak-base px-4 py-3 md:grid-cols-2">
               <div>
                 <label class="mb-2 flex items-center gap-1 text-12-medium text-text-strong">
                   <span>{language.t("store.capabilityDialog.field.category")}</span>
@@ -290,7 +290,6 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
                     <option value={category}>{language.t(categoryKey(category))}</option>
                   ))}
                 </select>
-                {/* <p class="mt-2 text-12-regular text-text-weak">{language.t("store.itemCrud.categoryHint")}</p> */}
               </div>
 
               <div>
@@ -300,17 +299,16 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
                 <div class="flex h-9 items-center rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-weak">
                   {visibilityLabel()}
                 </div>
-                {/* <p class="mt-2 text-12-regular text-text-weak">{language.t("store.itemCrud.visibilityHint")}</p> */}
               </div>
             </div>
 
-            <div class="px-5 py-5">
+            <div class="px-4 py-3">
               <ContentField
                 archive={archive}
                 mode={store.contentMode}
                 text={store.content}
                 file={store.file}
-                rows={10}
+                rows={6}
                 textClass={textAreaClass}
                 onModeChange={(mode) => {
                   setStore("contentMode", mode)
@@ -329,10 +327,10 @@ export function ItemCrudDialog(props: ItemCrudDialogProps) {
             </div>
           </div>
 
-          {store.error ? <p class="mt-4 px-1 text-12-regular text-icon-critical-base">{store.error}</p> : null}
+          {store.error ? <p class="mt-3 px-1 text-12-regular text-icon-critical-base">{store.error}</p> : null}
         </div>
 
-        <div class="flex shrink-0 items-center justify-between gap-3 border-t border-border-weak-base bg-surface-base px-6 py-4">
+        <div class="flex shrink-0 items-center justify-between gap-3 border-t border-border-weak-base bg-surface-base px-6 py-3">
           {/* <p class="text-12-regular text-text-weak">{language.t("store.itemCrud.publishHint")}</p> */}
           <div class="flex items-center gap-2 ml-auto">
             <Button type="button" variant="ghost" onClick={() => dialog.close()}>

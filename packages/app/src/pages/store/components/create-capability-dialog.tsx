@@ -171,16 +171,16 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
   }
 
   return (
-    <Dialog title={language.t("store.capabilityDialog.create.title")} class="w-full max-w-[720px] mx-auto">
-      <form onSubmit={handleSubmit} class="flex max-h-[calc(100vh-120px)] flex-col overflow-hidden">
-        <div class="flex-1 overflow-y-auto px-6 pb-6 pt-2">
+    <Dialog title={language.t("store.capabilityDialog.create.title")} size="x-large">
+      <form onSubmit={handleSubmit} class="flex h-full flex-col overflow-hidden">
+        <div class="flex-1 overflow-y-auto px-6 pb-4 pt-2">
           <div class="rounded-xl border border-border-weak-base bg-surface-raised-base">
-            <div class="border-b border-border-weak-base px-4 py-4">
+            <div class="border-b border-border-weak-base px-4 py-3">
               <div class="text-14-medium text-text-strong">{language.t("store.capabilityDialog.create.type")}</div>
               <div class="mt-1 text-12-regular text-text-weak">
                 {language.t("store.capabilityDialog.create.typeDescription")}
               </div>
-              <div class="mt-3 grid grid-cols-2 gap-2">
+              <div class="mt-2 grid grid-cols-2 gap-2">
                 {(["skill", "subagent", "command", "mcp"] as const).map((type) => (
                   <button
                     type="button"
@@ -197,7 +197,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
               </div>
             </div>
 
-            <div class="border-b border-border-weak-base px-4 py-4">
+            <div class="border-b border-border-weak-base px-4 py-3">
               <label class="mb-2 block text-12-medium text-text-strong">
                 {language.t("store.capabilityDialog.field.ownerPackage")} <span class="text-icon-info-base">*</span>
               </label>
@@ -229,7 +229,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
               </p>
             </div>
 
-            <div class="border-b border-border-weak-base px-4 py-4">
+            <div class="border-b border-border-weak-base px-4 py-3">
               <label class="mb-2 block text-12-medium text-text-strong">
                 {language.t("store.capabilityDialog.field.displayName")} <span class="text-icon-info-base">*</span>
               </label>
@@ -243,7 +243,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
               />
             </div>
 
-            <div class="border-b border-border-weak-base px-4 py-4">
+            <div class="border-b border-border-weak-base px-4 py-3">
               <label class="mb-2 block text-12-medium text-text-strong">
                 {language.t("store.capabilityDialog.field.description")}
               </label>
@@ -255,7 +255,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
               />
             </div>
 
-            <div class="grid gap-4 border-b border-border-weak-base px-4 py-4 md:grid-cols-2">
+            <div class="grid gap-3 border-b border-border-weak-base px-4 py-3 md:grid-cols-2">
               <div>
                 <label class="mb-2 block text-12-medium text-text-strong">
                   {language.t("store.capabilityDialog.field.category")} <span class="text-icon-info-base">*</span>
@@ -280,13 +280,13 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
               </div>
             </div>
 
-            <div class="px-4 py-4">
+            <div class="px-4 py-3">
               <ContentField
                 archive={archive()}
                 mode={store.contentMode}
                 text={store.content}
                 file={store.file}
-                rows={10}
+                rows={6}
                 textClass={textAreaClass}
                 onModeChange={(mode) => {
                   setStore("contentMode", mode)
@@ -308,7 +308,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
           {store.error ? <p class="mt-4 text-12-regular text-icon-critical-base">{store.error}</p> : null}
         </div>
 
-        <div class="flex shrink-0 items-center justify-end gap-2 border-t border-border-weak-base bg-surface-base px-6 py-4">
+        <div class="flex shrink-0 items-center justify-end gap-2 border-t border-border-weak-base bg-surface-base px-6 py-3">
           <Button type="button" variant="ghost" onClick={() => dialog.close()}>
             {language.t("common.cancel")}
           </Button>

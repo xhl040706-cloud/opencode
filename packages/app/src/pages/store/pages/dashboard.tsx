@@ -2,6 +2,7 @@ import { Button } from "@opencode-ai/ui/button"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Icon } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
+import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { useLanguage } from "@/context/language"
 import { createEffect, createMemo, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -244,69 +245,44 @@ export default function Dashboard() {
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       <For each={repos()}>
                         {(repo) => (
-                          <div class="group rounded-md border border-border-weak-base bg-background-base px-4 py-3 transition-all duration-150 hover:-translate-y-px hover:shadow-xs-border-base">
-                            <div class="mb-3 flex items-start justify-between gap-3">
-                              <div class="min-w-0">
-                                <div class="flex items-center gap-2">
+                          <div class="group flex flex-col rounded-md border border-border-weak-base bg-background-base px-4 py-3 transition-all duration-150 hover:-translate-y-px hover:shadow-xs-border-base">
+                            <div class="mb-2 min-w-0 overflow-hidden">
+                              <div class="flex items-center gap-2 flex-nowrap justify-between">
+                                <Tooltip value={repo.displayName || repo.name} placement="top" class="max-w-[60%]">
                                   <div class="truncate text-sm font-medium text-text-strong transition-colors group-hover:text-text-strong">
                                     {repo.displayName || repo.name}
                                   </div>
-                                  <span
-                                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-11-medium"
-                                    classList={{
-                                      "bg-surface-success-base/15 text-text-success-base": repo.visibility === "public",
-                                      "bg-surface-warning-base/15 text-text-warning-base":
-                                        repo.visibility === "private",
-                                      "bg-surface-selected-base text-text-weak":
-                                        repo.visibility !== "public" && repo.visibility !== "private",
-                                    }}
-                                  >
-                                    <Icon name={repo.visibility === "private" ? "eye" : "sparkles"} size="small" />
-                                    {visibilityLabel(repo.visibility)}
-                                  </span>
-                                  <Show when={repo.repoType === "sync"}>
-                                    <span class="rounded-full bg-surface-info-base/20 px-2 py-0.5 text-11-medium text-text-strong">
-                                      {language.t("store.console.repositories.sync")}
-                                    </span>
-                                  </Show>
-                                </div>
-                                <div class="mt-1 truncate text-xs text-text-weak">{repo.name}</div>
+                                </Tooltip>
+                                <span
+                                  class="inline-flex shrink-0 items-center gap-1 rounded-[10px] px-2.5 py-[3px] text-xs font-medium"
+                                  style={{
+                                    "background-color":
+                                      repo.visibility === "public"
+                                        ? "color-mix(in srgb, #22c55e 12%, transparent)"
+                                        : repo.visibility === "private"
+                                          ? "color-mix(in srgb, #f59e0b 12%, transparent)"
+                                          : "rgba(156,163,175,0.12)",
+                                    color:
+                                      repo.visibility === "public"
+                                        ? "#22c55e"
+                                        : repo.visibility === "private"
+                                          ? "#f59e0b"
+                                          : "var(--color-text-weak)",
+                                  }}
+                                >
+                                  <Icon name={repo.visibility === "private" ? "eye" : "sparkles"} size="small" />
+                                  {visibilityLabel(repo.visibility)}
+                                </span>
                               </div>
-                              <div class="flex items-center gap-1">
-                                <Button
-                                  size="small"
-                                  variant="ghost"
-                                  class="h-8 w-8 p-0"
-                                  onClick={() => openInvite(repo)}
-                                  title={language.t("store.console.repositories.invite")}
-                                >
-                                  <Icon name="plus-small" size="small" />
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="ghost"
-                                  class="h-8 w-8 p-0"
-                                  onClick={() => openEditRepo(repo)}
-                                  title={language.t("store.console.repositories.edit")}
-                                >
-                                  <Icon name="edit" size="small" />
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="ghost"
-                                  class="h-8 w-8 p-0"
-                                  onClick={() => handleDeleteRepo(repo.id)}
-                                  title={language.t("store.console.repositories.delete")}
-                                >
-                                  <Icon name="trash" size="small" />
-                                </Button>
-                              </div>
+                              <div class="mt-1 truncate text-xs text-text-weak">{repo.name}</div>
                             </div>
 
-                            <p class="mb-4 text-xs text-text-weak line-clamp-2 min-h-10">{repo.description || ""}</p>
+                            <p class="mb-3 text-xs text-text-weak line-clamp-2 min-h-8 flex-1">
+                              {repo.description || ""}
+                            </p>
 
-                            <div class="mt-auto flex items-center gap-2 border-t border-border-weak-base pt-3">
-                              <Show when={repo.repoType === "sync"}>
+                            <div class="flex items-center justify-between gap-2 border-t border-border-weak-base pt-3">
+                              {/* <Show when={repo.repoType === "sync"}>
                                 <Button
                                   size="small"
                                   variant="ghost"
@@ -319,13 +295,44 @@ export default function Dashboard() {
                                     ? language.t("store.console.repositories.hideSync")
                                     : language.t("store.console.repositories.syncSettings")}
                                 </Button>
-                              </Show>
+                              </Show> */}
+                              <div class="ml-auto flex items-center gap-1">
+                                <Button
+                                  size="small"
+                                  variant="ghost"
+                                  class="h-7 w-7 p-0 cursor-pointer"
+                                  onClick={() => openInvite(repo)}
+                                  title={language.t("store.console.repositories.invite")}
+                                >
+                                  <Icon name="plus-small" size="small" />
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="ghost"
+                                  class="h-7 w-7 p-0 cursor-pointer"
+                                  onClick={() => openEditRepo(repo)}
+                                  title={language.t("store.console.repositories.edit")}
+                                >
+                                  <Icon name="edit" size="small" />
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="ghost"
+                                  class="h-7 w-7 p-0 cursor-pointer"
+                                  onClick={() => handleDeleteRepo(repo.id)}
+                                  title={language.t("store.console.repositories.delete")}
+                                >
+                                  <Icon name="trash" size="small" />
+                                </Button>
+                              </div>
                             </div>
 
-                            <Show when={repo.repoType === "sync" && state.expandedSyncRepo === repo.id}>
-                              <div class="mt-4 border-t border-border-weak-base pt-4">
-                                <RepoSyncTab repoId={repo.id} />
-                              </div>
+                            <Show when={repo.repoType === "sync"}>
+                              <Show when={state.expandedSyncRepo === repo.id}>
+                                <div class="mt-4 border-t border-border-weak-base pt-4">
+                                  <RepoSyncTab repoId={repo.id} />
+                                </div>
+                              </Show>
                             </Show>
                           </div>
                         )}
@@ -424,16 +431,55 @@ export default function Dashboard() {
                                   <div class="mt-1 text-12-regular text-text-weak">{item.slug}</div>
                                 </td>
                                 <td class="px-4 py-3">
-                                  <span class="rounded py-0.5 text-xs bg-bg-muted text-text-weak">
+                                  <span
+                                    class="inline-flex items-center rounded-[10px] px-2.5 py-[3px] text-xs font-medium"
+                                    style={{
+                                      "background-color": `color-mix(in srgb, ${
+                                        item.itemType === "skill"
+                                          ? "rgb(234,179,8)"
+                                          : item.itemType === "subagent"
+                                            ? "rgb(59,130,246)"
+                                            : item.itemType === "command"
+                                              ? "rgb(34,197,94)"
+                                              : "rgb(168,85,247)"
+                                      } 12%, transparent)`,
+                                      color:
+                                        item.itemType === "skill"
+                                          ? "rgb(234,179,8)"
+                                          : item.itemType === "subagent"
+                                            ? "rgb(59,130,246)"
+                                            : item.itemType === "command"
+                                              ? "rgb(34,197,94)"
+                                              : "rgb(168,85,247)",
+                                    }}
+                                  >
                                     {typeLabel(item.itemType)}
                                   </span>
                                 </td>
-                                <td class="px-4 py-3 text-12-regular capitalize text-text-weak">
-                                  {item.repoVisibility === "public"
-                                    ? language.t("store.capabilityDialog.visibility.public")
-                                    : item.repoVisibility === "private"
-                                      ? language.t("store.capabilityDialog.visibility.private")
-                                      : "-"}
+                                <td class="px-4 py-3">
+                                  <span
+                                    class="inline-flex items-center gap-1 rounded-[10px] px-2.5 py-[3px] text-xs font-medium"
+                                    style={{
+                                      "background-color":
+                                        item.repoVisibility === "public"
+                                          ? "color-mix(in srgb, #22c55e 12%, transparent)"
+                                          : item.repoVisibility === "private"
+                                            ? "color-mix(in srgb, #f59e0b 12%, transparent)"
+                                            : "rgba(156,163,175,0.12)",
+                                      color:
+                                        item.repoVisibility === "public"
+                                          ? "#22c55e"
+                                          : item.repoVisibility === "private"
+                                            ? "#f59e0b"
+                                            : "var(--color-text-weak)",
+                                    }}
+                                  >
+                                    {item.repoVisibility === "public"
+                                      ? language.t("store.capabilityDialog.visibility.public")
+                                      : item.repoVisibility === "private"
+                                        ? language.t("store.capabilityDialog.visibility.private")
+                                        : "-"}
+                                  </span>
                                 </td>
                                 <td class="px-4 py-3 text-12-regular text-text-weak">{item.repoName || "—"}</td>
                                 <td class="px-4 py-3">
@@ -546,7 +592,7 @@ export default function Dashboard() {
               <NotificationChannelsSection />
             </div>
           </div>
-        </Show> 
+        </Show>
       </Show>
     </div>
   )

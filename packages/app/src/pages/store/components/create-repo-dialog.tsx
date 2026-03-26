@@ -31,7 +31,7 @@ export function CreateRepoDialog(props: CreateRepoDialogProps) {
     externalUrl: "",
     externalBranch: "main",
     syncEnabled: true,
-    syncInterval: 3600,
+    syncInterval: 86400,
     includePatterns:
       "skills/**/SKILL.md\ncommands/**/*.md\nagents/**/*.md\n.claude-plugin/plugin.json\nhooks/hooks.json\n.mcp.json",
     excludePatterns: "node_modules/**",

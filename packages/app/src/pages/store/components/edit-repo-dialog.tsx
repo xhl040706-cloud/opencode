@@ -3,14 +3,17 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
+import { createEffect } from "solid-js"
 import { createStore } from "solid-js/store"
-import { repoApi, type Repository } from "../lib/api"
+import { repoApi, repoRegistryApi, type CapabilityRegistry, type Repository } from "../lib/api"
 
 const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
 
 const textAreaClass =
   "w-full min-h-[84px] rounded-md border border-border-weak-base bg-background-base px-3 py-2 text-sm text-text-strong outline-none focus:border-border-strong resize-y"
+
+const monoTextAreaClass = `${textAreaClass} font-mono`
 
 type EditRepoDialogProps = {
   repo: Repository
@@ -27,6 +30,41 @@ export function EditRepoDialog(props: EditRepoDialogProps) {
     visibility: props.repo.visibility,
     saving: false,
     error: "",
+    registry: null as CapabilityRegistry | null,
+    loadingRegistry: false,
+    externalUrl: "",
+    externalBranch: "main",
+    syncEnabled: true,
+    syncInterval: 86400,
+    includePatterns:
+      "skills/**/SKILL.md\ncommands/**/*.md\nagents/**/*.md\n.claude-plugin/plugin.json\nhooks/hooks.json\n.mcp.json",
+    excludePatterns: "node_modules/**",
+    conflictStrategy: "keep_remote",
+  })
+
+  createEffect(() => {
+    if (props.repo.repoType !== "sync") return
+    setStore("loadingRegistry", true)
+    repoRegistryApi
+      .list(props.repo.id)
+      .then((res) => {
+        const reg = res.registries[0] ?? null
+        if (!reg) return
+        setStore({
+          registry: reg,
+          externalUrl: reg.externalUrl || "",
+          externalBranch: reg.externalBranch || "main",
+          syncEnabled: reg.syncEnabled ?? true,
+          syncInterval: reg.syncInterval ?? 86400,
+          includePatterns:
+            (reg.syncConfig?.includePatterns as string[] | undefined)?.join("\n") ??
+            "skills/**/SKILL.md\ncommands/**/*.md\nagents/**/*.md\n.claude-plugin/plugin.json\nhooks/hooks.json\n.mcp.json",
+          excludePatterns: (reg.syncConfig?.excludePatterns as string[] | undefined)?.join("\n") ?? "node_modules/**",
+          conflictStrategy: (reg.syncConfig?.conflictStrategy as string | undefined) ?? "keep_remote",
+        })
+      })
+      .catch(() => {})
+      .finally(() => setStore("loadingRegistry", false))
   })
 
   async function handleSubmit(e: SubmitEvent) {
@@ -43,6 +81,25 @@ export function EditRepoDialog(props: EditRepoDialogProps) {
         description: store.description.trim(),
         visibility: store.visibility,
       })
+
+      if (props.repo.repoType === "sync" && store.registry) {
+        await repoRegistryApi.update(props.repo.id, store.registry.id, {
+          externalUrl: store.externalUrl.trim(),
+          externalBranch: store.externalBranch.trim() || "main",
+          syncEnabled: store.syncEnabled,
+          syncInterval: store.syncInterval,
+          includePatterns: store.includePatterns
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean),
+          excludePatterns: store.excludePatterns
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean),
+          conflictStrategy: store.conflictStrategy,
+        })
+      }
+
       props.onSaved?.(updated)
       showToast({ title: language.t("store.repoDialog.toast.updated") })
       dialog.close()
@@ -107,6 +164,95 @@ export function EditRepoDialog(props: EditRepoDialogProps) {
               <option value="public">{language.t("store.capabilityDialog.visibility.public")}</option>
             </select>
           </div>
+
+          {props.repo.repoType === "sync" ? (
+            <div class="rounded-xl border border-border-weak-base bg-surface-raised-base px-4 py-4 space-y-4">
+              <div>
+                <div class="text-12-medium text-text-strong">{language.t("store.sync.settings")}</div>
+                <div class="mt-1 text-12-regular text-text-weak">{language.t("store.sync.settingsDescription")}</div>
+              </div>
+
+              <div>
+                <label class="mb-2 block text-12-medium text-text-strong">{language.t("store.sync.gitUrl")}</label>
+                <input
+                  value={store.externalUrl}
+                  onInput={(e) => setStore("externalUrl", e.currentTarget.value)}
+                  placeholder="https://github.com/org/repo"
+                  class={inputClass}
+                />
+              </div>
+
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="mb-2 block text-12-medium text-text-strong">{language.t("store.sync.branch")}</label>
+                  <input
+                    value={store.externalBranch}
+                    onInput={(e) => setStore("externalBranch", e.currentTarget.value)}
+                    placeholder="main"
+                    class={inputClass}
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-12-medium text-text-strong">{language.t("store.sync.interval")}</label>
+                  <select
+                    value={String(store.syncInterval)}
+                    onInput={(e) => setStore("syncInterval", Number(e.currentTarget.value))}
+                    class={inputClass}
+                  >
+                    <option value="3600">{language.t("store.sync.interval.hour")}</option>
+                    <option value="21600">{language.t("store.sync.interval.6hours")}</option>
+                    <option value="86400">{language.t("store.sync.interval.day")}</option>
+                  </select>
+                </div>
+              </div>
+
+              <label class="flex items-center gap-2 text-12-medium text-text-strong">
+                <input
+                  type="checkbox"
+                  checked={store.syncEnabled}
+                  onChange={(e) => setStore("syncEnabled", e.currentTarget.checked)}
+                />
+                {language.t("store.sync.enableAuto")}
+              </label>
+
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="mb-2 block text-12-medium text-text-strong">
+                    {language.t("store.sync.includePatterns")}
+                  </label>
+                  <textarea
+                    value={store.includePatterns}
+                    onInput={(e) => setStore("includePatterns", e.currentTarget.value)}
+                    class={monoTextAreaClass}
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-12-medium text-text-strong">
+                    {language.t("store.sync.excludePatterns")}
+                  </label>
+                  <textarea
+                    value={store.excludePatterns}
+                    onInput={(e) => setStore("excludePatterns", e.currentTarget.value)}
+                    class={monoTextAreaClass}
+                  />
+                </div>
+              </div>
+
+              <div class="max-w-[240px]">
+                <label class="mb-2 block text-12-medium text-text-strong">
+                  {language.t("store.sync.conflictStrategy")}
+                </label>
+                <select
+                  value={store.conflictStrategy}
+                  onInput={(e) => setStore("conflictStrategy", e.currentTarget.value)}
+                  class={inputClass}
+                >
+                  <option value="keep_remote">{language.t("store.sync.conflict.keepRemote")}</option>
+                  <option value="keep_local">{language.t("store.sync.conflict.keepLocal")}</option>
+                </select>
+              </div>
+            </div>
+          ) : null}
 
           {store.error ? <p class="text-12-regular text-icon-critical-base">{store.error}</p> : null}
         </div>
