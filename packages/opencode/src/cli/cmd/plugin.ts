@@ -19,15 +19,8 @@ const DEFAULT_ORG = "public"
 function registryBase(): string {
   const env = process.env.COSTRICT_REGISTRY_BASE_URL
   if (env) return env.replace(/\/$/, "")
-  return `${getCoStrictBaseURL()}/registry`
+  return `${getCoStrictBaseURL()}/cloud-api`
 }
-
-// function registryBase(): string {
-//   // const env = "https://costrict.sangfor.com:30443/costrict-web-api"
-//   const env = "https://costrict.sangfor.com:30443/costrict-web-api/api/registry"
-//   if (env) return env.replace(/\/$/, "")
-//   return `${getCoStrictBaseURL()}/registry`
-// }
 
 function resolveRegistryUrl(slug: string | undefined): { registryUrl: string; itemSlug: string | undefined } {
   const base = registryBase()
@@ -448,7 +441,13 @@ const PluginUploadCommand = cmd({
         demandOption: true,
         choices: ["skill", "subagent", "command", "mcp"]
       })
-      .positional("path", { type: "string", describe: "plugin directory path"}),
+      .positional("path", { type: "string", describe: "plugin directory path"})
+      .option("registry", { type: "string", describe: "target registry name" })
+      .option("slug", { type: "string", describe: "plugin slug identifier" })
+      .option("name", { type: "string", describe: "plugin display name" })
+      .option("version", { type: "string", describe: "version number", default: "1.0.0" })
+      .option("description", { type: "string", describe: "plugin description" })
+      .option("category", { type: "string", describe: "plugin category" }),
   async handler(args) {
     const type = args.itemType as RegistryItemType
     await Instance.provide({
@@ -477,13 +476,13 @@ const PluginUploadCommand = cmd({
 
         const initialOptions: Partial<UploadOptions> = {
           path: args.path,
-          registry: "xixing",
-          slug: "playwright-skill",
-          name: "playwright-skill",
+          registry: args.registry,
+          slug: args.slug,
+          name: args.name,
           type: type,
-          version: "1.0.0",
-          description: "网页测试技能",
-          category: type,
+          version: args.version,
+          description: args.description,
+          category: args.category,
         }
 
         // Prompt for missing options
