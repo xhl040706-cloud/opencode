@@ -3,11 +3,9 @@ import { useNavigate, useParams } from "@solidjs/router"
 import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
-import { Collapsible } from "@opencode-ai/ui/collapsible"
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { DateTime } from "luxon"
 import type { Device, DeviceStatus, Workspace, WorkspaceDirectory } from "../types"
 import { DeviceList } from "./device-list"
 import { CreateWorkspaceDialogContent } from "./create-workspace-dialog"
@@ -26,7 +24,6 @@ export function WorkspaceSidebar() {
   const {
     workspaces,
     devices,
-    selectedWorkspaceId,
     selectedDeviceId,
     enabledWorkspaceIds,
     selectWorkspace,
@@ -74,8 +71,6 @@ export function WorkspaceSidebar() {
   const [workspaceSearchQuery, setWorkspaceSearchQuery] = createSignal("")
   const [deviceSearchQuery, setDeviceSearchQuery] = createSignal("")
   const [isDeviceListCollapsed, setIsDeviceListCollapsed] = createSignal(false)
-  const [isRunningCollapsed, setIsRunningCollapsed] = createSignal(false)
-  const [isIdleCollapsed, setIsIdleCollapsed] = createSignal(false)
 
   const getDeviceStatusDot = (status?: DeviceStatus) => {
     switch (status) {
@@ -139,7 +134,6 @@ export function WorkspaceSidebar() {
       if (!ws?.deviceId) return undefined
       return devices().find((d) => d.id === ws.deviceId)
     })
-    const selected = () => selectedWorkspaceId() === cardProps.id
     const [open, setOpen] = createSignal(false)
     const [mounted, setMounted] = createSignal(false)
     const [renaming, setRenaming] = createSignal(false)
@@ -175,184 +169,107 @@ export function WorkspaceSidebar() {
       }
     }
 
-    // Idle card: three-line layout
-    const idleContent = () => (
-      <div class="min-w-0 flex flex-col gap-0.5 py-1.5">
-        <div class="flex items-center gap-1.5">
-          <Tooltip placement="top" value={dot().text}>
-            <div
-              classList={{
-                "size-1.5 rounded-full shrink-0": true,
-                "bg-icon-success-base": dot().online,
-                "bg-icon-critical-base": dot().offline,
-                "bg-border-weak-base": !dot().online && !dot().offline,
-              }}
-            />
-          </Tooltip>
-          <Show
-            when={renaming()}
-            fallback={
-              <>
-                <Tooltip placement="top" value={t("workspace.rename")}>
-                  <span
-                    class="text-13-medium text-text-strong truncate cursor-pointer hover:text-text-base"
-                    onClick={(e: MouseEvent) => {
-                      e.stopPropagation()
-                      startRename()
-                    }}
-                  >
-                    {workspace()?.name}
-                  </span>
-                </Tooltip>
-                <Icon
-                  name="edit"
-                  size="small"
-                  class="shrink-0 text-icon-weaker opacity-0 group-hover/workspace:opacity-60 transition-opacity cursor-pointer"
-                  onClick={(e: MouseEvent) => {
-                    e.stopPropagation()
-                    startRename()
-                  }}
-                />
-                <Show when={workspace()?.isDefault}>
-                  <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">
-                    {t("common.default")}
-                  </span>
-                </Show>
-              </>
-            }
-          >
-            <input
-              class="flex-1 min-w-0 text-13-medium text-text-strong bg-background-base border border-border-strong-base rounded px-1 focus:outline-none"
-              value={renameValue()}
-              placeholder={t("workspace.rename.placeholder")}
-              onInput={(e: Event) => setRenameValue((e.target as HTMLInputElement).value)}
-              onBlur={commitRename}
-              onKeyDown={handleRenameKey}
-              ref={(el) => setTimeout(() => el?.focus(), 0)}
-              onClick={(e: MouseEvent) => e.stopPropagation()}
-            />
-          </Show>
-        </div>
-        <span class="text-11-regular text-text-weak truncate">
-          {device()?.displayName ?? t("workspace.device.unbound")}
-        </span>
-        <Show when={primaryDir()}>
-          <span class="text-11-regular text-text-weaker truncate">{primaryDir()!.path}</span>
-        </Show>
-      </div>
+    const renameInput = () => (
+      <input
+        class="flex-1 min-w-0 text-sm font-medium text-text-strong bg-surface-inset-base border border-border-strong-base rounded-lg px-2 py-0.5 focus:outline-none"
+        value={renameValue()}
+        placeholder={t("workspace.rename.placeholder")}
+        onInput={(e: Event) => setRenameValue((e.target as HTMLInputElement).value)}
+        onBlur={commitRename}
+        onKeyDown={handleRenameKey}
+        ref={(el) => setTimeout(() => el?.focus(), 0)}
+        onClick={(e: MouseEvent) => e.stopPropagation()}
+      />
     )
 
-    // Running card: single-line layout
-    const runningContent = () => (
-      <div class="flex items-center gap-1 min-w-0 w-full">
-        <Tooltip placement="top" value={dot().text}>
-          <div
-            classList={{
-              "size-1.5 rounded-full shrink-0": true,
-              "bg-icon-success-base": dot().online,
-              "bg-icon-critical-base": dot().offline,
-              "bg-border-weak-base": !dot().online && !dot().offline,
-            }}
-          />
-        </Tooltip>
-        <Show
-          when={renaming()}
-          fallback={
-            <>
-              <Tooltip placement="top" value={t("workspace.rename")}>
-                <span
-                  class="text-14-regular text-text-strong truncate cursor-pointer hover:text-text-base"
-                  onClick={(e: MouseEvent) => {
-                    e.stopPropagation()
-                    startRename()
-                  }}
-                >
-                  {workspace()?.name}
-                </span>
-              </Tooltip>
-              <Icon
-                name="edit"
-                size="small"
-                class="shrink-0 text-icon-weaker opacity-0 group-hover/workspace:opacity-60 transition-opacity cursor-pointer"
-                onClick={(e: MouseEvent) => {
-                  e.stopPropagation()
-                  startRename()
-                }}
-              />
-              <Show when={workspace()?.isDefault}>
-                <span class="shrink-0 text-10-medium text-text-weaker bg-surface-base px-1 rounded-full">
-                  {t("common.default")}
-                </span>
-              </Show>
-              <Icon
-                name={open() ? "chevron-down" : "chevron-right"}
-                size="small"
-                class="shrink-0 text-icon-weak ml-auto"
-              />
-            </>
-          }
-        >
-          <input
-            class="flex-1 min-w-0 text-13-medium text-text-strong bg-background-base border border-border-strong-base rounded px-1 focus:outline-none"
-            value={renameValue()}
-            placeholder={t("workspace.rename.placeholder")}
-            onInput={(e: Event) => setRenameValue((e.target as HTMLInputElement).value)}
-            onBlur={commitRename}
-            onKeyDown={handleRenameKey}
-            ref={(el) => setTimeout(() => el?.focus(), 0)}
-            onClick={(e: MouseEvent) => e.stopPropagation()}
-          />
-        </Show>
-      </div>
-    )
+    // Detail tooltip: device · path · default
+    const detail = () => {
+      const parts = [device()?.displayName, primaryDir()?.path].filter(Boolean)
+      if (workspace()?.isDefault) parts.push(t("common.default"))
+      return parts.join(" · ") || t("workspace.device.unbound")
+    }
 
     if (cardProps.isRunning) {
       return (
         <Show when={workspace()}>
           {(ws) => (
             <div>
-              <div class="group/workspace flex items-center rounded-md border border-border-weak-base transition-colors cursor-default h-8 has-[.content-area:hover]:bg-surface-base-hover">
-                <div
-                  classList={{
-                    "shrink-0 w-1.5 self-stretch rounded-l-[calc(0.375rem-1px)] transition-colors": true,
-                    "bg-icon-critical-base": dot().offline,
-                    "bg-icon-success-base": !dot().offline,
+              <div
+                class="group/workspace flex items-center rounded-lg transition-all duration-150 hover:bg-surface-base-hover"
+                classList={{
+                  "bg-surface-base-hover": params.workspaceID === cardProps.id,
+                }}
+              >
+                <Tooltip
+                  placement="bottom-end"
+                  value={detail()}
+                  class="flex-1 min-w-0"
+                  contentStyle={{
+                    background: "var(--surface-base-hover)",
+                    color: "var(--text-base)",
+                    border: "1px solid var(--border-weak-base)",
+                    "box-shadow": "var(--shadow-xs)",
                   }}
-                />
-                <div
-                  class="content-area flex-1 min-w-0 flex items-center px-2 transition-colors h-full"
-                  onClick={() => toggle()}
                 >
-                  {runningContent()}
-                </div>
-                <div class="shrink-0 flex items-center gap-0.5 pr-1 opacity-0 group-hover/workspace:opacity-100 transition-opacity">
-                  <DropdownMenu>
-                    <Tooltip placement="top" value={t("workspace.more")}>
-                      <DropdownMenu.Trigger
-                        as={IconButton}
-                        icon="dot-grid"
-                        variant="ghost"
-                        class="size-6 rounded-md cursor-pointer"
-                        aria-label={t("workspace.more")}
+                  <button
+                    class="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-150 cursor-pointer text-left"
+                    classList={{
+                      "text-text-strong font-medium": params.workspaceID === cardProps.id,
+                      "text-text-strong": params.workspaceID !== cardProps.id,
+                    }}
+                    onClick={() => {
+                      toggle()
+                      if (params.workspaceID !== cardProps.id) {
+                        const ws = workspace()
+                        if (!ws?.deviceUniqueId) return
+                        selectWorkspace(ws.id)
+                        active.setActive(ws.id, { ...ws })
+                        server.setActive(ServerConnection.Key.make(getProxyUrl(ws.deviceUniqueId)))
+                        const dir = primaryDir()
+                        const dirSlug = dir ? encodeDirectory(dir.path) : "default"
+                        navigateToNewSession({ workspaceId: ws.id, dir: dirSlug })
+                      }
+                    }}
+                  >
+                    <div class="size-2 shrink-0 relative">
+                      <div
+                        classList={{
+                          "size-2 rounded-full group-hover/workspace:opacity-0": true,
+                          "bg-icon-success-base": dot().online,
+                          "bg-icon-critical-base": dot().offline,
+                          "bg-border-weak-base": !dot().online && !dot().offline,
+                        }}
                       />
-                    </Tooltip>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content>
-                        <DropdownMenu.Item onSelect={() => handleCloseWorkspace(ws())}>
-                          <DropdownMenu.ItemLabel>{t("workspace.close")}</DropdownMenu.ItemLabel>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Separator />
-                        <DropdownMenu.Item onSelect={() => deleteWorkspace(cardProps.id)}>
-                          <DropdownMenu.ItemLabel>{t("workspace.delete")}</DropdownMenu.ItemLabel>
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu>
+                      <Icon
+                        name={open() ? "chevron-down" : "chevron-right"}
+                        size="small"
+                        class="size-4 text-icon-weak opacity-0 group-hover/workspace:opacity-100 absolute -left-1 -top-1"
+                      />
+                    </div>
+                    <Show
+                      when={renaming()}
+                      fallback={
+                        <span
+                          class="text-sm truncate flex-1"
+                          onDblClick={(e: MouseEvent) => {
+                            e.stopPropagation()
+                            startRename()
+                          }}
+                        >
+                          {workspace()?.name}
+                        </span>
+                      }
+                    >
+                      {renameInput()}
+                    </Show>
+                  </button>
+                </Tooltip>
+                <div class="shrink-0 flex items-center gap-0.5 ml-auto opacity-0 group-hover/workspace:opacity-100 transition-opacity duration-150 pr-1">
                   <Tooltip placement="top" value={t("workspace.newSession")}>
                     <IconButton
                       icon="plus-small"
                       variant="ghost"
-                      class="size-6 rounded-md cursor-pointer"
+                      class="size-7 rounded-lg cursor-pointer"
                       aria-label={t("workspace.newSession")}
                       onClick={(event: MouseEvent) => {
                         event.stopPropagation()
@@ -364,6 +281,40 @@ export function WorkspaceSidebar() {
                       }}
                     />
                   </Tooltip>
+                  <DropdownMenu>
+                    <DropdownMenu.Trigger
+                      as={IconButton}
+                      icon="dot-grid"
+                      variant="ghost"
+                      class="size-7 rounded-lg cursor-pointer"
+                      aria-label={t("workspace.more")}
+                    />
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content
+                        class="min-w-36"
+                        style={{
+                          "background-color": "var(--surface-base)",
+                          border: "none",
+                          "box-shadow": "var(--shadow-xs-border)",
+                          "--dropdown-item-hover": "var(--surface-base-hover)",
+                        }}
+                      >
+                        <DropdownMenu.Item onSelect={() => handleCloseWorkspace(ws())}>
+                          <Icon name="stop" size="small" class="size-4 text-icon-weak" />
+                          <DropdownMenu.ItemLabel>{t("workspace.close")}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item onSelect={startRename}>
+                          <Icon name="edit" size="small" class="size-4 text-icon-weak" />
+                          <DropdownMenu.ItemLabel>{t("workspace.rename")}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Separator />
+                        <DropdownMenu.Item onSelect={() => deleteWorkspace(cardProps.id)}>
+                          <Icon name="trash" size="small" class="size-4 text-icon-critical-base" />
+                          <DropdownMenu.ItemLabel>{t("workspace.delete")}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu>
                 </div>
               </div>
               <Show when={mounted()}>
@@ -377,60 +328,102 @@ export function WorkspaceSidebar() {
       )
     }
 
+    // Idle card: same nav-item style, click to launch
     return (
       <Show when={workspace()}>
         {(ws) => (
           <div
-            class="group/workspace flex items-stretch rounded-md border border-border-weak-base transition-colors cursor-default"
-            classList={{ "bg-surface-base-active": selected() }}
+            class="group/workspace flex items-center rounded-lg transition-all duration-150 hover:bg-surface-base-hover"
+            classList={{
+              "bg-surface-base-hover": params.workspaceID === cardProps.id,
+            }}
           >
-            <div
-              classList={{
-                "shrink-0 w-1.5 rounded-l-md transition-colors": true,
-                "bg-border-weak-base": true,
-              }}
-            />
-            <div
-              classList={{
-                "flex-1 min-w-0 flex items-center px-2 transition-colors": true,
-                "hover:bg-surface-base-hover": !dot().offline,
-                "cursor-not-allowed opacity-60": dot().offline,
+            <Tooltip
+              placement="bottom-end"
+              value={detail()}
+              class="flex-1 min-w-0"
+              contentStyle={{
+                background: "var(--surface-base-hover)",
+                color: "var(--text-base)",
+                border: "1px solid var(--border-weak-base)",
+                "box-shadow": "var(--shadow-xs)",
               }}
             >
-              {idleContent()}
-            </div>
-            <div class="shrink-0 flex flex-col w-10 border-l border-border-weak-base opacity-0 group-hover/workspace:opacity-100 transition-opacity self-stretch">
-              <Tooltip
-                placement="left"
-                value={dot().offline ? t("workspace.device.offline") : t("workspace.run")}
-                class="flex-1"
+              <button
+                class="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-150 text-left"
+                classList={{
+                  "text-text-strong font-medium": params.workspaceID === cardProps.id,
+                  "text-text-weak": params.workspaceID !== cardProps.id && !dot().offline,
+                  "text-text-weaker opacity-60 cursor-not-allowed": dot().offline,
+                  "cursor-pointer": !dot().offline,
+                }}
+                onClick={() => {
+                  if (!dot().offline) handleSelectWorkspace(ws())
+                }}
               >
                 <div
                   classList={{
-                    "size-full flex items-center justify-center transition-colors rounded-tr-md": true,
-                    "cursor-pointer hover:bg-surface-raised-base-hover": !dot().offline,
-                    "cursor-not-allowed opacity-60": dot().offline,
+                    "size-2 rounded-full shrink-0": true,
+                    "bg-icon-success-base": dot().online,
+                    "bg-icon-critical-base": dot().offline,
+                    "bg-border-weak-base": !dot().online && !dot().offline,
                   }}
-                  onClick={(e: MouseEvent) => {
-                    e.stopPropagation()
-                    if (dot().offline) return
-                    handleOpenWorkspace(ws())
-                  }}
+                />
+                <Show
+                  when={renaming()}
+                  fallback={
+                    <span
+                      class="text-sm truncate flex-1"
+                      onDblClick={(e: MouseEvent) => {
+                        e.stopPropagation()
+                        startRename()
+                      }}
+                    >
+                      {workspace()?.name}
+                    </span>
+                  }
                 >
-                  <Icon name="arrow-up" size="small" class="text-icon-weak" />
-                </div>
-              </Tooltip>
-              <Tooltip placement="left" value={t("workspace.delete")} class="flex-1">
-                <div
-                  class="size-full flex items-center justify-center cursor-pointer hover:bg-surface-raised-base-hover transition-colors rounded-br-md"
-                  onClick={(e: MouseEvent) => {
-                    e.stopPropagation()
-                    deleteWorkspace(cardProps.id)
-                  }}
-                >
-                  <Icon name="trash" size="small" class="text-icon-weak" />
-                </div>
-              </Tooltip>
+                  {renameInput()}
+                </Show>
+              </button>
+            </Tooltip>
+            <div class="shrink-0 flex items-center gap-0.5 ml-auto opacity-0 group-hover/workspace:opacity-100 transition-opacity duration-150 pr-1">
+              <DropdownMenu>
+                <DropdownMenu.Trigger
+                  as={IconButton}
+                  icon="dot-grid"
+                  variant="ghost"
+                  class="size-7 rounded-lg cursor-pointer"
+                  aria-label={t("workspace.more")}
+                />
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    class="min-w-36"
+                    style={{
+                      "background-color": "var(--surface-base)",
+                      border: "none",
+                      "box-shadow": "var(--shadow-xs-border)",
+                      "--dropdown-item-hover": "var(--surface-base-hover)",
+                    }}
+                  >
+                    <Show when={!dot().offline}>
+                      <DropdownMenu.Item onSelect={() => handleOpenWorkspace(ws())}>
+                        <Icon name="enter" size="small" class="size-4 text-icon-weak" />
+                        <DropdownMenu.ItemLabel>{t("workspace.run")}</DropdownMenu.ItemLabel>
+                      </DropdownMenu.Item>
+                    </Show>
+                    <DropdownMenu.Item onSelect={startRename}>
+                      <Icon name="edit" size="small" class="size-4 text-icon-weak" />
+                      <DropdownMenu.ItemLabel>{t("workspace.rename")}</DropdownMenu.ItemLabel>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator />
+                    <DropdownMenu.Item onSelect={() => deleteWorkspace(cardProps.id)}>
+                      <Icon name="trash" size="small" class="size-4 text-icon-critical-base" />
+                      <DropdownMenu.ItemLabel>{t("workspace.delete")}</DropdownMenu.ItemLabel>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu>
             </div>
           </div>
         )}
@@ -439,77 +432,73 @@ export function WorkspaceSidebar() {
   }
 
   return (
-    <div class="flex flex-col h-full w-full bg-background-stronger border-r border-border-weak-base">
-      <div class="h-10 shrink-0 flex items-center px-4">
-        <span class="text-13-medium">{t("workspace.page.title")}</span>
+    <aside class="flex flex-col h-full w-full bg-surface-base border-r border-border-weak-base">
+      {/* Header */}
+      <div class="shrink-0 h-[41px] px-3 border-b border-border-weak-base flex items-center">
+        <div class="flex items-center gap-2.5">
+          <span class="text-sm font-semibold text-text-strong">{t("workspace.page.title")}</span>
+        </div>
       </div>
-      <div class="shrink-0 p-2 flex items-center gap-1 border-t border-border-weak-base">
-        <div class="flex-1 flex items-center gap-2 h-8 px-2 bg-background-base rounded-md border border-border-weak-base focus-within:border-border-strong-base">
-          <Icon name="magnifying-glass" class="size-4 text-text-weak shrink-0" />
+
+      {/* Search */}
+      <div class="shrink-0 px-3 py-2.5">
+        <div class="flex items-center h-9 w-full rounded-lg bg-surface-inset-base border border-border-weak-base focus-within:border-border-strong-base transition-all duration-200">
+          <Icon name="magnifying-glass" class="size-4 text-text-weak shrink-0 ml-3" />
           <input
             type="text"
             placeholder={t("workspace.search.placeholder")}
             value={workspaceSearchQuery()}
             onInput={(e: Event) => setWorkspaceSearchQuery((e.target as HTMLInputElement).value)}
-            class="flex-1 text-13-regular bg-transparent placeholder:text-text-weak focus:outline-none"
+            class="flex-1 min-w-0 h-full px-2 text-sm bg-transparent placeholder:text-text-weak focus:outline-none"
           />
+          <Show when={workspaceSearchQuery()}>
+            <button
+              type="button"
+              onClick={() => setWorkspaceSearchQuery("")}
+              class="flex items-center justify-center size-6 rounded-full text-icon-weak hover:text-icon-strong hover:bg-surface-inset-base transition-colors cursor-pointer mr-1"
+            >
+              <Icon name="close" class="size-3.5" />
+            </button>
+          </Show>
         </div>
       </div>
 
-      <div class="flex-1 min-h-0 overflow-y-auto pb-2">
-        <Collapsible open={!isRunningCollapsed()}>
-          <div class="px-2 py-1">
-            <Collapsible.Trigger
-              class="flex items-center gap-1 px-1 py-0.5 w-full rounded-md hover:bg-surface-base-hover transition-colors cursor-pointer mb-1"
-              onClick={() => setIsRunningCollapsed((v) => !v)}
-            >
-              <Icon
-                name={isRunningCollapsed() ? "chevron-right" : "chevron-down"}
-                size="small"
-                class="size-4 text-icon-weak shrink-0"
-              />
-              <span class="text-12-medium text-text-weak">{t("workspace.running")}</span>
-              <span class="text-11-regular text-text-weaker">{runningIds().length}</span>
-            </Collapsible.Trigger>
-            <Collapsible.Content>
-              <div class="flex flex-col gap-1.5">
-                <For each={runningIds()}>{(id) => <WorkspaceCard id={id} isRunning={true} />}</For>
-              </div>
-            </Collapsible.Content>
+      {/* Workspace list — 60% */}
+      <div class="flex-[3] min-h-0 overflow-y-auto thin-scrollbar py-1">
+        {/* Running workspaces */}
+        <Show when={runningIds().length > 0}>
+          <div class="mb-2">
+            <div class="flex items-center gap-1.5 px-3 py-1.5">
+              <span class="text-xs font-medium text-text-weak uppercase tracking-wider">{t("workspace.running")}</span>
+              <span class="text-[11px] text-text-weaker ml-auto">{runningIds().length}</span>
+            </div>
+            <div class="flex flex-col gap-0.5 px-2">
+              <For each={runningIds()}>{(id) => <WorkspaceCard id={id} isRunning={true} />}</For>
+            </div>
           </div>
-        </Collapsible>
+        </Show>
 
-        <Collapsible open={!isIdleCollapsed()}>
-          <div class="px-2 py-1">
-            <Collapsible.Trigger
-              class="flex items-center gap-1 px-1 py-0.5 w-full rounded-md hover:bg-surface-base-hover transition-colors cursor-pointer mb-1"
-              onClick={() => setIsIdleCollapsed((v) => !v)}
-            >
-              <Icon
-                name={isIdleCollapsed() ? "chevron-right" : "chevron-down"}
-                size="small"
-                class="size-4 text-icon-weak shrink-0"
-              />
-              <span class="text-12-medium text-text-weak">{t("workspace.idle")}</span>
-              <span class="text-11-regular text-text-weaker">{idleIds().length}</span>
-            </Collapsible.Trigger>
-            <Collapsible.Content>
-              <div class="flex flex-col gap-1.5">
-                <For each={idleIds()}>{(id) => <WorkspaceCard id={id} isRunning={false} />}</For>
-                <Show when={filteredWorkspaces().length === 0}>
-                  <div class="flex flex-col items-center justify-center py-8 text-text-weak">
-                    <Icon name="folder" class="size-8 mb-2 opacity-30" />
-                    <span class="text-12-regular">{t("workspace.empty")}</span>
-                    <span class="text-11-regular text-text-weaker mt-1">{t("workspace.emptyHint")}</span>
-                  </div>
-                </Show>
-              </div>
-            </Collapsible.Content>
+        {/* Idle workspaces */}
+        <div>
+          <div class="flex items-center gap-1.5 px-3 py-1.5">
+            <span class="text-xs font-medium text-text-weak uppercase tracking-wider">{t("workspace.idle")}</span>
+            <span class="text-[11px] text-text-weaker ml-auto">{idleIds().length}</span>
           </div>
-        </Collapsible>
+          <div class="flex flex-col gap-1.5 px-2">
+            <For each={idleIds()}>{(id) => <WorkspaceCard id={id} isRunning={false} />}</For>
+            <Show when={filteredWorkspaces().length === 0}>
+              <div class="flex flex-col items-center justify-center py-8 text-text-weak">
+                <Icon name="folder" class="size-8 mb-2 opacity-30" />
+                <span class="text-xs">{t("workspace.empty")}</span>
+                <span class="text-[11px] text-text-weaker mt-1">{t("workspace.emptyHint")}</span>
+              </div>
+            </Show>
+          </div>
+        </div>
       </div>
 
-      <div class="shrink-0 border-t border-border-weak-base max-h-80 overflow-y-auto">
+      {/* Device list — 40% */}
+      <div class="flex-[2] min-h-0 overflow-y-auto thin-scrollbar border-t border-border-weak-base">
         <DeviceList
           devices={devices}
           selectedDeviceId={selectedDeviceId}
@@ -521,7 +510,7 @@ export function WorkspaceSidebar() {
           onToggleCollapse={() => setIsDeviceListCollapsed((v) => !v)}
         />
       </div>
-    </div>
+    </aside>
   )
 }
 
@@ -706,7 +695,7 @@ function WorkspaceSessions(props: { id: string }) {
   }
 
   return (
-    <div class="pr-1 py-1">
+    <div class="pl-2 pr-1 py-1">
       <Show when={sessions().length > 0}>
         <nav class="flex flex-col gap-0.5">
           <For each={sessions()}>
@@ -715,31 +704,34 @@ function WorkspaceSessions(props: { id: string }) {
               return (
                 <div class="group/session relative">
                   <button
-                    class="flex items-center gap-1.5 px-2 h-8 rounded-md text-left transition-all w-full group-hover/session:pr-7"
+                    class="flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all duration-150 w-full group-hover/session:pr-8"
                     classList={{
-                      "bg-surface-base-active": active(),
-                      "hover:bg-surface-raised-base-hover/50": !active(),
+                      "bg-surface-base text-text-strong font-medium": active(),
+                      "text-text-weak hover:text-text-strong hover:bg-surface-base/60": !active(),
                     }}
                     onClick={() => click(session)}
                   >
-                    <Icon
-                      name={active() ? "speech-bubble" : "dash"}
-                      class="size-3 shrink-0"
-                      classList={{ "text-icon-base": active(), "text-text-weaker": !active() }}
-                    />
-                    <span
-                      class="text-12-regular truncate flex-1"
-                      classList={{ "text-text-strong": active(), "text-text-base": !active() }}
+                    <Show
+                      when={active()}
+                      fallback={
+                        <Icon
+                          name="dash"
+                          class="size-3 shrink-0"
+                          size="small"
+                          classList={{ "text-text-weaker": true }}
+                        />
+                      }
                     >
-                      {session.title || t("workspace.session.new")}
-                    </span>
+                      <Spinner class="size-3.5 shrink-0" style={{ color: "var(--icon-interactive-base)" }} />
+                    </Show>
+                    <span class="text-xs truncate flex-1">{session.title || t("workspace.session.new")}</span>
                   </button>
-                  <div class="absolute top-0.5 right-0.5 flex items-center opacity-0 pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto transition-opacity">
+                  <div class="absolute top-0.5 right-0.5 flex items-center opacity-0 pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto transition-opacity duration-150">
                     <Tooltip value={t("common.archive")} placement="top">
                       <IconButton
                         icon="archive"
                         variant="ghost"
-                        class="size-6 rounded-md"
+                        class="size-7 rounded-lg"
                         aria-label={t("common.archive")}
                         onClick={(event: MouseEvent) => {
                           event.preventDefault()
@@ -755,7 +747,7 @@ function WorkspaceSessions(props: { id: string }) {
           </For>
           <Show when={more()}>
             <button
-              class="flex items-center justify-center h-7 w-full rounded text-11-regular text-text-weak hover:bg-surface-raised-base-hover/50 transition-colors"
+              class="flex items-center justify-center h-8 w-full rounded-lg text-xs text-text-weak hover:text-text-strong hover:bg-surface-base/60 transition-all duration-150"
               disabled={loading()}
               onClick={loadMore}
             >
@@ -767,14 +759,14 @@ function WorkspaceSessions(props: { id: string }) {
         </nav>
       </Show>
       <Show when={loading() && sessions().length === 0}>
-        <div class="flex items-center gap-2 py-2 px-2">
+        <div class="flex items-center gap-2 py-3 px-2">
           <Spinner class="size-3.5" />
-          <span class="text-11-regular text-text-weaker">{t("workspace.loadingSessions")}</span>
+          <span class="text-xs text-text-weaker">{t("workspace.loadingSessions")}</span>
         </div>
       </Show>
       <Show when={!loading() && sessions().length === 0}>
-        <div class="flex items-center gap-2 py-2 px-2">
-          <span class="text-11-regular text-text-weaker">{t("workspace.emptySessions")}</span>
+        <div class="flex items-center gap-2 py-3 px-2">
+          <span class="text-xs text-text-weaker">{t("workspace.emptySessions")}</span>
         </div>
       </Show>
     </div>
