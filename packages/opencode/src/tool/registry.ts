@@ -223,7 +223,7 @@ export namespace ToolRegistry {
               parameters: output.parameters,
             }
           } catch (e) {
-            log.error(`Failed to initialize tool ${t.id}:`, e)
+            log.error(`Failed to initialize tool ${t.id}:`, { error: e instanceof Error ? e.message : String(e) })
             return null
           }
         }),
