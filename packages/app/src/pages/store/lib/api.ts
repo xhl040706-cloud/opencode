@@ -219,7 +219,6 @@ export interface CapabilityItem {
   lastScanId?: string
   repoName?: string
   createdBy: string
-  createdByName?: string
   createdAt: string
   updatedAt: string
   registry?: CapabilityRegistry
@@ -551,8 +550,49 @@ export const repoApi = {
     }),
 }
 
+// ---------------------------------------------------------------------------
+// User name cache (in-memory, TTL 10 min)
+// ---------------------------------------------------------------------------
+const _userNameCache = new Map<string, { name: string; expiresAt: number }>()
+const USER_NAME_CACHE_TTL = 10 * 60 * 1000 // 10 minutes
+
+async function resolveUserNames(ids: string[]): Promise<Record<string, string>> {
+  const now = Date.now()
+  const result: Record<string, string> = {}
+  const missIds: string[] = []
+
+  for (const id of ids) {
+    const entry = _userNameCache.get(id)
+    if (entry && now < entry.expiresAt) {
+      result[id] = entry.name
+    } else {
+      missIds.push(id)
+    }
+  }
+
+  if (missIds.length === 0) return result
+
+  try {
+    const resp = await apiFetch<{ names: Record<string, string> }>(
+      `/api/users/names?ids=${missIds.map(encodeURIComponent).join(",")}`,
+    )
+    const expiry = now + USER_NAME_CACHE_TTL
+    for (const id of missIds) {
+      const name = resp.names[id] ?? id
+      _userNameCache.set(id, { name, expiresAt: expiry })
+      result[id] = name
+    }
+  } catch {
+    // On error, fall back to raw IDs for the misses
+    for (const id of missIds) result[id] = id
+  }
+
+  return result
+}
+
 export const userApi = {
   search: (q: string) => apiFetch<{ users: SearchedUser[] }>(`/api/users/search?q=${encodeURIComponent(q)}`),
+  getNames: (ids: string[]) => resolveUserNames(ids),
 }
 
 export const syncApi = {

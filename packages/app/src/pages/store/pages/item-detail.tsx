@@ -1,7 +1,7 @@
 import { createResource, createSignal, Show, For } from "solid-js"
 import { useParams, useNavigate } from "@solidjs/router"
 import { Icon } from "@opencode-ai/ui/icon"
-import { itemApi, artifactApi, scanApi, type CapabilityItem, type ScanResult } from "../lib/api"
+import { itemApi, artifactApi, scanApi, userApi, type CapabilityItem, type ScanResult } from "../lib/api"
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
 import { categoryKey, formatBytes } from "../lib/constants"
@@ -170,6 +170,10 @@ export default function ItemDetail() {
   const [scans] = createResource(
     () => params.id,
     (id) => scanApi.list(id).then((r) => r.results),
+  )
+  const [authorName] = createResource(
+    () => item()?.createdBy,
+    (createdBy) => userApi.getNames([createdBy]).then((names) => names[createdBy] ?? createdBy),
   )
   const [copied, setCopied] = createSignal(false)
 
@@ -351,7 +355,7 @@ export default function ItemDetail() {
                                 ? language.t("store.capability.visibility.private")
                                 : "-",
                           ],
-                          ...(data().createdByName ? [[language.t("store.detail.author"), data().createdByName]] : []),
+                          ...(authorName() ? [[language.t("store.detail.author"), authorName()]] : []),
                           [language.t("store.detail.created"), formatDate(data().createdAt)],
                           [language.t("store.detail.updated"), formatDate(data().updatedAt)],
                         ] as [string, string][]
