@@ -3,7 +3,7 @@ import fs from "fs"
 import path from "path"
 import { Server } from "../../server/server"
 import { cmd } from "./cmd"
-import { register } from "../../costrict/device/client"
+import { register, getCloudBaseUrl } from "../../costrict/device/client"
 import { connect } from "../../costrict/device/tunnel"
 import { initCloudNotifier } from "../../costrict/device/notify"
 import { Daemon } from "../../costrict/device/daemon"
@@ -80,7 +80,7 @@ async function runWorker() {
   const device = JSON.parse(raw) as import("../../costrict/device/client").DeviceInfo
   console.log(`device registered: ${device.device_id}`)
 
-  initCloudNotifier(device.base_url, device.device_token, device.device_id)
+  initCloudNotifier(getCloudBaseUrl(), device.device_token, device.device_id)
 
   const server = Server.listen({ port: 0, hostname: "127.0.0.1" })
   console.log(`internal server on port ${server.port}`)

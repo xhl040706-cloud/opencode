@@ -35,18 +35,22 @@ async function saveDevice(info: DeviceInfo): Promise<void> {
   await fs.writeFile(getDevicePath(), JSON.stringify(info, null, 2), { encoding: "utf-8", mode: 0o600 })
 }
 
-function getCloudBaseUrl(credBaseUrl?: string): string {
-  return Flag.COSTRICT_CLOUD_BASE_URL || credBaseUrl || Flag.COSTRICT_BASE_URL || "https://zgsm.sangfor.com"
+const CLOUD_API_PREFIX = "cloud-api"
+
+export function getCloudBaseUrl(credBaseUrl?: string): string {
+  if (Flag.COSTRICT_CLOUD_BASE_URL) return Flag.COSTRICT_CLOUD_BASE_URL.replace(/\/$/, "")
+  const base = (credBaseUrl || Flag.COSTRICT_BASE_URL || "https://zgsm.sangfor.com").replace(/\/$/, "")
+  return `${base}/${CLOUD_API_PREFIX}`
 }
 
 export async function register(): Promise<DeviceInfo> {
   const existing = await loadDevice()
   if (existing) {
     log.info("device already registered, reusing", { device_id: existing.device_id })
-    const override = process.env["COSTRICT_CLOUD_BASE_URL"] || process.env["COSTRICT_BASE_URL"]
-    if (override && existing.base_url !== override) {
-      existing.base_url = override
-      log.info("base_url overridden by env", { base_url: override })
+    const resolved = getCloudBaseUrl()
+    if (resolved !== existing.base_url) {
+      existing.base_url = resolved
+      log.info("base_url overridden by env", { base_url: resolved })
     }
     return existing
   }

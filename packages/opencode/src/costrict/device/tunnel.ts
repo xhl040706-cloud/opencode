@@ -1,4 +1,4 @@
-import { loadDevice } from "./client"
+import { loadDevice, getCloudBaseUrl } from "./client"
 import { assignGateway, clearGatewayCache } from "./gateway"
 import { Log } from "../../util/log"
 import net from "net"
@@ -540,8 +540,8 @@ export async function connect(localPort: number): Promise<void> {
       return
     }
 
-    const baseOverride = process.env["COSTRICT_CLOUD_BASE_URL"] || process.env["COSTRICT_BASE_URL"]
-    if (baseOverride) device.base_url = baseOverride
+    const override = getCloudBaseUrl()
+    if (override) device.base_url = override
 
     log.info("connecting to gateway tunnel", { attempt, device_id: device.device_id, base_url: device.base_url })
 
