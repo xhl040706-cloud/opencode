@@ -197,13 +197,12 @@ const createPlatform = (): Platform => {
       await window.api.setWslConfig({ enabled })
     },
 
-    getDefaultServer: async () => {
+    getDefaultServerUrl: async () => {
       const url = await window.api.getDefaultServerUrl().catch(() => null)
-      if (!url) return null
-      return ServerConnection.Key.make(url)
+      return url
     },
 
-    setDefaultServer: async (url: string | null) => {
+    setDefaultServerUrl: async (url: string | null) => {
       await window.api.setDefaultServerUrl(url)
     },
 
@@ -249,7 +248,7 @@ render(() => {
   const [sidecar] = createResource(() => window.api.awaitInitialization(() => undefined))
 
   const [defaultServer] = createResource(() =>
-    platform.getDefaultServer?.().then((url) => {
+    platform.getDefaultServerUrl?.().then((url) => {
       if (url) return ServerConnection.key({ type: "http", http: { url } })
     }),
   )
@@ -313,7 +312,6 @@ render(() => {
                 defaultServer={defaultServer.latest ?? ServerConnection.Key.make("sidecar")}
                 servers={servers()}
                 router={MemoryRouter}
-                disableHealthCheck={(windowCount() ?? 0) > 1}
               >
                 <Inner />
               </AppInterface>

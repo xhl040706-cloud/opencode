@@ -157,7 +157,7 @@ async function triggerNotification(data: InterventionData) {
     )
   } catch {}
 
-  const session = await Session.get(data.sessionID).catch(() => null)
+  const session = await Session.get(SessionID.make(data.sessionID)).catch(() => null)
   const directory = session?.directory ?? ""
 
   notifyCloud({ type: data.type, sessionID: data.sessionID, data: data.data }, directory).catch(() => {})

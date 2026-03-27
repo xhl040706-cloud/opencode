@@ -677,10 +677,12 @@ export default function Layout(props: ParentProps) {
     return [...map.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   }
 
+  type SessionMessagesResponse = Awaited<ReturnType<typeof globalSDK.client.session.messages>>
+
   async function prefetchMessages(directory: string, sessionID: string, token: number) {
     const [store, setStore] = globalSync.child(directory, { bootstrap: false })
 
-    return retry(() => globalSDK.client.session.messages({ directory, sessionID, limit: prefetchChunk }))
+    return retry<SessionMessagesResponse>(() => globalSDK.client.session.messages({ directory, sessionID, limit: prefetchChunk }))
       .then((messages) => {
         if (prefetchToken.value !== token) return
 
@@ -2197,4 +2199,4 @@ export default function Layout(props: ParentProps) {
       <Toast.Region />
     </div>
   )
-}
+}
