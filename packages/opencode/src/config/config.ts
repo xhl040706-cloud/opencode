@@ -77,223 +77,228 @@ export namespace Config {
   }
 
   export const state = Instance.state(async () => {
-    const auth = await Auth.all()
+    const timer = log.time("startup.config.state")
 
-    // Config loading order (low -> high precedence): https://opencode.ai/docs/config#precedence-order
-    // 1) Remote .well-known/opencode (org defaults)
-    // 2) Global config (~/.config/opencode/opencode.json{,c})
-    // 3) Custom config (OPENCODE_CONFIG)
-    // 4) Project config (opencode.json{,c})
-    // 5) .opencode directories (.opencode/agents/, .opencode/commands/, .opencode/plugins/, .opencode/opencode.json{,c})
-    // 6) Inline config (OPENCODE_CONFIG_CONTENT)
-    // Managed config directory is enterprise-only and always overrides everything above.
-    let result: Info = {}
-    for (const [key, value] of Object.entries(auth)) {
-      if (value.type === "wellknown") {
-        const url = key.replace(/\/+$/, "")
-        process.env[value.key] = value.token
-        log.debug("fetching remote config", { url: `${key}/.well-known/opencode` })
-        try {
-          const response = await fetch(`${key}/.well-known/opencode`)
-          if (!response.ok) {
-            log.warn(`failed to fetch remote config from ${key}: ${response.status}`)
+    try {
+      const auth = await Auth.all()
+      // Config loading order (low -> high precedence): https://opencode.ai/docs/config#precedence-order
+      // 1) Remote .well-known/opencode (org defaults)
+      // 2) Global config (~/.config/opencode/opencode.json{,c})
+      // 3) Custom config (OPENCODE_CONFIG)
+      // 4) Project config (opencode.json{,c})
+      // 5) .opencode directories (.opencode/agents/, .opencode/commands/, .opencode/plugins/, .opencode/opencode.json{,c})
+      // 6) Inline config (OPENCODE_CONFIG_CONTENT)
+      // Managed config directory is enterprise-only and always overrides everything above.
+      let result: Info = {}
+      for (const [key, value] of Object.entries(auth)) {
+        if (value.type === "wellknown") {
+          const url = key.replace(/\/+$/, "")
+          process.env[value.key] = value.token
+          log.debug("fetching remote config", { url: `${key}/.well-known/opencode` })
+          try {
+            const response = await fetch(`${key}/.well-known/opencode`)
+            if (!response.ok) {
+              log.warn(`failed to fetch remote config from ${key}: ${response.status}`)
+              continue
+            }
+            const wellknown = (await response.json()) as any
+            const remoteConfig = wellknown.config ?? {}
+            if (!remoteConfig.$schema) remoteConfig.$schema = "https://costrict.ai/config.json"
+            result = mergeDeep(
+              result,
+              await load(JSON.stringify(remoteConfig), {
+                dir: path.dirname(`${key}/.well-known/opencode`),
+                source: `${key}/.well-known/opencode`,
+              }),
+            )
+            log.debug("loaded remote config from well-known", { url: key })
+          } catch (error) {
+            // costrict change: 在内网环境下无法访问时继续启动,不抛出异常
+            log.warn(`failed to fetch remote config from ${key}`, { error })
             continue
           }
-          const wellknown = (await response.json()) as any
-          const remoteConfig = wellknown.config ?? {}
-          if (!remoteConfig.$schema) remoteConfig.$schema = "https://costrict.ai/config.json"
-          result = mergeDeep(
-            result,
-            await load(JSON.stringify(remoteConfig), {
-              dir: path.dirname(`${key}/.well-known/opencode`),
-              source: `${key}/.well-known/opencode`,
-            }),
-          )
-          log.debug("loaded remote config from well-known", { url: key })
-        } catch (error) {
-          // costrict change: 在内网环境下无法访问时继续启动,不抛出异常
-          log.warn(`failed to fetch remote config from ${key}`, { error })
-          continue
         }
       }
-    }
 
-    // Global user config overrides remote config.
-    result = mergeConfigConcatArrays(result, await global())
+      // Global user config overrides remote config.
+      result = mergeConfigConcatArrays(result, await global())
 
-    // Load OpenCode custom config path
-    if (Flag.OPENCODE_CONFIG) {
-      result = mergeConfigConcatArrays(result, await loadFile(Flag.OPENCODE_CONFIG))
-      log.debug("loaded OpenCode custom config", { path: Flag.OPENCODE_CONFIG })
-    }
-
-    // Load OpenCode project config
-    if (!Flag.COSTRICT_DISABLE_PROJECT_CONFIG) {
-      for (const file of await ConfigPaths.projectFiles("opencode", Instance.directory, Instance.worktree)) {
-        result = mergeConfigConcatArrays(result, await loadFile(file))
+      // Load OpenCode custom config path
+      if (Flag.OPENCODE_CONFIG) {
+        result = mergeConfigConcatArrays(result, await loadFile(Flag.OPENCODE_CONFIG))
+        log.debug("loaded OpenCode custom config", { path: Flag.OPENCODE_CONFIG })
       }
-    }
 
-    // Load OpenCode inline config content
-    if (Flag.OPENCODE_CONFIG_CONTENT) {
-      result = mergeDeep(result, JSON.parse(Flag.OPENCODE_CONFIG_CONTENT))
-      log.debug("loaded OpenCode custom config from OPENCODE_CONFIG_CONTENT")
-    }
+      // Load OpenCode project config
+      if (!Flag.COSTRICT_DISABLE_PROJECT_CONFIG) {
+        for (const file of await ConfigPaths.projectFiles("opencode", Instance.directory, Instance.worktree)) {
+          result = mergeConfigConcatArrays(result, await loadFile(file))
+        }
+      }
 
-    result.agent = result.agent || {}
-    result.mode = result.mode || {}
-    result.plugin = result.plugin || []
+      // Load OpenCode inline config content
+      if (Flag.OPENCODE_CONFIG_CONTENT) {
+        result = mergeDeep(result, JSON.parse(Flag.OPENCODE_CONFIG_CONTENT))
+        log.debug("loaded OpenCode custom config from OPENCODE_CONFIG_CONTENT")
+      }
 
-    const directories = await ConfigPaths.directories(Instance.directory, Instance.worktree)
+      result.agent = result.agent || {}
+      result.mode = result.mode || {}
+      result.plugin = result.plugin || []
 
-    if (Flag.COSTRICT_ENABLE_OPENCODE_CONFIG && Flag.OPENCODE_CONFIG_DIR) {
-      directories.push(Flag.OPENCODE_CONFIG_DIR)
-      log.debug("loading config from OPENCODE_CONFIG_DIR", { path: Flag.OPENCODE_CONFIG_DIR })
-    }
+      const directories = await ConfigPaths.directories(Instance.directory, Instance.worktree)
 
-    if (Flag.COSTRICT_CONFIG_DIR) {
-      directories.push(Flag.COSTRICT_CONFIG_DIR)
-      log.debug("loading config from COSTRICT_CONFIG_DIR", { path: Flag.COSTRICT_CONFIG_DIR })
-    }
-    const deps = []
+      if (Flag.COSTRICT_ENABLE_OPENCODE_CONFIG && Flag.OPENCODE_CONFIG_DIR) {
+        directories.push(Flag.OPENCODE_CONFIG_DIR)
+        log.debug("loading config from OPENCODE_CONFIG_DIR", { path: Flag.OPENCODE_CONFIG_DIR })
+      }
 
-    for (const dir of unique(directories)) {
-      // Load OpenCode config files first (lower priority)
-      if (
-        Flag.COSTRICT_ENABLE_OPENCODE_CONFIG &&
-        (dir.endsWith(".opencode") || dir.endsWith("opencode") || dir === Flag.OPENCODE_CONFIG_DIR)
-      ) {
+      if (Flag.COSTRICT_CONFIG_DIR) {
+        directories.push(Flag.COSTRICT_CONFIG_DIR)
+        log.debug("loading config from COSTRICT_CONFIG_DIR", { path: Flag.COSTRICT_CONFIG_DIR })
+      }
+      const deps = []
+
+      for (const dir of unique(directories)) {
+        // Load OpenCode config files first (lower priority)
+        if (
+          Flag.COSTRICT_ENABLE_OPENCODE_CONFIG &&
+          (dir.endsWith(".opencode") || dir.endsWith("opencode") || dir === Flag.OPENCODE_CONFIG_DIR)
+        ) {
+          for (const file of ["opencode.jsonc", "opencode.json"]) {
+            log.debug(`loading config from ${path.join(dir, file)}`)
+            result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
+            // to satisfy the type checker
+            result.agent ??= {}
+            result.mode ??= {}
+            result.plugin ??= []
+          }
+        }
+
+        // Load CoStrict config files (higher priority, overrides OpenCode)
+        if (dir.endsWith(".costrict") || dir === Flag.COSTRICT_CONFIG_DIR) {
+          for (const file of ["costrict.jsonc", "costrict.json"]) {
+            log.debug(`loading CoStrict config from ${path.join(dir, file)}`)
+            result = mergeDeep(result, await loadFile(path.join(dir, file)))
+            result.agent ??= {}
+            result.mode ??= {}
+            result.plugin ??= []
+          }
+        }
+
+        deps.push(
+          iife(async () => {
+            const shouldInstall = await needsInstall(dir)
+            if (shouldInstall) await installDependencies(dir)
+          }),
+        )
+
+        result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
+        result.agent = mergeDeep(result.agent, await loadAgent(dir, result.promptLanguage))
+        result.agent = mergeDeep(result.agent, await loadMode(dir))
+        result.plugin.push(...(await loadPlugin(dir)))
+      }
+
+      // Inline config content overrides all non-managed config sources.
+      if (process.env.OPENCODE_CONFIG_CONTENT) {
+        result = mergeConfigConcatArrays(
+          result,
+          await load(process.env.OPENCODE_CONFIG_CONTENT, {
+            dir: Instance.directory,
+            source: "OPENCODE_CONFIG_CONTENT",
+          }),
+        )
+        log.debug("loaded custom config from OPENCODE_CONFIG_CONTENT")
+      }
+
+      const active = Account.active()
+      if (active?.active_org_id) {
+        try {
+          const [config, token] = await Promise.all([
+            Account.config(active.id, active.active_org_id),
+            Account.token(active.id),
+          ])
+          if (token) {
+            process.env["OPENCODE_CONSOLE_TOKEN"] = token
+            Env.set("OPENCODE_CONSOLE_TOKEN", token)
+          }
+
+          if (config) {
+            result = mergeConfigConcatArrays(
+              result,
+              await load(JSON.stringify(config), {
+                dir: path.dirname(`${active.url}/api/config`),
+                source: `${active.url}/api/config`,
+              }),
+            )
+          }
+        } catch (err: any) {
+          log.debug("failed to fetch remote account config", { error: err?.message ?? err })
+        }
+      }
+
+      // Load managed config files last (highest priority) - enterprise admin-controlled
+      // Kept separate from directories array to avoid write operations when installing plugins
+      // which would fail on system directories requiring elevated permissions
+      // This way it only loads config file and not skills/plugins/commands
+      if (existsSync(managedDir)) {
         for (const file of ["opencode.jsonc", "opencode.json"]) {
-          log.debug(`loading config from ${path.join(dir, file)}`)
-          result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
-          // to satisfy the type checker
-          result.agent ??= {}
-          result.mode ??= {}
-          result.plugin ??= []
+          result = mergeConfigConcatArrays(result, await loadFile(path.join(managedDir, file)))
         }
       }
 
-      // Load CoStrict config files (higher priority, overrides OpenCode)
-      if (dir.endsWith(".costrict") || dir === Flag.COSTRICT_CONFIG_DIR) {
-        for (const file of ["costrict.jsonc", "costrict.json"]) {
-          log.debug(`loading CoStrict config from ${path.join(dir, file)}`)
-          result = mergeDeep(result, await loadFile(path.join(dir, file)))
-          result.agent ??= {}
-          result.mode ??= {}
-          result.plugin ??= []
-        }
+      // Migrate deprecated mode field to agent field
+      for (const [name, mode] of Object.entries(result.mode ?? {})) {
+        result.agent = mergeDeep(result.agent ?? {}, {
+          [name]: {
+            ...mode,
+            mode: "primary" as const,
+          },
+        })
       }
 
-      deps.push(
-        iife(async () => {
-          const shouldInstall = await needsInstall(dir)
-          if (shouldInstall) await installDependencies(dir)
-        }),
-      )
-
-      result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
-      result.agent = mergeDeep(result.agent, await loadAgent(dir, result.promptLanguage))
-      result.agent = mergeDeep(result.agent, await loadMode(dir))
-      result.plugin.push(...(await loadPlugin(dir)))
-    }
-
-    // Inline config content overrides all non-managed config sources.
-    if (process.env.OPENCODE_CONFIG_CONTENT) {
-      result = mergeConfigConcatArrays(
-        result,
-        await load(process.env.OPENCODE_CONFIG_CONTENT, {
-          dir: Instance.directory,
-          source: "OPENCODE_CONFIG_CONTENT",
-        }),
-      )
-      log.debug("loaded custom config from OPENCODE_CONFIG_CONTENT")
-    }
-
-    const active = Account.active()
-    if (active?.active_org_id) {
-      try {
-        const [config, token] = await Promise.all([
-          Account.config(active.id, active.active_org_id),
-          Account.token(active.id),
-        ])
-        if (token) {
-          process.env["OPENCODE_CONSOLE_TOKEN"] = token
-          Env.set("OPENCODE_CONSOLE_TOKEN", token)
-        }
-
-        if (config) {
-          result = mergeConfigConcatArrays(
-            result,
-            await load(JSON.stringify(config), {
-              dir: path.dirname(`${active.url}/api/config`),
-              source: `${active.url}/api/config`,
-            }),
-          )
-        }
-      } catch (err: any) {
-        log.debug("failed to fetch remote account config", { error: err?.message ?? err })
+      if (Flag.COSTRICT_PERMISSION) {
+        result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.COSTRICT_PERMISSION))
       }
-    }
 
-    // Load managed config files last (highest priority) - enterprise admin-controlled
-    // Kept separate from directories array to avoid write operations when installing plugins
-    // which would fail on system directories requiring elevated permissions
-    // This way it only loads config file and not skills/plugins/commands
-    if (existsSync(managedDir)) {
-      for (const file of ["opencode.jsonc", "opencode.json"]) {
-        result = mergeConfigConcatArrays(result, await loadFile(path.join(managedDir, file)))
-      }
-    }
-
-    // Migrate deprecated mode field to agent field
-    for (const [name, mode] of Object.entries(result.mode ?? {})) {
-      result.agent = mergeDeep(result.agent ?? {}, {
-        [name]: {
-          ...mode,
-          mode: "primary" as const,
-        },
-      })
-    }
-
-    if (Flag.COSTRICT_PERMISSION) {
-      result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.COSTRICT_PERMISSION))
-    }
-
-    // Backwards compatibility: legacy top-level `tools` config
-    if (result.tools) {
-      const perms: Record<string, Config.PermissionAction> = {}
-      for (const [tool, enabled] of Object.entries(result.tools)) {
-        const action: Config.PermissionAction = enabled ? "allow" : "deny"
-        if (tool === "write" || tool === "edit" || tool === "patch" || tool === "multiedit") {
-          perms.edit = action
-          continue
+      // Backwards compatibility: legacy top-level `tools` config
+      if (result.tools) {
+        const perms: Record<string, Config.PermissionAction> = {}
+        for (const [tool, enabled] of Object.entries(result.tools)) {
+          const action: Config.PermissionAction = enabled ? "allow" : "deny"
+          if (tool === "write" || tool === "edit" || tool === "patch" || tool === "multiedit") {
+            perms.edit = action
+            continue
+          }
+          perms[tool] = action
         }
-        perms[tool] = action
+        result.permission = mergeDeep(perms, result.permission ?? {})
       }
-      result.permission = mergeDeep(perms, result.permission ?? {})
-    }
 
-    if (!result.username) result.username = os.userInfo().username
+      if (!result.username) result.username = os.userInfo().username
 
-    // Handle migration from autoshare to share field
-    if (result.autoshare === true && !result.share) {
-      result.share = "auto"
-    }
+      // Handle migration from autoshare to share field
+      if (result.autoshare === true && !result.share) {
+        result.share = "auto"
+      }
 
-    // Apply flag overrides for compaction settings
-    if (Flag.COSTRICT_DISABLE_AUTOCOMPACT) {
-      result.compaction = { ...result.compaction, auto: false }
-    }
-    if (Flag.COSTRICT_DISABLE_PRUNE) {
-      result.compaction = { ...result.compaction, prune: false }
-    }
+      // Apply flag overrides for compaction settings
+      if (Flag.COSTRICT_DISABLE_AUTOCOMPACT) {
+        result.compaction = { ...result.compaction, auto: false }
+      }
+      if (Flag.COSTRICT_DISABLE_PRUNE) {
+        result.compaction = { ...result.compaction, prune: false }
+      }
 
-    result.plugin = deduplicatePlugins(result.plugin ?? [])
+      result.plugin = deduplicatePlugins(result.plugin ?? [])
 
-    return {
-      config: result,
-      directories,
-      deps,
+      return {
+        config: result,
+        directories,
+        deps,
+      }
+    } finally {
+      timer.stop()
     }
   })
 

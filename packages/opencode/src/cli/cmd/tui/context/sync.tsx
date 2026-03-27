@@ -357,7 +357,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     async function bootstrap() {
       console.log("bootstrapping")
+      const timer = Log.Default.time("startup.tui.bootstrap")
       const start = Date.now() - 30 * 24 * 60 * 60 * 1000
+      const blockingStart = Date.now()
       const sessionListPromise = sdk.client.session
         .list({ start: start })
         .then((x) => (x.data ?? []).toSorted((a, b) => a.id.localeCompare(b.id)))
@@ -377,6 +379,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
       await Promise.all(blockingRequests)
         .then(() => {
+          Log.Default.info("startup.tui.bootstrap.blocking_requests", {
+            duration: Date.now() - blockingStart,
+            requests: ["config.providers", "provider.list", "app.agents", "config.get", ...(args.continue ? ["session.list"] : [])],
+          })
           const providersResponse = providersPromise.then((x) => x.data!)
           const providerListResponse = providerListPromise.then((x) => x.data!)
           const agentsResponse = agentsPromise.then((x) => x.data ?? [])
@@ -408,8 +414,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         })
         .then(() => {
           if (store.status !== "complete") setStore("status", "partial")
+          const nonBlockingStart = Date.now()
           // non-blocking
-          Promise.all([
+          return Promise.all([
             ...(args.continue ? [] : [sessionListPromise.then((sessions) => setStore("session", reconcile(sessions)))]),
             sdk.client.command.list().then((x) => setStore("command", reconcile(x.data ?? []))),
             sdk.client.lsp.status().then((x) => setStore("lsp", reconcile(x.data!))),
@@ -424,10 +431,15 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.path.get().then((x) => setStore("path", reconcile(x.data!))),
             syncWorkspaces(),
           ]).then(() => {
+            Log.Default.info("startup.tui.bootstrap.non_blocking_requests", {
+              duration: Date.now() - nonBlockingStart,
+            })
             setStore("status", "complete")
+            timer.stop()
           })
         })
         .catch(async (e) => {
+          timer.stop()
           Log.Default.error("tui bootstrap failed", {
             error: e instanceof Error ? e.message : String(e),
             name: e instanceof Error ? e.name : undefined,
