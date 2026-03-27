@@ -353,6 +353,11 @@ export const SkillPushCommand = cmd({
         type: "string",
         choices: ["private", "team", "public"],
         default: "private",
+      })
+      .option("force", {
+        describe: "force sync even if the skill was already pushed",
+        type: "boolean",
+        default: false,
       }),
   handler: async (args) => {
     await bootstrap(process.cwd(), async () => {
@@ -369,21 +374,25 @@ export const SkillPushCommand = cmd({
         process.exit(1)
       }
 
-      if (candidate.pushStatus === "pushed") {
-        UI.println(`Skill already pushed to server`)
-        UI.println(`Remote ID: ${candidate.remoteId}`)
-        UI.println(`Remote URL: ${candidate.remoteUrl}`)
-        return
-      }
+      UI.println(
+        args.force
+          ? `Force syncing skill "${candidate.name}" to server...`
+          : `Pushing skill "${candidate.name}" to server...`,
+      )
 
-      UI.println(`Pushing skill "${candidate.name}" to server...`)
-
-      const result = await SkillPusher.pushToServer(args.id, {
+      const result = await SkillPusher.syncToServer(args.id, {
         visibility: args.visibility as "private" | "team" | "public",
+        force: args.force,
       })
 
       if (result.success) {
-        UI.println(UI.Style.TEXT_SUCCESS_BOLD + `Skill pushed successfully!` + UI.Style.TEXT_NORMAL)
+        const successMessage =
+          result.action === "updated"
+            ? "Skill synced successfully!"
+            : result.action === "repaired"
+              ? "Skill metadata repaired successfully!"
+              : "Skill pushed successfully!"
+        UI.println(UI.Style.TEXT_SUCCESS_BOLD + successMessage + UI.Style.TEXT_NORMAL)
         UI.println(`Remote ID: ${result.remoteId}`)
         UI.println(`Remote URL: ${result.remoteUrl}`)
       } else {
