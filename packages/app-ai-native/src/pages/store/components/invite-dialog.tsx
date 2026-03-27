@@ -12,6 +12,7 @@ const inputClass =
 
 type Props = {
   repoId: string
+  currentUserId: string
 }
 
 export function InviteDialog(props: Props) {
@@ -36,7 +37,10 @@ export function InviteDialog(props: Props) {
       setStore("searching", true)
       try {
         const res = await userApi.search(trimmed)
-        setStore("results", res.users ?? [])
+        setStore(
+          "results",
+          (res.users ?? []).filter((u) => u.id !== props.currentUserId),
+        )
       } catch (err) {
         showToast({
           variant: "error",

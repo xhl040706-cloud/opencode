@@ -97,8 +97,8 @@ export function CreateRepoDialog(props: CreateRepoDialogProps) {
   }
 
   return (
-    <Dialog title={language.t("store.repoDialog.create.title")} class="w-full max-w-[720px] mx-auto">
-      <form onSubmit={handleSubmit} class="flex max-h-[calc(100vh-120px)] flex-col overflow-hidden">
+    <Dialog title={language.t("store.repoDialog.create.title")} size="x-large" class="w-full max-w-[860px] mx-auto">
+      <form onSubmit={handleSubmit} class="flex max-h-[calc(100vh-40px)] flex-col overflow-hidden">
         <div class="flex-1 overflow-y-auto px-6 pb-6 pt-2">
           <div class="rounded-xl border border-border-weak-base bg-surface-raised-base">
             <div class="border-b border-border-weak-base px-4 py-4">

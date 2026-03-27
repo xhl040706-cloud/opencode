@@ -180,21 +180,15 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
               <div class="mt-1 text-12-regular text-text-weak">
                 {language.t("store.capabilityDialog.create.typeDescription")}
               </div>
-              <div class="mt-2 grid grid-cols-2 gap-2">
+              <select
+                class={`${inputClass} mt-2`}
+                value={store.itemType}
+                onInput={(e) => setItemType(e.currentTarget.value as "skill" | "subagent" | "command" | "mcp")}
+              >
                 {(["skill", "subagent", "command", "mcp"] as const).map((type) => (
-                  <button
-                    type="button"
-                    class="rounded-md border px-3 py-2 text-left text-sm"
-                    classList={{
-                      "border-border-weak-base text-text-weak": store.itemType !== type,
-                      "border-border-strong bg-surface-info-base/20 text-text-strong": store.itemType === type,
-                    }}
-                    onClick={() => setItemType(type)}
-                  >
-                    {language.t(typeKey(type))}
-                  </button>
+                  <option value={type}>{language.t(typeKey(type))}</option>
                 ))}
-              </div>
+              </select>
             </div>
 
             <div class="border-b border-border-weak-base px-4 py-3">

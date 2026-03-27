@@ -40,7 +40,6 @@ const StoreSubagents = lazy(() => import("@/pages/store").then((m) => ({ default
 const StoreCommands = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreCommands })))
 const StoreMcpServers = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreMcpServers })))
 const StoreItemDetail = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreItemDetail })))
-const StoreDashboard = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreDashboard })))
 const Loading = () => <div class="size-full" />
 
 const HomeRoute = () => <Navigate href="/store" />
@@ -81,11 +80,7 @@ const StoreItemDetailRoute = () => (
   </Suspense>
 )
 
-const StoreDashboardRoute = () => (
-  <Suspense fallback={<Loading />}>
-    <StoreDashboard />
-  </Suspense>
-)
+const StoreDashboardRoute = () => <Navigate href="/store/dashboard/repositories" />
 
 export const SessionRoute = () => (
   <SessionProviders>
