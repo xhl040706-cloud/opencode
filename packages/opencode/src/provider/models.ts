@@ -86,17 +86,34 @@ export namespace ModelsDev {
   }
 
   export const Data = lazy(async () => {
+    const timer = log.time("startup.models_dev.data")
     const result = await Filesystem.readJson(Flag.OPENCODE_MODELS_PATH ?? filepath).catch(() => {})
-    if (result) return result
-    // @ts-ignore
-    const snapshot = await import("./models-snapshot")
-      .then((m) => m.snapshot as Record<string, unknown>)
-      .catch(() => undefined)
-    if (snapshot) return snapshot
-    const disableFetch = Flag.OPENCODE_DISABLE_MODELS_FETCH
-    if (disableFetch) return {}
-    const json = await fetch(`${url()}/api.json`).then((x) => x.text())
-    return JSON.parse(json)
+    try {
+      if (result) {
+        log.info("startup.models_dev.data.source", { source: "cache" })
+        return result
+      }
+      // @ts-ignore
+      const snapshot = await import("./models-snapshot")
+        .then((m) => m.snapshot as Record<string, unknown>)
+        .catch(() => undefined)
+      if (snapshot) {
+        log.info("startup.models_dev.data.source", { source: "snapshot" })
+        return snapshot
+      }
+      const disableFetch = Flag.OPENCODE_DISABLE_MODELS_FETCH
+      if (disableFetch) {
+        log.info("startup.models_dev.data.source", { source: "disabled" })
+        return {}
+      }
+      const fetchTimer = log.time("startup.models_dev.fetch_api_json", { url: `${url()}/api.json` })
+      const json = await fetch(`${url()}/api.json`).then((x) => x.text())
+      fetchTimer.stop()
+      log.info("startup.models_dev.data.source", { source: "remote" })
+      return JSON.parse(json)
+    } finally {
+      timer.stop()
+    }
   })
 
   export async function get() {
