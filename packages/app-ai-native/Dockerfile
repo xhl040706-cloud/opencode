@@ -8,7 +8,7 @@ COPY package.json bunfig.toml bun.lock ./
 COPY patches ./patches
 
 # Copy all workspace package.json files for dependency resolution
-COPY packages/app/package.json ./packages/app/
+COPY packages/app-ai-native/package.json ./packages/app-ai-native/
 COPY packages/sdk/js/package.json ./packages/sdk/js/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/util/package.json ./packages/util/
@@ -18,8 +18,8 @@ COPY packages/script/package.json ./packages/script/
 COPY packages/opencode/package.json ./packages/opencode/
 
 # Copy source code first, then install dependencies
-# (avoids COPY overwriting node_modules installed in packages/app)
-COPY packages/app ./packages/app
+# (avoids COPY overwriting node_modules installed in packages/app-ai-native)
+COPY packages/app-ai-native ./packages/app-ai-native
 COPY packages/sdk/js ./packages/sdk/js
 COPY packages/ui ./packages/ui
 COPY packages/util ./packages/util
@@ -38,7 +38,7 @@ ENV VITE_CLOUD_SERVER_PORT=$VITE_CLOUD_SERVER_PORT
 ENV VITE_APP_PORT=$VITE_APP_PORT
 ENV VITE_API_PREFIX=$VITE_API_PREFIX
 
-RUN cd /app/packages/app && bun run build
+RUN cd /app/packages/app-ai-native && bun run build
 
 # Stage 2: Production runner with bun (uses target platform automatically)
 FROM oven/bun:1-alpine AS runner
@@ -46,7 +46,7 @@ FROM oven/bun:1-alpine AS runner
 # Install gettext for envsubst command (used in entrypoint)
 RUN apk add --no-cache gettext
 
-WORKDIR /app/packages/app
+WORKDIR /app/packages/app-ai-native
 
 # Default environment variables (can be overridden at runtime)
 ENV VITE_CLOUD_SERVER_HOST=localhost
@@ -64,10 +64,10 @@ ENV VITE_OPENCODE_CLOUD_DEVICE_ID=
 ENV VITE_OPENCODE_SERVER_HOST=localhost
 ENV VITE_OPENCODE_SERVER_PORT=8080
 
-COPY --from=builder /app/packages/app/dist ./dist
+COPY --from=builder /app/packages/app-ai-native/dist ./dist
 RUN chmod -R 777 ./dist 
-COPY --from=builder /app/packages/app/script/server.ts ./script/server.ts
-COPY --from=builder /app/packages/app/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --from=builder /app/packages/app-ai-native/script/server.ts ./script/server.ts
+COPY --from=builder /app/packages/app-ai-native/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
