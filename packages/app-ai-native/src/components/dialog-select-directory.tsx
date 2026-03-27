@@ -176,7 +176,7 @@ function useDirectorySearch(args: {
   const match = async (dir: string, query: string, limit: number) => {
     const items = await dirs(dir)
     if (!query) return items.slice(0, limit).map((x) => x.absolute)
-    return fuzzysort.go(query, items, { key: "name", limit }).map((x) => x.obj.absolute)
+    return fuzzysort.go<Row>(query, items, { key: "name", limit }).map((x) => x.obj.absolute)
   }
 
   return async (filter: string) => {

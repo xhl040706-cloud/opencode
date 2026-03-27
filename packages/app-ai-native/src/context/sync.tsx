@@ -97,6 +97,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     type Child = ReturnType<(typeof globalSync)["child"]>
     type Setter = Child[1]
+    type SessionMessagesResponse = Awaited<ReturnType<typeof sdk.client.session.messages>>
+    type SessionGetResponse = Awaited<ReturnType<typeof sdk.client.session.get>>
+    type SessionDiffResponse = Awaited<ReturnType<typeof sdk.client.session.diff>>
+    type SessionTodoResponse = Awaited<ReturnType<typeof sdk.client.session.todo>>
 
     const current = createMemo(() => globalSync.child(sdk.directory))
     const target = (directory?: string) => {
@@ -122,7 +126,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     }
 
     const fetchMessages = async (input: { client: typeof sdk.client; sessionID: string; limit: number }) => {
-      const messages = await retry(() =>
+      const messages = await retry<SessionMessagesResponse>(() =>
         input.client.session.messages({ sessionID: input.sessionID, limit: input.limit }),
       )
       const items = (messages.data ?? []).filter((x) => !!x?.info?.id)
@@ -226,7 +230,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
           const sessionReq = hasSession
             ? Promise.resolve()
-            : retry(() => client.session.get({ sessionID })).then((session) => {
+            : retry<SessionGetResponse>(() => client.session.get({ sessionID })).then((session) => {
                 const data = session.data
                 if (!data) return
                 setStore(
@@ -260,7 +264,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
           const key = keyFor(directory, sessionID)
           return runInflight(inflightDiff, key, () =>
-            retry(() => client.session.diff({ sessionID })).then((diff) => {
+            retry<SessionDiffResponse>(() => client.session.diff({ sessionID })).then((diff) => {
               setStore("session_diff", sessionID, reconcile(diff.data ?? [], { key: "file" }))
             }),
           )
@@ -284,7 +288,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
           const key = keyFor(directory, sessionID)
           return runInflight(inflightTodo, key, () =>
-            retry(() => client.session.todo({ sessionID })).then((todo) => {
+            retry<SessionTodoResponse>(() => client.session.todo({ sessionID })).then((todo) => {
               const list = todo.data ?? []
               setStore("todo", sessionID, reconcile(list, { key: "id" }))
               globalSync.todo.set(sessionID, list)

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { uuid } from "./uuid"
 
+const TEST_UUID = "00000000-0000-0000-0000-000000000000" as const
+
 const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto")
 const secureDescriptor = Object.getOwnPropertyDescriptor(globalThis, "isSecureContext")
 const randomDescriptor = Object.getOwnPropertyDescriptor(Math, "random")
@@ -46,13 +48,13 @@ afterEach(() => {
 
 describe("uuid", () => {
   test("uses randomUUID in secure contexts", () => {
-    setCrypto({ randomUUID: () => "00000000-0000-0000-0000-000000000000" })
+    setCrypto({ randomUUID: () => TEST_UUID })
     setSecure(true)
-    expect(uuid()).toBe("00000000-0000-0000-0000-000000000000")
+    expect(uuid()).toBe(TEST_UUID)
   })
 
   test("falls back in insecure contexts", () => {
-    setCrypto({ randomUUID: () => "00000000-0000-0000-0000-000000000000" })
+    setCrypto({ randomUUID: () => TEST_UUID })
     setSecure(false)
     setRandom(() => 0.5)
     expect(uuid()).toBe("8")

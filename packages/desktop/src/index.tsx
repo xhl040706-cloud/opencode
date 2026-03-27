@@ -347,13 +347,12 @@ const createPlatform = (): Platform => {
       await commands.setWslConfig({ enabled })
     },
 
-    getDefaultServer: async () => {
+    getDefaultServerUrl: async () => {
       const url = await commands.getDefaultServerUrl().catch(() => null)
-      if (!url) return null
-      return ServerConnection.Key.make(url)
+      return url
     },
 
-    setDefaultServer: async (url: string | null) => {
+    setDefaultServerUrl: async (url: string | null) => {
       await commands.setDefaultServerUrl(url)
     },
 
@@ -416,7 +415,7 @@ render(() => {
   const [sidecar] = createResource(() => commands.awaitInitialization(new Channel<InitStep>() as any))
 
   const [defaultServer] = createResource(() =>
-    platform.getDefaultServer?.().then((url) => {
+    platform.getDefaultServerUrl?.().then((url) => {
       if (url) return ServerConnection.key({ type: "http", http: { url } })
     }),
   )

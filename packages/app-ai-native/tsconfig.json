@@ -13,10 +13,14 @@
     "allowJs": true,
     "resolveJsonModule": true,
     "strict": true,
+    "noImplicitAny": false,
+    "useUnknownInCatchVariables": false,
     "noEmit": false,
     "emitDeclarationOnly": true,
     "outDir": "node_modules/.ts-dist",
     "isolatedModules": true,
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "types": ["vite/client", "bun", "node"],
     "paths": {
       "@/*": ["./src/*"]
     }

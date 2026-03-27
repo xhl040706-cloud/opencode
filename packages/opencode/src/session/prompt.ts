@@ -1661,18 +1661,17 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       { cwd, sessionID: input.sessionID, callID: part.callID },
       { env: {} },
     )
-    const proc = spawn(shell, args, {
-      cwd,
-      detached: process.platform !== "win32",
-      windowsHide: process.platform === "win32",
-      stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        ...shellEnv.env,
-        TERM: "dumb",
-      },
-      windowsHide: process.platform === "win32",
-    })
+	    const proc = spawn(shell, args, {
+	      cwd,
+	      detached: process.platform !== "win32",
+	      windowsHide: process.platform === "win32",
+	      stdio: ["ignore", "pipe", "pipe"],
+	      env: {
+	        ...process.env,
+	        ...shellEnv.env,
+	        TERM: "dumb",
+	      },
+	    })
 
     let output = ""
 

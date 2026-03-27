@@ -17,6 +17,6 @@
     "outDir": "node_modules/.ts-dist",
     "types": ["vite/client"]
   },
-  "references": [{ "path": "../app" }],
+  "references": [{ "path": "../app-ai-native" }],
   "include": ["src", "package.json"]
 }
