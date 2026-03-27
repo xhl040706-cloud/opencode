@@ -4,32 +4,46 @@ import { SkillCandidate, CandidatePushStatus } from "./types"
 import { Bus } from "@/bus"
 import { LearningEvent } from "./events"
 import { loadCoStrictCredentials } from "@/costrict/provider/credentials"
-import { getCoStrictBaseURL } from "@/costrict/provider/auth"
-import { isCoStrictTokenValid, refreshCoStrictToken, extractExpiryFromJWT } from "@/costrict/provider/token"
+import { isCoStrictTokenValid, refreshCoStrictToken, extractExpiryFromJWT, parseJWT } from "@/costrict/provider/token"
 import { saveCoStrictCredentials } from "@/costrict/provider/credentials"
 import { Installation } from "@/installation"
 import { v7 as uuidv7 } from "uuid"
+import { getCloudBaseUrl } from "@/costrict/device/client"
 
 const log = Log.create({ service: "learning.pusher" })
+const MAX_LOGGED_RESPONSE_BODY = 2000
+
+function truncateForLog(value: string, maxLength = MAX_LOGGED_RESPONSE_BODY): string {
+  if (value.length <= maxLength) return value
+  return `${value.slice(0, maxLength)}...<truncated>`
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+}
+
+function buildItemDetailUrl(baseUrl: string, itemId: string, itemType: string): string {
+  const origin = baseUrl.replace(/\/cloud-api$/, "")
+  return `${origin}/store/items/${itemId}?type=${encodeURIComponent(itemType)}`
+}
 
 /**
  * Server API response types
  */
 interface PushSkillRequest {
+  itemType: "skill"
   name: string
   slug: string
   description: string
-  item_type: "skill"
-  registry_id?: string
+  category: string
+  version: string
   content: string
   visibility: "private" | "team" | "public"
-  metadata: {
-    source: "client_generated"
-    sourceIds: string[]
-    confidence: number
-    clientVersion: string
-    generatedAt?: string
-  }
+  registryId?: string
+  createdBy: string
 }
 
 interface PushSkillResponse {
@@ -37,7 +51,7 @@ interface PushSkillResponse {
   name: string
   slug: string
   status: string
-  url: string
+  url?: string
   createdAt: string
 }
 
@@ -46,6 +60,39 @@ interface PushSkillResponse {
  * Handles pushing skill candidates to the CoStrict server
  */
 export namespace SkillPusher {
+  async function repairPushedCandidate(
+    candidate: SkillCandidate,
+    scope: "project" | "global" = "project",
+  ): Promise<{ remoteId: string; remoteUrl: string }> {
+    const baseUrl = await getServerUrl()
+    const remoteUrl =
+      candidate.remoteUrl ||
+      buildItemDetailUrl(baseUrl || "https://zgsm.sangfor.com/cloud-api", candidate.remoteId!, "skill")
+
+    if (candidate.remoteUrl !== remoteUrl) {
+      await LearningStorage.updateCandidatePushStatus(
+        candidate.id,
+        "pushed",
+        {
+          pushedAt: candidate.pushedAt,
+          remoteId: candidate.remoteId,
+          remoteUrl,
+        },
+        scope,
+      )
+      log.info("Repaired pushed candidate metadata", {
+        candidateId: candidate.id,
+        remoteId: candidate.remoteId,
+        remoteUrl,
+      })
+    }
+
+    return {
+      remoteId: candidate.remoteId!,
+      remoteUrl,
+    }
+  }
+
   /**
    * Check if server is configured and credentials exist
    */
@@ -60,7 +107,7 @@ export namespace SkillPusher {
   export async function getServerUrl(): Promise<string | null> {
     const credentials = await loadCoStrictCredentials()
     if (!credentials) return null
-    return getCoStrictBaseURL(undefined, credentials.base_url)
+    return getCloudBaseUrl(credentials.base_url)
   }
 
   /**
@@ -69,6 +116,7 @@ export namespace SkillPusher {
   async function createAuthenticatedFetch(): Promise<{
     fetch: (url: string, init?: RequestInit) => Promise<Response>
     baseUrl: string
+    createdBy: string
   }> {
     let creds = await loadCoStrictCredentials()
 
@@ -103,7 +151,9 @@ export namespace SkillPusher {
       }
     }
 
-    const baseUrl = getCoStrictBaseURL(undefined, creds.base_url)
+    const baseUrl = getCloudBaseUrl(creds.base_url)
+    const tokenPayload = parseJWT(creds.access_token)
+    const createdBy = tokenPayload.id || tokenPayload.sub || tokenPayload.name || "cli-user"
 
     const authFetch = async (url: string, init?: RequestInit): Promise<Response> => {
       const headers = new Headers(init?.headers)
@@ -116,10 +166,22 @@ export namespace SkillPusher {
       headers.set("zgsm-client-id", Installation.getInstallationId())
       headers.set("zgsm-client-ide", "cli")
 
-      return fetch(url, { ...init, headers })
+      const method = init?.method ?? "GET"
+      log.info("Sending learning API request", { method, url })
+
+      const response = await fetch(url, { ...init, headers })
+
+      log.info("Received learning API response", {
+        method,
+        url,
+        status: response.status,
+        ok: response.ok,
+      })
+
+      return response
     }
 
-    return { fetch: authFetch, baseUrl }
+    return { fetch: authFetch, baseUrl, createdBy }
   }
 
   /**
@@ -130,6 +192,7 @@ export namespace SkillPusher {
     options: {
       visibility?: "private" | "team" | "public"
       registryId?: string
+      force?: boolean
     } = {},
   ): Promise<{
     success: boolean
@@ -145,37 +208,35 @@ export namespace SkillPusher {
       }
 
       // Check if already pushed
-      if (candidate.pushStatus === "pushed" && candidate.remoteId) {
+      if (!options.force && candidate.pushStatus === "pushed" && candidate.remoteId) {
+        const repaired = await repairPushedCandidate(candidate)
         return {
           success: true,
-          remoteId: candidate.remoteId,
-          remoteUrl: candidate.remoteUrl,
+          remoteId: repaired.remoteId,
+          remoteUrl: repaired.remoteUrl,
         }
       }
 
       // Get authenticated fetch
-      const { fetch: authFetch, baseUrl } = await createAuthenticatedFetch()
+      const { fetch: authFetch, baseUrl, createdBy } = await createAuthenticatedFetch()
 
       // Build request body
       const requestBody: PushSkillRequest = {
+        itemType: "skill",
         name: candidate.name,
-        slug: candidate.name,
+        slug: slugify(candidate.name),
         description: candidate.description,
-        item_type: "skill",
+        category: "utilities",
+        version: Installation.VERSION,
         content: candidate.content,
         visibility: options.visibility || "private",
-        registry_id: options.registryId,
-        metadata: {
-          source: "client_generated",
-          sourceIds: candidate.sourceIds,
-          confidence: candidate.confidence,
-          clientVersion: Installation.VERSION,
-          generatedAt: candidate.createdAt,
-        },
+        registryId: options.registryId,
+        createdBy,
       }
 
       // Push to server
-      const response = await authFetch(`${baseUrl}/api/items`, {
+      const requestUrl = `${baseUrl}/api/items`
+      const response = await authFetch(requestUrl, {
         method: "POST",
         body: JSON.stringify(requestBody),
       })
@@ -194,36 +255,43 @@ export namespace SkillPusher {
         // Update candidate status to push_failed
         await LearningStorage.updateCandidatePushStatus(candidateId, "push_failed")
 
-        log.error("Failed to push skill", { status: response.status, error: errorMessage })
+        log.error("Failed to push skill", {
+          candidateId,
+          url: requestUrl,
+          status: response.status,
+          error: errorMessage,
+          responseBody: truncateForLog(errorText),
+        })
         return { success: false, error: errorMessage }
       }
 
       const result = (await response.json()) as PushSkillResponse
+      const remoteUrl = result.url || buildItemDetailUrl(baseUrl, result.id, requestBody.itemType)
 
       // Update candidate with push info
       await LearningStorage.updateCandidatePushStatus(candidateId, "pushed", {
         pushedAt: new Date().toISOString(),
         remoteId: result.id,
-        remoteUrl: result.url,
+        remoteUrl,
       })
 
       // Emit event
       Bus.publish(LearningEvent.CandidatePushed, {
         candidateId,
         remoteId: result.id,
-        remoteUrl: result.url,
+        remoteUrl,
       })
 
       log.info("Skill pushed successfully", {
         candidateId,
         remoteId: result.id,
-        remoteUrl: result.url,
+        remoteUrl,
       })
 
       return {
         success: true,
         remoteId: result.id,
-        remoteUrl: result.url,
+        remoteUrl,
       }
     } catch (err: any) {
       log.error("Failed to push skill", { candidateId, err })
@@ -273,7 +341,8 @@ export namespace SkillPusher {
         visibility: options.visibility || "private",
       }
 
-      const response = await authFetch(`${baseUrl}/api/items/${candidate.remoteId}`, {
+      const requestUrl = `${baseUrl}/api/items/${candidate.remoteId}`
+      const response = await authFetch(requestUrl, {
         method: "PUT",
         body: JSON.stringify(requestBody),
       })
@@ -289,6 +358,15 @@ export namespace SkillPusher {
           // Use default error message
         }
 
+        log.error("Failed to update skill", {
+          candidateId,
+          remoteId: candidate.remoteId,
+          url: requestUrl,
+          status: response.status,
+          error: errorMessage,
+          responseBody: truncateForLog(errorText),
+        })
+
         return { success: false, error: errorMessage }
       }
 
@@ -298,6 +376,57 @@ export namespace SkillPusher {
     } catch (err: any) {
       log.error("Failed to update skill", { candidateId, err })
       return { success: false, error: err.message || "Unknown error" }
+    }
+  }
+
+  export async function syncToServer(
+    candidateId: string,
+    options: {
+      visibility?: "private" | "team" | "public"
+      registryId?: string
+      force?: boolean
+    } = {},
+  ): Promise<{
+    success: boolean
+    remoteId?: string
+    remoteUrl?: string
+    error?: string
+    action?: "repaired" | "pushed" | "updated"
+  }> {
+    const candidate = await LearningStorage.getCandidate(candidateId)
+    if (!candidate) {
+      return { success: false, error: `Candidate not found: ${candidateId}` }
+    }
+
+    if (candidate.pushStatus === "pushed" && candidate.remoteId) {
+      if (!options.force) {
+        const repaired = await repairPushedCandidate(candidate)
+        return {
+          success: true,
+          remoteId: repaired.remoteId,
+          remoteUrl: repaired.remoteUrl,
+          action: "repaired",
+        }
+      }
+
+      const updated = await updateOnServer(candidateId, { visibility: options.visibility })
+      if (!updated.success) {
+        return { success: false, error: updated.error }
+      }
+
+      const repaired = await repairPushedCandidate(candidate)
+      return {
+        success: true,
+        remoteId: repaired.remoteId,
+        remoteUrl: repaired.remoteUrl,
+        action: "updated",
+      }
+    }
+
+    const pushed = await pushToServer(candidateId, options)
+    return {
+      ...pushed,
+      action: pushed.success ? "pushed" : undefined,
     }
   }
 
