@@ -6,12 +6,29 @@ const appPort = parseInt(process.env.VITE_APP_PORT ?? "3000")
 const prefix = process.env.VITE_API_PREFIX ?? ""
 const basePath = (process.env.VITE_BASE_PATH ?? "").replace(/\/+$/, "") // e.g. "/costrict-web-portal"
 const dist = join(import.meta.dir, "../dist")
+const STATIC_CACHE_CONTROL = "public, max-age=2592000, immutable"
+const ENTRY_CACHE_CONTROL = "no-cache, no-store, must-revalidate"
 
 const rewrite = (p: string) => p.replace(new RegExp(`^${prefix}`), "")
 
 /** Strip the deployment base path prefix so static files resolve to dist/ */
 const stripBase = (p: string) =>
   basePath && p.startsWith(basePath) ? p.slice(basePath.length) || "/" : p
+
+const isEntryDocument = (p: string) => p === "/" || p.endsWith(".html")
+
+const withCacheHeaders = (file: Bun.BunFile, cacheControl: string) =>
+  new Response(file, {
+    headers: {
+      "Cache-Control": cacheControl,
+      ...(cacheControl === ENTRY_CACHE_CONTROL
+        ? {
+            Pragma: "no-cache",
+            Expires: "0",
+          }
+        : {}),
+    },
+  })
 
 const proxyHttp = async (req: Request) => {
   const url = new URL(req.url)
@@ -39,7 +56,14 @@ Bun.serve({
 
     const filePath = stripBase(path)
     const file = Bun.file(join(dist, filePath))
-    return file.exists().then((ok) => (ok ? new Response(file) : new Response(Bun.file(join(dist, "index.html")))))
+    return file.exists().then((ok) =>
+      ok
+        ? withCacheHeaders(
+            file,
+            isEntryDocument(filePath) ? ENTRY_CACHE_CONTROL : STATIC_CACHE_CONTROL,
+          )
+        : withCacheHeaders(Bun.file(join(dist, "index.html")), ENTRY_CACHE_CONTROL),
+    )
   },
   websocket: {
     async open(ws) {
