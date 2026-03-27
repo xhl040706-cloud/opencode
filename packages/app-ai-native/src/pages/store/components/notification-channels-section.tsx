@@ -1,5 +1,6 @@
 import { Button } from "@opencode-ai/ui/button"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { Icon } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
 import { createMemo, createResource, For, Show } from "solid-js"
 import type { WecomChannel } from "@/context/settings"
@@ -135,7 +136,13 @@ export function NotificationChannelsSection() {
           <h2 class="text-lg font-semibold text-text-strong">{language.t("store.notificationChannels.title")}</h2>
           <p class="mt-1 text-sm text-text-weak">{language.t("store.notificationChannels.description")}</p>
         </div>
-        <Button size="small" variant="ghost" class="border border-border-weak-base" onClick={openAddDialog}>
+        <Button
+          size="small"
+          variant="ghost"
+          class="border border-border-weak-base cursor-pointer"
+          onClick={openAddDialog}
+        >
+          <Icon name="plus" class="size-4" />
           {language.t("store.notificationChannels.add")}
         </Button>
       </div>

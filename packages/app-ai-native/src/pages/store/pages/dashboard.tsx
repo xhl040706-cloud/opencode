@@ -125,7 +125,7 @@ export default function Dashboard() {
   }
 
   const openInvite = (repo: Repository) => {
-    dialog.show(() => <InviteDialog repoId={repo.id} />)
+    dialog.show(() => <InviteDialog repoId={repo.id} currentUserId={userId()} />)
   }
 
   const openEditCapability = (item: CapabilityItem) => {

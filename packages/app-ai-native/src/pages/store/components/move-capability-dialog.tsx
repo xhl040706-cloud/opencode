@@ -29,7 +29,7 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
 
   const current = createMemo(() => props.item.repoName || "—")
 
-  const targets = createMemo(() => props.repositories)
+  const targets = createMemo(() => props.repositories.filter((r) => r.id !== props.item.repoId))
 
   const selected = createMemo(() => {
     if (store.repoId === "__public__") return null
@@ -77,37 +77,43 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
           </div>
 
           {/* Transfer direction */}
-          <div class="mt-5 grid grid-cols-[1fr_auto_1fr] items-start gap-4">
+          <div class="mt-5 grid grid-cols-[1fr_auto_1fr] items-stretch gap-4">
             {/* Current repository */}
-            <div class="rounded-xl border border-border-weak-base bg-surface-raised-base px-5 py-4">
+            <div class="flex flex-col rounded-xl border border-border-weak-base bg-surface-raised-base px-5 py-4">
               <label class="mb-2 block text-12-medium text-text-weak">
                 {language.t("store.capabilityDialog.move.currentRepository")}
               </label>
-              <div class="text-sm font-medium text-text-strong">{current()}</div>
+              <div class="flex flex-1 items-center text-sm font-medium text-text-strong">{current()}</div>
             </div>
 
             {/* Arrow */}
-            <div class="flex h-full items-center pt-6 text-icon-weak-base">
+            <div class="flex items-center text-icon-weak-base">
               <Icon name="chevron-right" size="small" />
             </div>
 
             {/* Target repository */}
-            <div class="rounded-xl border border-border-weak-base bg-surface-raised-base px-5 py-4">
+            <div class="flex flex-col rounded-xl border border-border-weak-base bg-surface-raised-base px-5 py-4">
               <label class="mb-2 block text-12-medium text-text-weak">
                 {language.t("store.capabilityDialog.move.targetRepository")}
               </label>
-              <select
-                value={store.repoId}
-                onInput={(e) => setStore("repoId", e.currentTarget.value)}
-                class={inputClass}
-                required
-              >
-                <option value="" disabled>
-                  {language.t("store.capabilityDialog.move.selectRepository")}
-                </option>
-                <option value="__public__">{language.t("store.capabilityDialog.visibility.public")}</option>
-                <For each={targets()}>{(repo) => <option value={repo.id}>{repo.displayName || repo.name}</option>}</For>
-              </select>
+              <div class="flex flex-1 items-center">
+                <select
+                  value={store.repoId}
+                  onInput={(e) => setStore("repoId", e.currentTarget.value)}
+                  class={inputClass}
+                  required
+                >
+                  <option value="" disabled>
+                    {language.t("store.capabilityDialog.move.selectRepository")}
+                  </option>
+                  <Show when={!!props.item.repoId}>
+                    <option value="__public__">{language.t("store.capabilityDialog.visibility.public")}</option>
+                  </Show>
+                  <For each={targets()}>
+                    {(repo) => <option value={repo.id}>{repo.displayName || repo.name}</option>}
+                  </For>
+                </select>
+              </div>
             </div>
           </div>
 

@@ -15,7 +15,11 @@ const StoreItemDetail = lazy(() => import("@/pages/store").then((m) => ({ defaul
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
 const DirectoryLayout = lazy(() => import("@/pages/directory-layout"))
-const StoreDashboard = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreDashboard })))
+const DashboardLayout = lazy(() => import("@/pages/store").then((m) => ({ default: m.DashboardLayout })))
+const DashboardRepositories = lazy(() => import("@/pages/store").then((m) => ({ default: m.DashboardRepositories })))
+const DashboardCapabilities = lazy(() => import("@/pages/store").then((m) => ({ default: m.DashboardCapabilities })))
+const DashboardDevices = lazy(() => import("@/pages/store").then((m) => ({ default: m.DashboardDevices })))
+const DashboardNotifications = lazy(() => import("@/pages/store").then((m) => ({ default: m.DashboardNotifications })))
 
 const wrap = (Component: Component<{ children?: JSX.Element }>) => (props: { children?: JSX.Element }) => (
   <Suspense fallback={<Loading />}>
@@ -70,7 +74,17 @@ export const routeConfig: RouteConfig[] = [
       { path: "/commands", component: StoreCommands },
       { path: "/mcp-servers", component: StoreMcpServers },
       { path: "/items/:id", component: StoreItemDetail },
-      { path: "/dashboard", component: StoreDashboard },
+    ],
+  },
+  {
+    path: "/store/dashboard",
+    component: DashboardLayout,
+    children: [
+      { path: "/", component: () => <Navigate href="/store/dashboard/repositories" /> },
+      { path: "/repositories", component: DashboardRepositories },
+      { path: "/capabilities", component: DashboardCapabilities },
+      { path: "/devices", component: DashboardDevices },
+      { path: "/notifications", component: DashboardNotifications },
     ],
   },
 ]
