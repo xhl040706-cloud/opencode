@@ -64,7 +64,10 @@ export default function DashboardSidebar() {
   const active = (href: string) => location.pathname === href || location.pathname.startsWith(href + "/")
 
   return (
-    <aside class="flex w-72 flex-col border-r border-border-weak-base bg-surface-base shrink-0 h-full">
+    <aside
+      class="flex w-72 flex-col bg-surface-base shrink-0 h-full"
+      style={{ "border-right": "1px solid var(--border-weak-base)" }}
+    >
       <div class="shrink-0 px-3 py-3 border-b border-border-weak-base">
         <div class="flex items-center gap-2.5 px-2.5 py-2">
           <Icon name="sliders" size="normal" class="text-icon-strong-base shrink-0" />

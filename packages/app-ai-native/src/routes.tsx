@@ -1,6 +1,7 @@
 import { Navigate, Route } from "@solidjs/router"
 import { Component, lazy, Suspense, type JSX } from "solid-js"
 import { SessionRoute, SessionIndexRoute } from "@/app"
+import AuthGuard from "@/components/auth-guard"
 
 const Loading = () => <div class="size-full" />
 
@@ -27,6 +28,14 @@ const wrap = (Component: Component<{ children?: JSX.Element }>) => (props: { chi
   </Suspense>
 )
 
+const guard = (Component: Component<{ children?: JSX.Element }>) => (props: { children?: JSX.Element }) => (
+  <Suspense fallback={<Loading />}>
+    <AuthGuard>
+      <Component>{props.children}</Component>
+    </AuthGuard>
+  </Suspense>
+)
+
 export const RootLayoutRoute: Component<{ children?: JSX.Element }> = (props) => (
   <Suspense fallback={<Loading />}>
     <RootLayout>{props.children}</RootLayout>
@@ -36,12 +45,13 @@ export const RootLayoutRoute: Component<{ children?: JSX.Element }> = (props) =>
 interface RouteConfig {
   path: string
   component: Component<{ children?: JSX.Element }>
+  auth?: boolean
   children?: RouteConfig[]
 }
 
 export function renderRoutes(routes: RouteConfig[]) {
   return routes.map((r) => (
-    <Route path={r.path} component={wrap(r.component)}>
+    <Route path={r.path} component={r.auth ? guard(r.component) : wrap(r.component)}>
       {r.children ? renderRoutes(r.children) : null}
     </Route>
   ))
@@ -52,6 +62,7 @@ export const routeConfig: RouteConfig[] = [
   {
     path: "/workspace",
     component: WorkspaceLayout,
+    auth: true,
     children: [
       { path: "/", component: WorkspaceHome },
       {
@@ -67,6 +78,7 @@ export const routeConfig: RouteConfig[] = [
   {
     path: "/store",
     component: StoreLayout,
+    auth: true,
     children: [
       { path: "/", component: StoreHome },
       { path: "/skills", component: StoreSkills },
@@ -79,6 +91,7 @@ export const routeConfig: RouteConfig[] = [
   {
     path: "/store/dashboard",
     component: DashboardLayout,
+    auth: true,
     children: [
       { path: "/", component: () => <Navigate href="/store/dashboard/repositories" /> },
       { path: "/repositories", component: DashboardRepositories },
