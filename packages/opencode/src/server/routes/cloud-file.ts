@@ -70,7 +70,7 @@ export const CloudFileRoutes = lazy(() =>
         })
       ),
       async (c) => {
-        const targetPath = c.req.valid("query").path
+        const targetPath = path.resolve(c.req.valid("query").path)
         const worktree = Instance.worktree
         
         // Load cloud config
@@ -184,7 +184,7 @@ export const CloudFileRoutes = lazy(() =>
         })
       ),
       async (c) => {
-        const targetPath = c.req.valid("query").path
+        const targetPath = path.resolve(c.req.valid("query").path)
         const worktree = Instance.worktree
         
         // Load cloud config
@@ -274,7 +274,8 @@ export const CloudFileRoutes = lazy(() =>
         })
       ),
       async (c) => {
-        const { path: targetPath, query, type, limit } = c.req.valid("query")
+        const { query, type, limit } = c.req.valid("query")
+        const targetPath = path.resolve(c.req.valid("query").path)
         const worktree = Instance.worktree
         
         // Load cloud config
