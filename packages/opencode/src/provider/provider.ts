@@ -109,6 +109,16 @@ export namespace Provider {
     })
   }
 
+  function attachRequestId(error: unknown, requestId?: string) {
+    if (!requestId || !(error instanceof Error)) return error
+    const tagged = error as Error & { requestID?: string }
+    tagged.requestID = requestId
+    if (!tagged.message.includes("X-Request-Id:")) {
+      tagged.message = `${tagged.message} (X-Request-Id: ${requestId})`
+    }
+    return tagged
+  }
+
   const BUNDLED_PROVIDERS: Record<string, (options: any) => SDK> = {
     "@ai-sdk/amazon-bedrock": createAmazonBedrock,
     "@ai-sdk/anthropic": createAnthropic,
@@ -1277,11 +1287,16 @@ export namespace Provider {
           }
         }
 
-        const res = await fetchFn(input, {
-          ...opts,
-          // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
-          timeout: false,
-        })
+        let res: Response
+        try {
+          res = await fetchFn(input, {
+            ...opts,
+            // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
+            timeout: false,
+          })
+        } catch (error) {
+          throw attachRequestId(error, requestId)
+        }
 
         if (!chunkAbortCtl) return res
         return wrapSSE(res, chunkTimeout, chunkAbortCtl, requestId)
