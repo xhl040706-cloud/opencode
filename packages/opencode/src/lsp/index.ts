@@ -112,13 +112,13 @@ export namespace LSP {
           extensions: item.extensions ?? existing?.extensions ?? [],
           spawn: async (root) => {
             return {
-              process: spawn(item.command[0], item.command.slice(1), {
-                cwd: root,
-                windowsHide: true,
-                env: {
-                  ...process.env,
-                  ...item.env,
+	              process: spawn(item.command[0], item.command.slice(1), {
+	                cwd: root,
+	                env: {
+	                  ...process.env,
+	                  ...item.env,
                 },
+                windowsHide: process.platform === "win32",
               }),
               initialization: item.initialization,
             }

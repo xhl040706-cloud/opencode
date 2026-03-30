@@ -277,6 +277,7 @@ export namespace RUST_ANALYZER_OFFLINE {
     return {
       process: spawn(rustAnalyzerPath, [], {
         cwd: root,
+        windowsHide: process.platform === "win32",
       }),
     }
   }

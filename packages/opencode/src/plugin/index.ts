@@ -14,6 +14,7 @@ import { CopilotAuthPlugin } from "./copilot"
 import { CoStrictAuthPlugin } from "../costrict/plugin"
 import { TDDPlugin } from "./tdd"
 import { gitlabAuthPlugin as GitlabAuthPlugin } from "@gitlab/opencode-gitlab-auth"
+import { LearningPlugin } from "../learning/plugin"
 
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
@@ -21,7 +22,7 @@ export namespace Plugin {
   const BUILTIN = ["opencode-anthropic-auth@0.0.13", "@costrict/notify"]
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CoStrictAuthPlugin, TDDPlugin, GitlabAuthPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CoStrictAuthPlugin, TDDPlugin, GitlabAuthPlugin, LearningPlugin]
 
   const state = Instance.state(async () => {
     const client = createOpencodeClient({
@@ -142,9 +143,16 @@ export namespace Plugin {
     Bus.subscribeAll(async (input) => {
       const hooks = await state().then((x) => x.hooks)
       for (const hook of hooks) {
-        hook["event"]?.({
-          event: input,
-        })
+        try {
+          const result = hook["event"]?.({ event: input })
+          if (result instanceof Promise) {
+            await result.catch((err) => {
+              log.error("hook event handler error", { err, eventType: input?.type })
+            })
+          }
+        } catch (err) {
+          log.error("hook event handler error", { err, eventType: input?.type })
+        }
       }
     })
   }

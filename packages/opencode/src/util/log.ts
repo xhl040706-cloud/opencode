@@ -55,6 +55,13 @@ export namespace Log {
     return msg.length
   }
 
+  export function useStderr() {
+    write = (msg: any) => {
+      process.stderr.write(msg)
+      return msg.length
+    }
+  }
+
   export async function init(options: Options) {
     if (options.level) level = options.level
     await cleanup(Global.Path.log)

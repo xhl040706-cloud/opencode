@@ -91,7 +91,7 @@ export async function createOpencodeServer(options?: ServerOptions) {
 }
 
 export function createOpencodeTui(options?: TuiOptions) {
-  const args = []
+  const args: string[] = []
 
   if (options?.project) {
     args.push(`--project=${options.project}`)

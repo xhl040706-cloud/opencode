@@ -1,3 +1,29 @@
+@utility thin-scrollbar {
+  & {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  &:hover {
+    scrollbar-color: rgba(156, 163, 175, 0.35) transparent;
+  }
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+  }
+  &:hover::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.35);
+  }
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+}
+
 @utility no-scrollbar {
   &::-webkit-scrollbar {
     display: none;

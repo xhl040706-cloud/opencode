@@ -37,7 +37,7 @@
     gap: 8px;
     padding: 4px 8px;
     border-radius: var(--radius-sm);
-    cursor: default;
+    cursor: pointer;
     user-select: none;
     outline: none;
 
@@ -48,8 +48,16 @@
     letter-spacing: var(--letter-spacing-normal);
     color: var(--text-strong);
 
+    transition-property: background-color, color;
+    transition-duration: var(--transition-duration);
+    transition-timing-function: var(--transition-easing);
+
+    &:hover {
+      background: var(--dropdown-item-hover, var(--surface-raised-base-hover));
+    }
+
     &[data-highlighted] {
-      background: var(--surface-raised-base-hover);
+      background: var(--dropdown-item-hover, var(--surface-raised-base-hover));
     }
 
     &[data-disabled] {

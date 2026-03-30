@@ -31,6 +31,8 @@ import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { DbCommand } from "./cli/cmd/db"
+import { LearningCommand } from "./cli/cmd/learning"
+import { CloudCommand } from "./cli/cmd/cloud"
 import path from "path"
 import { Global } from "./global"
 import { JsonMigration } from "./storage/json-migration"
@@ -90,6 +92,7 @@ let cli = yargs(hideBin(process.argv))
 
     const marker = path.join(Global.Path.data, "opencode.db")
     if (!(await Filesystem.exists(marker))) {
+      const migrationTimer = Log.Default.time("startup.database_migration")
       const tty = process.stderr.isTTY
       process.stderr.write("Performing one time database migration, may take a few minutes..." + EOL)
       const width = 36
@@ -117,6 +120,7 @@ let cli = yargs(hideBin(process.argv))
           },
         })
       } finally {
+        migrationTimer.stop()
         if (tty) process.stderr.write("\x1b[?25h")
         else {
           process.stderr.write(`sqlite-migration:done${EOL}`)
@@ -150,6 +154,8 @@ let cli = yargs(hideBin(process.argv))
   .command(PrCommand)
   .command(SessionCommand)
   .command(DbCommand)
+  .command(LearningCommand)
+  .command(CloudCommand)
 
 if (Installation.isLocal()) {
   cli = cli.command(WorkspaceServeCommand)

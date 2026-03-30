@@ -9,6 +9,7 @@ import PROMPT_REVIEW from "./template/review.txt"
 import { MCP } from "../mcp"
 import { getCommands } from "../plugin/tdd"
 import { Skill } from "../skill/skill"
+import { LearningCommands } from "../costrict/command/learning"
 
 export namespace Command {
   export const Event = {
@@ -103,6 +104,8 @@ export namespace Command {
         },
         hints: hints(CostrictCommand.get("security-review", lang)),
       },
+      // Learning commands - registered from LearningCommands module
+      ...LearningCommands.getCommands(lang ?? "en"),
     }
 
     const tddCommands = await getCommands()
