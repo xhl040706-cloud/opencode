@@ -1,4 +1,4 @@
-import { createSignal, createMemo, createEffect, on, For, Show } from "solid-js"
+import { createSignal, createMemo, createEffect, on, For, Show, onCleanup } from "solid-js"
 import { useNavigate, useParams } from "@solidjs/router"
 import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
@@ -515,11 +515,17 @@ function WorkspaceSessions(props: { id: string }) {
   const [loading, setLoading] = createSignal(false)
   const [more, setMore] = createSignal(false)
   const [limit, setLimit] = createSignal(PAGE_SIZE)
+  const [statusMap, setStatusMap] = createSignal<Record<string, { type: string }>>({})
 
   // Always derive workspace from the stable id
   const workspace = createMemo(() => workspaces().find((w) => w.id === props.id))
   const dirs = createMemo(() => workspace()?.directories ?? [])
   const device = createMemo(() => workspace()?.deviceUniqueId)
+
+  const isWorking = (sessionId: string) => {
+    const s = statusMap()[sessionId]
+    return s?.type === "busy" || s?.type === "retry"
+  }
 
   const load = async (cap: number) => {
     const uid = device()
@@ -552,6 +558,35 @@ function WorkspaceSessions(props: { id: string }) {
       setLoading(false)
     }
   }
+
+  createEffect(
+    on([device, dirs], ([uid, directories]) => {
+      if (!uid || directories.length === 0) return
+      const base = getProxyUrl(uid)
+      const connections = directories.map((dir) => {
+        const qs = new URLSearchParams({ directory: dir.path })
+        const es = new EventSource(`${base}/event?${qs}`, { withCredentials: true })
+        es.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data) as { type: string; properties?: unknown }
+            if (msg.type !== "session.status") return
+            const props = msg.properties as { sessionID: string; status: { type: string } }
+            if (props.status.type === "idle") {
+              setStatusMap((prev) => {
+                const next = { ...prev }
+                delete next[props.sessionID]
+                return next
+              })
+            } else {
+              setStatusMap((prev) => ({ ...prev, [props.sessionID]: props.status }))
+            }
+          } catch {}
+        }
+        return es
+      })
+      onCleanup(() => connections.forEach((es) => es.close()))
+    }),
+  )
 
   // Track whether initial load has been done
   let loaded = false
@@ -688,7 +723,7 @@ function WorkspaceSessions(props: { id: string }) {
                     onClick={() => click(session)}
                   >
                     <Show
-                      when={active()}
+                      when={isWorking(session.id)}
                       fallback={
                         <Icon
                           name="dash"
