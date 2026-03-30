@@ -250,6 +250,7 @@ export namespace Server {
       .route("/question", QuestionRoutes())
       .route("/provider", ProviderRoutes())
       .route("/", FileRoutes())
+      .route("/", CloudFileRoutes())
       .route("/mcp", McpRoutes())
       .route("/tui", TuiRoutes())
       .post(
