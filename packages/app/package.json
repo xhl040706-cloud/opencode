@@ -1,6 +1,6 @@
 {
-  "name": "@opencode-ai/app-ai-native",
-  "version": "1.2.20",
+  "name": "@opencode-ai/app",
+  "version": "1.2.27",
   "description": "",
   "type": "module",
   "exports": {
@@ -9,12 +9,12 @@
     "./index.css": "./src/index.css"
   },
   "scripts": {
-    "typecheck": "tsgo -b",
-    "start": "bun run script/server.ts",
+    "typecheck": "echo 'skip: packages/app is upstream reference only'",
+    "start": "vite",
     "dev": "vite",
-    "build": "vite build",
+    "build": "echo 'skip: packages/app is upstream reference only'",
     "serve": "vite preview",
-    "test": "bun run test:unit",
+    "test": "echo 'skip: packages/app is upstream reference only'",
     "test:unit": "bun test --preload ./happydom.ts ./src",
     "test:unit:watch": "bun test --watch --preload ./happydom.ts ./src",
     "test:e2e": "playwright test",
@@ -45,8 +45,8 @@
     "@shikijs/transformers": "3.9.2",
     "@solid-primitives/active-element": "2.1.3",
     "@solid-primitives/audio": "1.4.2",
-    "@solid-primitives/i18n": "2.2.1",
     "@solid-primitives/event-bus": "1.1.2",
+    "@solid-primitives/i18n": "2.2.1",
     "@solid-primitives/media": "2.3.3",
     "@solid-primitives/resize-observer": "2.1.3",
     "@solid-primitives/scroll": "2.1.3",
@@ -56,6 +56,7 @@
     "@solidjs/router": "catalog:",
     "@thisbeyond/solid-dnd": "0.7.5",
     "diff": "catalog:",
+    "effect": "4.0.0-beta.31",
     "fuzzysort": "catalog:",
     "ghostty-web": "github:anomalyco/ghostty-web#main",
     "luxon": "catalog:",
