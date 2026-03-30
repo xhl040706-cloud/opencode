@@ -26,6 +26,7 @@ import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
 import os from "node:os"
+import { v7 as uuidv7 } from "uuid"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
@@ -184,6 +185,7 @@ export namespace LLM {
       })
     }
 
+    const requestId = uuidv7()
     const requestHeaders = {
       ...(isCodex
         ? {
@@ -199,8 +201,14 @@ export namespace LLM {
             "x-opencode-request": input.user.id,
             "x-opencode-client": Flag.OPENCODE_CLIENT,
           }
-        : undefined),
+        : input.model.providerID !== "anthropic"
+          ? {
+              "User-Agent": `opencode/${Installation.VERSION}`,
+            }
+          : undefined),
       ...input.model.headers,
+      ...headers,
+      "X-Request-Id": requestId,
     }
 
     const requestMessages = [
@@ -236,6 +244,7 @@ export namespace LLM {
       onError(error) {
         l.error("stream error", {
           error,
+          xRequestId: requestId,
         })
 
         Bus.publish(Session.Event.LLMError, {
@@ -291,29 +300,7 @@ export namespace LLM {
       toolChoice: input.toolChoice,
       maxOutputTokens,
       abortSignal: input.abort,
-      headers: {
-        ...(isCodex
-          ? {
-              originator: "costrict",
-              "User-Agent": `costrict-cli/${Installation.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
-              session_id: input.sessionID,
-            }
-          : undefined),
-        ...(input.model.providerID.startsWith("opencode")
-          ? {
-              "x-opencode-project": Instance.project.id,
-              "x-opencode-session": input.sessionID,
-              "x-opencode-request": input.user.id,
-              "x-opencode-client": Flag.OPENCODE_CLIENT,
-            }
-          : input.model.providerID !== "anthropic"
-            ? {
-                "User-Agent": `opencode/${Installation.VERSION}`,
-              }
-            : undefined),
-        ...input.model.headers,
-        ...headers,
-      },
+      headers: requestHeaders,
       maxRetries: input.retries ?? 0,
       messages: requestMessages,
       model: wrapLanguageModel({

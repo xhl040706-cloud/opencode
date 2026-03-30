@@ -58,7 +58,7 @@ export namespace Provider {
     return Number(match[1]) >= 5 && !modelID.startsWith("gpt-5-mini")
   }
 
-  function wrapSSE(res: Response, ms: number, ctl: AbortController) {
+  function wrapSSE(res: Response, ms: number, ctl: AbortController, requestId?: string) {
     if (typeof ms !== "number" || ms <= 0) return res
     if (!res.body) return res
     if (!res.headers.get("content-type")?.includes("text/event-stream")) return res
@@ -68,7 +68,10 @@ export namespace Provider {
       async pull(ctrl) {
         const part = await new Promise<Awaited<ReturnType<typeof reader.read>>>((resolve, reject) => {
           const id = setTimeout(() => {
-            const err = new Error("SSE read timed out")
+            const err = new Error(
+              requestId ? `SSE read timed out (X-Request-Id: ${requestId})` : "SSE read timed out",
+            ) as Error & { requestID?: string }
+            if (requestId) err.requestID = requestId
             ctl.abort(err)
             void reader.cancel(err)
             reject(err)
@@ -104,6 +107,16 @@ export namespace Provider {
       status: res.status,
       statusText: res.statusText,
     })
+  }
+
+  function attachRequestId(error: unknown, requestId?: string) {
+    if (!requestId || !(error instanceof Error)) return error
+    const tagged = error as Error & { requestID?: string }
+    tagged.requestID = requestId
+    if (!tagged.message.includes("X-Request-Id:")) {
+      tagged.message = `${tagged.message} (X-Request-Id: ${requestId})`
+    }
+    return tagged
   }
 
   const BUNDLED_PROVIDERS: Record<string, (options: any) => SDK> = {
@@ -1244,6 +1257,7 @@ export namespace Provider {
         // Preserve custom fetch if it exists, wrap it with timeout logic
         const fetchFn = customFetch ?? fetch
         const opts = init ?? {}
+        const requestId = new Headers(opts.headers).get("X-Request-Id") ?? undefined
         const chunkAbortCtl = typeof chunkTimeout === "number" && chunkTimeout > 0 ? new AbortController() : undefined
         const signals: AbortSignal[] = []
 
@@ -1273,14 +1287,19 @@ export namespace Provider {
           }
         }
 
-        const res = await fetchFn(input, {
-          ...opts,
-          // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
-          timeout: false,
-        })
+        let res: Response
+        try {
+          res = await fetchFn(input, {
+            ...opts,
+            // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
+            timeout: false,
+          })
+        } catch (error) {
+          throw attachRequestId(error, requestId)
+        }
 
         if (!chunkAbortCtl) return res
-        return wrapSSE(res, chunkTimeout, chunkAbortCtl)
+        return wrapSSE(res, chunkTimeout, chunkAbortCtl, requestId)
       }
 
       const bundledFn = BUNDLED_PROVIDERS[model.api.npm]
