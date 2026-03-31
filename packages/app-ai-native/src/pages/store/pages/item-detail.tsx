@@ -77,7 +77,7 @@ function ScanRow(props: { scan: ScanResult }) {
   const language = useLanguage()
 
   return (
-    <div class="rounded-lg border border-border-weak-base">
+    <div class="overflow-hidden rounded-lg border border-border-weak-base">
       <div
         onClick={() => setOpen((v) => !v)}
         class="flex w-full cursor-pointer items-center gap-4 px-4 py-3 transition hover:bg-bg-muted/50"
@@ -87,7 +87,7 @@ function ScanRow(props: { scan: ScanResult }) {
             <SecurityTag status={props.scan.riskLevel as any} />
             <VerdictTag verdict={props.scan.verdict as Verdict} />
           </div>
-          <p class="text-12-regular text-text-strong">{props.scan.summary || "No summary available"}</p>
+          <p class="text-12-regular text-text-strong break-words">{props.scan.summary || "No summary available"}</p>
           <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-text-weak">
             <span>{formatDate(props.scan.createdAt)}</span>
           </div>
@@ -133,7 +133,7 @@ function ScanRow(props: { scan: ScanResult }) {
                   >
                     <ul class="space-y-1.5">
                       <For each={props.scan.recommendations}>
-                        {(item) => <li class="text-text-strong">{formatValue(item)}</li>}
+                        {(item) => <li class="text-text-strong break-words">{formatValue(item)}</li>}
                       </For>
                     </ul>
                   </Show>
@@ -147,7 +147,7 @@ function ScanRow(props: { scan: ScanResult }) {
                   >
                     <ul class="space-y-1.5">
                       <For each={props.scan.redFlags}>
-                        {(item) => <li class="text-text-strong">{formatValue(item)}</li>}
+                        {(item) => <li class="text-text-strong break-words">{formatValue(item)}</li>}
                       </For>
                     </ul>
                   </Show>
@@ -162,7 +162,7 @@ function ScanRow(props: { scan: ScanResult }) {
                       {(entry) => (
                         <div>
                           <dt class="text-xs text-text-weak/70">{entry[0]}</dt>
-                          <dd class="mt-0.5 text-text-strong">{formatValue(entry[1])}</dd>
+                          <dd class="mt-0.5 text-text-strong break-words">{formatValue(entry[1])}</dd>
                         </div>
                       )}
                     </For>
