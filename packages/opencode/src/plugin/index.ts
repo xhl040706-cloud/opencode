@@ -12,6 +12,8 @@ import { CoStrictAuthPlugin } from "../costrict/plugin"
 import { TDDPlugin } from "./tdd"
 import { gitlabAuthPlugin as GitlabAuthPlugin } from "opencode-gitlab-auth"
 import { PoeAuthPlugin } from "opencode-poe-auth"
+import { LearningPlugin } from "../learning/plugin"
+import { UsagePlugin } from "./usage"
 import { Effect, Layer, ServiceMap, Stream } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
@@ -52,7 +54,16 @@ export namespace Plugin {
   export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Plugin") {}
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CoStrictAuthPlugin, TDDPlugin, GitlabAuthPlugin, PoeAuthPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [
+    CodexAuthPlugin,
+    CopilotAuthPlugin,
+    CoStrictAuthPlugin,
+    TDDPlugin,
+    GitlabAuthPlugin,
+    PoeAuthPlugin,
+    LearningPlugin,
+    UsagePlugin,
+  ]
 
   function isServerPlugin(value: unknown): value is PluginInstance {
     return typeof value === "function"
@@ -303,7 +314,10 @@ export namespace Plugin {
     }),
   )
 
-  export const defaultLayer = layer.pipe(Layer.provide(Bus.layer), Layer.provide(Config.defaultLayer))
+  export const defaultLayer: Layer.Layer<Service, never, never> = layer.pipe(
+    Layer.provide(Bus.layer),
+    Layer.provide(Config.defaultLayer),
+  )
   const { runPromise } = makeRuntime(Service, defaultLayer)
 
   export async function trigger<

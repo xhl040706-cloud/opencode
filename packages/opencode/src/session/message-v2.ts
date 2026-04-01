@@ -421,6 +421,7 @@ export namespace MessageV2 {
     parentID: MessageID.zod,
     modelID: ModelID.zod,
     providerID: ProviderID.zod,
+    requestID: z.string().optional(),
     /**
      * @deprecated
      */
