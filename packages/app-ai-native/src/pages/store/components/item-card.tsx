@@ -26,6 +26,10 @@ function installCmd(item: CapabilityItem) {
   return `cs plugin add ${item.itemType} @${registry}/${item.slug}`
 }
 
+function formatCount(value?: number) {
+  return new Intl.NumberFormat().format(value ?? 0)
+}
+
 export default function ItemCard(props: { item: CapabilityItem }) {
   const [copied, setCopied] = createSignal(false)
   const language = useLanguage()
@@ -82,6 +86,33 @@ export default function ItemCard(props: { item: CapabilityItem }) {
         <p class="text-xs text-text-weak line-clamp-2 mb-4 flex-1 min-h-[2rem] leading-relaxed">
           {props.item.description}
         </p>
+
+        <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-weak">
+          <span
+            class="inline-flex items-center gap-1"
+            title={`${language.t("store.detail.previewCount")}: ${formatCount(props.item.previewCount)}`}
+          >
+            <span class="text-text-strong">◦</span>
+            <span>{formatCount(props.item.previewCount)}</span>
+            <span>{language.t("store.detail.previewCount")}</span>
+          </span>
+          <span
+            class="inline-flex items-center gap-1"
+            title={`${language.t("store.detail.installCount")}: ${formatCount(props.item.installCount)}`}
+          >
+            <span class="text-text-strong">↓</span>
+            <span>{formatCount(props.item.installCount)}</span>
+            <span>{language.t("store.detail.installCount")}</span>
+          </span>
+          <span
+            class="inline-flex items-center gap-1"
+            title={`${language.t("store.detail.favoriteCount")}: ${formatCount(props.item.favoriteCount)}`}
+          >
+            <span class="text-text-strong">★</span>
+            <span>{formatCount(props.item.favoriteCount)}</span>
+            <span>{language.t("store.detail.favoriteCount")}</span>
+          </span>
+        </div>
 
         <div class="flex items-center gap-2 flex-wrap mt-auto">
           <Show when={props.item.category}>
