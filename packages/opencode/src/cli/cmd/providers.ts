@@ -359,6 +359,7 @@ export const ProvidersLoginCommand = cmd({
               label: x.name,
               value: x.id,
               hint: {
+                costrict: "recommended",
                 opencode: "recommended",
                 openai: "ChatGPT Plus/Pro or API key",
               }[x.id],

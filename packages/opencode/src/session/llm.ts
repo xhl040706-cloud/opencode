@@ -9,6 +9,7 @@ import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
+import { git } from "@/util/git"
 import type { Agent } from "@/agent/agent"
 import type { MessageV2 } from "./message-v2"
 import { Plugin } from "@/plugin"
@@ -142,6 +143,22 @@ export namespace LLM {
     )
     if (isOpenaiOauth) {
       options.instructions = system.join("\n")
+    }
+
+    // Add git repo remote URL to extra_body for telemetry
+    try {
+      const gitResult = await git(["remote", "get-url", "origin"], { cwd: Instance.worktree })
+      if (gitResult.exitCode === 0) {
+        const repo = gitResult.text().trim()
+        if (repo) {
+          options["extra_body"] = {
+            ...options["extra_body"],
+            repo,
+          }
+        }
+      }
+    } catch {
+      // ignore - not a git repo or no remote configured
     }
 
     const isWorkflow = language instanceof GitLabWorkflowLanguageModel

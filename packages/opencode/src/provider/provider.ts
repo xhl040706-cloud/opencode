@@ -157,6 +157,11 @@ export namespace Provider {
   }
 
   const CUSTOM_LOADERS: Record<string, CustomLoader> = {
+    // CoStrict 供应商 - 动态导入
+    async costrict(provider: Info) {
+      const { createCoStrictCustomLoader } = await import("../costrict/provider")
+      return createCoStrictCustomLoader(provider)
+    },
     async anthropic() {
       return {
         autoload: false,
@@ -974,6 +979,43 @@ export namespace Provider {
           const modelsDev = yield* Effect.promise(() => ModelsDev.get())
           const database = mapValues(modelsDev, fromModelsDevProvider)
 
+          // Add CoStrict provider (built-in)
+          // Models will be loaded dynamically by CUSTOM_LOADER from /ai-gateway/api/v1/models
+          database[ProviderID.costrict] = {
+            id: ProviderID.costrict,
+            name: "CoStrict",
+            source: "custom",
+            env: ["COSTRICT_API_KEY"],
+            options: {},
+            models: {
+              Auto: {
+                id: ModelID.make("Auto"),
+                name: "Auto",
+                providerID: ProviderID.costrict,
+                status: "active",
+                api: {
+                  id: "Auto",
+                  url: "https://zgsm.sangfor.com/chat-rag/api/v1",
+                  npm: "@ai-sdk/openai-compatible",
+                },
+                capabilities: {
+                  temperature: true,
+                  reasoning: false,
+                  attachment: false,
+                  toolcall: true,
+                  input: { text: true, audio: false, image: false, video: false, pdf: false },
+                  output: { text: true, audio: false, image: false, video: false, pdf: false },
+                  interleaved: false,
+                },
+                limit: { context: 128000, output: 8192 },
+                cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+                options: {},
+                headers: {},
+                release_date: new Date().toISOString(),
+              },
+            },
+          }
+
           const disabled = new Set(cfg.disabled_providers ?? [])
           const enabled = cfg.enabled_providers ? new Set(cfg.enabled_providers) : null
 
@@ -1474,6 +1516,9 @@ export namespace Provider {
         if (providerID.startsWith("opencode")) {
           priority = ["gpt-5-nano"]
         }
+        if (providerID.startsWith("costrict")) {
+          priority = ["Auto"]
+        }
         if (providerID.startsWith("github-copilot")) {
           priority = ["gpt-5-mini", "claude-haiku-4.5", ...priority]
         }
@@ -1511,6 +1556,16 @@ export namespace Provider {
         if (cfg.model) return parseModel(cfg.model)
 
         const s = yield* InstanceState.get(cache)
+
+        // Try costrict provider first as the default for new users
+        const costrictProvider = s.providers[ProviderID.costrict]
+        if (costrictProvider && costrictProvider.models["Auto"]) {
+          return {
+            providerID: ProviderID.make("costrict"),
+            modelID: ModelID.make("Auto"),
+          }
+        }
+
         const recent = yield* Effect.promise(() =>
           Filesystem.readJson<{
             recent?: { providerID: ProviderID; modelID: ModelID }[]
