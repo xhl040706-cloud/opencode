@@ -112,7 +112,7 @@ export namespace Agent {
                 defaults,
                 Permission.fromConfig({
                   question: "allow",
-                  plan_enter: "allow",
+                  plan_enter: "deny",
                 }),
                 user,
               ),
@@ -122,6 +122,7 @@ export namespace Agent {
             plan: {
               name: "plan",
               description: "Plan mode. Disallows all edit tools.",
+              hidden: true,
               options: {},
               permission: Permission.merge(
                 defaults,

@@ -1,4 +1,5 @@
 import { Log } from "../util/log"
+import { BUILTIN_AGENTS, type AgentEntry } from "../costrict/agent/builtin"
 import path from "path"
 import { pathToFileURL } from "url"
 import os from "os"
@@ -268,8 +269,41 @@ export namespace Config {
     return result
   }
 
-  async function loadAgent(dir: string) {
+  async function resolveBuiltinContent(entry: AgentEntry, locale: string): Promise<string | undefined> {
+    return entry.locales[locale] ?? Object.values(entry.locales)[0]
+  }
+
+  async function loadAgent(dir: string, locale?: string) {
     const result: Record<string, Agent> = {}
+    const lang = locale ?? "zh-CN"
+
+    // Load built-in agents from imported modules
+    for (const [filename, entry] of Object.entries(BUILTIN_AGENTS)) {
+      try {
+        const content = await resolveBuiltinContent(entry, lang)
+        if (!content) continue
+
+        const md = await ConfigMarkdown.parseString(content)
+        if (!md.data) continue
+
+        const config = {
+          name: filename,
+          ...(md.data as Record<string, any>),
+          prompt: md.content.trim(),
+          model_prompts: entry.models
+            ? Object.fromEntries(
+                await Promise.all(Object.entries(entry.models).map(async ([family, body]) => [family, body.trim()])),
+              )
+            : undefined,
+        }
+        const parsed = Agent.safeParse(config)
+        if (parsed.success) {
+          result[config.name] = parsed.data
+        }
+      } catch (error) {
+        log.warn("Failed to load built-in agent", error as Record<string, any>)
+      }
+    }
 
     for (const item of await Glob.scan("{agent,agents}/**/*.md", {
       cwd: dir,
@@ -288,7 +322,7 @@ export namespace Config {
       })
       if (!md) continue
 
-      const patterns = ["/.opencode/agent/", "/.opencode/agents/", "/agent/", "/agents/"]
+      const patterns = ["/.costrict/agent/", "/.costrict/agents/", "/agent/", "/agents/"]
       const file = rel(item, patterns) ?? path.basename(item)
       const agentName = trim(file)
 

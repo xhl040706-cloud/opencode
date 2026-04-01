@@ -1,5 +1,3 @@
-import { getAppUrl } from "./costrict/version-url"
-
 function truthy(key: string) {
   const value = process.env[key]?.toLowerCase()
   return value === "true" || value === "1"
@@ -67,6 +65,7 @@ export namespace Flag {
   export const COSTRICT_INSECURE_SKIP_TLS_VERIFY = truthy("COSTRICT_INSECURE_SKIP_TLS_VERIFY")
 
   export async function getAppUrlWithVersion() {
+    const { getAppUrl } = await import("./costrict/version-url")
     return await getAppUrl(COSTRICT_BASE_URL)
   }
   export const COSTRICT_DISABLE_FILETIME_CHECK = truthy("COSTRICT_DISABLE_FILETIME_CHECK")
