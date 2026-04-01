@@ -215,6 +215,10 @@ export interface CapabilityItem {
   repoVisibility?: string
   status: string
   sourceType?: string
+  previewCount?: number
+  installCount?: number
+  favoriteCount?: number
+  favorited?: boolean
   securityStatus?: SecurityStatus
   lastScanId?: string
   repoName?: string
@@ -749,7 +753,7 @@ export const itemApi = {
 
   delete: (id: string) => apiFetch<{ message: string }>(`/api/items/${id}`, { method: "DELETE" }),
 
-  get: (id: string) => apiFetch<CapabilityItem>(`/api/items/${id}`),
+  get: (id: string) => apiFetch<CapabilityItem>(`/api/items/${id}`, { credentials: "include" }),
 
   transfer: (id: string, targetRepoId: string) =>
     apiFetch<CapabilityItem>(`/api/items/${id}/transfer`, {
@@ -767,6 +771,26 @@ export const artifactApi = {
   // upload removed: zip creation is handled atomically by createDirect via multipart POST /api/items
   downloadUrl: (artifactId: string) => `${API_BASE}/api/artifacts/${artifactId}/download`,
   delete: (artifactId: string) => apiFetch<{ message: string }>(`/api/artifacts/${artifactId}`, { method: "DELETE" }),
+}
+
+export const behaviorApi = {
+  log: (itemId: string, body: { actionType: string; context?: string; durationMs?: number; metadata?: Record<string, unknown> }) =>
+    apiFetch(`/api/items/${itemId}/behavior`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  favorite: (itemId: string) =>
+    apiFetch<{ favorited: boolean; created?: boolean; favoriteCount: number }>(`/api/items/${itemId}/favorite`, {
+      method: "POST",
+      credentials: "include",
+    }),
+
+  unfavorite: (itemId: string) =>
+    apiFetch<{ favorited: boolean; removed?: boolean; favoriteCount: number }>(`/api/items/${itemId}/favorite`, {
+      method: "DELETE",
+      credentials: "include",
+    }),
 }
 
 export interface ScanStatus {
