@@ -1,4 +1,5 @@
 import { Log } from "../../util/log"
+import { getCloudApiUrl } from "./client"
 
 const log = Log.create({ service: "device-notify" })
 
@@ -22,7 +23,7 @@ export function initCloudNotifier(baseUrl: string, deviceToken: string, deviceId
 export async function notifyCloud(payload: InterventionPayload, path: string): Promise<void> {
   if (!_baseUrl || !_deviceToken || !_deviceId) return
 
-  const url = `${_baseUrl}/cloud/device/notify`
+  const url = getCloudApiUrl("/cloud/device/notify", _baseUrl)
   try {
     const res = await fetch(url, {
       method: "POST",

@@ -10,6 +10,7 @@ import * as Record from "../../costrict/registry/record"
 import { AlreadyInstalledError, ForbiddenError, NotLoggedInError, UnauthorizedError, PackValidationError, SkillNotFoundError, PackError } from "../../costrict/registry/types"
 import type { InstallScope, RegistryItem, CreateRegistryResponse, CreateItemResponse, UploadArtifactResponse, RegistryItemType } from "../../costrict/registry/types"
 import { getCoStrictBaseURL } from "../../costrict/provider/auth"
+import { getCloudApiUrl } from "../../costrict/device/client"
 import { validatePlugin, packPlugin, readSkillMarkdown, getPluginMetadata } from "../../costrict/registry/pack"
 import { Global } from "../../global"
 import { TTYCheck } from "./tui/util/tty-check"
@@ -19,7 +20,7 @@ const DEFAULT_ORG = "public"
 function registryBase(): string {
   const env = process.env.COSTRICT_REGISTRY_BASE_URL
   if (env) return env.replace(/\/$/, "")
-  return `${getCoStrictBaseURL()}/cloud-api`
+  return getCloudApiUrl("", getCoStrictBaseURL()).replace(/\/$/, "")
 }
 
 function resolveRegistryUrl(slug: string | undefined): { registryUrl: string; itemSlug: string | undefined } {

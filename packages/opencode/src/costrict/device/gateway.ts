@@ -1,4 +1,4 @@
-import { type DeviceInfo, getCloudBaseUrl } from "./client"
+import { type DeviceInfo, getCloudApiUrl } from "./client"
 import { Installation } from "../../installation"
 import { Log } from "../../util/log"
 
@@ -15,10 +15,9 @@ const GATEWAY_TIMEOUT_MS = 10_000
 export async function assignGateway(device: DeviceInfo): Promise<string> {
   if (_cachedGatewayURL) return _cachedGatewayURL
 
-  const base = getCloudBaseUrl()
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS)
-  const res = await fetch(`${base}/cloud/device/gateway-assign`, {
+  const res = await fetch(getCloudApiUrl("/cloud/device/gateway-assign", device.base_url), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

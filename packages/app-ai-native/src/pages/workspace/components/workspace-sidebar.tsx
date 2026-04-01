@@ -689,11 +689,11 @@ function WorkspaceSessions(props: { id: string }) {
     const uid = device()
     if (!uid) return
     const url = getProxyUrl(uid)
-    await fetch(`${url}/session`, {
+    await fetch(`${url}/session/${session.id}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: session.id, directory: session.directory, time: { archived: Date.now() } }),
+      body: JSON.stringify({ time: { archived: Date.now() } }),
     }).catch(() => null)
     setSessions((prev) => prev.filter((s) => s.id !== session.id))
     if (params.id === session.id) navigateToSession("", { workspaceId: props.id, dir: encodeDir(session.directory) })
