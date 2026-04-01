@@ -12,12 +12,6 @@ import { Flag } from "../flag/flag"
 import { Archive } from "../util/archive"
 import { Process } from "../util/process"
 import { which } from "../util/which"
-import {
-  CLANGD_OFFLINE_SERVER_FOR_LSP,
-  JDTLS_OFFLINE_SERVER_FOR_LSP,
-  RUST_ANALYZER_OFFLINE_SERVER_FOR_LSP,
-  GOPLS_OFFLINE_SERVER_FOR_LSP,
-} from "./costrict"
 import { Module } from "@opencode-ai/util/module"
 import { spawn } from "./launch"
 
@@ -93,7 +87,6 @@ export namespace LSPServer {
       return {
         process: spawn(deno, ["lsp"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -116,7 +109,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
       return {
         process: proc,
@@ -168,7 +160,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
       return {
         process: proc,
@@ -229,7 +220,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
 
       return {
@@ -287,7 +277,6 @@ export namespace LSPServer {
             return {
               process: spawn(lintBin, ["--lsp"], {
                 cwd: root,
-                windowsHide: process.platform === "win32",
               }),
             }
           }
@@ -303,7 +292,6 @@ export namespace LSPServer {
         return {
           process: spawn(serverBin, [], {
             cwd: root,
-            windowsHide: process.platform === "win32",
           }),
         }
       }
@@ -367,7 +355,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
 
       return {
@@ -412,7 +399,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin!, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -453,7 +439,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin!, ["--lsp"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -472,7 +457,7 @@ export namespace LSPServer {
       "pyrightconfig.json",
     ]),
     async spawn(root) {
-      if (!Flag.COSTRICT_EXPERIMENTAL_LSP_TY) {
+      if (!Flag.OPENCODE_EXPERIMENTAL_LSP_TY) {
         return undefined
       }
 
@@ -514,7 +499,6 @@ export namespace LSPServer {
 
       const proc = spawn(binary, ["server"], {
         cwd: root,
-        windowsHide: process.platform === "win32",
       })
 
       return {
@@ -570,7 +554,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
       return {
         process: proc,
@@ -637,7 +620,6 @@ export namespace LSPServer {
       return {
         process: spawn(binary, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -750,7 +732,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -790,7 +771,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -830,7 +810,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -848,7 +827,6 @@ export namespace LSPServer {
         return {
           process: spawn(sourcekit, {
             cwd: root,
-            windowsHide: process.platform === "win32",
           }),
         }
       }
@@ -866,7 +844,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -913,7 +890,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -930,7 +906,6 @@ export namespace LSPServer {
         return {
           process: spawn(fromPath, args, {
             cwd: root,
-            windowsHide: process.platform === "win32",
           }),
         }
       }
@@ -941,7 +916,6 @@ export namespace LSPServer {
         return {
           process: spawn(direct, args, {
             cwd: root,
-            windowsHide: process.platform === "win32",
           }),
         }
       }
@@ -955,7 +929,6 @@ export namespace LSPServer {
           return {
             process: spawn(candidate, args, {
               cwd: root,
-              windowsHide: process.platform === "win32",
             }),
           }
         }
@@ -1063,7 +1036,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, args, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -1101,7 +1073,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
       return {
         process: proc,
@@ -1149,7 +1120,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
       return {
         process: proc,
@@ -1256,7 +1226,7 @@ export namespace LSPServer {
           }
         })(),
       )
-      const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "costrict-jdtls-data"))
+      const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-jdtls-data"))
       return {
         process: spawn(
           java,
@@ -1277,7 +1247,6 @@ export namespace LSPServer {
           ],
           {
             cwd: root,
-            windowsHide: process.platform === "win32",
           },
         ),
       }
@@ -1378,7 +1347,6 @@ export namespace LSPServer {
       return {
         process: spawn(launcherScript, ["--stdio"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -1425,7 +1393,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
       return {
         process: proc,
@@ -1571,7 +1538,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -1609,7 +1575,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
       return {
         process: proc,
@@ -1635,7 +1600,6 @@ export namespace LSPServer {
       return {
         process: spawn(prisma, ["language-server"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -1654,7 +1618,6 @@ export namespace LSPServer {
       return {
         process: spawn(dart, ["language-server", "--lsp"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -1673,7 +1636,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -1710,7 +1672,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
       return {
         process: proc,
@@ -1790,7 +1751,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, ["serve"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
         initialization: {
           experimentalFeatures: {
@@ -1887,7 +1847,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -1925,7 +1884,6 @@ export namespace LSPServer {
           ...process.env,
           BUN_BE_BUN: "1",
         },
-        windowsHide: process.platform === "win32",
       })
       return {
         process: proc,
@@ -1946,7 +1904,6 @@ export namespace LSPServer {
       return {
         process: spawn(gleam, ["lsp"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -1968,7 +1925,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, ["listen"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -2000,7 +1956,6 @@ export namespace LSPServer {
           env: {
             ...process.env,
           },
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -2095,7 +2050,7 @@ export namespace LSPServer {
       }
 
       return {
-        process: spawn(bin, { cwd: root, windowsHide: process.platform === "win32" }),
+        process: spawn(bin, { cwd: root }),
       }
     },
   }
@@ -2113,7 +2068,6 @@ export namespace LSPServer {
       return {
         process: spawn(bin, ["--lsp"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },
@@ -2132,7 +2086,6 @@ export namespace LSPServer {
       return {
         process: spawn(julia, ["--startup-file=no", "--history-file=no", "-e", "using LanguageServer; runserver()"], {
           cwd: root,
-          windowsHide: process.platform === "win32",
         }),
       }
     },

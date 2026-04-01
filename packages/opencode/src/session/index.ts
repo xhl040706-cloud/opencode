@@ -233,24 +233,6 @@ export namespace Session {
         error: MessageV2.Assistant.shape.error,
       }),
     ),
-    LLMError: BusEvent.define(
-      "session.llm.error",
-      z.object({
-        providerID: z.string(),
-        modelID: z.string(),
-        sessionID: z.string(),
-        agent: z.string(),
-        requestType: z.enum(["stream", "chat", "completion"]),
-        attempt: z.number().optional(),
-        error: z.any(),
-        request: z
-          .object({
-            body: z.any(),
-            headers: z.record(z.string(), z.any()),
-          })
-          .optional(),
-      }),
-    ),
   }
 
   export function plan(input: { slug: string; time: { created: number } }) {
@@ -729,122 +711,8 @@ export namespace Session {
   export const share = fn(SessionID.zod, (id) => runPromise((svc) => svc.share(id)))
   export const unshare = fn(SessionID.zod, (id) => runPromise((svc) => svc.unshare(id)))
 
-  export async function createNext(input: {
-    id?: SessionID
-    title?: string
-    parentID?: SessionID
-    workspaceID?: WorkspaceID
-    directory: string
-    permission?: PermissionNext.Ruleset
-  }) {
-    const result: Info = {
-      id: SessionID.descending(input.id),
-      slug: Slug.create(),
-      version: Installation.VERSION,
-      projectID: Instance.project.id,
-      directory: input.directory,
-      workspaceID: input.workspaceID,
-      parentID: input.parentID,
-      title: input.title ?? createDefaultTitle(!!input.parentID),
-      permission: input.permission,
-      time: {
-        created: Date.now(),
-        updated: Date.now(),
-      },
-    }
-    log.info("created", result)
-    Database.use((db) => {
-      db.insert(SessionTable).values(toRow(result)).run()
-      Database.effect(() =>
-        Bus.publish(Event.Created, {
-          info: result,
-        }),
-      )
-    })
-    const cfg = await Config.get()
-    if (!result.parentID && (Flag.OPENCODE_AUTO_SHARE || cfg.share === "auto"))
-      share(result.id).catch(() => {
-        // Silently ignore sharing errors during session creation
-      })
-    Bus.publish(Event.Updated, {
-      info: result,
-    })
-    return result
-  }
-
-  export function plan(input: { slug: string; time: { created: number } }) {
-    const getPlansDir = () => {
-      if (!Instance.project.vcs) return path.join(Global.Path.data, "plans")
-
-      const costrictPath = path.join(Instance.worktree, ".costrict")
-      const opencodePath = path.join(Instance.worktree, ".opencode")
-
-      try {
-        if (Bun.file(costrictPath).size !== undefined) {
-          return path.join(costrictPath, "plans")
-        }
-      } catch {}
-
-      return path.join(opencodePath, "plans")
-    }
-
-    const base = getPlansDir()
-    return path.join(base, [input.time.created, input.slug].join("-") + ".md")
-  }
-
-  export const get = fn(SessionID.zod, async (id) => {
-    const row = Database.use((db) => db.select().from(SessionTable).where(eq(SessionTable.id, id)).get())
-    if (!row) throw new NotFoundError({ message: `Session not found: ${id}` })
-    return fromRow(row)
-  })
-
-  export const share = fn(SessionID.zod, async (id) => {
-    const cfg = await Config.get()
-    if (cfg.share === "disabled") {
-      throw new Error("Sharing is disabled in configuration")
-    }
-    const { ShareNext } = await import("@/share/share-next")
-    const share = await ShareNext.create(id)
-    Database.use((db) => {
-      const row = db.update(SessionTable).set({ share_url: share.url }).where(eq(SessionTable.id, id)).returning().get()
-      if (!row) throw new NotFoundError({ message: `Session not found: ${id}` })
-      const info = fromRow(row)
-      Database.effect(() => Bus.publish(Event.Updated, { info }))
-    })
-    return share
-  })
-
-  export const unshare = fn(SessionID.zod, async (id) => {
-    // Use ShareNext to remove the share (same as share function uses ShareNext to create)
-    const { ShareNext } = await import("@/share/share-next")
-    await ShareNext.remove(id)
-    Database.use((db) => {
-      const row = db.update(SessionTable).set({ share_url: null }).where(eq(SessionTable.id, id)).returning().get()
-      if (!row) throw new NotFoundError({ message: `Session not found: ${id}` })
-      const info = fromRow(row)
-      Database.effect(() => Bus.publish(Event.Updated, { info }))
-    })
-  })
-
-  export const setTitle = fn(
-    z.object({
-      sessionID: SessionID.zod,
-      title: z.string(),
-    }),
-    async (input) => {
-      return Database.use((db) => {
-        const row = db
-          .update(SessionTable)
-          .set({ title: input.title })
-          .where(eq(SessionTable.id, input.sessionID))
-          .returning()
-          .get()
-        if (!row) throw new NotFoundError({ message: `Session not found: ${input.sessionID}` })
-        const info = fromRow(row)
-        Database.effect(() => Bus.publish(Event.Updated, { info }))
-        return info
-      })
-    },
+  export const setTitle = fn(z.object({ sessionID: SessionID.zod, title: z.string() }), (input) =>
+    runPromise((svc) => svc.setTitle(input)),
   )
 
   export const setArchived = fn(z.object({ sessionID: SessionID.zod, time: z.number().optional() }), (input) =>

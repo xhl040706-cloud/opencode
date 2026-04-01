@@ -90,13 +90,10 @@ export function Prompt(props: PromptProps) {
   const renderer = useRenderer()
   const { theme, syntax } = useTheme()
   const kv = useKV()
-<<<<<<< ours
   const yolo = createMemo(() => kv.get("yolo_mode", false))
   const notification = createMemo(() => kv.get("notification_mode", true))
-=======
   const list = createMemo(() => props.placeholders?.normal ?? [])
   const shell = createMemo(() => props.placeholders?.shell ?? [])
->>>>>>> theirs
 
   function promptModelWarning() {
     toast.show({
@@ -1197,7 +1194,6 @@ export function Prompt(props: PromptProps) {
             <box gap={2} flexDirection="row">
               <Switch>
                 <Match when={store.mode === "normal"}>
-<<<<<<< ours
                   <Show when={local.model.variant.list().length > 0}>
                     <text fg={theme.text}>
                       {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
@@ -1213,10 +1209,6 @@ export function Prompt(props: PromptProps) {
                       {keybind.print("notification_mode")} <span style={{ fg: theme.textMuted }}>SILENT</span>
                     </text>
                   </Show>
-                  <text fg={theme.text}>
-                    {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>agents</span>
-                  </text>
-=======
                   <Switch>
                     <Match when={usage()}>
                       {(item) => (
@@ -1231,7 +1223,6 @@ export function Prompt(props: PromptProps) {
                       </text>
                     </Match>
                   </Switch>
->>>>>>> theirs
                   <text fg={theme.text}>
                     {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
                   </text>

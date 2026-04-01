@@ -18,7 +18,7 @@ import { FileIgnore } from "./ignore"
 import { Protected } from "./protected"
 import { Log } from "../util/log"
 
-declare const COSTRICT_LIBC: string | undefined
+declare const OPENCODE_LIBC: string | undefined
 
 export namespace FileWatcher {
   const log = Log.create({ service: "file.watcher" })
@@ -37,7 +37,7 @@ export namespace FileWatcher {
   const watcher = lazy((): typeof import("@parcel/watcher") | undefined => {
     try {
       const binding = require(
-        `@parcel/watcher-${process.platform}-${process.arch}${process.platform === "linux" ? `-${COSTRICT_LIBC || "glibc"}` : ""}`,
+        `@parcel/watcher-${process.platform}-${process.arch}${process.platform === "linux" ? `-${OPENCODE_LIBC || "glibc"}` : ""}`,
       )
       return createWrapper(binding) as typeof import("@parcel/watcher")
     } catch (error) {
@@ -65,18 +65,7 @@ export namespace FileWatcher {
     readonly init: () => Effect.Effect<void>
   }
 
-      if (Flag.COSTRICT_EXPERIMENTAL_FILEWATCHER) {
-        const pending = w.subscribe(Instance.directory, subscribe, {
-          ignore: [...FileIgnore.PATTERNS, ...cfgIgnores, ...Protected.paths()],
-          backend,
-        })
-        const sub = await withTimeout(pending, SUBSCRIBE_TIMEOUT_MS).catch((err) => {
-          log.error("failed to subscribe to Instance.directory", { error: err })
-          pending.then((s) => s.unsubscribe()).catch(() => {})
-          return undefined
-        })
-        if (sub) subs.push(sub)
-      }
+  export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/FileWatcher") {}
 
   export const layer = Layer.effect(
     Service,
@@ -177,9 +166,6 @@ export namespace FileWatcher {
   const { runPromise } = makeRuntime(Service, defaultLayer)
 
   export function init() {
-    if (Flag.COSTRICT_EXPERIMENTAL_DISABLE_FILEWATCHER) {
-      return
-    }
-    state()
+    return runPromise((svc) => svc.init())
   }
 }

@@ -35,7 +35,7 @@ import { Locale } from "@/util/locale"
 import type { Tool } from "@/tool/tool"
 import type { ReadTool } from "@/tool/read"
 import type { WriteTool } from "@/tool/write"
-import { BashTool } from "@/plugin/tdd/tools/bash"
+import { BashTool } from "@/tool/bash"
 import type { GlobTool } from "@/tool/glob"
 import { TodoWriteTool } from "@/tool/todo"
 import type { GrepTool } from "@/tool/grep"
@@ -127,22 +127,14 @@ export function Session() {
       .filter((x) => x.parentID === parentID || x.id === parentID)
       .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   })
-  const allDescendants = createMemo(() => {
-    const collect = (sessionID: string): string[] => {
-      const directChildren = sync.data.session.filter((x) => x.parentID === sessionID)
-      const all = [sessionID, ...directChildren.map((c) => c.id).flatMap((id) => collect(id))]
-      return all
-    }
-    return collect(session()?.id ?? "")
-  })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const permissions = createMemo(() => {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.permission[x.id] ?? [])
   })
   const questions = createMemo(() => {
-    if (session()?.parentID) return sync.data.question[route.sessionID] ?? []
-    return allDescendants().flatMap((id) => sync.data.question[id] ?? [])
+    if (session()?.parentID) return []
+    return children().flatMap((x) => sync.data.question[x.id] ?? [])
   })
 
   const pending = createMemo(() => {
@@ -257,11 +249,9 @@ export function Session() {
         `${logo[1] ?? ""}`,
         `${logo[2] ?? ""}`,
         `${logo[3] ?? ""}`,
-        `${logo[4] ?? ""}`,
-        `${logo[5] ?? ""}`,
         ``,
         `  ${weak("Session")}${UI.Style.TEXT_NORMAL_BOLD}${title}${UI.Style.TEXT_NORMAL}`,
-        `  ${weak("Continue")}${UI.Style.TEXT_NORMAL_BOLD}cs -s ${session()?.id}${UI.Style.TEXT_NORMAL}`,
+        `  ${weak("Continue")}${UI.Style.TEXT_NORMAL_BOLD}opencode -s ${session()?.id}${UI.Style.TEXT_NORMAL}`,
         ``,
       ].join("\n"),
     )
@@ -371,7 +361,7 @@ export function Session() {
       suggested: route.type === "session",
       keybind: "session_share",
       category: "Session",
-      enabled: sync.data.config.share === "manual" || sync.data.config.share === "auto",
+      enabled: sync.data.config.share !== "disabled",
       slash: {
         name: "share",
       },
@@ -584,26 +574,6 @@ export function Session() {
           setSidebar(() => (isVisible ? "hide" : "auto"))
           setSidebarOpen(!isVisible)
         })
-        dialog.clear()
-      },
-    },
-    {
-      title: kv.get("yolo_mode", false) ? "Disable YOLO mode" : "Enable YOLO mode",
-      value: "session.yolo.toggle",
-      keybind: "yolo_mode",
-      category: "Session",
-      onSelect: async (dialog) => {
-        await sdk.client.tui.executeCommand({ command: "yolo_toggle" })
-        dialog.clear()
-      },
-    },
-    {
-      title: kv.get("notification_mode", true) ? "Disable notifications" : "Enable notifications",
-      value: "session.notification.toggle",
-      keybind: "notification_mode",
-      category: "Session",
-      onSelect: async (dialog) => {
-        await sdk.client.tui.executeCommand({ command: "notification_toggle" })
         dialog.clear()
       },
     },
@@ -1783,23 +1753,16 @@ function BlockTool(props: {
 }
 
 function Bash(props: ToolProps<typeof BashTool>) {
-  const ctx = use()
   const { theme } = useTheme()
   const sync = useSync()
   const isRunning = createMemo(() => props.part.state.status === "running")
   const output = createMemo(() => stripAnsi(props.metadata.output?.trim() ?? ""))
   const [expanded, setExpanded] = createSignal(false)
   const lines = createMemo(() => output().split("\n"))
-  const wrap = createMemo(() => Math.max(20, ctx.width - 8))
-  const rows = createMemo(() => {
-    const width = wrap()
-    return lines().reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / width)), 0)
-  })
-  const limit = 10
-  const overflow = createMemo(() => rows() > limit)
+  const overflow = createMemo(() => lines().length > 10)
   const limited = createMemo(() => {
     if (expanded() || !overflow()) return output()
-    return [...lines().slice(0, limit), "…"].join("\n")
+    return [...lines().slice(0, 10), "…"].join("\n")
   })
 
   const workdirDisplay = createMemo(() => {
@@ -1839,15 +1802,7 @@ function Bash(props: ToolProps<typeof BashTool>) {
           <box gap={1}>
             <text fg={theme.text}>$ {props.input.command}</text>
             <Show when={output()}>
-              <Show when={overflow() && !expanded()} fallback={<text fg={theme.text}>{output()}</text>}>
-                <scrollbox
-                  maxHeight={limit}
-                  scrollbarOptions={{ visible: false }}
-                  verticalScrollbarOptions={{ visible: false }}
-                >
-                  <text fg={theme.text}>{limited()}</text>
-                </scrollbox>
-              </Show>
+              <text fg={theme.text}>{limited()}</text>
             </Show>
             <Show when={overflow()}>
               <text fg={theme.textMuted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>

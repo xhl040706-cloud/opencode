@@ -145,54 +145,6 @@ describe("session.retry.retryable", () => {
     expect(SessionRetry.retryable(error)).toBeUndefined()
   })
 
-  test("retries on connection error messages", () => {
-    const error = new MessageV2.APIError({
-      message: "Connection error.",
-      isRetryable: false,
-    }).toObject() as MessageV2.APIError
-
-    const retryable = SessionRetry.retryable(error)
-    expect(retryable).toBeDefined()
-    expect(retryable).toBe("Connection error")
-  })
-
-  test("retries on connection error with isRetryable=true", () => {
-    const error = new MessageV2.APIError({
-      message: "Connection error.",
-      isRetryable: true,
-    }).toObject() as MessageV2.APIError
-
-    const retryable = SessionRetry.retryable(error)
-    expect(retryable).toBeDefined()
-    expect(retryable).toBe("Connection error")
-  })
-
-  test("retries on reasoning-only error", () => {
-    const error = new MessageV2.ReasoningOnlyError({}).toObject()
-
-    const retryable = SessionRetry.retryable(error)
-    expect(retryable).toBeDefined()
-    expect(retryable).toBe("Response only contains reasoning content")
-  })
-
-  test("reasoning-only error is retryable", () => {
-    const error = new MessageV2.ReasoningOnlyError({}).toObject()
-
-    const retryable = SessionRetry.retryable(error)
-    expect(retryable).toBeDefined()
-    expect(retryable).toBe("Response only contains reasoning content")
-  })
-
-  test("non-retryable errors should return undefined", () => {
-    const error = new MessageV2.APIError({
-      message: "Bad request",
-      isRetryable: false,
-    }).toObject() as MessageV2.APIError
-
-    const retryable = SessionRetry.retryable(error)
-    expect(retryable).toBeUndefined()
-  })
-  
   test("does not retry context overflow errors", () => {
     const error = new MessageV2.ContextOverflowError({
       message: "Input exceeds context window of this model",

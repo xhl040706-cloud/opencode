@@ -31,24 +31,7 @@ export const TaskTool = Tool.define("task", async (ctx) => {
   // Filter agents by permissions if agent provided
   const caller = ctx?.agent
   const accessibleAgents = caller
-    ? agents.filter((a) => {
-        // Check if caller has permission to access this agent
-        const hasPermission = PermissionNext.evaluate("task", a.name, caller.permission).action !== "deny"
-        if (!hasPermission) return false
-
-        // If target agent is not visible (visible === false),
-        // caller must have explicit permission in permission:task
-        if (a.visible === false) {
-          const explicitPerm = PermissionNext.evaluate("task", a.name, caller.permission)
-          // Only allow if there's an explicit rule (not just default "*" rule)
-          const hasExplicitRule = caller.permission.some(
-            (r) => r.permission === "task" && r.pattern === a.name
-          )
-          return hasExplicitRule && explicitPerm.action === "allow"
-        }
-
-        return true
-      })
+    ? agents.filter((a) => Permission.evaluate("task", a.name, caller.permission).action !== "deny")
     : agents
   const list = accessibleAgents.toSorted((a, b) => a.name.localeCompare(b.name))
 
@@ -93,6 +76,15 @@ export const TaskTool = Tool.define("task", async (ctx) => {
           parentID: ctx.sessionID,
           title: params.description + ` (@${agent.name} subagent)`,
           permission: [
+            ...(hasTodoWritePermission
+              ? []
+              : [
+                  {
+                    permission: "todowrite" as const,
+                    pattern: "*" as const,
+                    action: "deny" as const,
+                  },
+                ]),
             ...(hasTaskPermission
               ? []
               : [
@@ -144,6 +136,7 @@ export const TaskTool = Tool.define("task", async (ctx) => {
         },
         agent: agent.name,
         tools: {
+          ...(hasTodoWritePermission ? {} : { todowrite: false }),
           ...(hasTaskPermission ? {} : { task: false }),
           ...Object.fromEntries((config.experimental?.primary_tools ?? []).map((t) => [t, false])),
         },

@@ -1,16 +1,12 @@
-import { Effect } from "effect"
-import { runtime } from "@/effect/runtime"
-import * as S from "./service"
-import { Config } from "@/config/config"
-import type { QuestionID } from "./schema"
-import type { SessionID, MessageID } from "@/session/schema"
+import { Deferred, Effect, Layer, Schema, ServiceMap } from "effect"
+import { Bus } from "@/bus"
+import { BusEvent } from "@/bus/bus-event"
+import { InstanceState } from "@/effect/instance-state"
+import { makeRuntime } from "@/effect/run-service"
+import { SessionID, MessageID } from "@/session/schema"
 import { Log } from "@/util/log"
-
-const log = Log.create({ service: "question" })
-
-function runPromise<A, E>(f: (service: S.QuestionService.Service) => Effect.Effect<A, E>) {
-  return runtime.runPromise(S.QuestionService.use(f))
-}
+import z from "zod"
+import { QuestionID } from "./schema"
 
 export namespace Question {
   const log = Log.create({ service: "question" })
@@ -208,23 +204,7 @@ export namespace Question {
     questions: Info[]
     tool?: { messageID: MessageID; callID: string }
   }): Promise<Answer[]> {
-    // Check if auto-select mode is enabled (CoStrict feature)
-    const configState = await Config.state()
-    const autoSelectEnabled = configState.config.question?.autoSelectFirstOption ?? false
-
-    if (autoSelectEnabled) {
-      log.info("auto-select mode enabled")
-      // Auto-select first option for each question
-      const autoAnswers: Answer[] = input.questions.map((question) => {
-        if (question.options.length > 0) {
-          return [question.options[0].label]
-        }
-        return []
-      })
-      return autoAnswers
-    }
-
-    return runPromise((service) => service.ask(input))
+    return runPromise((s) => s.ask(input))
   }
 
   export async function reply(input: { requestID: QuestionID; answers: Answer[] }) {

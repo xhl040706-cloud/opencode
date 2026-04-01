@@ -65,7 +65,7 @@ export namespace Provider {
     return Number(match[1]) >= 5 && !modelID.startsWith("gpt-5-mini")
   }
 
-  function wrapSSE(res: Response, ms: number, ctl: AbortController, requestId?: string) {
+  function wrapSSE(res: Response, ms: number, ctl: AbortController) {
     if (typeof ms !== "number" || ms <= 0) return res
     if (!res.body) return res
     if (!res.headers.get("content-type")?.includes("text/event-stream")) return res
@@ -75,10 +75,7 @@ export namespace Provider {
       async pull(ctrl) {
         const part = await new Promise<Awaited<ReturnType<typeof reader.read>>>((resolve, reject) => {
           const id = setTimeout(() => {
-            const err = new Error(
-              requestId ? `SSE read timed out (X-Request-Id: ${requestId})` : "SSE read timed out",
-            ) as Error & { requestID?: string }
-            if (requestId) err.requestID = requestId
+            const err = new Error("SSE read timed out")
             ctl.abort(err)
             void reader.cancel(err)
             reject(err)
@@ -116,17 +113,11 @@ export namespace Provider {
     })
   }
 
-  function attachRequestId(error: unknown, requestId?: string) {
-    if (!requestId || !(error instanceof Error)) return error
-    const tagged = error as Error & { requestID?: string }
-    tagged.requestID = requestId
-    if (!tagged.message.includes("X-Request-Id:")) {
-      tagged.message = `${tagged.message} (X-Request-Id: ${requestId})`
-    }
-    return tagged
+  type BundledSDK = {
+    languageModel(modelId: string): LanguageModelV3
   }
 
-  const BUNDLED_PROVIDERS: Record<string, (options: any) => SDK> = {
+  const BUNDLED_PROVIDERS: Record<string, (options: any) => BundledSDK> = {
     "@ai-sdk/amazon-bedrock": createAmazonBedrock,
     "@ai-sdk/anthropic": createAnthropic,
     "@ai-sdk/azure": createAzure,
@@ -158,7 +149,7 @@ export namespace Provider {
     getModel?: CustomModelLoader
     vars?: CustomVarsLoader
     options?: Record<string, any>
-    models?: Record<string, any>
+    discoverModels?: CustomDiscoverModels
   }>
 
   function useLanguageModel(sdk: any) {
@@ -166,11 +157,6 @@ export namespace Provider {
   }
 
   const CUSTOM_LOADERS: Record<string, CustomLoader> = {
-    // CoStrict 供应商 - 动态导入
-    async costrict(provider: Info) {
-      const { createCoStrictCustomLoader } = await import("../costrict/provider")
-      return createCoStrictCustomLoader(provider)
-    },
     async anthropic() {
       return {
         autoload: false,
@@ -426,8 +412,8 @@ export namespace Provider {
         autoload: false,
         options: {
           headers: {
-            "HTTP-Referer": "https://costrict.ai/",
-            "X-Title": "costrict",
+            "HTTP-Referer": "https://opencode.ai/",
+            "X-Title": "opencode",
           },
         },
       }
@@ -437,8 +423,8 @@ export namespace Provider {
         autoload: false,
         options: {
           headers: {
-            "http-referer": "https://costrict.ai/",
-            "x-title": "costrict",
+            "http-referer": "https://opencode.ai/",
+            "x-title": "opencode",
           },
         },
       }
@@ -536,8 +522,8 @@ export namespace Provider {
         autoload: false,
         options: {
           headers: {
-            "HTTP-Referer": "https://costrict.ai/",
-            "X-Title": "costrict",
+            "HTTP-Referer": "https://opencode.ai/",
+            "X-Title": "opencode",
           },
         },
       }
@@ -770,7 +756,7 @@ export namespace Provider {
         autoload: false,
         options: {
           headers: {
-            "X-Cerebras-3rd-Party-Integration": "costrict",
+            "X-Cerebras-3rd-Party-Integration": "opencode",
           },
         },
       }
@@ -1014,55 +1000,18 @@ export namespace Provider {
 
           const configProviders = Object.entries(cfg.provider ?? {})
 
-    // Add CoStrict provider (built-in)
-    // Models will be loaded dynamically by CUSTOM_LOADER from /ai-gateway/api/v1/models
-    database[ProviderID.costrict] = {
-      id: ProviderID.costrict,
-      name: "CoStrict",
-      source: "custom",
-      env: ["COSTRICT_API_KEY"],
-      options: {},
-      models: {
-        Auto: {
-          id: ModelID.make("Auto"),
-          name: "Auto",
-          providerID: ProviderID.costrict,
-          status: "active",
-          api: {
-            id: "Auto",
-            url: "https://zgsm.sangfor.com/chat-rag/api/v1",
-            npm: "@ai-sdk/openai-compatible",
-          },
-          capabilities: {
-            temperature: true,
-            reasoning: false,
-            attachment: false,
-            toolcall: true,
-            input: { text: true, audio: false, image: false, video: false, pdf: false },
-            output: { text: true, audio: false, image: false, video: false, pdf: false },
-            interleaved: false,
-          },
-          limit: { context: 128000, output: 8192 },
-          cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
-          options: {},
-          headers: {},
-          release_date: new Date().toISOString(),
-        },
-      },
-    }
-
-    function mergeProvider(providerID: ProviderID, provider: Partial<Info>) {
-      const existing = providers[providerID]
-      if (existing) {
-        // @ts-expect-error
-        providers[providerID] = mergeDeep(existing, provider)
-        return
-      }
-      const match = database[providerID]
-      if (!match) return
-      // @ts-expect-error
-      providers[providerID] = mergeDeep(match, provider)
-    }
+          function mergeProvider(providerID: ProviderID, provider: Partial<Info>) {
+            const existing = providers[providerID]
+            if (existing) {
+              // @ts-expect-error
+              providers[providerID] = mergeDeep(existing, provider)
+              return
+            }
+            const match = database[providerID]
+            if (!match) return
+            // @ts-expect-error
+            providers[providerID] = mergeDeep(match, provider)
+          }
 
           // extend database from config
           for (const [providerID, provider] of configProviders) {
@@ -1197,132 +1146,25 @@ export namespace Provider {
             mergeProvider(providerID, patch)
           }
 
-    for (const [id, fn] of Object.entries(CUSTOM_LOADERS)) {
-      const providerID = ProviderID.make(id)
-      if (disabled.has(providerID)) continue
-      const data = database[providerID]
-      if (!data) {
-        log.error("Provider does not exist in model list " + providerID)
-        continue
-      }
-      const result = await fn(data)
-      if (result && (result.autoload || providers[providerID])) {
-        if (result.getModel) modelLoaders[providerID] = result.getModel
-        if (result.vars) varsLoaders[providerID] = result.vars
-        const partial: any = {
-          source: "custom",
-          options: result.options ?? {},
-        }
-        // 只在 result.models 存在时才传递，避免覆盖 database 中的 models
-        if (result.models) {
-          partial.models = result.models
-        }
-        mergeProvider(providerID, partial)
-      }
-    }
-
-    // load config
-    for (const [id, provider] of configProviders) {
-      const providerID = ProviderID.make(id)
-      const partial: Partial<Info> = { source: "config" }
-      if (provider.env) partial.env = provider.env
-      if (provider.name) partial.name = provider.name
-      if (provider.options) partial.options = provider.options
-      mergeProvider(providerID, partial)
-    }
-
-    for (const [id, provider] of Object.entries(providers)) {
-      const providerID = ProviderID.make(id)
-      if (!isProviderAllowed(providerID)) {
-        delete providers[providerID]
-        continue
-      }
-
-      const configProvider = config.provider?.[providerID]
-
-      // 跳过没有 models 字段的 provider
-      if (!provider.models) continue
-
-      for (const [modelID, model] of Object.entries(provider.models)) {
-        model.api.id = model.api.id ?? model.id ?? modelID
-        if (
-          modelID === "gpt-5-chat-latest" ||
-          (providerID === ProviderID.openrouter && modelID === "openai/gpt-5-chat")
-        )
-          delete provider.models[modelID]
-        if (model.status === "alpha" && !Flag.COSTRICT_ENABLE_EXPERIMENTAL_MODELS) delete provider.models[modelID]
-        if (model.status === "deprecated") delete provider.models[modelID]
-        if (
-          (configProvider?.blacklist && configProvider.blacklist.includes(modelID)) ||
-          (configProvider?.whitelist && !configProvider.whitelist.includes(modelID))
-        )
-          delete provider.models[modelID]
-
-        model.variants = mapValues(ProviderTransform.variants(model), (v) => v)
-
-        // Filter out disabled variants from config
-        const configVariants = configProvider?.models?.[modelID]?.variants
-        if (configVariants && model.variants) {
-          const merged = mergeDeep(model.variants, configVariants)
-          model.variants = mapValues(
-            pickBy(merged, (v) => !v.disabled),
-            (v) => omit(v, ["disabled"]),
-          )
-        }
-      }
-
-      if (Object.keys(provider.models).length === 0) {
-        delete providers[providerID]
-        continue
-      }
-
-      log.info("found", { providerID })
-    }
-
-    return {
-      models: languages,
-      providers,
-      sdk,
-      modelLoaders,
-      varsLoaders,
-    }
-  })
-
-  export async function list() {
-    return state().then((state) => state.providers)
-  }
-
-  async function getSDK(model: Model) {
-    try {
-      using _ = log.time("getSDK", {
-        providerID: model.providerID,
-      })
-      const s = await state()
-      const provider = s.providers[model.providerID]
-      const options = { ...provider.options }
-
-      if (model.providerID === "google-vertex" && !model.api.npm.includes("@ai-sdk/openai-compatible")) {
-        delete options.fetch
-      }
-
-      if (model.api.npm.includes("@ai-sdk/openai-compatible") && options["includeUsage"] !== false) {
-        options["includeUsage"] = true
-      }
-
-      const baseURL = iife(() => {
-        let url =
-          typeof options["baseURL"] === "string" && options["baseURL"] !== "" ? options["baseURL"] : model.api.url
-        if (!url) return
-
-        // some models/providers have variable urls, ex: "https://${AZURE_RESOURCE_NAME}.services.ai.azure.com/anthropic/v1"
-        // We track this in models.dev, and then when we are resolving the baseURL
-        // we need to string replace that literal: "${AZURE_RESOURCE_NAME}"
-        const loader = s.varsLoaders[model.providerID]
-        if (loader) {
-          const vars = loader(options)
-          for (const [key, value] of Object.entries(vars)) {
-            const field = "${" + key + "}"
-            url = url.replaceAll(field, value)
+          for (const [id, fn] of Object.entries(CUSTOM_LOADERS)) {
+            const providerID = ProviderID.make(id)
+            if (disabled.has(providerID)) continue
+            const data = database[providerID]
+            if (!data) {
+              log.error("Provider does not exist in model list " + providerID)
+              continue
+            }
+            const result = yield* Effect.promise(() => fn(data))
+            if (result && (result.autoload || providers[providerID])) {
+              if (result.getModel) modelLoaders[providerID] = result.getModel
+              if (result.vars) varsLoaders[providerID] = result.vars
+              if (result.discoverModels) discoveryLoaders[providerID] = result.discoverModels
+              const opts = result.options ?? {}
+              const patch: Partial<Info> = providers[providerID]
+                ? { options: opts }
+                : { source: "custom", options: opts }
+              mergeProvider(providerID, patch)
+            }
           }
 
           // load config
@@ -1359,13 +1201,7 @@ export namespace Provider {
               )
                 delete provider.models[modelID]
 
-      options["fetch"] = async (input: any, init?: BunFetchRequestInit) => {
-        // Preserve custom fetch if it exists, wrap it with timeout logic
-        const fetchFn = customFetch ?? fetch
-        const opts = init ?? {}
-        const requestId = new Headers(opts.headers).get("X-Request-Id") ?? undefined
-        const chunkAbortCtl = typeof chunkTimeout === "number" && chunkTimeout > 0 ? new AbortController() : undefined
-        const signals: AbortSignal[] = []
+              model.variants = mapValues(ProviderTransform.variants(model), (v) => v)
 
               const configVariants = configProvider?.models?.[modelID]?.variants
               if (configVariants && model.variants) {
@@ -1667,46 +1503,7 @@ export namespace Provider {
           }
         }
 
-        let res: Response
-        try {
-          res = await fetchFn(input, {
-            ...opts,
-            // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
-            timeout: false,
-          })
-        } catch (error) {
-          throw attachRequestId(error, requestId)
-        }
-
-        if (!chunkAbortCtl) return res
-        return wrapSSE(res, chunkTimeout, chunkAbortCtl, requestId)
-      }
-
-      const bundledFn = BUNDLED_PROVIDERS[model.api.npm]
-      if (bundledFn) {
-        log.info("using bundled provider", { providerID: model.providerID, pkg: model.api.npm })
-        const loaded = bundledFn({
-          name: model.providerID,
-          ...options,
-        })
-        s.sdk.set(key, loaded)
-        return loaded as SDK
-      }
-
-      let installedPath: string
-      if (!model.api.npm.startsWith("file://")) {
-        installedPath = await BunProc.install(model.api.npm, "latest")
-      } else {
-        log.info("loading local provider", { pkg: model.api.npm })
-        installedPath = model.api.npm
-      }
-
-      const mod = await import(installedPath)
-
-      const fn = mod[Object.keys(mod).find((key) => key.startsWith("create"))!]
-      const loaded = fn({
-        name: model.providerID,
-        ...options,
+        return undefined
       })
 
       const defaultModel = Effect.fn("Provider.defaultModel")(function* () {
@@ -1773,64 +1570,8 @@ export namespace Provider {
     return runPromise((svc) => svc.getSmallModel(providerID))
   }
 
-    if (cfg.small_model) {
-      const parsed = parseModel(cfg.small_model)
-      return getModel(parsed.providerID, parsed.modelID)
-    }
-
-    const provider = await state().then((state) => state.providers[providerID])
-    if (provider) {
-      let priority = [
-        "claude-haiku-4-5",
-        "claude-haiku-4.5",
-        "3-5-haiku",
-        "3.5-haiku",
-        "gemini-3-flash",
-        "gemini-2.5-flash",
-        "gpt-5-nano",
-      ]
-      if (providerID.startsWith("opencode")) {
-        priority = ["gpt-5-nano"]
-      }
-      if (providerID.startsWith("costrict")) {
-        priority = ["Auto"]
-      }
-      if (providerID.startsWith("github-copilot")) {
-        // prioritize free models for github copilot
-        priority = ["gpt-5-mini", "claude-haiku-4.5", ...priority]
-      }
-      for (const item of priority) {
-        if (providerID === ProviderID.amazonBedrock) {
-          const crossRegionPrefixes = ["global.", "us.", "eu."]
-          const candidates = Object.keys(provider.models).filter((m) => m.includes(item))
-
-          // Model selection priority:
-          // 1. global. prefix (works everywhere)
-          // 2. User's region prefix (us., eu.)
-          // 3. Unprefixed model
-          const globalMatch = candidates.find((m) => m.startsWith("global."))
-          if (globalMatch) return getModel(providerID, ModelID.make(globalMatch))
-
-          const region = provider.options?.region
-          if (region) {
-            const regionPrefix = region.split("-")[0]
-            if (regionPrefix === "us" || regionPrefix === "eu") {
-              const regionalMatch = candidates.find((m) => m.startsWith(`${regionPrefix}.`))
-              if (regionalMatch) return getModel(providerID, ModelID.make(regionalMatch))
-            }
-          }
-
-          const unprefixed = candidates.find((m) => !crossRegionPrefixes.some((p) => m.startsWith(p)))
-          if (unprefixed) return getModel(providerID, ModelID.make(unprefixed))
-        } else {
-          for (const model of Object.keys(provider.models)) {
-            if (model.includes(item)) return getModel(providerID, ModelID.make(model))
-          }
-        }
-      }
-    }
-
-    return undefined
+  export async function defaultModel() {
+    return runPromise((svc) => svc.defaultModel())
   }
 
   const priority = ["gpt-5", "claude-sonnet-4", "big-pickle", "gemini-3-pro"]
@@ -1841,42 +1582,6 @@ export namespace Provider {
       [(model) => (model.id.includes("latest") ? 0 : 1), "asc"],
       [(model) => model.id, "desc"],
     )
-  }
-
-  export async function defaultModel() {
-    const cfg = await Config.get()
-    if (cfg.model) return parseModel(cfg.model)
-
-    // Try costrict provider first as the default for new users
-    const providers = await list()
-    const costrictProvider = providers["costrict"]
-    if (costrictProvider && costrictProvider.models["Auto"]) {
-      return {
-        providerID: ProviderID.make("costrict"),
-        modelID: ModelID.make("Auto"),
-      }
-    }
-
-    const recent = (await Filesystem.readJson<{ recent?: { providerID: ProviderID; modelID: ModelID }[] }>(
-      path.join(Global.Path.state, "model.json"),
-    )
-      .then((x) => (Array.isArray(x.recent) ? x.recent : []))
-      .catch(() => [])) as { providerID: ProviderID; modelID: ModelID }[]
-    for (const entry of recent) {
-      const provider = providers[entry.providerID]
-      if (!provider) continue
-      if (!provider.models[entry.modelID]) continue
-      return { providerID: entry.providerID, modelID: entry.modelID }
-    }
-
-    const provider = Object.values(providers).find((p) => !cfg.provider || Object.keys(cfg.provider).includes(p.id))
-    if (!provider) throw new Error("no providers found")
-    const [model] = sort(Object.values(provider.models))
-    if (!model) throw new Error("no models found")
-    return {
-      providerID: provider.id,
-      modelID: model.id,
-    }
   }
 
   export function parseModel(model: string) {

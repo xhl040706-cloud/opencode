@@ -14,7 +14,6 @@ import { iife } from "@/util/iife"
 import { errorMessage } from "@/util/error"
 import type { SystemError } from "bun"
 import type { Provider } from "@/provider/provider"
-import { CostrictError } from "@/costrict/error"
 import { ModelID, ProviderID } from "@/provider/schema"
 
 /** Error shape thrown by Bun's fetch() when gzip/br decompression fails mid-stream */
@@ -30,7 +29,6 @@ export namespace MessageV2 {
   }
 
   export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
-  export const ReasoningOnlyError = NamedError.create("MessageReasoningOnlyError", z.object({}))
   export const AbortedError = NamedError.create("MessageAbortedError", z.object({ message: z.string() }))
   export const StructuredOutputError = NamedError.create(
     "StructuredOutputError",
@@ -413,7 +411,6 @@ export namespace MessageV2 {
         AuthError.Schema,
         NamedError.Unknown.Schema,
         OutputLengthError.Schema,
-        ReasoningOnlyError.Schema,
         AbortedError.Schema,
         StructuredOutputError.Schema,
         ContextOverflowError.Schema,
@@ -647,6 +644,7 @@ export namespace MessageV2 {
           role: "user",
           parts: [],
         }
+        result.push(userMessage)
         for (const part of msg.parts) {
           if (part.type === "text" && !part.ignored)
             userMessage.parts.push({
@@ -682,9 +680,6 @@ export namespace MessageV2 {
               text: "The following tool was executed by the user",
             })
           }
-        }
-        if (userMessage.parts.length > 0) {
-          result.push(userMessage)
         }
       }
 
@@ -926,9 +921,10 @@ export namespace MessageV2 {
     return result
   }
 
-  export function fromError(e: unknown, ctx: { providerID: ProviderID }) {
-    const mapped = ctx.providerID === ProviderID.costrict ? CostrictError.fromError(e) : undefined
-    if (mapped) return mapped
+  export function fromError(
+    e: unknown,
+    ctx: { providerID: ProviderID; aborted?: boolean },
+  ): NonNullable<Assistant["error"]> {
     switch (true) {
       case e instanceof DOMException && e.name === "AbortError":
         return new MessageV2.AbortedError(
@@ -938,8 +934,6 @@ export namespace MessageV2 {
           },
         ).toObject()
       case MessageV2.OutputLengthError.isInstance(e):
-        return e
-      case MessageV2.ReasoningOnlyError.isInstance(e):
         return e
       case LoadAPIKeyError.isInstance(e):
         return new MessageV2.AuthError(

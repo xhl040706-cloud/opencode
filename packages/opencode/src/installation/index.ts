@@ -8,11 +8,13 @@ import path from "path"
 import z from "zod"
 import { BusEvent } from "@/bus/bus-event"
 import { Flag } from "../flag/flag"
+import { Log } from "../util/log"
 import { createHash } from "node:crypto"
 import { hostname, userInfo } from "node:os"
-import { Process } from "@/util/process"
-import { buffer } from "node:stream/consumers"
 import Package from "../../package.json"
+
+import semver from "semver"
+
 declare global {
   const COSTRICT_VERSION: string
   const COSTRICT_CHANNEL: string
@@ -63,9 +65,12 @@ export namespace Installation {
     })
   export type Info = z.infer<typeof Info>
 
-  export const VERSION = version
-  export const CHANNEL = channel
-  export const USER_AGENT = `opencode/${CHANNEL}/${VERSION}/${Flag.OPENCODE_CLIENT}`
+  export const VERSION = typeof COSTRICT_VERSION === "string" ? COSTRICT_VERSION : Package.version
+  export const CHANNEL = typeof COSTRICT_CHANNEL === "string" ? COSTRICT_CHANNEL : Package.version
+  export const COMMIT_HASH = typeof COSTRICT_COMMIT_HASH === "string" ? COSTRICT_COMMIT_HASH : "unknown"
+  export const BUILD_TIME = typeof COSTRICT_BUILD_TIME === "string" ? COSTRICT_BUILD_TIME : "unknown"
+  export const CLIENT = process.env["COSTRICT_CLIENT"] ?? "cli"
+  export const USER_AGENT = `opencode/${CHANNEL}/${VERSION}/${CLIENT}`
 
   export function isPreview() {
     return CHANNEL !== "latest"
@@ -75,8 +80,9 @@ export namespace Installation {
     return CHANNEL === "local"
   }
 
-  export async function method() {
-    const exec = process.execPath.toLowerCase()
+  export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
+    stderr: Schema.String,
+  }) {}
 
   // Response schemas for external version APIs
   const GitHubRelease = Schema.Struct({ tag_name: Schema.String })
@@ -90,43 +96,11 @@ export namespace Installation {
   })
   const ScoopManifest = NpmPackage
 
-    checks.sort((a, b) => {
-      const aMatches = exec.includes(a.name)
-      const bMatches = exec.includes(b.name)
-      if (aMatches && !bMatches) return -1
-      if (!aMatches && bMatches) return 1
-      return 0
-    })
-
-    for (const check of checks) {
-      const output = await check.command()
-      // Check for multiple possible package names
-      const possibleNames =
-        check.name === "brew" || check.name === "choco" || check.name === "scoop"
-          ? ["opencode"]
-          : [
-              "@costrict/cs",
-              "opencode-ai",
-              "@costrict/cs-darwin-arm64",
-              "@costrict/cs-linux-x64",
-              "@costrict/cs-darwin-x64",
-            ]
-
-      for (const name of possibleNames) {
-        if (output.includes(name)) {
-          return check.name
-        }
-      }
-    }
-
-    // Only use curl as fallback if installed in specific curl-based installation paths
-    if (process.execPath.includes(path.join(".costrict", "bin"))) return "curl"
-    if (process.execPath.includes(path.join(".local", "bin"))) return "curl"
-
-    // Check for npm-like installation paths (e.g., node_modules/@costrict/...)
-    if (process.execPath.includes("node_modules/@costrict")) return "npm"
-
-    return "unknown"
+  export interface Interface {
+    readonly info: () => Effect.Effect<Info>
+    readonly method: () => Effect.Effect<Method>
+    readonly latest: (method?: Method) => Effect.Effect<string>
+    readonly upgrade: (method: Method, target: string) => Effect.Effect<void, UpgradeFailedError>
   }
 
   export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Installation") {}
@@ -139,58 +113,120 @@ export namespace Installation {
         const httpOk = HttpClient.filterStatusOk(withTransientReadRetry(http))
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
 
-  export async function upgrade(method: Method, target: string) {
-    let result: Awaited<ReturnType<typeof upgradeCurl>> | undefined
-    switch (method) {
-      case "curl": {
-        const baseUrl = Flag.COSTRICT_BASE_URL || "https://zgsm.sangfor.com"
-        result = await Process.run(
-          ["curl", "-fsSL", `${baseUrl}/costrict/install.sh`, "|", "bash"],
-          {
-            env: {
-              ...process.env,
-              VERSION: target,
-              COSTRICT_BASE_URL: baseUrl,
-            },
-            nothrow: true,
+        const text = Effect.fnUntraced(
+          function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
+            const proc = ChildProcess.make(cmd[0], cmd.slice(1), {
+              cwd: opts?.cwd,
+              env: opts?.env,
+              extendEnv: true,
+            })
+            const handle = yield* spawner.spawn(proc)
+            const out = yield* Stream.mkString(Stream.decodeText(handle.stdout))
+            yield* handle.exitCode
+            return out
           },
+          Effect.scoped,
+          Effect.catch(() => Effect.succeed("")),
         )
-        break
-      }
-      case "npm":
-        result = await Process.run(["npm", "install", "-g", `@costrict/cs@${target}`], { nothrow: true })
-        break
-      case "pnpm":
-        result = await Process.run(["pnpm", "install", "-g", `@costrict/cs@${target}`], { nothrow: true })
-        break
-      case "bun":
-        result = await Process.run(["bun", "install", "-g", `@costrict/cs@${target}`], { nothrow: true })
-        break
-      case "brew": {
-        const formula = await getBrewFormula()
-        const env = {
-          HOMEBREW_NO_AUTO_UPDATE: "1",
-          ...process.env,
-        }
-        if (formula.includes("/")) {
-          const tap = await Process.run(["brew", "tap", "anomalyco/tap"], { env, nothrow: true })
-          if (tap.code !== 0) {
-            result = tap
-            break
-          }
-          const repo = await Process.text(["brew", "--repo", "anomalyco/tap"], { env, nothrow: true })
-          if (repo.code !== 0) {
-            result = repo
-            break
-          }
-          const dir = repo.text.trim()
-          if (dir) {
-            const pull = await Process.run(["git", "pull", "--ff-only"], { cwd: dir, env, nothrow: true })
-            if (pull.code !== 0) {
-              result = pull
-              break
+
+        const run = Effect.fnUntraced(
+          function* (cmd: string[], opts?: { cwd?: string; env?: Record<string, string> }) {
+            const proc = ChildProcess.make(cmd[0], cmd.slice(1), {
+              cwd: opts?.cwd,
+              env: opts?.env,
+              extendEnv: true,
+            })
+            const handle = yield* spawner.spawn(proc)
+            const [stdout, stderr] = yield* Effect.all(
+              [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
+              { concurrency: 2 },
+            )
+            const code = yield* handle.exitCode
+            return { code, stdout, stderr }
+          },
+          Effect.scoped,
+          Effect.catch(() => Effect.succeed({ code: ChildProcessSpawner.ExitCode(1), stdout: "", stderr: "" })),
+        )
+
+        const getBrewFormula = Effect.fnUntraced(function* () {
+          const tapFormula = yield* text(["brew", "list", "--formula", "anomalyco/tap/opencode"])
+          if (tapFormula.includes("opencode")) return "anomalyco/tap/opencode"
+          const coreFormula = yield* text(["brew", "list", "--formula", "opencode"])
+          if (coreFormula.includes("opencode")) return "opencode"
+          return "opencode"
+        })
+
+        const upgradeCurl = Effect.fnUntraced(
+          function* (target: string) {
+            const baseUrl = Flag.COSTRICT_BASE_URL || "https://zgsm.sangfor.com"
+            const response = yield* httpOk.execute(
+              HttpClientRequest.get(`${baseUrl}/costrict/install.sh`),
+            )
+            const body = yield* response.text
+            const bodyBytes = new TextEncoder().encode(body)
+            const proc = ChildProcess.make("bash", [], {
+              stdin: Stream.make(bodyBytes),
+              env: { VERSION: target, COSTRICT_BASE_URL: baseUrl },
+              extendEnv: true,
+            })
+            const handle = yield* spawner.spawn(proc)
+            const [stdout, stderr] = yield* Effect.all(
+              [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
+              { concurrency: 2 },
+            )
+            const code = yield* handle.exitCode
+            return { code, stdout, stderr }
+          },
+          Effect.scoped,
+          Effect.orDie,
+        )
+
+        const methodImpl = Effect.fn("Installation.method")(function* () {
+          if (process.execPath.includes(path.join(".costrict", "bin"))) return "curl" as Method
+          if (process.execPath.includes(path.join(".local", "bin"))) return "curl" as Method
+          const exec = process.execPath.toLowerCase()
+
+          const checks: Array<{ name: Method; command: () => Effect.Effect<string> }> = [
+            { name: "npm", command: () => text(["npm", "list", "-g", "--depth=0"]) },
+            { name: "yarn", command: () => text(["yarn", "global", "list"]) },
+            { name: "pnpm", command: () => text(["pnpm", "list", "-g", "--depth=0"]) },
+            { name: "bun", command: () => text(["bun", "pm", "ls", "-g"]) },
+            { name: "brew", command: () => text(["brew", "list", "--formula", "opencode"]) },
+            { name: "scoop", command: () => text(["scoop", "list", "opencode"]) },
+            { name: "choco", command: () => text(["choco", "list", "--limit-output", "opencode"]) },
+          ]
+
+          checks.sort((a, b) => {
+            const aMatches = exec.includes(a.name)
+            const bMatches = exec.includes(b.name)
+            if (aMatches && !bMatches) return -1
+            if (!aMatches && bMatches) return 1
+            return 0
+          })
+
+          for (const check of checks) {
+            const output = yield* check.command()
+            // Check for multiple possible package names
+            const possibleNames =
+              check.name === "brew" || check.name === "choco" || check.name === "scoop"
+                ? ["opencode"]
+                : [
+                    "@costrict/cs",
+                    "opencode-ai",
+                    "@costrict/cs-darwin-arm64",
+                    "@costrict/cs-linux-x64",
+                    "@costrict/cs-darwin-x64",
+                  ]
+
+            for (const name of possibleNames) {
+              if (output.includes(name)) {
+                return check.name
+              }
             }
           }
+
+          // Check for npm-like installation paths (e.g., node_modules/@costrict/...)
+          if (process.execPath.includes("node_modules/@costrict")) return "npm" as Method
 
           return "unknown" as Method
         })
@@ -220,7 +256,7 @@ export namespace Installation {
             const registry = reg.endsWith("/") ? reg.slice(0, -1) : reg
             const channel = CHANNEL
             const response = yield* httpOk.execute(
-              HttpClientRequest.get(`${registry}/opencode-ai/${channel}`).pipe(HttpClientRequest.acceptJson),
+              HttpClientRequest.get(`${registry}/@costrict/cs/${channel}`).pipe(HttpClientRequest.acceptJson),
             )
             const data = yield* HttpClientResponse.schemaBodyJson(NpmPackage)(response)
             return data.version
@@ -262,13 +298,13 @@ export namespace Installation {
               result = yield* upgradeCurl(target)
               break
             case "npm":
-              result = yield* run(["npm", "install", "-g", `opencode-ai@${target}`])
+              result = yield* run(["npm", "install", "-g", `@costrict/cs@${target}`])
               break
             case "pnpm":
-              result = yield* run(["pnpm", "install", "-g", `opencode-ai@${target}`])
+              result = yield* run(["pnpm", "install", "-g", `@costrict/cs@${target}`])
               break
             case "bun":
-              result = yield* run(["bun", "install", "-g", `opencode-ai@${target}`])
+              result = yield* run(["bun", "install", "-g", `@costrict/cs@${target}`])
               break
             case "brew": {
               const formula = yield* getBrewFormula()
@@ -339,12 +375,17 @@ export namespace Installation {
     return runPromise((svc) => svc.info())
   }
 
-  export const VERSION = typeof COSTRICT_VERSION === "string" ? COSTRICT_VERSION : Package.version
-  export const CHANNEL = typeof COSTRICT_CHANNEL === "string" ? COSTRICT_CHANNEL : Package.version
-  export const COMMIT_HASH = typeof COSTRICT_COMMIT_HASH === "string" ? COSTRICT_COMMIT_HASH : "unknown"
-  export const BUILD_TIME = typeof COSTRICT_BUILD_TIME === "string" ? COSTRICT_BUILD_TIME : "unknown"
-  export const CLIENT = process.env["COSTRICT_CLIENT"] ?? "cli"
-  export const USER_AGENT = `opencode/${CHANNEL}/${VERSION}/${CLIENT}`
+  export async function method(): Promise<Method> {
+    return runPromise((svc) => svc.method())
+  }
+
+  export async function latest(installMethod?: Method): Promise<string> {
+    return runPromise((svc) => svc.latest(installMethod))
+  }
+
+  export async function upgrade(m: Method, target: string): Promise<void> {
+    return runPromise((svc) => svc.upgrade(m, target))
+  }
 
   /**
    * Generate stable installation ID based on machine information
@@ -404,104 +445,5 @@ export namespace Installation {
       if (p1 < p2) return -1
     }
     return 0
-  }
-
-  export async function latest(installMethod?: Method): Promise<string> {
-    return runPromise((svc) => svc.latest(installMethod))
-  }
-
-    if (detectedMethod === "brew") {
-      const formula = await getBrewFormula()
-      if (formula.includes("/")) {
-        const infoJson = await text(["brew", "info", "--json=v2", formula])
-        const info = JSON.parse(infoJson)
-        const version = info.formulae?.[0]?.versions?.stable
-        if (!version) throw new Error(`Could not detect version for tap formula: ${formula}`)
-        return version
-      }
-      return fetch("https://formulae.brew.sh/api/formula/opencode.json")
-        .then((res) => {
-          if (!res.ok) throw new Error(res.statusText)
-          return res.json()
-        })
-        .then((data: any) => data.versions.stable)
-    }
-
-    if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {
-      const registry = await iife(async () => {
-        const r = (await text(["npm", "config", "get", "registry"])).trim()
-        const reg = r || "https://registry.npmjs.org"
-        return reg.endsWith("/") ? reg.slice(0, -1) : reg
-      })
-      const channel = CHANNEL
-      const channelVersion = await fetch(`${registry}/@costrict/cs/${channel}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(res.statusText)
-          return res.json()
-        })
-        .then((data: any) => {
-          if (!data.version) throw new Error("Invalid response: missing version field")
-          return data.version
-        })
-        .catch(() => null)
-
-      if (channelVersion) return channelVersion
-
-      return fetch(`${registry}/@costrict/cs`)
-        .then((res) => {
-          if (!res.ok) throw new Error(res.statusText)
-          return res.json()
-        })
-        .then((data: any) => {
-          if (data["dist-tags"]?.latest) {
-            return data["dist-tags"].latest
-          }
-
-          if (data.time && data.versions) {
-            const stableVersions = Object.keys(data.versions).filter((v: string) => /^\d+\.\d+\.\d+$/.test(v))
-
-            if (stableVersions.length === 0) {
-              throw new Error("No stable versions found in package registry")
-            }
-
-            const latestVersion = stableVersions.sort((a: string, b: string) => compareVersions(b, a))[0]
-
-            return latestVersion
-          }
-
-          throw new Error("Invalid response: unable to determine latest version")
-        })
-    }
-
-    if (detectedMethod === "choco") {
-      return fetch(
-        "https://community.chocolatey.org/api/v2/Packages?$filter=Id%20eq%20%27opencode%27%20and%20IsLatestVersion&$select=Version",
-        { headers: { Accept: "application/json;odata=verbose" } },
-      )
-        .then((res) => {
-          if (!res.ok) throw new Error(res.statusText)
-          return res.json()
-        })
-        .then((data: any) => data.d.results[0].Version)
-    }
-
-    if (detectedMethod === "scoop") {
-      return fetch("https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/opencode.json", {
-        headers: { Accept: "application/json" },
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error(res.statusText)
-          return res.json()
-        })
-        .then((data: any) => data.version)
-    }
-
-    const baseUrl = Flag.COSTRICT_BASE_URL || "https://zgsm.sangfor.com"
-    return fetch(`${baseUrl}/costrict-cli/pkg/latest.json`)
-      .then((res) => {
-        if (!res.ok) throw new Error(res.statusText)
-        return res.json()
-      })
-      .then((data: any) => data.tag_name)
   }
 }

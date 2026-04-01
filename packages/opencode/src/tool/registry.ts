@@ -1,6 +1,6 @@
 import { PlanExitTool } from "./plan"
 import { QuestionTool } from "./question"
-import { BashTool } from "../plugin/tdd/tools/bash"
+import { BashTool } from "./bash"
 import { EditTool } from "./edit"
 import { GlobTool } from "./glob"
 import { GrepTool } from "./grep"
@@ -25,13 +25,8 @@ import { CodeSearchTool } from "./codesearch"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
 import { LspTool } from "./lsp"
-import { Truncate } from "./truncation"
-import { SequentialThinkingTool } from "../costrict/tool/sequential-thinking"
-import { FileOutlineTool } from "../costrict/tool/file-outline"
-import { CheckpointTool } from "../costrict/tool/checkpoint"
-import { SpecManageTool } from "../costrict/tool/spec-manage"
+import { Truncate } from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
-import { WorkflowTool } from "../costrict/tool/workflow"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "url"
 import { Effect, Layer, ServiceMap } from "effect"
@@ -210,49 +205,7 @@ export namespace ToolRegistry {
   const { runPromise } = makeRuntime(Service, defaultLayer)
 
   export async function register(tool: Tool.Info) {
-    const { custom } = await state()
-    const idx = custom.findIndex((t) => t.id === tool.id)
-    if (idx >= 0) {
-      custom.splice(idx, 1, tool)
-      return
-    }
-    custom.push(tool)
-  }
-
-  async function all(): Promise<Tool.Info[]> {
-    const custom = await state().then((x) => x.custom)
-    const config = await Config.get()
-    const question = ["app", "cli", "desktop"].includes(Flag.OPENCODE_CLIENT) || Flag.OPENCODE_ENABLE_QUESTION_TOOL
-
-    return [
-      InvalidTool,
-      ...(question ? [QuestionTool] : []),
-      BashTool,
-      ReadTool,
-      GlobTool,
-      GrepTool,
-      EditTool,
-      WriteTool,
-      TaskTool,
-      WebFetchTool,
-      TodoWriteTool,
-      // TodoReadTool,
-      WebSearchTool,
-      CodeSearchTool,
-      SkillTool,
-      SequentialThinkingTool,
-      FileOutlineTool,
-      // CallGraphTool, // deprecate
-      // FileImportanceTool, // deprecate
-      ...(config.experimental?.checkpoint !== false ? [CheckpointTool] : []),
-      ...(config.experimental?.spec_manage !== false ? [SpecManageTool] : []),
-      ...(Flag.COSTRICT_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
-      ApplyPatchTool,
-      WorkflowTool,
-      ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
-      ...(Flag.COSTRICT_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [PlanExitTool] : []),
-      ...custom,
-    ]
+    return runPromise((svc) => svc.register(tool))
   }
 
   export async function ids() {
@@ -265,89 +218,7 @@ export namespace ToolRegistry {
       modelID: ModelID
     },
     agent?: Agent.Info,
-  ) {
-    const tools = await all()
-    const result = await Promise.all(
-      tools
-        .filter((t) => {
-          // visible 过滤逻辑 - 如果工具设置为不可见，需要Agent显式启用
-          if (t.visible === false) {
-            // 如果Agent没有显式启用此工具，则过滤掉
-            if (agent?.tools?.[t.id] !== true) {
-              return false
-            }
-          }
-
-          // Enable websearch/codesearch for zen users OR via enable flag
-          if (t.id === "codesearch" || t.id === "websearch") {
-            return model.providerID === ProviderID.opencode || Flag.COSTRICT_ENABLE_EXA
-          }
-
-          // use apply tool in same format as codex
-          const usePatch =
-            model.modelID.includes("gpt-") && !model.modelID.includes("oss") && !model.modelID.includes("gpt-4")
-          if (t.id === "apply_patch") return usePatch
-          if (t.id === "edit" || t.id === "write") return !usePatch
-
-          return true
-        })
-        .map(async (t) => {
-          using _ = log.time(t.id)
-          const tool = await t.init({ agent })
-          const output = {
-            description: tool.description,
-            parameters: tool.parameters,
-          }
-          await Plugin.trigger("tool.definition", { toolID: t.id }, output)
-          return {
-            id: t.id,
-            ...tool,
-            description: output.description,
-            parameters: output.parameters,
-          }
-        }),
-    )
-    return result
-  }
-
-  export async function allInitialized(agent?: Agent.Info) {
-    const tools = await all()
-    const result = await Promise.all(
-      tools
-        .filter((t) => {
-          // 注意：这里跳过 visible 过滤逻辑，让所有工具（包括 visible=false 的工具）都能被返回
-
-          // Enable websearch/codesearch for zen users OR via enable flag
-          if (t.id === "codesearch" || t.id === "websearch") {
-            return Flag.COSTRICT_ENABLE_EXA
-          }
-
-          // use apply tool in same format as codex
-          // 对于动态上下文场景，不过滤 apply_patch/edit/write，允许两者都存在
-          return true
-        })
-        .map(async (t) => {
-          try {
-            using _ = log.time(t.id)
-            const tool = await t.init({ agent })
-            const output = {
-              description: tool.description,
-              parameters: tool.parameters,
-            }
-            await Plugin.trigger("tool.definition", { toolID: t.id }, output)
-            return {
-              id: t.id,
-              ...tool,
-              description: output.description,
-              parameters: output.parameters,
-            }
-          } catch (e) {
-            log.error(`Failed to initialize tool ${t.id}:`, { error: e instanceof Error ? e.message : String(e) })
-            return null
-          }
-        }),
-    )
-    // 过滤掉初始化失败的工具
-    return result.filter((t): t is NonNullable<typeof t> => t !== null)
+  ): Promise<(Tool.Def & { id: string })[]> {
+    return runPromise((svc) => svc.tools(model, agent))
   }
 }

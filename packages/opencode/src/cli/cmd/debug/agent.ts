@@ -159,7 +159,7 @@ async function createToolContext(agent: Agent.Info) {
       for (const pattern of req.patterns) {
         const rule = Permission.evaluate(req.permission, pattern, ruleset)
         if (rule.action === "deny") {
-          throw new PermissionNext.DeniedError(ruleset)
+          throw new Permission.DeniedError({ ruleset })
         }
       }
     },

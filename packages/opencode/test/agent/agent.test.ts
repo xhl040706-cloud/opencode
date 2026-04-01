@@ -3,8 +3,7 @@ import path from "path"
 import { tmpdir } from "../fixture/fixture"
 import { Instance } from "../../src/project/instance"
 import { Agent } from "../../src/agent/agent"
-import { PermissionNext } from "../../src/permission/next"
-import { YoloMode } from "../../src/permission/yolo"
+import { Permission } from "../../src/permission"
 
 // Helper to evaluate permission for a tool with wildcard pattern
 function evalPerm(agent: Agent.Info | undefined, permission: string): Permission.Action | undefined {
@@ -49,25 +48,7 @@ test("build agent has correct default properties", async () => {
   })
 })
 
-test("build agent keeps task deny under yolo", async () => {
-  await using tmp = await tmpdir()
-  await Instance.provide({
-    directory: tmp.path,
-    fn: async () => {
-      const build = await Agent.get("build")
-      expect(build).toBeDefined()
-      const action = await Promise.resolve()
-        .then(() => {
-          YoloMode.setEnabled(true)
-          return PermissionNext.evaluate("task", "ReviewAndFix", build!.permission).action
-        })
-        .finally(() => YoloMode.setEnabled(false))
-      expect(action).toBe("deny")
-    },
-  })
-})
-
-test("plan agent denies edits except ..costrict/plans/*", async () => {
+test("plan agent denies edits except .opencode/plans/*", async () => {
   await using tmp = await tmpdir()
   await Instance.provide({
     directory: tmp.path,
@@ -77,7 +58,7 @@ test("plan agent denies edits except ..costrict/plans/*", async () => {
       // Wildcard is denied
       expect(evalPerm(plan, "edit")).toBe("deny")
       // But specific path is allowed
-      expect(PermissionNext.evaluate("edit", "..costrict/plans/foo.md", plan!.permission).action).toBe("allow")
+      expect(Permission.evaluate("edit", ".opencode/plans/foo.md", plan!.permission).action).toBe("allow")
     },
   })
 })

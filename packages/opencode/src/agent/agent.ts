@@ -4,8 +4,7 @@ import { Provider } from "../provider/provider"
 import { ModelID, ProviderID } from "../provider/schema"
 import { generateObject, streamObject, type ModelMessage } from "ai"
 import { Instance } from "../project/instance"
-import { Truncate } from "../tool/truncation"
-import { TestGuide } from "../util/testGuideDiscovery"
+import { Truncate } from "../tool/truncate"
 import { Auth } from "../auth"
 import { ProviderTransform } from "../provider/transform"
 
@@ -32,7 +31,6 @@ export namespace Agent {
       mode: z.enum(["subagent", "primary", "all"]),
       native: z.boolean().optional(),
       hidden: z.boolean().optional(),
-      visible: z.boolean().optional(),
       topP: z.number().optional(),
       temperature: z.number().optional(),
       color: z.string().optional(),
@@ -45,10 +43,8 @@ export namespace Agent {
         .optional(),
       variant: z.string().optional(),
       prompt: z.string().optional(),
-      model_prompts: z.record(z.string(), z.string()).optional(),
       options: z.record(z.string(), z.any()),
       steps: z.number().int().positive().optional(),
-      tools: z.record(z.string(), z.boolean()).optional(),
     })
     .meta({
       ref: "Agent",
@@ -71,96 +67,24 @@ export namespace Agent {
 
   type State = Omit<Interface, "generate">
 
-    const result: Record<string, Info> = {
-      build: {
-        name: "build",
-        description: "The default agent. Executes tools based on configured permissions.",
-        options: {},
-        permission: PermissionNext.merge(
-          defaults,
-          PermissionNext.fromConfig({
-            question: "allow",
-            plan_enter: "allow",
-            "sequential-thinking": "deny",
-            "file-outline": "deny",
-            "checkpoint": "deny",
-            task:{
-              ReviewAndFix: "deny",
-              TestDrivenDevelopment:"deny",
-              PlanApply: "deny",
-              QuickExplore: "deny",
-              SubCodingAgent: "deny",
-              TaskCheck: "deny",
-              PlanManager: "deny",
-              WikiProjectAnalyze: "deny",
-              WikiCatalogueDesign: "deny",
-              WikiDocumentGenerate: "deny",
-              WikiIndexGeneration: "deny",
-              SpecPlan: "deny",
-              DesignAgent: "deny",
-              Requirement: "deny",
-              SpecReSearch: "deny",
-              TaskPlan: "deny",
-            }
-          }),
-          user,
-        ),
-        mode: "primary",
-        native: true,
-      },
-      plan: {
-        name: "plan",
-        description: "Plan mode. Disallows all edit tools.",
-        options: {},
-        permission: PermissionNext.merge(
-          defaults,
-          PermissionNext.fromConfig({
-            question: "allow",
-            plan_exit: "allow",
-            external_directory: {
-              [path.join(Global.Path.data, "plans", "*")]: "allow",
-            },
-            edit: {
-              "*": "deny",
-              [path.join("..costrict", "plans", "*.md")]: "allow",
-              [path.relative(Instance.worktree, path.join(Global.Path.data, path.join("plans", "*.md")))]: "allow",
-            },
-          }),
-          user,
-        ),
-        mode: "primary",
-        native: true,
-        hidden: true,
-      },
-      general: {
-        name: "general",
-        description: `General-purpose agent for researching complex questions and executing multi-step tasks. Use this agent to execute multiple units of work in parallel.`,
-        permission: PermissionNext.merge(
-          defaults,
-          PermissionNext.fromConfig({
-            todoread: "deny",
-            todowrite: "deny",
-          }),
-          user,
-        ),
-        options: {},
-        mode: "subagent",
-        native: true,
-      },
-      explore: {
-        name: "explore",
-        permission: PermissionNext.merge(
-          defaults,
-          PermissionNext.fromConfig({
-            "*": "deny",
-            grep: "allow",
-            glob: "allow",
-            list: "allow",
-            bash: "allow",
-            webfetch: "allow",
-            websearch: "allow",
-            codesearch: "allow",
-            read: "allow",
+  export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Agent") {}
+
+  export const layer = Layer.effect(
+    Service,
+    Effect.gen(function* () {
+      const config = yield* Config.Service
+      const auth = yield* Auth.Service
+      const skill = yield* Skill.Service
+
+      const state = yield* InstanceState.make<State>(
+        Effect.fn("Agent.state")(function* (ctx) {
+          const cfg = yield* config.get()
+          const skillDirs = yield* skill.dirs()
+          const whitelistedDirs = [Truncate.GLOB, ...skillDirs.map((dir) => path.join(dir, "*"))]
+
+          const defaults = Permission.fromConfig({
+            "*": "allow",
+            doom_loop: "ask",
             external_directory: {
               "*": "ask",
               ...Object.fromEntries(whitelistedDirs.map((dir) => [dir, "allow"])),
@@ -177,37 +101,7 @@ export namespace Agent {
             },
           })
 
-    for (const [key, value] of Object.entries(cfg.agent ?? {})) {
-      if (value.disable) {
-        delete result[key]
-        continue
-      }
-      let item = result[key]
-      if (!item)
-        item = result[key] = {
-          name: key,
-          mode: "all",
-          permission: PermissionNext.merge(defaults, user),
-          options: {},
-          tools: {},
-          native: false,
-        }
-      if (value.model) item.model = Provider.parseModel(value.model)
-      item.variant = value.variant ?? item.variant
-      item.prompt = value.prompt ?? item.prompt
-      item.description = value.description ?? item.description
-      item.temperature = value.temperature ?? item.temperature
-      item.topP = value.top_p ?? item.topP
-      item.mode = value.mode ?? item.mode
-      item.color = value.color ?? item.color
-      item.hidden = value.hidden ?? item.hidden
-      item.visible = value.visible ?? item.visible ?? true
-      item.name = value.name ?? item.name
-      item.steps = value.steps ?? item.steps
-      item.options = mergeDeep(item.options, value.options ?? {})
-      item.permission = PermissionNext.merge(item.permission, PermissionNext.fromConfig(value.permission ?? {}))
-      item.tools = mergeDeep(item.tools ?? {}, value.tools ?? {})
-    }
+          const user = Permission.fromConfig(cfg.permission ?? {})
 
           const agents: Record<string, Info> = {
             build: {

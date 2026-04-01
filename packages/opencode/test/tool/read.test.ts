@@ -224,7 +224,7 @@ describe("tool.read env file permissions", () => {
                   askedForEnv = true
                 }
                 if (rule.action === "deny") {
-                  throw new PermissionNext.DeniedError(agent.permission)
+                  throw new Permission.DeniedError({ ruleset: agent.permission })
                 }
               }
             },

@@ -1,32 +1,22 @@
 import { Provider } from "@/provider/provider"
 import { Log } from "@/util/log"
-import { Bus } from "@/bus"
-import { Session } from "."
-import {
-  streamText,
-  wrapLanguageModel,
-  type ModelMessage,
-  type StreamTextResult,
-  type Tool,
-  type ToolSet,
-  tool,
-  jsonSchema,
-} from "ai"
+import { Cause, Effect, Layer, Record, ServiceMap } from "effect"
+import * as Queue from "effect/Queue"
+import * as Stream from "effect/Stream"
+import { streamText, wrapLanguageModel, type ModelMessage, type Tool, tool, jsonSchema } from "ai"
 import { mergeDeep, pipe } from "remeda"
 import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
 import type { Agent } from "@/agent/agent"
-import { executeDynamicContext } from "@/agent/dynamic-context"
 import type { MessageV2 } from "./message-v2"
 import { Plugin } from "@/plugin"
 import { SystemPrompt } from "./system"
 import { Flag } from "@/flag/flag"
 import { Permission } from "@/permission"
 import { Auth } from "@/auth"
-import os from "node:os"
-import { v7 as uuidv7 } from "uuid"
+import { Installation } from "@/installation"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
@@ -43,7 +33,6 @@ export namespace LLM {
     small?: boolean
     tools: Record<string, Tool>
     retries?: number
-    providerOptions?: Record<string, any>
     toolChoice?: "auto" | "required" | "none"
   }
 
@@ -106,21 +95,14 @@ export namespace LLM {
       Provider.getProvider(input.model.providerID),
       Auth.get(input.model.providerID),
     ])
-    const isCodex = provider.id === "openai" && auth?.type === "oauth"
-    const isCostrict = provider.id === "costrict"
+    // TODO: move this to a proper hook
+    const isOpenaiOauth = provider.id === "openai" && auth?.type === "oauth"
 
-    const system = []
-    // model-specific prompt takes priority over locale-selected agent prompt
-    let agentPrompt = input.agent.model_prompts?.[input.model.providerID] ?? input.agent.prompt
-    // process dynamic context in agent prompt
-    if (agentPrompt) {
-      agentPrompt = await executeDynamicContext(agentPrompt)
-    }
+    const system: string[] = []
     system.push(
       [
         // use agent prompt otherwise provider prompt
-        // For Codex sessions, skip SystemPrompt.provider() since it's sent via options.instructions
-        ...(agentPrompt ? [agentPrompt] : isCodex ? [] : SystemPrompt.provider(input.model)),
+        ...(input.agent.prompt ? [input.agent.prompt] : SystemPrompt.provider(input.model)),
         // any custom prompt passed into this call
         ...input.system,
         // any custom prompt from last user message
@@ -150,7 +132,7 @@ export namespace LLM {
       : ProviderTransform.options({
           model: input.model,
           sessionID: input.sessionID,
-          providerOptions: { ...provider.options, ...input.providerOptions },
+          providerOptions: provider.options,
         })
     const options: Record<string, any> = pipe(
       base,
@@ -210,11 +192,10 @@ export namespace LLM {
       },
     )
 
-    let maxOutputTokens =
-      isCodex || provider.id.includes("github-copilot") ? undefined : ProviderTransform.maxOutputTokens(input.model)
-    if (isCostrict) {
-      maxOutputTokens = input.model.limit.output
-    }
+    const maxOutputTokens =
+      isOpenaiOauth || provider.id.includes("github-copilot")
+        ? undefined
+        : ProviderTransform.maxOutputTokens(input.model)
 
     const tools = await resolveTools(input)
 
@@ -246,93 +227,43 @@ export namespace LLM {
       })
     }
 
-    const requestId = uuidv7()
-    const requestHeaders = {
-      ...(isCodex
-        ? {
-            originator: "costrict",
-            "User-Agent": `costrict-cli/${Installation.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
-            session_id: input.sessionID,
+    // Wire up toolExecutor for DWS workflow models so that tool calls
+    // from the workflow service are executed via opencode's tool system
+    // and results sent back over the WebSocket.
+    if (language instanceof GitLabWorkflowLanguageModel) {
+      const workflowModel = language
+      workflowModel.systemPrompt = system.join("\n")
+      workflowModel.toolExecutor = async (toolName, argsJson, _requestID) => {
+        const t = tools[toolName]
+        if (!t || !t.execute) {
+          return { result: "", error: `Unknown tool: ${toolName}` }
+        }
+        try {
+          const result = await t.execute!(JSON.parse(argsJson), {
+            toolCallId: _requestID,
+            messages: input.messages,
+            abortSignal: input.abort,
+          })
+          const output = typeof result === "string" ? result : (result?.output ?? JSON.stringify(result))
+          return {
+            result: output,
+            metadata: typeof result === "object" ? result?.metadata : undefined,
+            title: typeof result === "object" ? result?.title : undefined,
           }
-        : undefined),
-      ...(input.model.providerID.startsWith("opencode")
-        ? {
-            "x-opencode-project": Instance.project.id,
-            "x-opencode-session": input.sessionID,
-            "x-opencode-request": input.user.id,
-            "x-opencode-client": Flag.OPENCODE_CLIENT,
-          }
-        : input.model.providerID !== "anthropic"
-          ? {
-              "User-Agent": `opencode/${Installation.VERSION}`,
-            }
-          : undefined),
-      ...input.model.headers,
-      ...headers,
-      "X-Request-Id": requestId,
-    }
-
-    const requestMessages = [
-      ...(isCodex
-        ? [
-            {
-              role: "user",
-              content: system.join("\n\n"),
-            } as ModelMessage,
-          ]
-        : system.map(
-            (x): ModelMessage => ({
-              role: "system",
-              content: x,
-            }),
-          )),
-      ...input.messages,
-    ]
-
-    const requestBody = {
-      temperature: params.temperature,
-      topP: params.topP,
-      topK: params.topK,
-      providerOptions: ProviderTransform.providerOptions(input.model, params.options),
-      activeTools: Object.keys(tools).filter((x) => x !== "invalid"),
-      tools,
-      maxOutputTokens,
-      messages: requestMessages,
-      maxRetries: input.retries ?? 0,
+        } catch (e: any) {
+          return { result: "", error: e.message ?? String(e) }
+        }
+      }
     }
 
     return streamText({
       onError(error) {
         l.error("stream error", {
           error,
-          xRequestId: requestId,
-        })
-
-        Bus.publish(Session.Event.LLMError, {
-          providerID: input.model.providerID,
-          modelID: input.model.id,
-          sessionID: input.sessionID,
-          agent: input.agent.name,
-          requestType: "stream",
-          attempt: 0,
-          error,
-          request: {
-            body: requestBody,
-            headers: requestHeaders,
-          },
         })
       },
       async experimental_repairToolCall(failed) {
         const lower = failed.toolCall.toolName.toLowerCase()
-        let toolCall = failed.toolCall
-        if (lower === "todowrite" || lower === "question") {
-          let input = toolCall.input.replace(/'/g, '"').replace(/\b(False|True)\b/g, (match) => match.toLowerCase())
-          toolCall.input = input
-          return {
-            ...failed.toolCall,
-            toolName: lower,
-          }
-        }
         if (lower !== failed.toolCall.toolName && tools[lower]) {
           l.info("repairing tool call", {
             tool: failed.toolCall.toolName,
@@ -361,9 +292,22 @@ export namespace LLM {
       toolChoice: input.toolChoice,
       maxOutputTokens,
       abortSignal: input.abort,
-      headers: requestHeaders,
+      headers: {
+        ...(input.model.providerID.startsWith("opencode")
+          ? {
+              "x-opencode-project": Instance.project.id,
+              "x-opencode-session": input.sessionID,
+              "x-opencode-request": input.user.id,
+              "x-opencode-client": Flag.OPENCODE_CLIENT,
+            }
+          : {
+              "User-Agent": `opencode/${Installation.VERSION}`,
+            }),
+        ...input.model.headers,
+        ...headers,
+      },
       maxRetries: input.retries ?? 0,
-      messages: requestMessages,
+      messages,
       model: wrapLanguageModel({
         model: language,
         middleware: [

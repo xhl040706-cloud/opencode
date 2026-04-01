@@ -8,18 +8,49 @@ import { CodexAuthPlugin } from "./codex"
 import { Session } from "../session"
 import { NamedError } from "@opencode-ai/util/error"
 import { CopilotAuthPlugin } from "./copilot"
-import { CoStrictAuthPlugin } from "../costrict/plugin"
-import { TDDPlugin } from "./tdd"
-import { gitlabAuthPlugin as GitlabAuthPlugin } from "@gitlab/opencode-gitlab-auth"
-import { LearningPlugin } from "../learning/plugin"
+import { gitlabAuthPlugin as GitlabAuthPlugin } from "opencode-gitlab-auth"
+import { PoeAuthPlugin } from "opencode-poe-auth"
+import { Effect, Layer, ServiceMap, Stream } from "effect"
+import { InstanceState } from "@/effect/instance-state"
+import { makeRuntime } from "@/effect/run-service"
+import { errorMessage } from "@/util/error"
+import { PluginLoader } from "./loader"
+import { parsePluginSpecifier, readPluginId, readV1Plugin, resolvePluginId } from "./shared"
 
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
 
-  const BUILTIN = ["opencode-anthropic-auth@0.0.13", "@costrict/notify"]
+  type State = {
+    hooks: Hooks[]
+  }
+
+  type Loaded = {
+    row: PluginLoader.Loaded
+  }
+
+  // Hook names that follow the (input, output) => Promise<void> trigger pattern
+  type TriggerName = {
+    [K in keyof Hooks]-?: NonNullable<Hooks[K]> extends (input: any, output: any) => Promise<void> ? K : never
+  }[keyof Hooks]
+
+  export interface Interface {
+    readonly trigger: <
+      Name extends TriggerName,
+      Input = Parameters<Required<Hooks>[Name]>[0],
+      Output = Parameters<Required<Hooks>[Name]>[1],
+    >(
+      name: Name,
+      input: Input,
+      output: Output,
+    ) => Effect.Effect<Output>
+    readonly list: () => Effect.Effect<Hooks[]>
+    readonly init: () => Effect.Effect<void>
+  }
+
+  export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Plugin") {}
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CoStrictAuthPlugin, TDDPlugin, GitlabAuthPlugin, LearningPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, GitlabAuthPlugin, PoeAuthPlugin]
 
   function isServerPlugin(value: unknown): value is PluginInstance {
     return typeof value === "function"
@@ -286,26 +317,6 @@ export namespace Plugin {
   }
 
   export async function init() {
-    const hooks = await state().then((x) => x.hooks)
-    const config = await Config.get()
-    for (const hook of hooks) {
-      // @ts-expect-error this is because we haven't moved plugin to sdk v2
-      await hook.config?.(config)
-    }
-    Bus.subscribeAll(async (input) => {
-      const hooks = await state().then((x) => x.hooks)
-      for (const hook of hooks) {
-        try {
-          const result = hook["event"]?.({ event: input })
-          if (result instanceof Promise) {
-            await result.catch((err) => {
-              log.error("hook event handler error", { err, eventType: input?.type })
-            })
-          }
-        } catch (err) {
-          log.error("hook event handler error", { err, eventType: input?.type })
-        }
-      }
-    })
+    return runPromise((svc) => svc.init())
   }
 }

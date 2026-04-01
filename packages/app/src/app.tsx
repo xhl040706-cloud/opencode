@@ -9,11 +9,7 @@ import { Splash } from "@opencode-ai/ui/logo"
 import { ThemeProvider } from "@opencode-ai/ui/theme/context"
 import { MetaProvider } from "@solidjs/meta"
 import { type BaseRouterProps, Navigate, Route, Router } from "@solidjs/router"
-<<<<<<< ours
-=======
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query"
-import { type Duration, Effect } from "effect"
->>>>>>> theirs
 import {
   type Component,
   createMemo,
@@ -171,7 +167,6 @@ function ConnectionGate(props: ParentProps<{ disableHealthCheck?: boolean }>) {
 
   // performs repeated health check with a grace period for
   // non-http connections, otherwise fails instantly
-<<<<<<< ours
   const [startupHealthCheck, healthCheckActions] = createResource(async () => {
     if (props.disableHealthCheck) return true
     if (!server.current) return true
@@ -195,27 +190,6 @@ function ConnectionGate(props: ParentProps<{ disableHealthCheck?: boolean }>) {
       setCheckMode("background")
     }
   })
-=======
-  const [startupHealthCheck, healthCheckActions] = createResource(() =>
-    props.disableHealthCheck
-      ? true
-      : Effect.gen(function* () {
-          if (!server.current) return true
-          const { http, type } = server.current
-
-          while (true) {
-            const res = yield* Effect.promise(() => checkServerHealth(http))
-            if (res.healthy) return true
-            if (checkMode() === "background" || type === "http") return false
-          }
-        }).pipe(
-          effectMinDuration(checkMode() === "blocking" ? "1.2 seconds" : 0),
-          Effect.timeoutOrElse({ duration: "10 seconds", orElse: () => Effect.succeed(false) }),
-          Effect.ensuring(Effect.sync(() => setCheckMode("background"))),
-          Effect.runPromise,
-        ),
-  )
->>>>>>> theirs
 
   return (
     <Show

@@ -15,10 +15,10 @@ import type { EventSource } from "./context/sdk"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
 import { TuiConfig } from "@/config/tui"
 import { Instance } from "@/project/instance"
-import { iife } from "@/util/iife"
+import { writeHeapSnapshot } from "v8"
 
 declare global {
-  const COSTRICT_WORKER_PATH: string
+  const OPENCODE_WORKER_PATH: string
 }
 
 type RpcClient = ReturnType<typeof Rpc.client<typeof rpc>>
@@ -50,6 +50,13 @@ function createEventSource(client: RpcClient): EventSource {
   }
 }
 
+async function target() {
+  if (typeof OPENCODE_WORKER_PATH !== "undefined") return OPENCODE_WORKER_PATH
+  const dist = new URL("./cli/cmd/tui/worker.js", import.meta.url)
+  if (await Filesystem.exists(fileURLToPath(dist))) return dist
+  return new URL("./worker.ts", import.meta.url)
+}
+
 async function input(value?: string) {
   const piped = process.stdin.isTTY ? undefined : await Bun.stdin.text()
   if (!value) return piped
@@ -59,22 +66,12 @@ async function input(value?: string) {
 
 export const TuiThreadCommand = cmd({
   command: "$0 [project]",
-  describe: "start CoStrict tui",
+  describe: "start opencode tui",
   builder: (yargs) =>
     withNetworkOptions(yargs)
       .positional("project", {
         type: "string",
-        describe: "path to start CoStrict in",
-      })
-      .option("plain", {
-        type: "boolean",
-        describe: "disable TUI (plain text output mode)",
-        default: false,
-      })
-      .option("no-tui", {
-        type: "boolean",
-        describe: "alias for --plain",
-        default: false,
+        describe: "path to start opencode in",
       })
       .option("model", {
         type: "string",
@@ -118,23 +115,13 @@ export const TuiThreadCommand = cmd({
         return
       }
 
-      // Resolve relative paths against PWD to preserve behavior when using --cwd flag
-      const baseCwd = process.env.PWD ?? process.cwd()
-      // const cwd = args.project ? path.resolve(baseCwd, args.project) : process.cwd()
-      const localWorker = new URL("./worker.ts", import.meta.url)
-      const distWorker = new URL("./cli/cmd/tui/worker.js", import.meta.url)
-      const workerPath = await iife(async () => {
-        if (typeof COSTRICT_WORKER_PATH !== "undefined") return COSTRICT_WORKER_PATH
-        if (await Filesystem.exists(fileURLToPath(distWorker))) return distWorker
-        return localWorker
-      })
       // Resolve relative --project paths from PWD, then use the real cwd after
       // chdir so the thread and worker share the same directory key.
       const root = Filesystem.resolve(process.env.PWD ?? process.cwd())
       const next = args.project
         ? Filesystem.resolve(path.isAbsolute(args.project) ? args.project : path.join(root, args.project))
         : Filesystem.resolve(process.cwd())
-      // const file = await target()
+      const file = await target()
       try {
         process.chdir(next)
       } catch {
@@ -143,7 +130,7 @@ export const TuiThreadCommand = cmd({
       }
       const cwd = Filesystem.resolve(process.cwd())
 
-      const worker = new Worker(workerPath, {
+      const worker = new Worker(file, {
         env: Object.fromEntries(
           Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
         ),

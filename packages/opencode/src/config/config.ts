@@ -23,7 +23,6 @@ import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
 import { Installation } from "@/installation"
 import { ConfigMarkdown } from "./markdown"
-import { BUILTIN_AGENTS, type AgentEntry } from "../costrict/agent/builtin"
 import { constants, existsSync } from "fs"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
@@ -85,235 +84,9 @@ export namespace Config {
     return merged
   }
 
-  export const state = Instance.state(async () => {
-    const timer = log.time("startup.config.state")
-
-    try {
-      const auth = await Auth.all()
-      // Config loading order (low -> high precedence): https://opencode.ai/docs/config#precedence-order
-      // 1) Remote .well-known/opencode (org defaults)
-      // 2) Global config (~/.config/opencode/opencode.json{,c})
-      // 3) Custom config (OPENCODE_CONFIG)
-      // 4) Project config (opencode.json{,c})
-      // 5) .opencode directories (.opencode/agents/, .opencode/commands/, .opencode/plugins/, .opencode/opencode.json{,c})
-      // 6) Inline config (OPENCODE_CONFIG_CONTENT)
-      // Managed config directory is enterprise-only and always overrides everything above.
-      let result: Info = {}
-      for (const [key, value] of Object.entries(auth)) {
-        if (value.type === "wellknown") {
-          const url = key.replace(/\/+$/, "")
-          process.env[value.key] = value.token
-          log.debug("fetching remote config", { url: `${key}/.well-known/opencode` })
-          try {
-            const response = await fetch(`${key}/.well-known/opencode`)
-            if (!response.ok) {
-              log.warn(`failed to fetch remote config from ${key}: ${response.status}`)
-              continue
-            }
-            const wellknown = (await response.json()) as any
-            const remoteConfig = wellknown.config ?? {}
-            if (!remoteConfig.$schema) remoteConfig.$schema = "https://costrict.ai/config.json"
-            result = mergeDeep(
-              result,
-              await load(JSON.stringify(remoteConfig), {
-                dir: path.dirname(`${key}/.well-known/opencode`),
-                source: `${key}/.well-known/opencode`,
-              }),
-            )
-            log.debug("loaded remote config from well-known", { url: key })
-          } catch (error) {
-            // costrict change: 在内网环境下无法访问时继续启动,不抛出异常
-            log.warn(`failed to fetch remote config from ${key}`, { error })
-            continue
-          }
-        }
-      }
-
-      // Global user config overrides remote config.
-      result = mergeConfigConcatArrays(result, await global())
-
-      // Load OpenCode custom config path
-      if (Flag.OPENCODE_CONFIG) {
-        result = mergeConfigConcatArrays(result, await loadFile(Flag.OPENCODE_CONFIG))
-        log.debug("loaded OpenCode custom config", { path: Flag.OPENCODE_CONFIG })
-      }
-
-      // Load OpenCode project config
-      if (!Flag.COSTRICT_DISABLE_PROJECT_CONFIG) {
-        for (const file of await ConfigPaths.projectFiles("opencode", Instance.directory, Instance.worktree)) {
-          result = mergeConfigConcatArrays(result, await loadFile(file))
-        }
-      }
-
-      // Load OpenCode inline config content
-      if (Flag.OPENCODE_CONFIG_CONTENT) {
-        result = mergeDeep(result, JSON.parse(Flag.OPENCODE_CONFIG_CONTENT))
-        log.debug("loaded OpenCode custom config from OPENCODE_CONFIG_CONTENT")
-      }
-
-      result.agent = result.agent || {}
-      result.mode = result.mode || {}
-      result.plugin = result.plugin || []
-
-      const directories = await ConfigPaths.directories(Instance.directory, Instance.worktree)
-
-      if (Flag.COSTRICT_ENABLE_OPENCODE_CONFIG && Flag.OPENCODE_CONFIG_DIR) {
-        directories.push(Flag.OPENCODE_CONFIG_DIR)
-        log.debug("loading config from OPENCODE_CONFIG_DIR", { path: Flag.OPENCODE_CONFIG_DIR })
-      }
-
-      if (Flag.COSTRICT_CONFIG_DIR) {
-        directories.push(Flag.COSTRICT_CONFIG_DIR)
-        log.debug("loading config from COSTRICT_CONFIG_DIR", { path: Flag.COSTRICT_CONFIG_DIR })
-      }
-      const deps = []
-
-      for (const dir of unique(directories)) {
-        // Load OpenCode config files first (lower priority)
-        if (
-          Flag.COSTRICT_ENABLE_OPENCODE_CONFIG &&
-          (dir.endsWith(".opencode") || dir.endsWith("opencode") || dir === Flag.OPENCODE_CONFIG_DIR)
-        ) {
-          for (const file of ["opencode.jsonc", "opencode.json"]) {
-            log.debug(`loading config from ${path.join(dir, file)}`)
-            result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
-            // to satisfy the type checker
-            result.agent ??= {}
-            result.mode ??= {}
-            result.plugin ??= []
-          }
-        }
-
-        // Load CoStrict config files (higher priority, overrides OpenCode)
-        if (dir.endsWith(".costrict") || dir === Flag.COSTRICT_CONFIG_DIR) {
-          for (const file of ["costrict.jsonc", "costrict.json"]) {
-            log.debug(`loading CoStrict config from ${path.join(dir, file)}`)
-            result = mergeDeep(result, await loadFile(path.join(dir, file)))
-            result.agent ??= {}
-            result.mode ??= {}
-            result.plugin ??= []
-          }
-        }
-
-        deps.push(
-          iife(async () => {
-            const shouldInstall = await needsInstall(dir)
-            if (shouldInstall) await installDependencies(dir)
-          }),
-        )
-
-        result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
-        result.agent = mergeDeep(result.agent, await loadAgent(dir, result.promptLanguage))
-        result.agent = mergeDeep(result.agent, await loadMode(dir))
-        result.plugin.push(...(await loadPlugin(dir)))
-      }
-
-      // Inline config content overrides all non-managed config sources.
-      if (process.env.OPENCODE_CONFIG_CONTENT) {
-        result = mergeConfigConcatArrays(
-          result,
-          await load(process.env.OPENCODE_CONFIG_CONTENT, {
-            dir: Instance.directory,
-            source: "OPENCODE_CONFIG_CONTENT",
-          }),
-        )
-        log.debug("loaded custom config from OPENCODE_CONFIG_CONTENT")
-      }
-
-      const active = Account.active()
-      if (active?.active_org_id) {
-        try {
-          const [config, token] = await Promise.all([
-            Account.config(active.id, active.active_org_id),
-            Account.token(active.id),
-          ])
-          if (token) {
-            process.env["OPENCODE_CONSOLE_TOKEN"] = token
-            Env.set("OPENCODE_CONSOLE_TOKEN", token)
-          }
-
-          if (config) {
-            result = mergeConfigConcatArrays(
-              result,
-              await load(JSON.stringify(config), {
-                dir: path.dirname(`${active.url}/api/config`),
-                source: `${active.url}/api/config`,
-              }),
-            )
-          }
-        } catch (err: any) {
-          log.debug("failed to fetch remote account config", { error: err?.message ?? err })
-        }
-      }
-
-      // Load managed config files last (highest priority) - enterprise admin-controlled
-      // Kept separate from directories array to avoid write operations when installing plugins
-      // which would fail on system directories requiring elevated permissions
-      // This way it only loads config file and not skills/plugins/commands
-      if (existsSync(managedDir)) {
-        for (const file of ["opencode.jsonc", "opencode.json"]) {
-          result = mergeConfigConcatArrays(result, await loadFile(path.join(managedDir, file)))
-        }
-      }
-
-      // Migrate deprecated mode field to agent field
-      for (const [name, mode] of Object.entries(result.mode ?? {})) {
-        result.agent = mergeDeep(result.agent ?? {}, {
-          [name]: {
-            ...mode,
-            mode: "primary" as const,
-          },
-        })
-      }
-
-      if (Flag.COSTRICT_PERMISSION) {
-        result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.COSTRICT_PERMISSION))
-      }
-
-      // Backwards compatibility: legacy top-level `tools` config
-      if (result.tools) {
-        const perms: Record<string, Config.PermissionAction> = {}
-        for (const [tool, enabled] of Object.entries(result.tools)) {
-          const action: Config.PermissionAction = enabled ? "allow" : "deny"
-          if (tool === "write" || tool === "edit" || tool === "patch" || tool === "multiedit") {
-            perms.edit = action
-            continue
-          }
-          perms[tool] = action
-        }
-        result.permission = mergeDeep(perms, result.permission ?? {})
-      }
-
-      if (!result.username) result.username = os.userInfo().username
-
-      // Handle migration from autoshare to share field
-      if (result.autoshare === true && !result.share) {
-        result.share = "auto"
-      }
-
-      // Apply flag overrides for compaction settings
-      if (Flag.COSTRICT_DISABLE_AUTOCOMPACT) {
-        result.compaction = { ...result.compaction, auto: false }
-      }
-      if (Flag.COSTRICT_DISABLE_PRUNE) {
-        result.compaction = { ...result.compaction, prune: false }
-      }
-
-      result.plugin = deduplicatePlugins(result.plugin ?? [])
-
-      return {
-        config: result,
-        directories,
-        deps,
-      }
-    } finally {
-      timer.stop()
-    }
-  })
-
-  export async function waitForDependencies() {
-    const deps = await state().then((x) => x.deps)
-    await Promise.all(deps)
+  export type InstallInput = {
+    signal?: AbortSignal
+    waitTick?: (input: { dir: string; attempt: number; delay: number; waited: number }) => void | Promise<void>
   }
 
   export async function installDependencies(dir: string, input?: InstallInput) {
@@ -334,7 +107,7 @@ export namespace Config {
     if (!(await needsInstall(dir))) return
 
     const pkg = path.join(dir, "package.json")
-    const targetVersion = "*"
+    const target = Installation.isLocal() ? "*" : Installation.VERSION
 
     const json = await Filesystem.readJson<{ dependencies?: Record<string, string> }>(pkg).catch(() => ({
       dependencies: {},
@@ -476,7 +249,7 @@ export namespace Config {
       })
       if (!md) continue
 
-      const patterns = ["/.costrict/command/", "/.costrict/commands/", "/command/", "/commands/"]
+      const patterns = ["/.opencode/command/", "/.opencode/commands/", "/command/", "/commands/"]
       const file = rel(item, patterns) ?? path.basename(item)
       const name = trim(file)
 
@@ -495,41 +268,8 @@ export namespace Config {
     return result
   }
 
-  async function resolveBuiltinContent(entry: AgentEntry, locale: string): Promise<string | undefined> {
-    return entry.locales[locale] ?? Object.values(entry.locales)[0]
-  }
-
-  async function loadAgent(dir: string, locale?: string) {
+  async function loadAgent(dir: string) {
     const result: Record<string, Agent> = {}
-    const lang = locale ?? "zh-CN"
-
-    // Load built-in agents from imported modules
-    for (const [filename, entry] of Object.entries(BUILTIN_AGENTS)) {
-      try {
-        const content = await resolveBuiltinContent(entry, lang)
-        if (!content) continue
-
-        const md = await ConfigMarkdown.parseString(content)
-        if (!md.data) continue
-
-        const config = {
-          name: filename,
-          ...(md.data as Record<string, any>),
-          prompt: md.content.trim(),
-          model_prompts: entry.models
-            ? Object.fromEntries(
-                await Promise.all(Object.entries(entry.models).map(async ([family, body]) => [family, body.trim()])),
-              )
-            : undefined,
-        }
-        const parsed = Agent.safeParse(config)
-        if (parsed.success) {
-          result[config.name] = parsed.data
-        }
-      } catch (error) {
-        log.warn("Failed to load built-in agent", error as Record<string, any>)
-      }
-    }
 
     for (const item of await Glob.scan("{agent,agents}/**/*.md", {
       cwd: dir,
@@ -548,7 +288,7 @@ export namespace Config {
       })
       if (!md) continue
 
-      const patterns = ["/.costrict/agent/", "/.costrict/agents/", "/agent/", "/agents/"]
+      const patterns = ["/.opencode/agent/", "/.opencode/agents/", "/agent/", "/agents/"]
       const file = rel(item, patterns) ?? path.basename(item)
       const agentName = trim(file)
 
@@ -835,10 +575,6 @@ export namespace Config {
         .boolean()
         .optional()
         .describe("Hide this subagent from the @ autocomplete menu (default: false, only applies to mode: subagent)"),
-      visible: z
-        .boolean()
-        .optional()
-        .describe("控制其他Agent是否默认可见本Agent（默认true）"),
       options: z.record(z.string(), z.any()).optional(),
       color: z
         .union([
@@ -857,12 +593,11 @@ export namespace Config {
       permission: Permission.optional(),
     })
     .catchall(z.any())
-    .transform((agent, _ctx) => {
+    .transform((agent, ctx) => {
       const knownKeys = new Set([
         "name",
         "model",
         "variant",
-        "visible",
         "prompt",
         "description",
         "temperature",
@@ -914,7 +649,7 @@ export namespace Config {
   export const Keybinds = z
     .object({
       leader: z.string().optional().default("ctrl+x").describe("Leader key for keybind combinations"),
-      app_exit: z.string().optional().default("ctrl+d,<leader>q").describe("Exit the application"),
+      app_exit: z.string().optional().default("ctrl+c,ctrl+d,<leader>q").describe("Exit the application"),
       editor_open: z.string().optional().default("<leader>e").describe("Open external editor"),
       theme_list: z.string().optional().default("<leader>t").describe("List available themes"),
       sidebar_toggle: z.string().optional().default("<leader>b").describe("Toggle sidebar"),
@@ -972,8 +707,6 @@ export namespace Config {
       agent_list: z.string().optional().default("<leader>a").describe("List agents"),
       agent_cycle: z.string().optional().default("tab").describe("Next agent"),
       agent_cycle_reverse: z.string().optional().default("shift+tab").describe("Previous agent"),
-      yolo_mode: z.string().optional().default("ctrl+y").describe("Toggle YOLO mode"),
-      notification_mode: z.string().optional().default("ctrl+n").describe("Toggle notifications"),
       variant_cycle: z.string().optional().default("ctrl+t").describe("Cycle model variants"),
       input_clear: z.string().optional().default("ctrl+c").describe("Clear input field"),
       input_paste: z.string().optional().default("ctrl+v").describe("Paste from clipboard"),
@@ -1134,7 +867,6 @@ export namespace Config {
             .describe(
               "Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.",
             ),
-          enableThinking: z.boolean().optional().describe("Enable thinking mode for costrict provider. Default: true"),
           chunkTimeout: z
             .number()
             .int()
@@ -1161,33 +893,20 @@ export namespace Config {
       command: z
         .record(z.string(), Command)
         .optional()
-        .describe("Command configuration, see https://costrict.ai/docs/commands"),
+        .describe("Command configuration, see https://opencode.ai/docs/commands"),
       skills: Skills.optional().describe("Additional skill folder paths"),
       watcher: z
         .object({
           ignore: z.array(z.string()).optional(),
         })
         .optional(),
-      plugin: z.string().array().optional(),
       snapshot: z
-        .union([
-          z.boolean(),
-          z
-            .object({
-              enabled: z.boolean().optional().describe("Enable snapshot functionality"),
-              minFreeSpace: z
-                .union([z.string(), z.number()])
-                .optional()
-                .describe("Minimum free disk space required (e.g., '1GB' or 1073741824 bytes)"),
-              checkInterval: z
-                .number()
-                .optional()
-                .describe("Interval in seconds between disk space checks (default: 60)"),
-            })
-            .strict(),
-        ])
+        .boolean()
         .optional()
-        .describe("Snapshot configuration for project state tracking"),
+        .describe(
+          "Enable or disable snapshot tracking. When false, filesystem snapshots are not recorded and undoing or reverting will not undo/redo file changes. Defaults to true.",
+        ),
+      plugin: PluginSpec.array().optional(),
       share: z
         .enum(["manual", "auto", "disabled"])
         .optional()
@@ -1223,10 +942,6 @@ export namespace Config {
         .string()
         .optional()
         .describe("Custom username to display in conversations instead of system username"),
-      promptLanguage: z
-        .string()
-        .optional()
-        .describe("Language for built-in agent prompts (e.g. 'zh-CN', 'en'). Overrides COSTRICT_LOCALE env var"),
       mode: z
         .object({
           build: Agent.optional(),
@@ -1250,7 +965,7 @@ export namespace Config {
         })
         .catchall(Agent)
         .optional()
-        .describe("Agent configuration, see https://costrict.ai/docs/agent"),
+        .describe("Agent configuration, see https://opencode.ai/docs/agents"),
       provider: z
         .record(z.string(), Provider)
         .optional()
@@ -1344,11 +1059,6 @@ export namespace Config {
         .object({
           disable_paste_summary: z.boolean().optional(),
           batch_tool: z.boolean().optional().describe("Enable the batch tool"),
-          checkpoint: z
-            .boolean()
-            .default(true)
-            .optional()
-            .describe("Enable checkpoint functionality for creating snapshots of project state"),
           openTelemetry: z
             .boolean()
             .optional()
@@ -1364,41 +1074,8 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
-          spec_manage: z.boolean().optional().describe("Enable the spec manage tool"),
         })
         .optional(),
-      question: z
-        .object({
-          autoSelectFirstOption: z
-            .boolean()
-            .optional()
-            .describe(
-              "Automatically select the first option for each question (default: false). Useful for CI/CD and automated scripts.",
-            ),
-        })
-        .optional()
-        .describe("Question tool behavior configuration"),
-      learning: z
-        .object({
-          enabled: z.boolean().default(true).describe("Enable the learning system for skill self-evolution"),
-          autoDetect: z
-            .object({
-              corrections: z.boolean().default(true).describe("Auto-detect user corrections"),
-              errors: z.boolean().default(true).describe("Auto-detect error patterns"),
-              featureRequests: z.boolean().default(true).describe("Auto-detect feature requests"),
-            })
-            .optional()
-            .describe("Auto-detection settings for learning opportunities"),
-          autoPromote: z
-            .object({
-              recurrenceThreshold: z.number().default(3).describe("Recurrence count threshold for auto-promotion"),
-              priorityThreshold: z.enum(["low", "medium", "high", "critical"]).default("high").describe("Priority threshold for auto-promotion"),
-            })
-            .optional()
-            .describe("Auto-promotion settings for learnings"),
-        })
-        .optional()
-        .describe("Learning system configuration for skill self-evolution"),
     })
     .strict()
     .meta({
@@ -1407,137 +1084,20 @@ export namespace Config {
 
   export type Info = z.output<typeof Info>
 
-  export const global = lazy(async () => {
-    let result: Info = pipe(
-      {},
-      mergeDeep(await loadFile(path.join(Global.Path.config, "config.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "costrict.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "costrict.jsonc"))),
-    )
-
-    const legacy = path.join(Global.Path.config, "config")
-    if (existsSync(legacy)) {
-      await import(pathToFileURL(legacy).href, {
-        with: {
-          type: "toml",
-        },
-      })
-        .then(async (mod) => {
-          const { provider, model, ...rest } = mod.default
-          if (provider && model) result.model = `${provider}/${model}`
-          result["$schema"] = "https://costrict.ai/config.json"
-          result = mergeDeep(result, rest)
-          await Filesystem.writeJson(path.join(Global.Path.config, "config.json"), result)
-          await fs.unlink(legacy)
-        })
-        .catch(() => {})
-    }
-
-    return result
-  })
-
-  export const opencodeGlobal = lazy(async () => {
-    let result: Info = pipe(
-      {},
-      mergeDeep(await loadFile(path.join(Global.Path.config, "config.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "opencode.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "opencode.jsonc"))),
-      mergeDeep(await loadFile(path.join(os.homedir(), ".config", "opencode", "opencode.json"))),
-      mergeDeep(await loadFile(path.join(os.homedir(), ".config", "opencode", "opencode.jsonc"))),
-    )
-
-    await import(path.join(Global.Path.config, "config"), {
-      with: {
-        type: "toml",
-      },
-    })
-      .then(async (mod) => {
-        const { provider, model, ...rest } = mod.default
-        if (provider && model) result.model = `${provider}/${model}`
-        result["$schema"] = "https://costrict.ai/config.json"
-        result = mergeDeep(result, rest)
-      })
-      .catch(() => {})
-
-    return result
-  })
-
-  export const { readFile } = ConfigPaths
-
-  async function loadFile(filepath: string): Promise<Info> {
-    log.info("loading", { path: filepath })
-    const text = await readFile(filepath)
-    if (!text) return {}
-    return load(text, { path: filepath })
+  type State = {
+    config: Info
+    directories: string[]
+    deps: Promise<void>[]
   }
 
-  async function load(text: string, options: { path: string } | { dir: string; source: string }) {
-    const original = text
-    const source = "path" in options ? options.path : options.source
-    const isFile = "path" in options
-    const data = await ConfigPaths.parseText(
-      text,
-      "path" in options ? options.path : { source: options.source, dir: options.dir },
-    )
-
-    const normalized = (() => {
-      if (!data || typeof data !== "object" || Array.isArray(data)) return data
-      const copy = { ...(data as Record<string, unknown>) }
-      const hadLegacy = "theme" in copy || "keybinds" in copy || "tui" in copy
-      if (!hadLegacy) return copy
-      delete copy.theme
-      delete copy.keybinds
-      delete copy.tui
-      log.warn("tui keys in opencode config are deprecated; move them to tui.json", { path: source })
-      return copy
-    })()
-
-    const parsed = Info.safeParse(normalized)
-    if (parsed.success) {
-      if (!parsed.data.$schema && isFile) {
-        parsed.data.$schema = "https://costrict.ai/config.json"
-        const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://costrict.ai/config.json",')
-        await Filesystem.write(options.path, updated).catch(() => {})
-      }
-      const data = parsed.data
-      if (data.plugin && isFile) {
-        for (let i = 0; i < data.plugin.length; i++) {
-          const plugin = data.plugin[i]
-          try {
-            data.plugin[i] = import.meta.resolve!(plugin, options.path)
-          } catch (e) {
-            try {
-              // import.meta.resolve sometimes fails with newly created node_modules
-              const require = createRequire(options.path)
-              const resolvedPath = require.resolve(plugin)
-              data.plugin[i] = pathToFileURL(resolvedPath).href
-            } catch {
-              // Ignore, plugin might be a generic string identifier like "mcp-server"
-            }
-          }
-        }
-      }
-      return data
-    }
-
-    throw new InvalidError({
-      path: source,
-      issues: parsed.error.issues,
-    })
-  }
-  export const { JsonError, InvalidError } = ConfigPaths
-
-  export const ConfigDirectoryTypoError = NamedError.create(
-    "ConfigDirectoryTypoError",
-    z.object({
-      path: z.string(),
-      dir: z.string(),
-      suggestion: z.string(),
-    }),
-  )
-
-  export async function get() {
-    return state().then((x) => x.config)
+  export interface Interface {
+    readonly get: () => Effect.Effect<Info>
+    readonly getGlobal: () => Effect.Effect<Info>
+    readonly update: (config: Info) => Effect.Effect<void>
+    readonly updateGlobal: (config: Info) => Effect.Effect<Info>
+    readonly invalidate: (wait?: boolean) => Effect.Effect<void>
+    readonly directories: () => Effect.Effect<string[]>
+    readonly waitForDependencies: () => Effect.Effect<void>
   }
 
   export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Config") {}
@@ -2016,58 +1576,5 @@ export namespace Config {
 
   export async function waitForDependencies() {
     return runPromise((svc) => svc.waitForDependencies())
-  }
-
-  /**
-   * Resolves the config file path for a base directory
-   * This function provides a reusable way to find config files consistently across the codebase
-   *
-   * @param baseDir - The base directory to search for config files
-   * @param global - Whether to search for global config (costrict.json) or project config
-   * @returns The path to the config file that exists, or the default path if none exists
-   *
-   * Priority order (global=true):
-   * 1. costrict.jsonc
-   * 2. costrict.json
-   *
-   * Priority order (global=false):
-   * 1. baseDir/costrict.jsonc
-   * 2. baseDir/costrict.json
-   * 3. baseDir/.opencode/costrict.jsonc
-   * 4. baseDir/.opencode/costrict.json
-   *
-   * Defaults to costrict.json if no file exists
-   */
-  export async function resolveConfigFile(baseDir: string, global: boolean): Promise<string> {
-    if (global) {
-      // Global config: use costrict.json (not opencode.json) for consistency
-      const candidates = [path.join(baseDir, "costrict.jsonc"), path.join(baseDir, "costrict.json")]
-
-      for (const candidate of candidates) {
-        if (await Bun.file(candidate).exists()) {
-          return candidate
-        }
-      }
-
-      // Default to costrict.json if none exist
-      return candidates[1]
-    } else {
-      // Project config: check .opencode/ subdirectory
-      const projectCandidates = [
-        path.join(baseDir, "costrict.jsonc"),
-        path.join(baseDir, "costrict.json"),
-        path.join(baseDir, ".opencode", "costrict.jsonc"),
-        path.join(baseDir, ".opencode", "costrict.json"),
-      ]
-
-      for (const candidate of projectCandidates) {
-        if (await Bun.file(candidate).exists()) {
-          return candidate
-        }
-      }
-
-      // Default to costrict.json if none exist
-      return projectCandidates[1]
-    }
   }
 }

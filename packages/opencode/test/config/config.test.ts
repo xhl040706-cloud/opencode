@@ -89,14 +89,11 @@ test("loads config with defaults when no files exist", async () => {
 test("loads JSON config file", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      await Bun.write(
-        path.join(dir, "opencode.json"),
-        JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
-          model: "test/model",
-          username: "testuser",
-        }),
-      )
+      await writeConfig(dir, {
+        $schema: "https://opencode.ai/config.json",
+        model: "test/model",
+        username: "testuser",
+      })
     },
   })
   await Instance.provide({
@@ -155,7 +152,7 @@ test("loads JSONC config file", async () => {
         path.join(dir, "opencode.jsonc"),
         `{
         // This is a comment
-        "$schema": "https://costrict.ai/config.json",
+        "$schema": "https://opencode.ai/config.json",
         "model": "test/model",
         "username": "testuser"
       }`,
@@ -175,21 +172,19 @@ test("loads JSONC config file", async () => {
 test("merges multiple config files with correct precedence", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      await Bun.write(
-        path.join(dir, "opencode.jsonc"),
-        JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+      await writeConfig(
+        dir,
+        {
+          $schema: "https://opencode.ai/config.json",
           model: "base",
           username: "base",
-        }),
+        },
+        "opencode.jsonc",
       )
-      await Bun.write(
-        path.join(dir, "opencode.json"),
-        JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
-          model: "override",
-        }),
-      )
+      await writeConfig(dir, {
+        $schema: "https://opencode.ai/config.json",
+        model: "override",
+      })
     },
   })
   await Instance.provide({
@@ -209,20 +204,17 @@ test("handles environment variable substitution", async () => {
   try {
     await using tmp = await tmpdir({
       init: async (dir) => {
-        await Bun.write(
-          path.join(dir, "opencode.json"),
-          JSON.stringify({
-            $schema: "https://costrict.ai/config.json",
-            theme: "{env:TEST_VAR}",
-          }),
-        )
+        await writeConfig(dir, {
+          $schema: "https://opencode.ai/config.json",
+          username: "{env:TEST_VAR}",
+        })
       },
     })
     await Instance.provide({
       directory: tmp.path,
       fn: async () => {
         const config = await Config.get()
-        expect((config as Record<string, unknown>).theme).toBe("test-user")
+        expect(config.username).toBe("test-user")
       },
     })
   } finally {
@@ -360,13 +352,10 @@ test("handles file inclusion with replacement tokens", async () => {
 test("validates config schema and throws on invalid fields", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      await Bun.write(
-        path.join(dir, "opencode.json"),
-        JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
-          invalid_field: "should cause error",
-        }),
-      )
+      await writeConfig(dir, {
+        $schema: "https://opencode.ai/config.json",
+        invalid_field: "should cause error",
+      })
     },
   })
   await Instance.provide({
@@ -395,19 +384,16 @@ test("throws error for invalid JSON", async () => {
 test("handles agent configuration", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      await Bun.write(
-        path.join(dir, "opencode.json"),
-        JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
-          agent: {
-            test_agent: {
-              model: "test/model",
-              temperature: 0.7,
-              description: "test agent",
-            },
+      await writeConfig(dir, {
+        $schema: "https://opencode.ai/config.json",
+        agent: {
+          test_agent: {
+            model: "test/model",
+            temperature: 0.7,
+            description: "test agent",
           },
-        }),
-      )
+        },
+      })
     },
   })
   await Instance.provide({
@@ -425,22 +411,50 @@ test("handles agent configuration", async () => {
   })
 })
 
+test("treats agent variant as model-scoped setting (not provider option)", async () => {
+  await using tmp = await tmpdir({
+    init: async (dir) => {
+      await writeConfig(dir, {
+        $schema: "https://opencode.ai/config.json",
+        agent: {
+          test_agent: {
+            model: "openai/gpt-5.2",
+            variant: "xhigh",
+            max_tokens: 123,
+          },
+        },
+      })
+    },
+  })
+
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const config = await Config.get()
+      const agent = config.agent?.["test_agent"]
+
+      expect(agent?.variant).toBe("xhigh")
+      expect(agent?.options).toMatchObject({
+        max_tokens: 123,
+      })
+      expect(agent?.options).not.toHaveProperty("variant")
+    },
+  })
+})
+
 test("handles command configuration", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      await Bun.write(
-        path.join(dir, "opencode.json"),
-        JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
-          command: {
-            test_command: {
-              template: "test template",
-              description: "test command",
-              agent: "test_agent",
-            },
+      await writeConfig(dir, {
+        $schema: "https://opencode.ai/config.json",
+        command: {
+          test_command: {
+            template: "test template",
+            description: "test command",
+            agent: "test_agent",
           },
-        }),
-      )
+        },
+      })
     },
   })
   await Instance.provide({
@@ -462,7 +476,7 @@ test("migrates autoshare to share field", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           autoshare: true,
         }),
       )
@@ -484,7 +498,7 @@ test("migrates mode field to agent field", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           mode: {
             test_mode: {
               model: "test/model",
@@ -513,7 +527,7 @@ test("migrates mode field to agent field", async () => {
 test("loads config from .opencode directory", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, "..costrict")
+      const opencodeDir = path.join(dir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
       const agentDir = path.join(opencodeDir, "agent")
       await fs.mkdir(agentDir, { recursive: true })
@@ -542,10 +556,10 @@ Test agent prompt`,
   })
 })
 
-test("loads agents from ..costrict/agents (plural)", async () => {
+test("loads agents from .opencode/agents (plural)", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, "..costrict")
+      const opencodeDir = path.join(dir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       const agentsDir = path.join(opencodeDir, "agents")
@@ -593,10 +607,10 @@ Nested agent prompt`,
   })
 })
 
-test("loads commands from ..costrict/command (singular)", async () => {
+test("loads commands from .opencode/command (singular)", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, "..costrict")
+      const opencodeDir = path.join(dir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       const commandDir = path.join(opencodeDir, "command")
@@ -638,10 +652,10 @@ Nested command template`,
   })
 })
 
-test("loads commands from ..costrict/commands (plural)", async () => {
+test("loads commands from .opencode/commands (plural)", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, "..costrict")
+      const opencodeDir = path.join(dir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       const commandsDir = path.join(opencodeDir, "commands")
@@ -944,7 +958,7 @@ test("resolves scoped npm plugins in config", async () => {
 
       await Filesystem.write(
         path.join(dir, "opencode.json"),
-        JSON.stringify({ $schema: "https://costrict.ai/config.json", plugin: ["@scope/plugin"] }, null, 2),
+        JSON.stringify({ $schema: "https://opencode.ai/config.json", plugin: ["@scope/plugin"] }, null, 2),
       )
     },
   })
@@ -964,14 +978,14 @@ test("merges plugin arrays from global and local configs", async () => {
     init: async (dir) => {
       // Create a nested project structure with local .opencode config
       const projectDir = path.join(dir, "project")
-      const opencodeDir = path.join(projectDir, "..costrict")
+      const opencodeDir = path.join(projectDir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       // Global config with plugins
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           plugin: ["global-plugin-1", "global-plugin-2"],
         }),
       )
@@ -980,7 +994,7 @@ test("merges plugin arrays from global and local configs", async () => {
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           plugin: ["local-plugin-1"],
         }),
       )
@@ -1008,7 +1022,7 @@ test("merges plugin arrays from global and local configs", async () => {
 test("does not error when only custom agent is a subagent", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
-      const opencodeDir = path.join(dir, "..costrict")
+      const opencodeDir = path.join(dir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
       const agentDir = path.join(opencodeDir, "agent")
       await fs.mkdir(agentDir, { recursive: true })
@@ -1041,13 +1055,13 @@ test("merges instructions arrays from global and local configs", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
       const projectDir = path.join(dir, "project")
-      const opencodeDir = path.join(projectDir, "..costrict")
+      const opencodeDir = path.join(projectDir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           instructions: ["global-instructions.md", "shared-rules.md"],
         }),
       )
@@ -1055,7 +1069,7 @@ test("merges instructions arrays from global and local configs", async () => {
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           instructions: ["local-instructions.md"],
         }),
       )
@@ -1080,13 +1094,13 @@ test("deduplicates duplicate instructions from global and local configs", async 
   await using tmp = await tmpdir({
     init: async (dir) => {
       const projectDir = path.join(dir, "project")
-      const opencodeDir = path.join(projectDir, "..costrict")
+      const opencodeDir = path.join(projectDir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           instructions: ["duplicate.md", "global-only.md"],
         }),
       )
@@ -1094,7 +1108,7 @@ test("deduplicates duplicate instructions from global and local configs", async 
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           instructions: ["duplicate.md", "local-only.md"],
         }),
       )
@@ -1123,14 +1137,14 @@ test("deduplicates duplicate plugins from global and local configs", async () =>
     init: async (dir) => {
       // Create a nested project structure with local .opencode config
       const projectDir = path.join(dir, "project")
-      const opencodeDir = path.join(projectDir, "..costrict")
+      const opencodeDir = path.join(projectDir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
 
       // Global config with plugins
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           plugin: ["duplicate-plugin", "global-plugin-1"],
         }),
       )
@@ -1139,7 +1153,7 @@ test("deduplicates duplicate plugins from global and local configs", async () =>
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           plugin: ["duplicate-plugin", "local-plugin-1"],
         }),
       )
@@ -1178,7 +1192,7 @@ test("migrates legacy tools config to permissions - allow", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1209,7 +1223,7 @@ test("migrates legacy tools config to permissions - deny", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1240,7 +1254,7 @@ test("migrates legacy write tool to edit permission", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1347,7 +1361,7 @@ test("migrates legacy edit tool to edit permission", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1376,7 +1390,7 @@ test("migrates legacy patch tool to edit permission", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1405,7 +1419,7 @@ test("migrates legacy multiedit tool to edit permission", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1434,7 +1448,7 @@ test("migrates mixed legacy tools config", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           agent: {
             test: {
               tools: {
@@ -1469,7 +1483,7 @@ test("merges legacy tools with existing permission config", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           agent: {
             test: {
               permission: {
@@ -1502,7 +1516,7 @@ test("permission config preserves key order", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           permission: {
             "*": "deny",
             edit: "ask",
@@ -1548,7 +1562,7 @@ test("project config can override MCP server enabled status", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.jsonc"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           mcp: {
             jira: {
               type: "remote",
@@ -1567,7 +1581,7 @@ test("project config can override MCP server enabled status", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           mcp: {
             jira: {
               type: "remote",
@@ -1606,7 +1620,7 @@ test("MCP config deep merges preserving base config properties", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.jsonc"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           mcp: {
             myserver: {
               type: "remote",
@@ -1623,7 +1637,7 @@ test("MCP config deep merges preserving base config properties", async () => {
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           mcp: {
             myserver: {
               type: "remote",
@@ -1658,7 +1672,7 @@ test("local .opencode config can override MCP from project config", async () => 
       await Filesystem.write(
         path.join(dir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           mcp: {
             docs: {
               type: "remote",
@@ -1669,12 +1683,12 @@ test("local .opencode config can override MCP from project config", async () => 
         }),
       )
       // Local .opencode directory config enables it
-      const opencodeDir = path.join(dir, "..costrict")
+      const opencodeDir = path.join(dir, ".opencode")
       await fs.mkdir(opencodeDir, { recursive: true })
       await Filesystem.write(
         path.join(opencodeDir, "opencode.json"),
         JSON.stringify({
-          $schema: "https://costrict.ai/config.json",
+          $schema: "https://opencode.ai/config.json",
           mcp: {
             docs: {
               type: "remote",
@@ -1731,21 +1745,13 @@ test("project config overrides remote well-known config", async () => {
   )
 
   try {
-    await using tmp = await tmpdir({
-      git: true,
-      init: async (dir) => {
-        // Project config enables jira (overriding remote default)
-        await Filesystem.write(
-          path.join(dir, "opencode.json"),
-          JSON.stringify({
-            $schema: "https://costrict.ai/config.json",
-            mcp: {
-              jira: {
-                type: "remote",
-                url: "https://jira.example.com/mcp",
-                enabled: true,
-              },
-            },
+    await provideTmpdirInstance(
+      () =>
+        Config.Service.use((svc) =>
+          Effect.gen(function* () {
+            const config = yield* svc.get()
+            expect(fetchedUrl).toBe("https://example.com/.well-known/opencode")
+            expect(config.mcp?.jira?.enabled).toBe(true)
           }),
         ),
       {
@@ -1892,13 +1898,20 @@ describe("deduplicatePlugins", () => {
     expect(result.length).toBe(3)
   })
 
-  test("prefers local file over npm package with same name", () => {
-    const plugins = ["oh-my-opencode@2.4.3", "file:///project/..costrict/plugin/oh-my-opencode.js"]
+  test("keeps path plugins separate from package plugins", () => {
+    const plugins = ["oh-my-opencode@2.4.3", "file:///project/.opencode/plugin/oh-my-opencode.js"]
 
     const result = Config.deduplicatePlugins(plugins)
 
-    expect(result.length).toBe(1)
-    expect(result[0]).toBe("file:///project/..costrict/plugin/oh-my-opencode.js")
+    expect(result).toEqual(plugins)
+  })
+
+  test("deduplicates direct path plugins by exact spec", () => {
+    const plugins = ["file:///project/.opencode/plugin/demo.ts", "file:///project/.opencode/plugin/demo.ts"]
+
+    const result = Config.deduplicatePlugins(plugins)
+
+    expect(result).toEqual(["file:///project/.opencode/plugin/demo.ts"])
   })
 
   test("preserves order of remaining plugins", () => {
@@ -1913,14 +1926,14 @@ describe("deduplicatePlugins", () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
         const projectDir = path.join(dir, "project")
-        const opencodeDir = path.join(projectDir, "..costrict")
+        const opencodeDir = path.join(projectDir, ".opencode")
         const pluginDir = path.join(opencodeDir, "plugin")
         await fs.mkdir(pluginDir, { recursive: true })
 
         await Filesystem.write(
           path.join(dir, "opencode.json"),
           JSON.stringify({
-            $schema: "https://costrict.ai/config.json",
+            $schema: "https://opencode.ai/config.json",
             plugin: ["my-plugin@1.0.0"],
           }),
         )

@@ -1,4 +1,7 @@
 import { test, expect, mock, beforeAll, beforeEach, afterEach, describe } from "bun:test"
+import { Effect, Layer, Stream } from "effect"
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { Installation } from "../../src/installation/index"
 
 // Save original environment
@@ -149,12 +152,9 @@ describe("installation", () => {
     expect(latestVersion).toBe("3.0.9")
   })
 
-  test("reads release version from GitHub releases", async () => {
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ tag_name: "v1.2.3" }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      })) as unknown as typeof fetch
+  describe("latest", () => {
+    test("reads release version from GitHub releases", async () => {
+      const layer = testLayer(() => jsonResponse({ tag_name: "v1.2.3" }))
 
       const result = await Effect.runPromise(
         Installation.Service.use((svc) => svc.latest("unknown")).pipe(Effect.provide(layer)),

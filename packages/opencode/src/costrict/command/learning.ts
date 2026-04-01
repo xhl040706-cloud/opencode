@@ -20,7 +20,7 @@ export namespace LearningCommands {
       [Default.SKILL_CAPTURE]: {
         name: Default.SKILL_CAPTURE,
         description: "capture learnings from current conversation",
-        source: "learning",
+        source: "command",
         get template() {
           return CostrictCommand.get("skills-capture", lang)
         },

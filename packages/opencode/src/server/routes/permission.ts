@@ -36,8 +36,8 @@ export const PermissionRoutes = lazy(() =>
       async (c) => {
         const params = c.req.valid("param")
         const json = c.req.valid("json")
-        await PermissionNext.reply({
-          requestID: params.requestID as unknown as string,
+        await Permission.reply({
+          requestID: params.requestID,
           reply: json.reply,
           message: json.message,
         })

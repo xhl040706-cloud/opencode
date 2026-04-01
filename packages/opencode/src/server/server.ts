@@ -12,7 +12,6 @@ import { WorkspaceRouterMiddleware } from "./router"
 import { websocket } from "hono/bun"
 import { errors } from "./error"
 import { GlobalRoutes } from "./routes/global"
-import { CloudFileRoutes } from "./routes/cloud-file"
 import { MDNS } from "./mdns"
 import { lazy } from "@/util/lazy"
 import { errorHandler } from "./middleware"
@@ -47,7 +46,7 @@ export namespace Server {
         if (c.req.method === "OPTIONS") return next()
         const password = Flag.OPENCODE_SERVER_PASSWORD
         if (!password) return next()
-        const username = Flag.COSTRICT_SERVER_USERNAME ?? "opencode"
+        const username = Flag.OPENCODE_SERVER_USERNAME ?? "opencode"
         return basicAuth({ username, password })(c, next)
       })
       .use(async (c, next) => {
@@ -166,9 +165,9 @@ export namespace Server {
         openAPIRouteHandler(app, {
           documentation: {
             info: {
-              title: "costrict",
+              title: "opencode",
               version: "0.0.3",
-              description: "costrict-cli api",
+              description: "opencode api",
             },
             openapi: "3.1.1",
           },
@@ -182,125 +181,6 @@ export namespace Server {
             workspace: z.string().optional(),
           }),
         ),
-      )
-      .route("/project", ProjectRoutes())
-      .route("/pty", PtyRoutes())
-      .route("/config", ConfigRoutes())
-      .route("/experimental", ExperimentalRoutes())
-      .route("/session", SessionRoutes())
-      .route("/permission", PermissionRoutes())
-      .route("/question", QuestionRoutes())
-      .route("/provider", ProviderRoutes())
-      .route("/", FileRoutes())
-      .route("/", CloudFileRoutes())
-      .route("/mcp", McpRoutes())
-      .route("/tui", TuiRoutes())
-      .post(
-        "/instance/dispose",
-        describeRoute({
-          summary: "Dispose instance",
-          description: "Clean up and dispose the current CoStrict instance, releasing all resources.",
-          operationId: "instance.dispose",
-          responses: {
-            200: {
-              description: "Instance disposed",
-              content: {
-                "application/json": {
-                  schema: resolver(z.boolean()),
-                },
-              },
-            },
-          },
-        }),
-        async (c) => {
-          await Instance.dispose()
-          return c.json(true)
-        },
-      )
-      .get(
-        "/path",
-        describeRoute({
-          summary: "Get paths",
-          description: "Retrieve the current working directory and related path information for the CoStrict instance.",
-          operationId: "path.get",
-          responses: {
-            200: {
-              description: "Path",
-              content: {
-                "application/json": {
-                  schema: resolver(
-                    z
-                      .object({
-                        home: z.string(),
-                        state: z.string(),
-                        config: z.string(),
-                        worktree: z.string(),
-                        directory: z.string(),
-                      })
-                      .meta({
-                        ref: "Path",
-                      }),
-                  ),
-                },
-              },
-            },
-          },
-        }),
-        async (c) => {
-          return c.json({
-            home: Global.Path.home,
-            state: Global.Path.state,
-            config: Global.Path.config,
-            worktree: Instance.worktree,
-            directory: Instance.directory,
-          })
-        },
-      )
-      .get(
-        "/vcs",
-        describeRoute({
-          summary: "Get VCS info",
-          description: "Retrieve version control system (VCS) information for the current project, such as git branch.",
-          operationId: "vcs.get",
-          responses: {
-            200: {
-              description: "VCS info",
-              content: {
-                "application/json": {
-                  schema: resolver(Vcs.Info),
-                },
-              },
-            },
-          },
-        }),
-        async (c) => {
-          const branch = await Vcs.branch()
-          return c.json({
-            branch,
-          })
-        },
-      )
-      .get(
-        "/command",
-        describeRoute({
-          summary: "List commands",
-          description: "Get a list of all available commands in the CoStrict system.",
-          operationId: "command.list",
-          responses: {
-            200: {
-              description: "List of commands",
-              content: {
-                "application/json": {
-                  schema: resolver(Command.Info.array()),
-                },
-              },
-            },
-          },
-        }),
-        async (c) => {
-          const commands = await Command.list()
-          return c.json(commands)
-        },
       )
       .post(
         "/log",
@@ -354,182 +234,11 @@ export namespace Server {
           return c.json(true)
         },
       )
-      .get(
-        "/agent",
-        describeRoute({
-          summary: "List agents",
-          description: "Get a list of all available AI agents in the CoStrict system.",
-          operationId: "app.agents",
-          responses: {
-            200: {
-              description: "List of agents",
-              content: {
-                "application/json": {
-                  schema: resolver(Agent.Info.array()),
-                },
-              },
-            },
-          },
-        }),
-        async (c) => {
-          const modes = await Agent.list()
-          return c.json(modes)
-        },
-      )
-      .get(
-        "/skill",
-        describeRoute({
-          summary: "List skills",
-          description: "Get a list of all available skills in the OpenCode system.",
-          operationId: "app.skills",
-          responses: {
-            200: {
-              description: "List of skills",
-              content: {
-                "application/json": {
-                  schema: resolver(Skill.Info.array()),
-                },
-              },
-            },
-          },
-        }),
-        async (c) => {
-          const skills = await Skill.all()
-          return c.json(skills)
-        },
-      )
-      .get(
-        "/lsp",
-        describeRoute({
-          summary: "Get LSP status",
-          description: "Get LSP server status",
-          operationId: "lsp.status",
-          responses: {
-            200: {
-              description: "LSP server status",
-              content: {
-                "application/json": {
-                  schema: resolver(LSP.Status.array()),
-                },
-              },
-            },
-          },
-        }),
-        async (c) => {
-          return c.json(await LSP.status())
-        },
-      )
-      .get(
-        "/formatter",
-        describeRoute({
-          summary: "Get formatter status",
-          description: "Get formatter status",
-          operationId: "formatter.status",
-          responses: {
-            200: {
-              description: "Formatter status",
-              content: {
-                "application/json": {
-                  schema: resolver(Format.Status.array()),
-                },
-              },
-            },
-          },
-        }),
-        async (c) => {
-          return c.json(await Format.status())
-        },
-      )
-      .get(
-        "/event",
-        describeRoute({
-          summary: "Subscribe to events",
-          description: "Get events",
-          operationId: "event.subscribe",
-          responses: {
-            200: {
-              description: "Event stream",
-              content: {
-                "text/event-stream": {
-                  schema: resolver(BusEvent.payloads()),
-                },
-              },
-            },
-          },
-        }),
-        async (c) => {
-          log.info("event connected")
-          c.header("X-Accel-Buffering", "no")
-          c.header("X-Content-Type-Options", "nosniff")
-          return streamSSE(c, async (stream) => {
-            stream.writeSSE({
-              data: JSON.stringify({
-                type: "server.connected",
-                properties: {},
-              }),
-            })
-            const unsub = Bus.subscribeAll(async (event) => {
-              await stream.writeSSE({
-                data: JSON.stringify(event),
-              })
-              if (event.type === Bus.InstanceDisposed.type) {
-                stream.close()
-              }
-            })
+      .use(WorkspaceRouterMiddleware)
+  }
 
-            // Send heartbeat every 10s to prevent stalled proxy streams.
-            const heartbeat = setInterval(() => {
-              stream.writeSSE({
-                data: JSON.stringify({
-                  type: "server.heartbeat",
-                  properties: {},
-                }),
-              })
-            }, 10_000)
-
-            await new Promise<void>((resolve) => {
-              stream.onAbort(() => {
-                clearInterval(heartbeat)
-                unsub()
-                resolve()
-                log.info("event disconnected")
-              })
-            })
-          })
-        },
-      )
-      .all("/*", async (c) => {
-        let path = c.req.path
-        const appUrl = new URL(await Flag.getAppUrlWithVersion())
-
-        // 如果路径中包含会话ID（base64编码）和 /session/，需要移除它以便资源能够正确代理
-        // 例如：/RDovY29kZS9ob3N0bWFu/session/assets/index.js -> /assets/index.js (静态资源)
-        // /RDovY29kZS9ob3N0bWFu/session/ses_xxx -> / (前端路由，加载 index.html)
-        const sessionMatch = path.match(/^[A-Za-z0-9_=\/+-]+\/session\/(.*)/)
-        if (sessionMatch) {
-          const subPath = sessionMatch[1]
-          // 如果是静态资源请求（包含 .），则保留路径
-          // 否则（前端路由），代理到根路径 /
-          if (subPath && subPath.includes('.')) {
-            path = '/' + subPath
-          } else {
-            path = '/'
-          }
-        }
-
-        const response = await proxy(`${appUrl.href.replace(/\/$/, '')}${path}`, {
-          ...c.req,
-          headers: {
-            ...c.req.raw.headers,
-            host: appUrl.host,
-          },
-        })
-        response.headers.set(
-          "Content-Security-Policy",
-          "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' data:; media-src 'self' data: blob:;",
-        )
-        return response
-      })
+  export function createApp(opts: { cors?: string[] }) {
+    return ControlPlaneRoutes(opts)
   }
 
   export async function openapi() {
@@ -542,9 +251,9 @@ export namespace Server {
     const result = await generateSpecs(app, {
       documentation: {
         info: {
-          title: "costrict",
+          title: "opencode",
           version: "1.0.0",
-          description: "costrict-cli api",
+          description: "opencode api",
         },
         openapi: "3.1.1",
       },
@@ -601,4 +310,3 @@ export namespace Server {
     return server
   }
 }
-

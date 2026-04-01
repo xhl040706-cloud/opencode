@@ -1,7 +1,6 @@
 import type { NamedError } from "@opencode-ai/util/error"
 import { Cause, Clock, Duration, Effect, Schedule } from "effect"
 import { MessageV2 } from "./message-v2"
-import { CostrictError } from "@/costrict/error"
 import { iife } from "@/util/iife"
 
 export namespace SessionRetry {
@@ -11,7 +10,6 @@ export namespace SessionRetry {
   export const RETRY_BACKOFF_FACTOR = 2
   export const RETRY_MAX_DELAY_NO_HEADERS = 30_000 // 30 seconds
   export const RETRY_MAX_DELAY = 2_147_483_647 // max 32-bit signed integer for setTimeout
-  export const MAX_RETRY_ATTEMPTS = 10
 
   function cap(ms: number) {
     return Math.min(ms, RETRY_MAX_DELAY)
@@ -50,27 +48,10 @@ export namespace SessionRetry {
     return cap(Math.min(RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1), RETRY_MAX_DELAY_NO_HEADERS))
   }
 
-  export function retryable(error: ReturnType<NamedError["toObject"]>, options?: { providerID: string }) {
-    if (options?.providerID === "costrict") {
-      const next = CostrictError.retryable(error)
-      if (next) return next
-    }
-
-    if (MessageV2.ReasoningOnlyError.isInstance(error)) {
-      return "Response only contains reasoning content"
-    }
-
+  export function retryable(error: Err) {
     // context overflow errors should not be retried
     if (MessageV2.ContextOverflowError.isInstance(error)) return undefined
-
     if (MessageV2.APIError.isInstance(error)) {
-      // Check for connection error messages (always retry, regardless of isRetryable flag)
-      // This handles errors from OpenAI SDK and other clients that throw generic "Connection error."
-      const message = error.data.message?.toLowerCase() || ""
-      if (message.includes("connection error")) {
-        return "Connection error"
-      }
-
       if (!error.data.isRetryable) return undefined
       if (error.data.responseBody?.includes("FreeUsageLimitError"))
         return `Free usage exceeded, add credits https://opencode.ai/zen`

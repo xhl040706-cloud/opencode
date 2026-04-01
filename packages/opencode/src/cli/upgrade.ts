@@ -4,19 +4,13 @@ import { Flag } from "@/flag/flag"
 import { Installation } from "@/installation"
 
 export async function upgrade() {
-  const config = await Config.global()  
-
+  const config = await Config.getGlobal()
   const method = await Installation.method()
   const latest = await Installation.latest(method).catch(() => {})
   if (!latest) return
 
-  // Prevent downgrade: skip if target version is older than current
-  const versionComparison = Installation.compareVersions(latest, Installation.VERSION)
-  if (versionComparison < 0) {
-    return
-  }
-
-  if (config.autoupdate === false || Flag.COSTRICT_DISABLE_AUTOUPDATE) {
+  if (Flag.OPENCODE_ALWAYS_NOTIFY_UPDATE) {
+    await Bus.publish(Installation.Event.UpdateAvailable, { version: latest })
     return
   }
 
