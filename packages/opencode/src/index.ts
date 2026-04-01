@@ -14,12 +14,10 @@ import { Installation } from "./installation"
 import { NamedError } from "@opencode-ai/util/error"
 import { FormatError } from "./cli/error"
 import { ServeCommand } from "./cli/cmd/serve"
-import { WorkspaceServeCommand } from "./cli/cmd/workspace-serve"
 import { Filesystem } from "./util/filesystem"
 import { DebugCommand } from "./cli/cmd/debug"
 import { StatsCommand } from "./cli/cmd/stats"
 import { McpCommand } from "./cli/cmd/mcp"
-import { PluginCommand } from "./cli/cmd/plugin"
 import { GithubCommand } from "./cli/cmd/github"
 import { ExportCommand } from "./cli/cmd/export"
 import { ImportCommand } from "./cli/cmd/import"
@@ -31,36 +29,32 @@ import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { DbCommand } from "./cli/cmd/db"
-import { LearningCommand } from "./cli/cmd/learning"
-import { CloudCommand } from "./cli/cmd/cloud"
 import path from "path"
 import { Global } from "./global"
 import { JsonMigration } from "./storage/json-migration"
 import { Database } from "./storage/db"
+import { errorMessage } from "./util/error"
+import { PluginCommand } from "./cli/cmd/plug"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
-    e: e instanceof Error ? e.message : e,
+    e: errorMessage(e),
   })
 })
 
 process.on("uncaughtException", (e) => {
   Log.Default.error("exception", {
-    e: e instanceof Error ? e.message : e,
+    e: errorMessage(e),
   })
 })
 
-let cli = yargs(hideBin(process.argv))
+const cli = yargs(hideBin(process.argv))
   .parserConfiguration({ "populate--": true })
-  .scriptName("cs")
+  .scriptName("opencode")
   .wrap(100)
   .help("help", "show help")
   .alias("help", "h")
-  .version(
-    "version",
-    "show version number",
-    `${Installation.VERSION} (commit: ${Installation.COMMIT_HASH}, built: ${Installation.BUILD_TIME})`,
-  )
+  .version("version", "show version number", Installation.VERSION)
   .alias("version", "v")
   .option("print-logs", {
     describe: "print logs to stderr",
@@ -71,7 +65,15 @@ let cli = yargs(hideBin(process.argv))
     type: "string",
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
+  .option("pure", {
+    describe: "run without external plugins",
+    type: "boolean",
+  })
   .middleware(async (opts) => {
+    if (opts.pure) {
+      process.env.OPENCODE_PURE = "1"
+    }
+
     await Log.init({
       print: process.argv.includes("--print-logs"),
       dev: Installation.isLocal(),
@@ -83,16 +85,16 @@ let cli = yargs(hideBin(process.argv))
     })
 
     process.env.AGENT = "1"
-    process.env.COSTRICT_RUNNING = "1"
+    process.env.OPENCODE = "1"
+    process.env.OPENCODE_PID = String(process.pid)
 
-    Log.Default.info("costrict-cli", {
+    Log.Default.info("opencode", {
       version: Installation.VERSION,
       args: process.argv.slice(2),
     })
 
     const marker = path.join(Global.Path.data, "opencode.db")
     if (!(await Filesystem.exists(marker))) {
-      const migrationTimer = Log.Default.time("startup.database_migration")
       const tty = process.stderr.isTTY
       process.stderr.write("Performing one time database migration, may take a few minutes..." + EOL)
       const width = 36
@@ -120,7 +122,6 @@ let cli = yargs(hideBin(process.argv))
           },
         })
       } finally {
-        migrationTimer.stop()
         if (tty) process.stderr.write("\x1b[?25h")
         else {
           process.stderr.write(`sqlite-migration:done${EOL}`)
@@ -133,7 +134,6 @@ let cli = yargs(hideBin(process.argv))
   .completion("completion", "generate shell completion script")
   .command(AcpCommand)
   .command(McpCommand)
-  .command(PluginCommand)
   .command(TuiThreadCommand)
   .command(AttachCommand)
   .command(RunCommand)
@@ -153,15 +153,8 @@ let cli = yargs(hideBin(process.argv))
   .command(GithubCommand)
   .command(PrCommand)
   .command(SessionCommand)
+  .command(PluginCommand)
   .command(DbCommand)
-  .command(LearningCommand)
-  .command(CloudCommand)
-
-if (Installation.isLocal()) {
-  cli = cli.command(WorkspaceServeCommand)
-}
-
-cli = cli
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||
@@ -212,7 +205,7 @@ try {
   if (formatted) UI.error(formatted)
   if (formatted === undefined) {
     UI.error("Unexpected error, check log file at " + Log.file() + " for more details" + EOL)
-    process.stderr.write((e instanceof Error ? e.message : String(e)) + EOL)
+    process.stderr.write(errorMessage(e) + EOL)
   }
   process.exitCode = 1
 } finally {

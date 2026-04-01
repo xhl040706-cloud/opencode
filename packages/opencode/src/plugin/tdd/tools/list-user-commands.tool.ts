@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin"
 import { Config } from "../../../config/config"
-import { Skill } from "../../../skill/skill"
+import { Skill } from "../../../skill"
 
 async function hints(template: string): Promise<string[]> {
   const result: string[] = []

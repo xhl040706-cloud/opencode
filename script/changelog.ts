@@ -3,7 +3,6 @@
 import { $ } from "bun"
 import { createOpencode } from "@opencode-ai/sdk"
 import { parseArgs } from "util"
-import { Script } from "@opencode-ai/script"
 
 export async function getLatestRelease() {
   return fetch("https://api.github.com/repos/zgsm-ai/opencode/releases/latest")

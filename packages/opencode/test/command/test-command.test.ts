@@ -23,7 +23,7 @@ describe("/test command", () => {
       fn: async () => {
         const cmd = await Command.get("test")
         expect(cmd).toBeDefined()
-        expect(cmd?.name).toBe(Command.Default.TEST)
+        expect(cmd?.name).toBe("test")
         expect(cmd?.name).toBe("test")
       },
     })
@@ -122,7 +122,7 @@ describe("command system", () => {
         const names = commands.map((c) => c.name)
         expect(names).toContain(Command.Default.INIT)
         expect(names).toContain(Command.Default.REVIEW)
-        expect(names).toContain(Command.Default.TEST)
+        expect(names).toContain("test")
       },
     })
   })

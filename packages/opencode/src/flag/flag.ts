@@ -1,4 +1,4 @@
-import { getAppUrl } from "./costrict/version-url"
+import { Config } from "effect"
 
 function truthy(key: string) {
   const value = process.env[key]?.toLowerCase()
@@ -67,6 +67,7 @@ export namespace Flag {
   export const COSTRICT_INSECURE_SKIP_TLS_VERIFY = truthy("COSTRICT_INSECURE_SKIP_TLS_VERIFY")
 
   export async function getAppUrlWithVersion() {
+    const { getAppUrl } = await import("./costrict/version-url")
     return await getAppUrl(COSTRICT_BASE_URL)
   }
   export const COSTRICT_DISABLE_FILETIME_CHECK = truthy("COSTRICT_DISABLE_FILETIME_CHECK")
@@ -113,13 +114,19 @@ export namespace Flag {
   export const OPENCODE_SERVER_PASSWORD = process.env["COSTRICT_SERVER_PASSWORD"]
   export const OPENCODE_SERVER_USERNAME = process.env["OPENCODE_SERVER_USERNAME"]
   export const OPENCODE_MODELS_URL = process.env["OPENCODE_MODELS_URL"]
-  export const OPENCODE_DISABLE_FILETIME_CHECK = truthy("OPENCODE_DISABLE_FILETIME_CHECK")
+  export const OPENCODE_DISABLE_FILETIME_CHECK = Config.boolean("OPENCODE_DISABLE_FILETIME_CHECK").pipe(
+    Config.withDefault(false),
+  )
   export const OPENCODE_ENABLE_QUESTION_TOOL = truthy("OPENCODE_ENABLE_QUESTION_TOOL")
 
   // Experimental
   export const OPENCODE_EXPERIMENTAL = truthy("OPENCODE_EXPERIMENTAL")
-  export const OPENCODE_EXPERIMENTAL_FILEWATCHER = truthy("OPENCODE_EXPERIMENTAL_FILEWATCHER")
-  export const OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER = truthy("OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER")
+  export const OPENCODE_EXPERIMENTAL_FILEWATCHER = Config.boolean("OPENCODE_EXPERIMENTAL_FILEWATCHER").pipe(
+    Config.withDefault(false),
+  )
+  export const OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER = Config.boolean(
+    "OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER",
+  ).pipe(Config.withDefault(false))
   export const OPENCODE_EXPERIMENTAL_ICON_DISCOVERY =
     OPENCODE_EXPERIMENTAL || truthy("OPENCODE_EXPERIMENTAL_ICON_DISCOVERY")
 
@@ -140,6 +147,12 @@ export namespace Flag {
   export const OPENCODE_DISABLE_CHANNEL_DB = truthy("OPENCODE_DISABLE_CHANNEL_DB")
   export const OPENCODE_SKIP_MIGRATIONS = truthy("OPENCODE_SKIP_MIGRATIONS")
   export const OPENCODE_STRICT_CONFIG_DEPS = truthy("OPENCODE_STRICT_CONFIG_DEPS")
+  export const OPENCODE_ALWAYS_NOTIFY_UPDATE = truthy("OPENCODE_ALWAYS_NOTIFY_UPDATE")
+  export const OPENCODE_SHOW_TTFD = truthy("OPENCODE_SHOW_TTFD")
+  export const OPENCODE_DISABLE_EMBEDDED_WEB_UI = truthy("OPENCODE_DISABLE_EMBEDDED_WEB_UI")
+  export const OPENCODE_DB = process.env["OPENCODE_DB"]
+  export declare const OPENCODE_PURE: boolean
+  export declare const OPENCODE_PLUGIN_META_FILE: string | undefined
 
   function number(key: string) {
     const value = process.env[key]
@@ -210,6 +223,24 @@ Object.defineProperty(Flag, "OPENCODE_DISABLE_PROJECT_CONFIG", {
 Object.defineProperty(Flag, "OPENCODE_CLIENT", {
   get() {
     return process.env["COSTRICT_CLIENT"] ?? "cli"
+  },
+  enumerable: true,
+  configurable: false,
+})
+
+// Dynamic getter for OPENCODE_PURE
+Object.defineProperty(Flag, "OPENCODE_PURE", {
+  get() {
+    return truthy("OPENCODE_PURE")
+  },
+  enumerable: true,
+  configurable: false,
+})
+
+// Dynamic getter for OPENCODE_PLUGIN_META_FILE
+Object.defineProperty(Flag, "OPENCODE_PLUGIN_META_FILE", {
+  get() {
+    return process.env["OPENCODE_PLUGIN_META_FILE"]
   },
   enumerable: true,
   configurable: false,
