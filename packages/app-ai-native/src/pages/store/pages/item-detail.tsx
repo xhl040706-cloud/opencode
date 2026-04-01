@@ -1,9 +1,9 @@
-import { createResource, createSignal, Show, For } from "solid-js"
+import { createEffect, createResource, createSignal, Show, For } from "solid-js"
 import { createHighlighter } from "shiki"
 import { useTheme } from "@opencode-ai/ui/theme"
 import { useParams, useNavigate, useSearchParams } from "@solidjs/router"
 import { Icon } from "@opencode-ai/ui/icon"
-import { itemApi, artifactApi, scanApi, userApi, type CapabilityItem, type ScanResult } from "../lib/api"
+import { itemApi, artifactApi, behaviorApi, scanApi, userApi, type CapabilityItem, type ScanResult } from "../lib/api"
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
 import { categoryKey, formatBytes } from "../lib/constants"
@@ -24,6 +24,10 @@ function formatDuration(ms: number) {
   if (ms < 1000) return `${ms} ms`
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`
   return `${(ms / 60_000).toFixed(1)} min`
+}
+
+function formatCount(value?: number) {
+  return new Intl.NumberFormat().format(value ?? 0)
 }
 
 function formatValue(value: unknown) {
@@ -201,6 +205,12 @@ export default function ItemDetail() {
     (createdBy) => userApi.getNames([createdBy]).then((names) => names[createdBy] ?? createdBy),
   )
   const [copied, setCopied] = createSignal(false)
+  const [trackedItemId, setTrackedItemId] = createSignal<string>()
+  const [previewCount, setPreviewCount] = createSignal(0)
+  const [installCount, setInstallCount] = createSignal(0)
+  const [favorited, setFavorited] = createSignal(false)
+  const [favoriteCount, setFavoriteCount] = createSignal(0)
+  const [favoritePending, setFavoritePending] = createSignal(false)
   const [highlighted] = createResource(
     () => {
       const json = tryJson(item()?.content ?? "")
@@ -219,6 +229,55 @@ export default function ItemDetail() {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  const toggleFavorite = async () => {
+    const data = item()
+    if (!data || !auth.user() || auth.loading() || favoritePending()) return
+
+    setFavoritePending(true)
+    try {
+      if (favorited()) {
+        const result = await behaviorApi.unfavorite(data.id)
+        setFavorited(result.favorited)
+        setFavoriteCount(result.favoriteCount)
+        return
+      }
+
+      const result = await behaviorApi.favorite(data.id)
+      setFavorited(result.favorited)
+      setFavoriteCount(result.favoriteCount)
+    } finally {
+      setFavoritePending(false)
+    }
+  }
+
+  createEffect(() => {
+    const data = item()
+    if (!data) return
+    setPreviewCount(data.previewCount ?? 0)
+    setInstallCount(data.installCount ?? 0)
+    setFavorited(Boolean(data.favorited))
+    setFavoriteCount(data.favoriteCount ?? 0)
+  })
+
+  createEffect(() => {
+    const data = item()
+    if (!data) return
+    if (trackedItemId() === data.id) return
+
+    setTrackedItemId(data.id)
+    void behaviorApi
+      .log(data.id, {
+        actionType: "view",
+        context: "direct_access",
+        metadata: {
+          source: "app-ai-native",
+          route: "item-detail",
+        },
+      })
+      .then(() => setPreviewCount((count) => count + 1))
+      .catch(() => undefined)
+  })
 
   return (
     <Show
@@ -251,13 +310,40 @@ export default function ItemDetail() {
               <div class="rounded-lg overflow-hidden border border-border-weak-base">
                 <div class="px-5 pt-5 pb-4 bg-bg-muted/50">
                   <div class="flex items-start justify-between gap-4 mb-3">
-                    <h1
-                      class="font-bold text-text-strong"
-                      style={{ "font-size": "24px", "letter-spacing": "-0.02em", "line-height": "1.3" }}
-                    >
-                      {data().name}
-                    </h1>
-                    <div class="flex items-center gap-1.5 shrink-0">
+                    <div class="min-w-0 flex-1">
+                      <h1
+                        class="font-bold text-text-strong"
+                        style={{ "font-size": "24px", "letter-spacing": "-0.02em", "line-height": "1.3" }}
+                      >
+                        {data().name}
+                      </h1>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => void toggleFavorite()}
+                        disabled={!auth.user() || auth.loading() || favoritePending()}
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60"
+                        classList={{
+                          "bg-bg-muted text-text-strong hover:bg-bg-muted/70": favorited(),
+                          "text-text-weak hover:text-text-strong hover:bg-bg-muted": !favorited(),
+                        }}
+                        title={
+                          auth.user()
+                            ? favorited()
+                              ? language.t("store.detail.unfavorite")
+                              : language.t("store.detail.favorite")
+                            : language.t("store.detail.favoriteSignIn")
+                        }
+                      >
+                        <span class="text-sm leading-none">{favorited() ? "★" : "☆"}</span>
+                        <span>
+                          {auth.user()
+                            ? favorited()
+                              ? language.t("store.detail.favorited")
+                              : language.t("store.detail.favorite")
+                            : language.t("store.detail.favoriteSignIn")}
+                        </span>
+                      </button>
                       <Show when={data().sourceType === "archive"}>
                         <span
                           class="text-xs px-1.5 py-0.5 rounded inline-flex items-center"
@@ -294,6 +380,21 @@ export default function ItemDetail() {
                   <Show when={data().description}>
                     <p class="text-12-regular text-text-weak leading-relaxed">{data().description}</p>
                   </Show>
+
+                  <div class="mt-4 flex flex-wrap gap-2">
+                    <div class="rounded-[10px] bg-bg-muted px-3 py-2">
+                      <div class="text-xs text-text-weak">{language.t("store.detail.previewCount")}</div>
+                      <div class="mt-0.5 text-14-medium text-text-strong">{formatCount(previewCount())}</div>
+                    </div>
+                    <div class="rounded-[10px] bg-bg-muted px-3 py-2">
+                      <div class="text-xs text-text-weak">{language.t("store.detail.installCount")}</div>
+                      <div class="mt-0.5 text-14-medium text-text-strong">{formatCount(installCount())}</div>
+                    </div>
+                    <div class="rounded-[10px] bg-bg-muted px-3 py-2">
+                      <div class="text-xs text-text-weak">{language.t("store.detail.favoriteCount")}</div>
+                      <div class="mt-0.5 text-14-medium text-text-strong">{formatCount(favoriteCount())}</div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Install command — integrated into hero card */}
@@ -368,6 +469,7 @@ export default function ItemDetail() {
                           <a
                             href={artifactApi.downloadUrl(artifact.id)}
                             download=""
+                            onClick={() => setInstallCount((count) => count + 1)}
                             class="inline-flex items-center gap-1.5 px-3 py-1.5 text-12-medium rounded-lg cursor-pointer transition-all duration-150 text-text-weak hover:text-text-strong hover:bg-bg-muted"
                           >
                             <Icon name="download" size="small" />
