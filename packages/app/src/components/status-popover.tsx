@@ -1,177 +1,19 @@
 import { Button } from "@opencode-ai/ui/button"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Popover } from "@opencode-ai/ui/popover"
-import { Switch } from "@opencode-ai/ui/switch"
-import { Tabs } from "@opencode-ai/ui/tabs"
-import { showToast } from "@opencode-ai/ui/toast"
-import { useNavigate } from "@solidjs/router"
-import { type Accessor, createEffect, createMemo, createSignal, For, type JSXElement, onCleanup, Show } from "solid-js"
-import { createStore, reconcile } from "solid-js/store"
-import { ServerHealthIndicator, ServerRow } from "@/components/server/server-row"
+import { Suspense, createMemo, createSignal, lazy, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
-import { usePlatform } from "@/context/platform"
-import { useSDK } from "@/context/sdk"
-import { normalizeServerUrl, ServerConnection, useServer } from "@/context/server"
+import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
-import { useCheckServerHealth, type ServerHealth } from "@/utils/server-health"
-import { DialogSelectServer } from "./dialog-select-server"
 
-const pollMs = 10_000
-
-const pluginEmptyMessage = (value: string, file: string): JSXElement => {
-  const parts = value.split(file)
-  if (parts.length === 1) return value
-  return (
-    <>
-      {parts[0]}
-      <code class="bg-surface-raised-base px-1.5 py-0.5 rounded-sm text-text-base">{file}</code>
-      {parts.slice(1).join(file)}
-    </>
-  )
-}
-
-const listServersByHealth = (
-  list: ServerConnection.Any[],
-  active: ServerConnection.Key | undefined,
-  status: Record<ServerConnection.Key, ServerHealth | undefined>,
-) => {
-  if (!list.length) return list
-  const order = new Map(list.map((url, index) => [url, index] as const))
-  const rank = (value?: ServerHealth) => {
-    if (value?.healthy === true) return 0
-    if (value?.healthy === false) return 2
-    return 1
-  }
-
-  return list.slice().sort((a, b) => {
-    if (ServerConnection.key(a) === active) return -1
-    if (ServerConnection.key(b) === active) return 1
-    const diff = rank(status[ServerConnection.key(a)]) - rank(status[ServerConnection.key(b)])
-    if (diff !== 0) return diff
-    return (order.get(a) ?? 0) - (order.get(b) ?? 0)
-  })
-}
-
-const useServerHealth = (servers: Accessor<ServerConnection.Any[]>) => {
-  const checkServerHealth = useCheckServerHealth()
-  const [status, setStatus] = createStore({} as Record<ServerConnection.Key, ServerHealth | undefined>)
-
-  createEffect(() => {
-    const list = servers()
-    let dead = false
-
-    const refresh = async () => {
-      const results: Record<string, ServerHealth> = {}
-      await Promise.all(
-        list.map(async (conn) => {
-          results[ServerConnection.key(conn)] = await checkServerHealth(conn.http)
-        }),
-      )
-      if (dead) return
-      setStatus(reconcile(results))
-    }
-
-    void refresh()
-    const id = setInterval(() => void refresh(), pollMs)
-    onCleanup(() => {
-      dead = true
-      clearInterval(id)
-    })
-  })
-
-  return status
-}
-
-const useDefaultServerKey = (
-  get: (() => string | Promise<string | null | undefined> | null | undefined) | undefined,
-) => {
-  const [state, setState] = createStore({
-    url: undefined as string | undefined,
-    tick: 0,
-  })
-
-  createEffect(() => {
-    state.tick
-    let dead = false
-    const result = get?.()
-    if (!result) {
-      setState("url", undefined)
-      onCleanup(() => {
-        dead = true
-      })
-      return
-    }
-
-    if (result instanceof Promise) {
-      void result.then((next) => {
-        if (dead) return
-        setState("url", next ? normalizeServerUrl(next) : undefined)
-      })
-      onCleanup(() => {
-        dead = true
-      })
-      return
-    }
-
-    setState("url", normalizeServerUrl(result))
-    onCleanup(() => {
-      dead = true
-    })
-  })
-
-  return {
-    key: () => {
-      const u = state.url
-      if (!u) return
-      return ServerConnection.key({ type: "http", http: { url: u } })
-    },
-    refresh: () => setState("tick", (value) => value + 1),
-  }
-}
-
-const useMcpToggle = (input: {
-  sync: ReturnType<typeof useSync>
-  sdk: ReturnType<typeof useSDK>
-  language: ReturnType<typeof useLanguage>
-}) => {
-  const [loading, setLoading] = createSignal<string | null>(null)
-
-  const toggle = async (name: string) => {
-    if (loading()) return
-    setLoading(name)
-
-    try {
-      const status = input.sync.data.mcp[name]
-      await (status?.status === "connected"
-        ? input.sdk.client.mcp.disconnect({ name })
-        : input.sdk.client.mcp.connect({ name }))
-      const result = await input.sdk.client.mcp.status()
-      if (result.data) input.sync.set("mcp", result.data)
-    } catch (err) {
-      showToast({
-        variant: "error",
-        title: input.language.t("common.requestFailed"),
-        description: err instanceof Error ? err.message : String(err),
-      })
-    } finally {
-      setLoading(null)
-    }
-  }
-
-  return { loading, toggle }
-}
+const Body = lazy(() => import("./status-popover-body").then((x) => ({ default: x.StatusPopoverBody })))
 
 export function StatusPopover() {
-  const sync = useSync()
-  const sdk = useSDK()
-  const server = useServer()
-  const platform = usePlatform()
-  const dialog = useDialog()
   const language = useLanguage()
-  const navigate = useNavigate()
-
+  const server = useServer()
+  const sync = useSync()
   const [shown, setShown] = createSignal(false)
+<<<<<<< ours
   const servers = createMemo(() => {
     const current = server.current
     const list = server.list
@@ -192,12 +34,14 @@ export function StatusPopover() {
   // const pluginCount = createMemo(() => plugins().length)
   // const pluginEmpty = createMemo(() => pluginEmptyMessage(language.t("dialog.plugins.empty"), "opencode.json"))
   const overallHealthy = createMemo(() => {
+=======
+  const ready = createMemo(() => server.healthy() === false || sync.data.mcp_ready)
+  const healthy = createMemo(() => {
+>>>>>>> theirs
     const serverHealthy = server.healthy() === true
-    const anyMcpIssue = mcpNames().some((name) => {
-      const status = mcpStatus(name)
-      return status !== "connected" && status !== "disabled"
-    })
-    return serverHealthy && !anyMcpIssue
+    const mcp = Object.values(sync.data.mcp ?? {})
+    const issue = mcp.some((item) => item.status !== "connected" && item.status !== "disabled")
+    return serverHealthy && !issue
   })
 
   return (
@@ -219,9 +63,9 @@ export function StatusPopover() {
           <div
             classList={{
               "absolute -top-px -right-px size-1.5 rounded-full": true,
-              "bg-icon-success-base": overallHealthy(),
-              "bg-icon-critical-base": !overallHealthy() && server.healthy() !== undefined,
-              "bg-border-weak-base": server.healthy() === undefined,
+              "bg-icon-success-base": ready() && healthy(),
+              "bg-icon-critical-base": server.healthy() === false || (ready() && !healthy()),
+              "bg-border-weak-base": server.healthy() === undefined || !ready(),
             }}
           />
         </div>
@@ -231,15 +75,13 @@ export function StatusPopover() {
       placement="bottom-end"
       shift={-168}
     >
-      <div class="flex items-center gap-1 w-[360px] rounded-xl shadow-[var(--shadow-lg-border-base)]">
-        <Tabs
-          aria-label={language.t("status.popover.ariaLabel")}
-          class="tabs bg-background-strong rounded-xl overflow-hidden"
-          data-component="tabs"
-          data-active="servers"
-          defaultValue="servers"
-          variant="alt"
+      <Show when={shown()}>
+        <Suspense
+          fallback={
+            <div class="w-[360px] h-14 rounded-xl bg-background-strong shadow-[var(--shadow-lg-border-base)]" />
+          }
         >
+<<<<<<< ours
           <Tabs.List data-slot="tablist" class="bg-transparent border-b-0 px-4 pt-2 pb-0 gap-4 h-10">
             <Tabs.Trigger value="servers" data-slot="tab" class="text-12-regular">
               {sortedServers().length > 0 ? `${sortedServers().length} ` : ""}
@@ -418,6 +260,11 @@ export function StatusPopover() {
           </Tabs.Content> */}
         </Tabs>
       </div>
+=======
+          <Body shown={shown} />
+        </Suspense>
+      </Show>
+>>>>>>> theirs
     </Popover>
   )
 }

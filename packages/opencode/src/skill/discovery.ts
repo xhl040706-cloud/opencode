@@ -1,23 +1,29 @@
-import path from "path"
-import { mkdir } from "fs/promises"
-import { Log } from "../util/log"
+import { NodePath } from "@effect/platform-node"
+import { Effect, Layer, Path, Schema, ServiceMap } from "effect"
+import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
+import { withTransientReadRetry } from "@/util/effect-http-client"
+import { AppFileSystem } from "@/filesystem"
 import { Global } from "../global"
-import { Filesystem } from "../util/filesystem"
+import { Log } from "../util/log"
 
 export namespace Discovery {
-  const log = Log.create({ service: "skill-discovery" })
+  const skillConcurrency = 4
+  const fileConcurrency = 8
 
-  type Index = {
-    skills: Array<{
-      name: string
-      description: string
-      files: string[]
-    }>
+  class IndexSkill extends Schema.Class<IndexSkill>("IndexSkill")({
+    name: Schema.String,
+    files: Schema.Array(Schema.String),
+  }) {}
+
+  class Index extends Schema.Class<Index>("Index")({
+    skills: Schema.Array(IndexSkill),
+  }) {}
+
+  export interface Interface {
+    readonly pull: (url: string) => Effect.Effect<string[]>
   }
 
-  export function dir() {
-    return path.join(Global.Path.cache, "skills")
-  }
+  export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/SkillDiscovery") {}
 
   async function get(url: string, dest: string, token?: string): Promise<boolean> {
     if (await Filesystem.exists(dest)) return true
@@ -59,24 +65,20 @@ export namespace Discovery {
             log.error("failed to parse index", { url: index, err })
             return undefined
           })
-      })
-      .catch((err) => {
-        log.error("failed to fetch index", { url: index, err })
-        return undefined
-      })
 
-    if (!data?.skills || !Array.isArray(data.skills)) {
-      log.warn("invalid index format", { url: index })
-      return result
-    }
+          const dirs = yield* Effect.forEach(
+            list,
+            (skill) =>
+              Effect.gen(function* () {
+                const root = path.join(cache, skill.name)
 
-    const list = data.skills.filter((skill) => {
-      if (!skill?.name || !Array.isArray(skill.files)) {
-        log.warn("invalid skill entry", { url: index, skill })
-        return false
-      }
-      return true
-    })
+                yield* Effect.forEach(
+                  skill.files,
+                  (file) => download(new URL(file, `${host}/${skill.name}/`).href, path.join(root, file)),
+                  {
+                    concurrency: fileConcurrency,
+                  },
+                )
 
     await Promise.all(
       list.map(async (skill) => {
@@ -90,11 +92,16 @@ export namespace Discovery {
           }),
         )
 
-        const md = path.join(root, "SKILL.md")
-        if (await Filesystem.exists(md)) result.push(root)
+          return dirs.filter((dir): dir is string => dir !== null)
+        })
+
+        return Service.of({ pull })
       }),
     )
 
-    return result
-  }
+  export const defaultLayer: Layer.Layer<Service> = layer.pipe(
+    Layer.provide(FetchHttpClient.layer),
+    Layer.provide(AppFileSystem.defaultLayer),
+    Layer.provide(NodePath.layer),
+  )
 }

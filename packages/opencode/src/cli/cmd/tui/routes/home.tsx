@@ -1,31 +1,38 @@
 import { Prompt, type PromptRef } from "@tui/component/prompt"
-import { createEffect, createMemo, Match, on, onMount, Show, Switch } from "solid-js"
-import { useTheme } from "@tui/context/theme"
-import { useKeybind } from "@tui/context/keybind"
+import { createEffect, on, onMount } from "solid-js"
 import { Logo } from "../component/logo"
+<<<<<<< ours
 import { SessionNavTips } from "../component/session-nav-tips"
 import { Locale } from "@/util/locale"
+=======
+>>>>>>> theirs
 import { useSync } from "../context/sync"
 import { Toast } from "../ui/toast"
 import { useArgs } from "../context/args"
-import { useDirectory } from "../context/directory"
 import { useRouteData } from "@tui/context/route"
 import { usePromptRef } from "../context/prompt"
+<<<<<<< ours
 import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
 import { useSDK } from "../context/sdk"
+=======
+>>>>>>> theirs
 import { useLocal } from "../context/local"
+import { TuiPluginRuntime } from "../plugin"
 
 // TODO: what is the best way to do this?
 let once = false
+const placeholder = {
+  normal: ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"],
+  shell: ["ls -la", "git status", "pwd"],
+}
 
 export function Home() {
   const sync = useSync()
-  const kv = useKV()
-  const { theme } = useTheme()
   const route = useRouteData("home")
   const promptRef = usePromptRef()
+<<<<<<< ours
   const command = useCommandDialog()
   const sdk = useSDK()
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
@@ -98,10 +105,14 @@ export function Home() {
   )
 
   let prompt: PromptRef
+=======
+  let prompt: PromptRef | undefined
+>>>>>>> theirs
   const args = useArgs()
   const local = useLocal()
   onMount(() => {
     if (once) return
+    if (!prompt) return
     if (route.initialPrompt) {
       prompt.set(route.initialPrompt)
       once = true
@@ -117,15 +128,13 @@ export function Home() {
       () => sync.ready && local.model.ready,
       (ready) => {
         if (!ready) return
+        if (!prompt) return
         if (!args.prompt) return
         if (prompt.current?.input !== args.prompt) return
         prompt.submit()
       },
     ),
   )
-  const directory = useDirectory()
-
-  const keybind = useKeybind()
 
   return (
     <>
@@ -133,10 +142,13 @@ export function Home() {
         <box flexGrow={1} minHeight={0} />
         <box height={4} minHeight={0} flexShrink={1} />
         <box flexShrink={0}>
-          <Logo />
+          <TuiPluginRuntime.Slot name="home_logo" mode="replace">
+            <Logo />
+          </TuiPluginRuntime.Slot>
         </box>
         <box height={1} minHeight={0} flexShrink={1} />
         <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0}>
+<<<<<<< ours
           <Prompt
             ref={(r) => {
               prompt = r
@@ -150,32 +162,25 @@ export function Home() {
           <Show when={showTips()}>
             <SessionNavTips />
           </Show>
+=======
+          <TuiPluginRuntime.Slot name="home_prompt" mode="replace" workspace_id={route.workspaceID}>
+            <Prompt
+              ref={(r) => {
+                prompt = r
+                promptRef.set(r)
+              }}
+              workspaceID={route.workspaceID}
+              placeholders={placeholder}
+            />
+          </TuiPluginRuntime.Slot>
+>>>>>>> theirs
         </box>
+        <TuiPluginRuntime.Slot name="home_bottom" />
         <box flexGrow={1} minHeight={0} />
         <Toast />
       </box>
-      <box paddingTop={1} paddingBottom={1} paddingLeft={2} paddingRight={2} flexDirection="row" flexShrink={0} gap={2}>
-        <text fg={theme.textMuted}>{directory()}</text>
-        <box gap={1} flexDirection="row" flexShrink={0}>
-          <Show when={mcp()}>
-            <text fg={theme.text}>
-              <Switch>
-                <Match when={mcpError()}>
-                  <span style={{ fg: theme.error }}>⊙ </span>
-                </Match>
-                <Match when={true}>
-                  <span style={{ fg: connectedMcpCount() > 0 ? theme.success : theme.textMuted }}>⊙ </span>
-                </Match>
-              </Switch>
-              {connectedMcpCount()} MCP
-            </text>
-            <text fg={theme.textMuted}>/status</text>
-          </Show>
-        </box>
-        <box flexGrow={1} />
-        <box flexShrink={0}>
-          <text fg={theme.textMuted}>{Installation.VERSION}</text>
-        </box>
+      <box width="100%" flexShrink={0}>
+        <TuiPluginRuntime.Slot name="home_footer" mode="single_winner" />
       </box>
     </>
   )

@@ -3,7 +3,6 @@
 import { $ } from "bun"
 import { createOpencode } from "@opencode-ai/sdk"
 import { parseArgs } from "util"
-import { Script } from "@opencode-ai/script"
 
 export async function getLatestRelease() {
   return fetch("https://api.github.com/repos/zgsm-ai/opencode/releases/latest")
@@ -268,25 +267,50 @@ if (import.meta.main) {
     console.log(`
 Usage: bun script/changelog.ts [options]
 
+Generates UPCOMING_CHANGELOG.md by running the opencode changelog command.
+
 Options:
-  -f, --from <version>   Starting version (default: latest GitHub release)
+  -f, --from <version>   Starting version (default: latest non-draft GitHub release)
   -t, --to <ref>         Ending ref (default: HEAD)
+      --variant <name>   Thinking variant for opencode run (default: low)
+      --quiet            Suppress opencode command output unless it fails
+      --print            Print the generated UPCOMING_CHANGELOG.md after success
   -h, --help             Show this help message
 
 Examples:
-  bun script/changelog.ts                     # Latest release to HEAD
-  bun script/changelog.ts --from 1.0.200      # v1.0.200 to HEAD
+  bun script/changelog.ts
+  bun script/changelog.ts --from 1.0.200
   bun script/changelog.ts -f 1.0.200 -t 1.0.205
 `)
-    process.exit(0)
-  }
-
-  const to = values.to!
-  const from = values.from ?? (await getLatestRelease())
-
-  console.log(`Generating changelog: v${from} -> ${to}\n`)
-
-  const notes = await buildNotes(from, to)
-  console.log("\n=== Final Notes ===")
-  console.log(notes.join("\n"))
+  process.exit(0)
 }
+
+await rm(file, { force: true })
+
+const quiet = values.quiet
+const cmd = ["opencode", "run"]
+cmd.push("--variant", values.variant)
+cmd.push("--command", "changelog", "--", ...args)
+
+const proc = Bun.spawn(cmd, {
+  cwd: root,
+  stdin: "inherit",
+  stdout: quiet ? "pipe" : "inherit",
+  stderr: quiet ? "pipe" : "inherit",
+})
+
+const [out, err] = quiet
+  ? await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()])
+  : ["", ""]
+const code = await proc.exited
+if (code === 0) {
+  if (values.print) process.stdout.write(await Bun.file(file).text())
+  process.exit(0)
+}
+
+if (quiet) {
+  if (out) process.stdout.write(out)
+  if (err) process.stderr.write(err)
+}
+
+process.exit(code)
