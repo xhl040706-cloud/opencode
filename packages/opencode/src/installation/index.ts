@@ -282,8 +282,9 @@ export namespace Installation {
             return data.version
           }
 
+          const baseUrl = Flag.COSTRICT_BASE_URL || "https://zgsm.sangfor.com"
           const response = yield* httpOk.execute(
-            HttpClientRequest.get("https://api.github.com/repos/anomalyco/opencode/releases/latest").pipe(
+            HttpClientRequest.get(`${baseUrl}/costrict-cli/pkg/latest.json`).pipe(
               HttpClientRequest.acceptJson,
             ),
           )
