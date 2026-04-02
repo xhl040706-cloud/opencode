@@ -8,6 +8,8 @@ import { Config } from "../config/config"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
 import { Log } from "../util/log"
+import { CostrictCommand } from "../costrict/command"
+import { LearningCommands } from "../costrict/command/learning"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 
@@ -63,6 +65,8 @@ export namespace Command {
   export const Default = {
     INIT: "init",
     REVIEW: "review",
+    PROJECT_WIKI: "project-wiki",
+    SECURITY_REVIEW: "security-review",
   } as const
 
   export interface Interface {
@@ -101,6 +105,32 @@ export namespace Command {
           },
           subtask: true,
           hints: hints(PROMPT_REVIEW),
+        }
+
+        const lang = "zh-CN"
+        commands[Default.PROJECT_WIKI] = {
+          name: Default.PROJECT_WIKI,
+          description: "generate comprehensive project wiki documentation",
+          source: "command",
+          get template() {
+            return CostrictCommand.get("project-wiki", lang).replace(/\$\{path\}/g, ctx.worktree)
+          },
+          hints: hints(CostrictCommand.get("project-wiki", lang)),
+        }
+        commands[Default.SECURITY_REVIEW] = {
+          name: Default.SECURITY_REVIEW,
+          description: "perform code security audit",
+          source: "command",
+          get template() {
+            return CostrictCommand.get("security-review", lang)
+          },
+          hints: hints(CostrictCommand.get("security-review", lang)),
+        }
+
+        // Register learning commands (e.g., skills-capture)
+        const learningCommands = LearningCommands.getCommands(lang)
+        for (const [name, command] of Object.entries(learningCommands)) {
+          commands[name] = command
         }
 
         for (const [name, command] of Object.entries(cfg.command ?? {})) {

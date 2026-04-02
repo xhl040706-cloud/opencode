@@ -1,6 +1,7 @@
 import { Prompt, type PromptRef } from "@tui/component/prompt"
-import { createEffect, on, onMount } from "solid-js"
+import { createEffect, createMemo, on, onMount, Show } from "solid-js"
 import { Logo } from "../component/logo"
+import { SessionNavTips } from "../component/session-nav-tips"
 import { useSync } from "../context/sync"
 import { Toast } from "../ui/toast"
 import { useArgs } from "../context/args"
@@ -23,6 +24,10 @@ export function Home() {
   let prompt: PromptRef | undefined
   const args = useArgs()
   const local = useLocal()
+
+  const isFirstTimeUser = createMemo(() => sync.data.session.length === 0)
+  const showTips = createMemo(() => !isFirstTimeUser())
+
   onMount(() => {
     if (once) return
     if (!prompt) return
@@ -71,6 +76,11 @@ export function Home() {
               placeholders={placeholder}
             />
           </TuiPluginRuntime.Slot>
+        </box>
+        <box height={4} minHeight={0} width="100%" maxWidth={75} alignItems="center" paddingTop={3} flexShrink={1}>
+          <Show when={showTips()}>
+            <SessionNavTips />
+          </Show>
         </box>
         <TuiPluginRuntime.Slot name="home_bottom" />
         <box flexGrow={1} minHeight={0} />

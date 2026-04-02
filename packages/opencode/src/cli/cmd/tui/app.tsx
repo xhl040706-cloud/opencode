@@ -778,6 +778,26 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         dialog.clear()
       },
     },
+    {
+      title: kv.get("yolo_mode", false) ? "Disable YOLO mode" : "Enable YOLO mode",
+      value: "session.yolo.toggle",
+      keybind: "yolo_mode",
+      category: "Session",
+      onSelect: (dialog) => {
+        kv.set("yolo_mode", !kv.get("yolo_mode", false))
+        dialog.clear()
+      },
+    },
+    {
+      title: kv.get("notification_mode", true) ? "Disable notifications" : "Enable notifications",
+      value: "session.notification.toggle",
+      keybind: "notification_mode",
+      category: "Session",
+      onSelect: (dialog) => {
+        kv.set("notification_mode", !kv.get("notification_mode", true))
+        dialog.clear()
+      },
+    },
   ])
 
   sdk.event.on(TuiEvent.CommandExecute.type, (evt) => {

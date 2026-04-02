@@ -35,6 +35,8 @@ import { JsonMigration } from "./storage/json-migration"
 import { Database } from "./storage/db"
 import { errorMessage } from "./util/error"
 import { PluginCommand } from "./cli/cmd/plug"
+import { CloudCommand } from "./cli/cmd/cloud"
+import { LearningCommand } from "./cli/cmd/learning"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -50,7 +52,7 @@ process.on("uncaughtException", (e) => {
 
 const cli = yargs(hideBin(process.argv))
   .parserConfiguration({ "populate--": true })
-  .scriptName("opencode")
+  .scriptName("cs")
   .wrap(100)
   .help("help", "show help")
   .alias("help", "h")
@@ -154,6 +156,8 @@ const cli = yargs(hideBin(process.argv))
   .command(PrCommand)
   .command(SessionCommand)
   .command(PluginCommand)
+  .command(CloudCommand)
+  .command(LearningCommand)
   .command(DbCommand)
   .fail((msg, err) => {
     if (
