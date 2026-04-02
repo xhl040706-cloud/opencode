@@ -246,7 +246,43 @@ export const InstanceRoutes = (app?: Hono) =>
     )
     .all("/*", async (c) => {
       const embeddedWebUI = await embeddedUIPromise
-      let path = c.req.path
+      const rawPath = c.req.path
+
+      // Normalize workspace-prefixed paths for SPA routing
+      // Browser may request paths like:
+      //   /L1VzZXJz.../session/assets/index.js  (workspace + session + asset)
+      //   /L1VzZXJz.../session/ses_xxx           (workspace + session + SPA route)
+      //   /assets/index.js                        (direct asset)
+      // Strip prefix segments until we find a match in the embedded map.
+      function normalizePath(p: string): string {
+        const clean = p.replace(/^\//, "")
+
+        // Direct match
+        if (embeddedWebUI && clean in embeddedWebUI) return p
+
+        // Try progressively stripping leading path segments
+        const segments = clean.split("/")
+        for (let i = 1; i < segments.length; i++) {
+          const candidate = segments.slice(i).join("/")
+          if (embeddedWebUI && candidate in embeddedWebUI) return "/" + candidate
+        }
+
+        // No match found — check if the leaf looks like a static asset
+        const leaf = segments[segments.length - 1]
+        if (leaf && leaf.includes(".")) {
+          // Static asset not in embedded map → will 404
+          // Still strip prefix so proxy mode can try the clean path
+          for (let i = 1; i < segments.length; i++) {
+            const candidate = segments.slice(i).join("/")
+            if (candidate.includes(".")) return "/" + candidate
+          }
+        }
+
+        // No extension → SPA route
+        return "/"
+      }
+
+      const path = normalizePath(rawPath)
 
       if (embeddedWebUI) {
         const cleanPath = path.replace(/^\//, "")
@@ -284,17 +320,6 @@ export const InstanceRoutes = (app?: Hono) =>
       } else {
         // Dev mode: proxy to local vite dev server
         const devServer = "http://localhost:3000"
-
-        // Normalize session paths for SPA routing
-        const sessionMatch = path.match(/^[A-Za-z0-9_=\/+-]+\/session\/(.*)/)
-        if (sessionMatch) {
-          const subPath = sessionMatch[1]
-          if (subPath && subPath.includes(".")) {
-            path = "/" + subPath
-          } else {
-            path = "/"
-          }
-        }
 
         const response = await proxy(`${devServer}${path}`, {
           ...c.req,
