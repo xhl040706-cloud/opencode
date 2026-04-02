@@ -70,7 +70,7 @@ export namespace Installation {
   export const COMMIT_HASH = typeof COSTRICT_COMMIT_HASH === "string" ? COSTRICT_COMMIT_HASH : "unknown"
   export const BUILD_TIME = typeof COSTRICT_BUILD_TIME === "string" ? COSTRICT_BUILD_TIME : "unknown"
   export const CLIENT = process.env["COSTRICT_CLIENT"] ?? "cli"
-  export const USER_AGENT = `opencode/${CHANNEL}/${VERSION}/${CLIENT}`
+  export const USER_AGENT = `cs/${CHANNEL}/${VERSION}/${CLIENT}`
 
   export function isPreview() {
     return CHANNEL !== "latest"
