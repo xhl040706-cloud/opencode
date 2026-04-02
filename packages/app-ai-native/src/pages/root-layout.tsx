@@ -8,9 +8,9 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
+import { env } from "@/lib/env"
 import { getLoginUrl } from "@/pages/store/lib/auth"
 import { DialogSettings } from "@/components/dialog-settings"
-// import LoginGuide from "@/components/login-guide"
 
 function NavButton(props: {
   icon: "bubble-5" | "store" | "folder" | "sliders"
@@ -99,8 +99,26 @@ export default function RootLayout(props: ParentProps) {
   const platform = usePlatform()
   const language = useLanguage()
 
-  const isWorkspace = () => location.pathname.startsWith("/workspace")
-  const isStore = () => location.pathname.startsWith("/store")
+  const appPathname = () => {
+    const base = (env.BASE_PATH || "").replace(/\/+$/, "")
+    const pathname = location.pathname
+
+    if (!base || base === "/") return pathname
+    if (pathname === base) return "/"
+    if (pathname.startsWith(`${base}/`)) return pathname.slice(base.length) || "/"
+
+    return pathname
+  }
+
+  const isWorkspace = () => {
+    const path = appPathname()
+    return path === "/workspace" || path.startsWith("/workspace/")
+  }
+
+  const isStore = () => {
+    const path = appPathname()
+    return path === "/store" || path.startsWith("/store/")
+  }
 
   return (
     <div class="flex h-full w-full overflow-hidden">
@@ -149,7 +167,6 @@ export default function RootLayout(props: ParentProps) {
         </div>
       </aside>
       <div class="flex-1 min-w-0 h-full overflow-hidden ml-[48px]">{props.children}</div>
-      {/* <LoginGuide /> */}
     </div>
   )
 }

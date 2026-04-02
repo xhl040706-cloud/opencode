@@ -161,7 +161,7 @@ export default function Home() {
 
   const categories = createMemo(() => {
     const items = listData()?.items ?? []
-    const unique = Array.from(new Set(items.map((item) => item.category).filter(Boolean)))
+    const unique = Array.from(new Set(items.map((item) => item.category).filter((c) => c && c.trim())))
     return ["all", ...unique]
   })
 
@@ -293,7 +293,7 @@ export default function Home() {
                 <DropdownMenuTrigger as={Button<"button">} variant="outline" size="sm">
                   {activeCategory() === "all"
                     ? language.t("store.console.capabilities.category")
-                    : language.t(categoryKey(activeCategory()))}
+                    : language.t(categoryKey(activeCategory())) || activeCategory()}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -316,7 +316,7 @@ export default function Home() {
                       >
                         {category === "all"
                           ? language.t("store.console.filters.all")
-                          : language.t(categoryKey(category))}
+                          : language.t(categoryKey(category)) || category}
                       </DropdownMenuCheckboxItem>
                     )}
                   </For>
@@ -377,7 +377,7 @@ export default function Home() {
                               {item.previewCount?.toLocaleString() ?? "0"}
                             </TableCell>
                             <TableCell class="store-col-category store-data-table-muted">
-                              {item.category ? language.t(categoryKey(item.category)) : "—"}
+                              {item.category ? language.t(categoryKey(item.category)) || item.category : "—"}
                             </TableCell>
                             <TableCell>
                               <SecurityTag status={item.securityStatus} />
