@@ -150,6 +150,7 @@ export namespace Provider {
     vars?: CustomVarsLoader
     options?: Record<string, any>
     discoverModels?: CustomDiscoverModels
+    models?: Record<string, Model>
   }>
 
   function useLanguageModel(sdk: any) {
@@ -1201,11 +1202,15 @@ export namespace Provider {
               if (result.getModel) modelLoaders[providerID] = result.getModel
               if (result.vars) varsLoaders[providerID] = result.vars
               if (result.discoverModels) discoveryLoaders[providerID] = result.discoverModels
-              const opts = result.options ?? {}
-              const patch: Partial<Info> = providers[providerID]
-                ? { options: opts }
-                : { source: "custom", options: opts }
-              mergeProvider(providerID, patch)
+              const partial: any = {
+                source: "custom",
+                options: result.options ?? {},
+              }
+              // Only pass models when result.models exists to avoid overwriting database models
+              if (result.models) {
+                partial.models = result.models
+              }
+              mergeProvider(providerID, partial)
             }
           }
 
