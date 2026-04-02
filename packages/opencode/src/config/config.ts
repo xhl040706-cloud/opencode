@@ -1110,6 +1110,11 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          checkpoint: z
+            .boolean()
+            .optional()
+            .describe("Enable checkpoint functionality for creating snapshots of project state"),
+          spec_manage: z.boolean().optional().describe("Enable the spec manage tool"),
         })
         .optional(),
     })
