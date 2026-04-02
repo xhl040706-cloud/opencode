@@ -906,6 +906,78 @@ describe("session.message-v2.fromError", () => {
     expect(MessageV2.APIError.isInstance(result)).toBe(true)
   })
 
+  test("includes X-Request-Id from response headers in APIError message", () => {
+    const result = MessageV2.fromError(
+      new APICallError({
+        message: "Request failed",
+        url: "https://example.com",
+        requestBodyValues: {},
+        statusCode: 500,
+        responseHeaders: { "x-request-id": "req-header-123" },
+        responseBody: JSON.stringify({
+          error: {
+            message: "upstream failed",
+          },
+        }),
+        isRetryable: false,
+      }),
+      { providerID },
+    )
+
+    expect(result).toStrictEqual({
+      name: "APIError",
+      data: {
+        message: "Request failed (X-Request-Id: req-header-123)",
+        statusCode: 500,
+        isRetryable: false,
+        responseHeaders: { "x-request-id": "req-header-123" },
+        responseBody: JSON.stringify({
+          error: {
+            message: "upstream failed",
+          },
+        }),
+        metadata: {
+          url: "https://example.com",
+        },
+      },
+    })
+  })
+
+  test("falls back to request_id in response body when header is absent", () => {
+    const body = JSON.stringify({
+      error: {
+        message: "upstream failed",
+        request_id: "req-body-456",
+      },
+    })
+    const result = MessageV2.fromError(
+      new APICallError({
+        message: "Request failed",
+        url: "https://example.com",
+        requestBodyValues: {},
+        statusCode: 500,
+        responseHeaders: { "content-type": "application/json" },
+        responseBody: body,
+        isRetryable: false,
+      }),
+      { providerID },
+    )
+
+    expect(result).toStrictEqual({
+      name: "APIError",
+      data: {
+        message: "Request failed (X-Request-Id: req-body-456)",
+        statusCode: 500,
+        isRetryable: false,
+        responseHeaders: { "content-type": "application/json" },
+        responseBody: body,
+        metadata: {
+          url: "https://example.com",
+        },
+      },
+    })
+  })
+
   test("serializes unknown inputs", () => {
     const result = MessageV2.fromError(123, { providerID })
 
