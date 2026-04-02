@@ -1,2 +1,2 @@
 # Keep app-ai-native unchanged during upstream merges
-packages/app-ai-native/** merge=ours
+# packages/app-ai-native/** merge=ours
