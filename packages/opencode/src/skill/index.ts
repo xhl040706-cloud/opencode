@@ -17,10 +17,11 @@ import { ConfigMarkdown } from "../config/markdown"
 import { Glob } from "../util/glob"
 import { Log } from "../util/log"
 import { Discovery } from "./discovery"
+import * as CoStrictSkill from "../costrict/skill"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
-  const EXTERNAL_DIRS = [".claude", ".agents"]
+  const EXTERNAL_DIRS = [".costrict", ".claude", ".agents"]
   const EXTERNAL_SKILL_PATTERN = "skills/**/SKILL.md"
   const OPENCODE_SKILL_PATTERN = "{skill,skills}/**/SKILL.md"
   const SKILL_PATTERN = "**/SKILL.md"
@@ -143,6 +144,17 @@ export namespace Skill {
     directory: string,
     worktree: string,
   ) {
+    // Initialize CoStrict builtin skills to cache directory on first run
+    yield* Effect.tryPromise({
+      try: () => CoStrictSkill.Extension.initializeBuiltinSkills(),
+      catch: (err) => err,
+    }).pipe(
+      Effect.catch((err) => {
+        log.warn("failed to initialize builtin skills", { err })
+        return Effect.void
+      }),
+    )
+
     if (!Flag.OPENCODE_DISABLE_EXTERNAL_SKILLS) {
       for (const dir of EXTERNAL_DIRS) {
         const root = path.join(Global.Path.home, dir)
@@ -162,6 +174,12 @@ export namespace Skill {
     const configDirs = yield* config.directories()
     for (const dir of configDirs) {
       yield* scan(state, bus, dir, OPENCODE_SKILL_PATTERN)
+    }
+
+    // Scan CoStrict builtin skills (embedded in binary, extracted to cache on first run)
+    const costrictSkillsDir = CoStrictSkill.Extension.getBuiltinSkillsDir()
+    if (yield* fsys.isDir(costrictSkillsDir)) {
+      yield* scan(state, bus, costrictSkillsDir, SKILL_PATTERN, { scope: "builtin" })
     }
 
     const cfg = yield* config.get()
