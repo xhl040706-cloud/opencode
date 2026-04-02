@@ -250,22 +250,55 @@ export const InstanceRoutes = (app?: Hono) =>
     )
     .all("/*", async (c) => {
       const embeddedWebUI = await embeddedUIPromise
-      const path = c.req.path
+      let path = c.req.path
 
       if (embeddedWebUI) {
-        const match = embeddedWebUI[path.replace(/^\//, "")] ?? embeddedWebUI["index.html"] ?? null
-        if (!match) return c.json({ error: "Not Found" }, 404)
-        const file = Bun.file(match)
-        if (await file.exists()) {
-          c.header("Content-Type", file.type)
-          if (file.type.startsWith("text/html")) {
-            c.header("Content-Security-Policy", DEFAULT_CSP)
+        const cleanPath = path.replace(/^\//, "")
+        const match = embeddedWebUI[cleanPath]
+        if (match) {
+          const file = Bun.file(match)
+          if (await file.exists()) {
+            c.header("Content-Type", file.type)
+            if (file.type.startsWith("text/html")) {
+              c.header("Content-Security-Policy", DEFAULT_CSP)
+            }
+            return c.body(await file.arrayBuffer())
           }
-          return c.body(await file.arrayBuffer())
-        } else {
+        }
+
+        // SPA fallback: only for non-asset requests (no file extension)
+        // Asset requests (.js, .css, .png, etc.) that are not in the map should 404
+        const hasExtension = cleanPath.includes(".") && !cleanPath.endsWith("/")
+        if (hasExtension) {
           return c.json({ error: "Not Found" }, 404)
         }
+
+        // SPA route: serve index.html
+        const indexPath = embeddedWebUI["index.html"]
+        if (indexPath) {
+          const indexFile = Bun.file(indexPath)
+          if (await indexFile.exists()) {
+            c.header("Content-Type", indexFile.type)
+            c.header("Content-Security-Policy", DEFAULT_CSP)
+            return c.body(await indexFile.arrayBuffer())
+          }
+        }
+
+        return c.json({ error: "Not Found" }, 404)
       } else {
+        // Normalize session paths for SPA routing
+        // e.g.: /RDovY29kZS9ob3N0bWFu/session/assets/index.js -> /assets/index.js (static asset)
+        // /RDovY29kZS9ob3N0bWFu/session/ses_xxx -> / (SPA route, load index.html)
+        const sessionMatch = path.match(/^[A-Za-z0-9_=\/+-]+\/session\/(.*)/)
+        if (sessionMatch) {
+          const subPath = sessionMatch[1]
+          if (subPath && subPath.includes(".")) {
+            path = "/" + subPath
+          } else {
+            path = "/"
+          }
+        }
+
         const response = await proxy(`https://app.opencode.ai${path}`, {
           ...c.req,
           headers: {
