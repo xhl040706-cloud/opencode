@@ -27,6 +27,11 @@ import { Log } from "@/util/log"
 import { LspTool } from "./lsp"
 import { Truncate } from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
+import { SequentialThinkingTool } from "../costrict/tool/sequential-thinking"
+import { FileOutlineTool } from "../costrict/tool/file-outline"
+import { CheckpointTool } from "../costrict/tool/checkpoint"
+import { SpecManageTool } from "../costrict/tool/spec-manage"
+import { WorkflowTool } from "../costrict/tool/workflow"
 import { Glob } from "../util/glob"
 import { pathToFileURL } from "url"
 import { Effect, Layer, ServiceMap } from "effect"
@@ -130,6 +135,11 @@ export namespace ToolRegistry {
           WebSearchTool,
           CodeSearchTool,
           SkillTool,
+          SequentialThinkingTool,
+          FileOutlineTool,
+          CheckpointTool,
+          SpecManageTool,
+          WorkflowTool,
           ApplyPatchTool,
           ...(Flag.OPENCODE_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
           ...(cfg.experimental?.batch_tool === true ? [BatchTool] : []),

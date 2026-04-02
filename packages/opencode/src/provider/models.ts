@@ -106,11 +106,16 @@ export namespace ModelsDev {
         log.info("startup.models_dev.data.source", { source: "disabled" })
         return {}
       }
-      const fetchTimer = log.time("startup.models_dev.fetch_api_json", { url: `${url()}/api.json` })
-      const json = await fetch(`${url()}/api.json`).then((x) => x.text())
-      fetchTimer.stop()
-      log.info("startup.models_dev.data.source", { source: "remote" })
-      return JSON.parse(json)
+      try {
+        const fetchTimer = log.time("startup.models_dev.fetch_api_json", { url: `${url()}/api.json` })
+        const json = await fetch(`${url()}/api.json`).then((x) => x.text())
+        fetchTimer.stop()
+        log.info("startup.models_dev.data.source", { source: "remote" })
+        return JSON.parse(json)
+      } catch (e) {
+        log.warn("Failed to fetch models.dev, returning empty database", { error: e })
+        return {}
+      }
     } finally {
       timer.stop()
     }
