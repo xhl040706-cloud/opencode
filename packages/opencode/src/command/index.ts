@@ -10,6 +10,7 @@ import { Skill } from "../skill"
 import { Log } from "../util/log"
 import { CostrictCommand } from "../costrict/command"
 import { LearningCommands } from "../costrict/command/learning"
+import { getCommands as getTddCommands } from "../plugin/tdd/commands"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 
@@ -65,6 +66,7 @@ export namespace Command {
   export const Default = {
     INIT: "init",
     REVIEW: "review",
+    TEST: "test",
     PROJECT_WIKI: "project-wiki",
     SECURITY_REVIEW: "security-review",
   } as const
@@ -130,6 +132,12 @@ export namespace Command {
         // Register learning commands (e.g., skills-capture)
         const learningCommands = LearningCommands.getCommands(lang)
         for (const [name, command] of Object.entries(learningCommands)) {
+          commands[name] = command
+        }
+
+        // Register TDD commands (e.g., test)
+        const tddCommands = yield* Effect.promise(() => getTddCommands())
+        for (const [name, command] of Object.entries(tddCommands)) {
           commands[name] = command
         }
 
