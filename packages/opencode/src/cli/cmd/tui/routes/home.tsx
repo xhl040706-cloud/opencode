@@ -26,7 +26,6 @@ export function Home() {
   const local = useLocal()
 
   const isFirstTimeUser = createMemo(() => sync.data.session.length === 0)
-  const showTips = createMemo(() => !isFirstTimeUser())
 
   onMount(() => {
     if (once) return
@@ -78,7 +77,7 @@ export function Home() {
           </TuiPluginRuntime.Slot>
         </box>
         <box height={4} minHeight={0} width="100%" maxWidth={75} alignItems="center" paddingTop={3} flexShrink={1}>
-          <Show when={showTips()}>
+          <Show when={isFirstTimeUser()}>
             <SessionNavTips />
           </Show>
         </box>
