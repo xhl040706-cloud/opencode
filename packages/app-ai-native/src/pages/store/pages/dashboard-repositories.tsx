@@ -4,11 +4,11 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { useLanguage } from "@/context/language"
-import { createEffect, createMemo, For, Show } from "solid-js"
+import { createEffect, createMemo, For, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useAuth } from "../hooks/use-auth"
 import { getLoginUrl } from "../lib/auth"
-import { repoApi, type Repository } from "../lib/api"
+import { repoApi, syncApi, type Repository, type SyncStatus } from "../lib/api"
 import { ConfirmDialog } from "../components/confirm-dialog"
 import { CreateRepoDialog } from "../components/create-repo-dialog"
 import { EditRepoDialog } from "../components/edit-repo-dialog"
@@ -23,6 +23,8 @@ export default function DashboardRepositories() {
     repos: [] as Repository[],
     loadingRepos: false,
     expandedSyncRepo: null as string | null,
+    syncingRepoId: null as string | null,
+    syncStatuses: {} as Record<string, SyncStatus | undefined>,
   })
 
   const userId = createMemo(() => user()?.sub ?? "")
@@ -43,6 +45,36 @@ export default function DashboardRepositories() {
     if (!userId() || loaded) return
     loaded = true
     void loadRepos()
+  })
+
+  let statusTimer: ReturnType<typeof setInterval> | undefined
+  const loadSyncStatuses = async () => {
+    const syncRepoIds = state.repos.filter((r) => r.repoType === "sync").map((r) => r.id)
+    if (syncRepoIds.length === 0) return
+    const results = await Promise.allSettled(
+      syncRepoIds.map((id) => syncApi.getRepoSyncStatus(id).then((r) => ("registries" in r ? r.registries : [r]))),
+    )
+    const map: Record<string, SyncStatus> = {}
+    syncRepoIds.forEach((id, i) => {
+      const res = results[i]
+      if (res.status === "fulfilled" && res.value.length > 0) {
+        const reg = res.value[0]
+        map[id] = {
+          syncStatus: reg.syncStatus ?? "idle",
+          lastSyncedAt: "lastSyncedAt" in reg ? reg.lastSyncedAt : undefined,
+          lastSyncSha: reg.lastSyncSha ?? "",
+          pendingJobs: reg.pendingJobs ?? 0,
+        }
+      }
+    })
+    setState("syncStatuses", map)
+  }
+
+  createEffect(() => {
+    if (state.repos.length === 0) return
+    void loadSyncStatuses()
+    statusTimer = setInterval(() => void loadSyncStatuses(), 15000)
+    onCleanup(() => clearInterval(statusTimer))
   })
 
   const openCreateRepo = () => {
@@ -88,11 +120,43 @@ export default function DashboardRepositories() {
     ))
   }
 
+  const syncNow = async (id: string) => {
+    if (state.syncingRepoId) return
+    setState("syncingRepoId", id)
+    try {
+      await syncApi.triggerRepoSync(id)
+      showToast({ title: language.t("store.sync.toast.started") })
+    } catch (err) {
+      showToast({
+        title: language.t("store.sync.toast.startFailed"),
+        description: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setState("syncingRepoId", null)
+    }
+  }
+
   const visibilityLabel = (visibility?: string | null) => {
     if (!visibility || visibility === "public") return language.t("store.capabilityDialog.visibility.public")
     if (visibility === "private") return language.t("store.capabilityDialog.visibility.private")
     if (visibility === "repo") return language.t("store.capabilityDialog.visibility.repository")
     return visibility
+  }
+
+  const syncStatusLabel = (status?: string) => {
+    if (!status || status === "idle") return language.t("store.sync.status.idle")
+    if (status === "running" || status === "pending") return language.t("store.sync.status.running")
+    if (status === "success") return language.t("store.sync.status.success")
+    if (status === "failed") return language.t("store.sync.status.failed")
+    return status
+  }
+
+  const syncStatusColor = (status?: string) => {
+    if (!status || status === "idle") return "var(--color-text-weak)"
+    if (status === "running" || status === "pending") return "#3b82f6"
+    if (status === "success") return "#22c55e"
+    if (status === "failed") return "#ef4444"
+    return "var(--color-text-weak)"
   }
 
   return (
@@ -189,8 +253,59 @@ export default function DashboardRepositories() {
 
                         <p class="mb-3 text-xs text-text-weak line-clamp-2 min-h-8 flex-1">{repo.description || ""}</p>
 
+                        <Show when={repo.repoType === "sync"}>
+                          {(() => {
+                            const s = state.syncStatuses[repo.id]
+                            const status = s?.syncStatus
+                            const isRunning = status === "running" || status === "pending"
+                            return (
+                              <div
+                                class="mb-3 flex items-center gap-1.5 text-xs"
+                                style={{ color: syncStatusColor(status) }}
+                              >
+                                <span
+                                  class={`inline-block size-1.5 rounded-full${isRunning ? " animate-pulse" : ""}`}
+                                  style={{ "background-color": syncStatusColor(status) }}
+                                />
+                                {syncStatusLabel(status)}
+                                <Show when={s?.lastSyncedAt}>
+                                  <span class="text-text-weak">· {new Date(s!.lastSyncedAt!).toLocaleString()}</span>
+                                </Show>
+                              </div>
+                            )
+                          })()}
+                        </Show>
+
                         <div class="flex items-center justify-between gap-2 border-t border-border-weak-base pt-3">
                           <div class="ml-auto flex items-center gap-1">
+                            <Show when={repo.repoType === "sync"}>
+                              <Button
+                                size="small"
+                                variant="ghost"
+                                class="h-7 px-2 cursor-pointer text-xs"
+                                disabled={state.syncingRepoId === repo.id}
+                                onClick={() => void syncNow(repo.id)}
+                                title={language.t("store.sync.syncNow")}
+                              >
+                                <Icon name="reset" size="small" />
+                                {language.t("store.sync.syncNow")}
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="ghost"
+                                class="h-7 w-7 p-0 cursor-pointer"
+                                onClick={() =>
+                                  setState("expandedSyncRepo", state.expandedSyncRepo === repo.id ? null : repo.id)
+                                }
+                                title={
+                                  state.expandedSyncRepo === repo.id
+                                    ? language.t("store.console.repositories.hideSync")
+                                    : language.t("store.console.repositories.syncSettings")
+                                }
+                              >
+                                <Icon name="settings-gear" size="small" />
+                              </Button>
+                            </Show>
                             <Button
                               size="small"
                               variant="ghost"
@@ -221,12 +336,10 @@ export default function DashboardRepositories() {
                           </div>
                         </div>
 
-                        <Show when={repo.repoType === "sync"}>
-                          <Show when={state.expandedSyncRepo === repo.id}>
-                            <div class="mt-4 border-t border-border-weak-base pt-4">
-                              <RepoSyncTab repoId={repo.id} />
-                            </div>
-                          </Show>
+                        <Show when={repo.repoType === "sync" && state.expandedSyncRepo === repo.id}>
+                          <div class="mt-4 border-t border-border-weak-base pt-4">
+                            <RepoSyncTab repoId={repo.id} />
+                          </div>
                         </Show>
                       </div>
                     )}
