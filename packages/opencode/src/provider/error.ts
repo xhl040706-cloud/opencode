@@ -46,8 +46,37 @@ export namespace ProviderError {
     return /^4(00|13)\s*(status code)?\s*\(no body\)/i.test(message)
   }
 
+  function request(body: unknown, headers?: Record<string, string>) {
+    const head = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === "x-request-id")?.[1]?.trim()
+    if (head) return head
+
+    const jsonBody = json(body)
+    if (!jsonBody) return
+
+    const queue = [jsonBody]
+    while (queue.length > 0) {
+      const item = queue.shift()
+      if (!item || typeof item !== "object") continue
+
+      for (const [key, value] of Object.entries(item)) {
+        if (typeof value === "string" && (key === "request_id" || key === "requestId")) {
+          const id = value.trim()
+          if (id) return id
+        }
+        if (typeof value === "object" && value !== null) queue.push(value)
+      }
+    }
+  }
+
+  function decorate(message: string, id?: string) {
+    if (!id) return message
+    if (/x-request-id/i.test(message)) return message
+    return `${message} (X-Request-Id: ${id})`
+  }
+
   function message(providerID: ProviderID, e: APICallError) {
-    return iife(() => {
+    const id = request(e.responseBody, e.responseHeaders)
+    const msg = iife(() => {
       const msg = e.message
       if (msg === "") {
         if (e.responseBody) return e.responseBody
@@ -84,7 +113,10 @@ export namespace ProviderError {
       }
 
       return `${msg}: ${e.responseBody}`
-    }).trim()
+    })
+      .trim()
+
+    return decorate(msg, id)
   }
 
   function json(input: unknown) {

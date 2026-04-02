@@ -56,7 +56,11 @@ const cli = yargs(hideBin(process.argv))
   .wrap(100)
   .help("help", "show help")
   .alias("help", "h")
-  .version("version", "show version number", Installation.VERSION)
+  .version(
+    "version",
+    "show version number",
+    `${Installation.VERSION} (commit: ${Installation.COMMIT_HASH}, built: ${Installation.BUILD_TIME})`,
+  )
   .alias("version", "v")
   .option("print-logs", {
     describe: "print logs to stderr",
