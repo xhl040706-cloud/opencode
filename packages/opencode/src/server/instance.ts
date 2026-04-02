@@ -2,7 +2,6 @@ import { describeRoute, resolver } from "hono-openapi"
 import { Hono } from "hono"
 import { proxy } from "hono/proxy"
 import z from "zod"
-import { createHash } from "node:crypto"
 import { Log } from "../util/log"
 import { Format } from "../format"
 import { TuiRoutes } from "./routes/tui"
@@ -36,9 +35,6 @@ const embeddedUIPromise = Flag.OPENCODE_DISABLE_EMBEDDED_WEB_UI
 
 const DEFAULT_CSP =
   "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src 'self' data:"
-
-const csp = (hash = "") =>
-  `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'${hash ? ` 'sha256-${hash}'` : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src 'self' data:`
 
 export const InstanceRoutes = (app?: Hono) =>
   (app ?? new Hono())
@@ -286,9 +282,10 @@ export const InstanceRoutes = (app?: Hono) =>
 
         return c.json({ error: "Not Found" }, 404)
       } else {
+        // Dev mode: proxy to local vite dev server
+        const devServer = "http://localhost:3000"
+
         // Normalize session paths for SPA routing
-        // e.g.: /RDovY29kZS9ob3N0bWFu/session/assets/index.js -> /assets/index.js (static asset)
-        // /RDovY29kZS9ob3N0bWFu/session/ses_xxx -> / (SPA route, load index.html)
         const sessionMatch = path.match(/^[A-Za-z0-9_=\/+-]+\/session\/(.*)/)
         if (sessionMatch) {
           const subPath = sessionMatch[1]
@@ -299,20 +296,13 @@ export const InstanceRoutes = (app?: Hono) =>
           }
         }
 
-        const response = await proxy(`https://app.opencode.ai${path}`, {
+        const response = await proxy(`${devServer}${path}`, {
           ...c.req,
           headers: {
             ...c.req.raw.headers,
-            host: "app.opencode.ai",
+            host: "localhost:3000",
           },
         })
-        const match = response.headers.get("content-type")?.includes("text/html")
-          ? (await response.clone().text()).match(
-              /<script\b(?![^>]*\bsrc\s*=)[^>]*\bid=(['"])oc-theme-preload-script\1[^>]*>([\s\S]*?)<\/script>/i,
-            )
-          : undefined
-        const hash = match ? createHash("sha256").update(match[2]).digest("base64") : ""
-        response.headers.set("Content-Security-Policy", csp(hash))
         return response
       }
     })
