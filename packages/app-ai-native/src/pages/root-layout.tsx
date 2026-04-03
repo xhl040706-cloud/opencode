@@ -13,7 +13,7 @@ import { getLoginUrl } from "@/pages/store/lib/auth"
 import { DialogSettings } from "@/components/dialog-settings"
 
 function NavButton(props: {
-  icon: "bubble-5" | "store" | "folder" | "sliders"
+  icon: "bubble-5" | "store" | "folder" | "folder-add-left" | "sliders"
   label: string
   active: boolean
   onClick: () => void
@@ -110,6 +110,7 @@ export default function RootLayout(props: ParentProps) {
     const path = appPathname()
     return path === "/store" || path.startsWith("/store/")
   }
+  const isProjects = () => location.pathname.startsWith("/projects")
 
   return (
     <div class="flex h-full w-full overflow-hidden">
@@ -120,6 +121,12 @@ export default function RootLayout(props: ParentProps) {
             label={language.t("sidebar.store")}
             active={isStore()}
             onClick={() => navigate("/store")}
+          />
+          <NavButton
+            icon="folder-add-left"
+            label={language.t("sidebar.projects")}
+            active={isProjects()}
+            onClick={() => navigate("/projects")}
           />
           <NavButton icon="folder" label="Workspace" active={isWorkspace()} onClick={() => navigate("/workspace")} />
         </nav>

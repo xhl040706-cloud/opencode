@@ -8,6 +8,9 @@ const Loading = () => <div class="size-full" />
 const RootLayout = lazy(() => import("@/pages/root-layout"))
 const StoreLayout = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreLayout })))
 const StoreHome = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreHome })))
+const ProjectsLayout = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectsLayout })))
+const ProjectsHome = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectsHome })))
+const ProjectDetail = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectDetail })))
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
 const DirectoryLayout = lazy(() => import("@/pages/directory-layout"))
@@ -68,6 +71,15 @@ export const routeConfig: RouteConfig[] = [
           { path: "/session/:id?", component: SessionRoute },
         ],
       },
+    ],
+  },
+  {
+    path: "/projects",
+    component: ProjectsLayout,
+    auth: true,
+    children: [
+      { path: "/", component: ProjectsHome },
+      { path: "/:projectId", component: ProjectDetail },
     ],
   },
   {
