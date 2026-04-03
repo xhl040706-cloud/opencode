@@ -91,6 +91,7 @@ describe("session.retry.delay", () => {
           Effect.gen(function* () {
             const step = yield* Schedule.toStepWithMetadata(
               SessionRetry.policy({
+                providerID: "test",
                 parse: (err) => err as MessageV2.APIError,
                 set: (info) =>
                   Effect.promise(() =>

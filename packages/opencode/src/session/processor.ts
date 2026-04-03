@@ -18,6 +18,7 @@ import { SessionRetry } from "./retry"
 import { SessionStatus } from "./status"
 import { SessionSummary } from "./summary"
 import type { Provider } from "@/provider/provider"
+import { CostrictError } from "@/costrict/error"
 import { Question } from "@/question"
 
 export namespace SessionProcessor {
@@ -53,6 +54,7 @@ export namespace SessionProcessor {
     needsCompaction: boolean
     currentText: MessageV2.TextPart | undefined
     reasoningMap: Record<string, MessageV2.ReasoningPart>
+    continuationMessages: import("ai").ModelMessage[] | undefined
   }
 
   type StreamEvent = Event
@@ -96,6 +98,7 @@ export namespace SessionProcessor {
           needsCompaction: false,
           currentText: undefined,
           reasoningMap: {},
+          continuationMessages: undefined,
         }
         let aborted = false
 
@@ -472,6 +475,11 @@ export namespace SessionProcessor {
             yield* Effect.gen(function* () {
               ctx.currentText = undefined
               ctx.reasoningMap = {}
+              // Use continuation messages from previous output length retry if available
+              if (ctx.continuationMessages) {
+                streamInput = { ...streamInput, messages: ctx.continuationMessages }
+                ctx.continuationMessages = undefined
+              }
               const stream = llm.stream(streamInput)
 
               yield* stream.pipe(
@@ -479,6 +487,21 @@ export namespace SessionProcessor {
                 Stream.takeUntil(() => ctx.needsCompaction),
                 Stream.runDrain,
               )
+              // For costrict provider, handle output length exceeded by constructing continuation messages
+              if (ctx.model.providerID === "costrict") {
+                const next = yield* Effect.promise(() =>
+                  CostrictError.finish({
+                    reason: ctx.assistantMessage.finish ?? "",
+                    message: ctx.assistantMessage,
+                    model: ctx.model,
+                    messages: streamInput.messages,
+                  }),
+                )
+                if (next) {
+                  ctx.continuationMessages = next.messages
+                  return yield* Effect.fail(next.error)
+                }
+              }
             }).pipe(
               Effect.onInterrupt(() => Effect.sync(() => void (aborted = true))),
               Effect.catchCauseIf(
@@ -487,6 +510,7 @@ export namespace SessionProcessor {
               ),
               Effect.retry(
                 SessionRetry.policy({
+                  providerID: input.model.providerID,
                   parse,
                   set: (info) =>
                     status.set(ctx.sessionID, {
