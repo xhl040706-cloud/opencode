@@ -238,13 +238,14 @@ export namespace Installation {
             // Check for multiple possible package names
             const possibleNames =
               check.name === "brew" || check.name === "choco" || check.name === "scoop"
-                ? ["opencode"]
+                ? ["costrict"]
                 : [
                     "@costrict/cs",
-                    "opencode-ai",
                     "@costrict/cs-darwin-arm64",
                     "@costrict/cs-linux-x64",
                     "@costrict/cs-darwin-x64",
+                    "@costrict/cs-windows-x64",
+                    "@costrict/cs-windows-x64-baseline",
                   ]
 
             for (const name of possibleNames) {
@@ -255,7 +256,7 @@ export namespace Installation {
           }
 
           // Check for npm-like installation paths (e.g., node_modules/@costrict/...)
-          if (process.execPath.includes("node_modules/@costrict")) return "npm" as Method
+          if (process.execPath.includes(path.join("node_modules", "@costrict"))) return "npm" as Method
 
           return "unknown" as Method
         })
