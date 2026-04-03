@@ -11,6 +11,7 @@ import { Session } from "."
 import { LLM } from "./llm"
 import { MessageV2 } from "./message-v2"
 import { isOverflow } from "./overflow"
+import { Identifier } from "@/id/id"
 import { PartID } from "./schema"
 import type { SessionID } from "./schema"
 import { SessionRetry } from "./retry"
@@ -336,6 +337,30 @@ export namespace SessionProcessor {
             case "text-end":
               if (!ctx.currentText) return
               ctx.currentText.text = ctx.currentText.text.trimEnd()
+              // For CoStrict provider: extract inline <think>...</think> tags into reasoning parts
+              // so the UI renders them with thinking style, instead of discarding them.
+              // Use a timestamp before the text part's ID so reasoning sorts before text in the UI.
+              if (ctx.model.providerID === "costrict") {
+                const textTimestamp = Identifier.timestamp(ctx.currentText.id)
+                const thinkRegex = /<think>([\s\S]*?)<\/think>\s*/g
+                let match: RegExpExecArray | null
+                let idx = 0
+                while ((match = thinkRegex.exec(ctx.currentText.text)) !== null) {
+                  const reasoningText = match[1].trim()
+                  if (reasoningText) {
+                    yield* session.updatePart({
+                      id: PartID.ascending(Identifier.create("part", false, textTimestamp - 1000 + idx)),
+                      messageID: ctx.assistantMessage.id,
+                      sessionID: ctx.assistantMessage.sessionID,
+                      type: "reasoning",
+                      text: reasoningText,
+                      time: { start: ctx.currentText.time?.start ?? Date.now(), end: Date.now() },
+                    })
+                    idx++
+                  }
+                }
+                ctx.currentText.text = ctx.currentText.text.replace(/<think>[\s\S]*?<\/think>\s*/g, "")
+              }
               ctx.currentText.text = (yield* plugin.trigger(
                 "experimental.text.complete",
                 {
