@@ -10,6 +10,7 @@ import { SyncEvent } from "../sync"
 import { Database, NotFoundError, and, desc, eq, inArray, lt, or } from "@/storage/db"
 import { MessageTable, PartTable, SessionTable } from "./session.sql"
 import { ProviderError } from "@/provider/error"
+import { CostrictError } from "@/costrict/error"
 import { iife } from "@/util/iife"
 import { errorMessage } from "@/util/error"
 import type { SystemError } from "bun"
@@ -925,6 +926,12 @@ export namespace MessageV2 {
     e: unknown,
     ctx: { providerID: ProviderID; aborted?: boolean },
   ): NonNullable<Assistant["error"]> {
+    // For costrict provider, try to map raw errors to retryable APIErrors first
+    if (ctx.providerID === "costrict") {
+      const mapped = CostrictError.fromError(e)
+      if (mapped) return mapped
+    }
+
     switch (true) {
       case e instanceof DOMException && e.name === "AbortError":
         return new MessageV2.AbortedError(

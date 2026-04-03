@@ -1,6 +1,7 @@
 import type { NamedError } from "@opencode-ai/util/error"
 import { Cause, Clock, Duration, Effect, Schedule } from "effect"
 import { MessageV2 } from "./message-v2"
+import { CostrictError } from "@/costrict/error"
 import { iife } from "@/util/iife"
 
 export namespace SessionRetry {
@@ -48,10 +49,22 @@ export namespace SessionRetry {
     return cap(Math.min(RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1), RETRY_MAX_DELAY_NO_HEADERS))
   }
 
-  export function retryable(error: Err) {
+  export function retryable(error: Err, options?: { providerID: string }) {
+    if (options?.providerID === "costrict") {
+      const next = CostrictError.retryable(error)
+      if (next) return next
+    }
+
     // context overflow errors should not be retried
     if (MessageV2.ContextOverflowError.isInstance(error)) return undefined
     if (MessageV2.APIError.isInstance(error)) {
+      // Check for connection error messages (always retry, regardless of isRetryable flag)
+      // This handles errors from OpenAI SDK and other clients that throw generic "Connection error."
+      const message = error.data.message?.toLowerCase() || ""
+      if (message.includes("connection error")) {
+        return "Connection error"
+      }
+
       if (!error.data.isRetryable) return undefined
       if (error.data.responseBody?.includes("FreeUsageLimitError"))
         return `Free usage exceeded, add credits https://opencode.ai/zen`
@@ -86,13 +99,14 @@ export namespace SessionRetry {
   }
 
   export function policy(opts: {
+    providerID: string
     parse: (error: unknown) => Err
     set: (input: { attempt: number; message: string; next: number }) => Effect.Effect<void>
   }) {
     return Schedule.fromStepWithMetadata(
       Effect.succeed((meta: Schedule.InputMetadata<unknown>) => {
         const error = opts.parse(meta.input)
-        const message = retryable(error)
+        const message = retryable(error, { providerID: opts.providerID })
         if (!message) return Cause.done(meta.attempt)
         return Effect.gen(function* () {
           const wait = delay(meta.attempt, MessageV2.APIError.isInstance(error) ? error : undefined)
