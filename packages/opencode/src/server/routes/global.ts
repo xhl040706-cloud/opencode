@@ -12,6 +12,14 @@ import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
 import { Config } from "../../config/config"
 import { errors } from "../error"
+import {
+  listFavoriteItems,
+  loadFavoriteItem,
+  unloadFavoriteItem,
+  downloadFavoriteItem,
+  uninstallFavoriteItem,
+  type FavoriteItemType,
+} from "@/costrict/cloud/favorite"
 
 const log = Log.create({ service: "server" })
 
@@ -307,6 +315,95 @@ export const GlobalRoutes = lazy(() =>
           return c.json(result)
         }
         return c.json(result, 500)
+      },
+    )
+    .get(
+      "/favorite/skills",
+      describeRoute({
+        summary: "List favorite items",
+        description: "List all cloud favorite items with their current status. Supports filtering by type.",
+        operationId: "global.favorite.list",
+        responses: {
+          200: {
+            description: "Favorite items list",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.array(
+                    z.object({
+                      id: z.string(),
+                      slug: z.string(),
+                      name: z.string(),
+                      description: z.string(),
+                      itemType: z.enum(["skill", "agent", "command", "mcp"]),
+                      status: z.enum(["Cloud", "Downloaded", "Active", "Unloaded"]),
+                      localPath: z.string().optional(),
+                    }),
+                  ),
+                ),
+              },
+            },
+          },
+          ...errors(500),
+        },
+      }),
+      async (c) => {
+        try {
+          const type = c.req.query("type") as FavoriteItemType | undefined
+          const validTypes = ["skill", "agent", "command", "mcp"]
+          const items = await listFavoriteItems(type && validTypes.includes(type) ? type : undefined)
+          return c.json(items)
+        } catch (e) {
+          return c.json({ error: e instanceof Error ? e.message : String(e) }, 500)
+        }
+      },
+    )
+    .post(
+      "/favorite/skills/:slug/:action",
+      describeRoute({
+        summary: "Perform favorite item action",
+        description: "Load, unload, download, or uninstall a favorite item.",
+        operationId: "global.favorite.action",
+        responses: {
+          200: {
+            description: "Action performed successfully",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true), slug: z.string() })),
+              },
+            },
+          },
+          ...errors(400, 500),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          slug: z.string(),
+          action: z.enum(["load", "unload", "download", "uninstall"]),
+        }),
+      ),
+      async (c) => {
+        const { slug, action } = c.req.valid("param")
+        try {
+          switch (action) {
+            case "load":
+              await loadFavoriteItem(slug)
+              break
+            case "unload":
+              await unloadFavoriteItem(slug)
+              break
+            case "download":
+              await downloadFavoriteItem(slug)
+              break
+            case "uninstall":
+              await uninstallFavoriteItem(slug)
+              break
+          }
+          return c.json({ success: true as const, slug })
+        } catch (e) {
+          return c.json({ error: e instanceof Error ? e.message : String(e) }, 500)
+        }
       },
     ),
 )
