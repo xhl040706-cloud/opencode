@@ -10,6 +10,7 @@ import {
   type StreamTextResult,
   type Tool,
   type ToolSet,
+  Output,
   tool,
   jsonSchema,
 } from "ai"
@@ -51,7 +52,7 @@ export namespace LLM {
     abort: AbortSignal
   }
 
-  export type StreamOutput = StreamTextResult<ToolSet, unknown> & { requestID: string }
+  export type StreamOutput = StreamTextResult<ToolSet, Output.Output<string, string, never>> & { requestID: string }
 
   export type Event = Awaited<ReturnType<typeof stream>>["fullStream"] extends AsyncIterable<infer T> ? T : never
 
@@ -345,6 +346,7 @@ export namespace LLM {
         model: language,
         middleware: [
           {
+            specificationVersion: "v3" as const,
             async transformParams(args) {
               if (args.type === "stream") {
                 // @ts-expect-error

@@ -633,7 +633,7 @@ async function readItemForConfig(installed: FavoriteStateRecord): Promise<Favori
     id: installed.id,
     slug: installed.slug,
     name: installed.name,
-    description: String(itemMeta.description ?? ""),
+    description: String((itemMeta as Record<string, unknown>).description ?? ""),
     itemType: installed.itemType,
     content: "",
   }
