@@ -182,19 +182,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
     onError: fail,
   }))
 
-  const rejectMutation = useMutation(() => ({
-    mutationFn: () => sdk.client.question.reject({ requestID: props.request.id }),
-    onMutate: () => {
-      props.onSubmit()
-    },
-    onSuccess: () => {
-      replied = true
-      cache.delete(props.request.id)
-    },
-    onError: fail,
-  }))
-
-  const sending = createMemo(() => replyMutation.isPending || rejectMutation.isPending)
+  const sending = createMemo(() => replyMutation.isPending)
 
   const reply = async (answers: QuestionAnswer[]) => {
     if (sending()) return
@@ -203,7 +191,10 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
 
   const reject = async () => {
     if (sending()) return
-    await rejectMutation.mutateAsync()
+    const defaults = questions().map((q) =>
+      q.options.length > 0 ? [q.options[0].label] : []
+    )
+    await replyMutation.mutateAsync(defaults)
   }
 
   const submit = () => void reply(questions().map((_, i) => store.answers[i] ?? []))
