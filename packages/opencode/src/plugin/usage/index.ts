@@ -10,8 +10,18 @@ import { scan } from "./queue/scan"
 let timer: Timer | undefined
 let exit: (() => void) | undefined
 
-function day(ms: number) {
-  return new Date(ms).toISOString().slice(0, 10)
+function pad(n: number) {
+  return String(n).padStart(2, "0")
+}
+
+function formatRFC3339WithOffset(ms: number) {
+  const d = new Date(ms)
+  const offsetMinutes = -d.getTimezoneOffset()
+  const sign = offsetMinutes >= 0 ? "+" : "-"
+  const absOffset = Math.abs(offsetMinutes)
+  const offsetHours = Math.floor(absOffset / 60)
+  const offsetMins = absOffset % 60
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${pad(offsetHours)}:${pad(offsetMins)}`
 }
 
 async function enabled() {
@@ -28,8 +38,8 @@ async function ingest(msg: MessageV2.WithParts, dir: string) {
     session_id: msg.info.sessionID,
     request_id: msg.info.requestID ?? "",
     message_id: msg.info.id,
-    date: day(msg.info.time.created),
-    updated: day(msg.info.time.completed),
+    date: formatRFC3339WithOffset(msg.info.time.created),
+    updated: formatRFC3339WithOffset(msg.info.time.completed),
     model_id: msg.info.modelID,
     provider_id: msg.info.providerID,
     input_tokens: msg.info.tokens.input,

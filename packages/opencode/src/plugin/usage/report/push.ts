@@ -64,6 +64,7 @@ export async function push(items: Report[]) {
       })),
       device_id: req.device?.device_id,
       reported_at: new Date().toISOString(),
+      client_version: Installation.VERSION,
     }),
   })
   const text = await res.text()
