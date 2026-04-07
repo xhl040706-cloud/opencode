@@ -1,6 +1,6 @@
 import { Button } from "@opencode-ai/ui/button"
 import { showToast } from "@opencode-ai/ui/toast"
-import { createEffect, createMemo, For, Show } from "solid-js"
+import { createEffect, createMemo, For, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useLanguage } from "@/context/language"
@@ -11,6 +11,8 @@ const inputClass =
   "w-full h-9 rounded-md border border-border-weak-base bg-background-base px-3 text-sm text-text-strong outline-none focus:border-border-strong"
 
 type BindingsTab = "bound" | "available"
+
+const CANDIDATE_POLL_INTERVAL_MS = 30_000
 
 type Props = {
   open: boolean
@@ -59,6 +61,7 @@ export default function ProjectRepositoryBindingsDrawer(props: Props) {
   })
 
   const loadCandidates = async () => {
+    if (store.candidateLoading) return
     setStore("candidateLoading", true)
     setStore("error", "")
     try {
@@ -83,6 +86,7 @@ export default function ProjectRepositoryBindingsDrawer(props: Props) {
     if (!props.open) {
       if (store.candidateInitialized) {
         setStore("candidateInitialized", false)
+        setStore("candidateLoadedProjectId", "")
       }
       return
     }
@@ -90,12 +94,15 @@ export default function ProjectRepositoryBindingsDrawer(props: Props) {
     if (!store.candidateInitialized) {
       setStore("candidateInitialized", true)
       void loadCandidates()
-      return
     }
 
-    if (store.tab === "available" && store.candidateLoadedProjectId !== props.projectId && !store.candidateLoading) {
+    const interval = window.setInterval(() => {
       void loadCandidates()
-    }
+    }, CANDIDATE_POLL_INTERVAL_MS)
+
+    onCleanup(() => {
+      window.clearInterval(interval)
+    })
   })
 
   const bindRepository = async (gitRepoUrl: string, displayName?: string) => {
