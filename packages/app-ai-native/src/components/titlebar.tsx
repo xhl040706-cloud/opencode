@@ -51,8 +51,11 @@ export function Titlebar() {
   const web = createMemo(() => platform.platform === "web")
   const zoom = () => platform.webviewZoom?.() ?? 1
   const minHeight = () => (mac() ? `${40 / zoom()}px` : undefined)
-  const inStore = createMemo(() => appPath(location.pathname).startsWith("/store"))
-  if (inStore()) return null
+  const inAppChrome = createMemo(() => {
+    const path = appPath(location.pathname)
+    return path.startsWith("/store") || path.startsWith("/projects")
+  })
+  if (inAppChrome()) return null
 
   const [history, setHistory] = createStore({
     stack: [] as string[],
@@ -231,7 +234,7 @@ export function Titlebar() {
               </Button>
             </TooltipKeybind>
           </Show> */}
-          <Show when={!inStore()}>
+          <Show when={!inAppChrome()}>
             <div class="hidden xl:flex items-center shrink-0">
               <Show when={params.dir}>
                 <TooltipKeybind

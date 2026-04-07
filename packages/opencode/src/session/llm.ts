@@ -3,7 +3,16 @@ import { Log } from "@/util/log"
 import { Cause, Effect, Layer, Record, ServiceMap } from "effect"
 import * as Queue from "effect/Queue"
 import * as Stream from "effect/Stream"
-import { streamText, wrapLanguageModel, type ModelMessage, type Tool, tool, jsonSchema } from "ai"
+import {
+  streamText,
+  wrapLanguageModel,
+  type ModelMessage,
+  type StreamTextResult,
+  type Tool,
+  type ToolSet,
+  tool,
+  jsonSchema,
+} from "ai"
 import { mergeDeep, pipe } from "remeda"
 import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 import { ProviderTransform } from "@/provider/transform"
@@ -29,6 +38,7 @@ export namespace LLM {
     model: Provider.Model
     agent: Agent.Info
     permission?: Permission.Ruleset
+    requestID?: string
     system: string[]
     messages: ModelMessage[]
     small?: boolean
@@ -40,6 +50,8 @@ export namespace LLM {
   export type StreamRequest = StreamInput & {
     abort: AbortSignal
   }
+
+  export type StreamOutput = StreamTextResult<ToolSet, unknown> & { requestID: string }
 
   export type Event = Awaited<ReturnType<typeof stream>>["fullStream"] extends AsyncIterable<infer T> ? T : never
 
@@ -77,7 +89,7 @@ export namespace LLM {
 
   export const defaultLayer = layer
 
-  export async function stream(input: StreamRequest) {
+  export async function stream(input: StreamRequest): Promise<StreamOutput> {
     const l = log
       .clone()
       .tag("providerID", input.model.providerID)
@@ -244,13 +256,15 @@ export namespace LLM {
       })
     }
 
+    const requestId = input.requestID ?? crypto.randomUUID()
+
     // Wire up toolExecutor for DWS workflow models so that tool calls
     // from the workflow service are executed via opencode's tool system
     // and results sent back over the WebSocket.
     if (language instanceof GitLabWorkflowLanguageModel) {
       const workflowModel = language
       workflowModel.systemPrompt = system.join("\n")
-      workflowModel.toolExecutor = async (toolName, argsJson, _requestID) => {
+      workflowModel.toolExecutor = async (toolName: string, argsJson: string, _requestID: string) => {
         const t = tools[toolName]
         if (!t || !t.execute) {
           return { result: "", error: `Unknown tool: ${toolName}` }
@@ -273,10 +287,11 @@ export namespace LLM {
       }
     }
 
-    return streamText({
+    return Object.assign(streamText({
       onError(error) {
         l.error("stream error", {
           error,
+          xRequestId: requestId,
         })
       },
       async experimental_repairToolCall(failed) {
@@ -322,6 +337,7 @@ export namespace LLM {
             }),
         ...input.model.headers,
         ...headers,
+        "X-Request-Id": requestId,
       },
       maxRetries: input.retries ?? 0,
       messages,
@@ -329,7 +345,6 @@ export namespace LLM {
         model: language,
         middleware: [
           {
-            specificationVersion: "v3" as const,
             async transformParams(args) {
               if (args.type === "stream") {
                 // @ts-expect-error
@@ -347,7 +362,7 @@ export namespace LLM {
           sessionId: input.sessionID,
         },
       },
-    })
+    }), { requestID: requestId })
   }
 
   function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "permission" | "user">) {

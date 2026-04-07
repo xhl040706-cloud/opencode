@@ -4,6 +4,7 @@ import { Filesystem } from "../../util/filesystem"
 import { Log } from "../../util/log"
 import { loadCoStrictCredentials } from "../provider/credentials"
 import { isCoStrictTokenValid, refreshCoStrictToken } from "../provider/token"
+import { getCloudApiUrl } from "../device/client"
 import { ForbiddenError, NotLoggedInError, UnauthorizedError } from "./types"
 import type { AccessCache, CreateItemRequest, CreateItemResponse, CreateRegistryRequest, CreateRegistryResponse, IndexJson, RegistryAccess, UploadArtifactResponse } from "./types"
 
@@ -124,7 +125,7 @@ export async function createRegistry(
   baseUrl: string,
   request: CreateRegistryRequest
 ): Promise<CreateRegistryResponse> {
-  const url = `${baseUrl.replace(/\/$/, "")}`
+  const url = getCloudApiUrl("", baseUrl).replace(/\/$/, "")
   const token = await resolveToken(url)
 
   const headers: Record<string, string> = {
@@ -167,7 +168,7 @@ export async function createItem(
   registryId: string,
   request: CreateItemRequest
 ): Promise<CreateItemResponse> {
-  const url = `${baseUrl.replace(/\/$/, "")}/api/registries/${registryId}/items`
+  const url = getCloudApiUrl(`/api/registries/${registryId}/items`, baseUrl)
   const token = await resolveToken(url)
 
   const headers: Record<string, string> = {
@@ -212,7 +213,7 @@ export async function uploadArtifact(
   version?: string,
   onProgress?: (loaded: number, total: number) => void
 ): Promise<UploadArtifactResponse> {
-  const url = `${baseUrl.replace(/\/$/, "")}/api/artifacts/upload`
+  const url = getCloudApiUrl("/api/artifacts/upload", baseUrl)
   const token = await resolveToken(url)
 
   const file = Bun.file(filePath)

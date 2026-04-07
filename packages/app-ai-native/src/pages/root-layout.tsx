@@ -4,16 +4,14 @@ import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
 import { appPath } from "@/lib/router"
 import { getLoginUrl } from "@/pages/store/lib/auth"
-import { DialogSettings } from "@/components/dialog-settings"
 
 function NavButton(props: {
-  icon: "bubble-5" | "store" | "folder" | "sliders"
+  icon: "bubble-5" | "store" | "folder" | "folder-add-left" | "sliders"
   label: string
   active: boolean
   onClick: () => void
@@ -95,7 +93,6 @@ function UserButton() {
 export default function RootLayout(props: ParentProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const dialog = useDialog()
   const platform = usePlatform()
   const language = useLanguage()
 
@@ -110,6 +107,7 @@ export default function RootLayout(props: ParentProps) {
     const path = appPathname()
     return path === "/store" || path.startsWith("/store/")
   }
+  const isProjects = () => location.pathname.startsWith("/projects")
 
   return (
     <div class="flex h-full w-full overflow-hidden">
@@ -120,6 +118,12 @@ export default function RootLayout(props: ParentProps) {
             label={language.t("sidebar.store")}
             active={isStore()}
             onClick={() => navigate("/store")}
+          />
+          <NavButton
+            icon="folder-add-left"
+            label={language.t("sidebar.projects")}
+            active={isProjects()}
+            onClick={() => navigate("/projects")}
           />
           <NavButton icon="folder" label="Workspace" active={isWorkspace()} onClick={() => navigate("/workspace")} />
         </nav>
@@ -135,16 +139,7 @@ export default function RootLayout(props: ParentProps) {
               <Icon name="sliders" size="normal" />
             </button>
           </Tooltip>
-          <Tooltip placement="right" value={language.t("sidebar.settings")}>
-            <button
-              type="button"
-              onClick={() => dialog.show(() => <DialogSettings />)}
-              class="flex size-10 items-center justify-center text-[var(--st-text-muted)] transition-colors hover:bg-[var(--st-surface)] hover:text-[var(--st-text)]"
-              aria-label={language.t("sidebar.settings")}
-            >
-              <Icon name="settings-gear" />
-            </button>
-          </Tooltip>
+          {/* TODO: 未来恢复设置入口后，再重新展示设置按钮，并放开语言/主题切换能力。 */}
           <Tooltip placement="right" value={language.t("sidebar.help")}>
             <button
               type="button"

@@ -20,6 +20,7 @@ import { SessionSummary } from "./summary"
 import type { Provider } from "@/provider/provider"
 import { CostrictError } from "@/costrict/error"
 import { Question } from "@/question"
+import crypto from "node:crypto"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
@@ -470,6 +471,8 @@ export namespace SessionProcessor {
           log.info("process")
           ctx.needsCompaction = false
           ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
+          ctx.assistantMessage.requestID = crypto.randomUUID()
+          yield* session.updateMessage(ctx.assistantMessage)
 
           return yield* Effect.gen(function* () {
             yield* Effect.gen(function* () {
@@ -480,7 +483,10 @@ export namespace SessionProcessor {
                 streamInput = { ...streamInput, messages: ctx.continuationMessages }
                 ctx.continuationMessages = undefined
               }
-              const stream = llm.stream(streamInput)
+              const stream = llm.stream({
+                ...streamInput,
+                requestID: ctx.assistantMessage.requestID,
+              })
 
               yield* stream.pipe(
                 Stream.tap((event) => handleEvent(event)),

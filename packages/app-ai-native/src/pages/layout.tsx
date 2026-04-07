@@ -218,7 +218,9 @@ export default function Layout(props: ParentProps) {
 
   const autoselecting = createMemo(() => {
     if (params.dir) return false
-    if (appPath(location.pathname).startsWith("/store")) return false
+    const path = appPath(location.pathname)
+    if (path.startsWith("/store")) return false
+    if (path.startsWith("/projects")) return false
     if (!state.autoselect) return false
     if (!pageReady()) return true
     if (!layoutReady()) return true
@@ -511,8 +513,10 @@ export default function Layout(props: ParentProps) {
         if (!value.layoutReady) return
         if (!state.autoselect) return
         if (value.dir) return
-        if (appPath(location.pathname).startsWith("/store")) return
-        if (appPath(location.pathname).startsWith("/workspace")) return
+        const path = appPath(location.pathname)
+        if (path.startsWith("/store")) return
+        if (path.startsWith("/projects")) return
+        if (path.startsWith("/workspace")) return
 
         const last = server.projects.last()
 

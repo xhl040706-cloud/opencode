@@ -8,7 +8,7 @@ import { Font } from "@opencode-ai/ui/font"
 import { ThemeProvider } from "@opencode-ai/ui/theme"
 import { MetaProvider } from "@solidjs/meta"
 import { BaseRouterProps, Navigate, Route, Router } from "@solidjs/router"
-import { Component, ErrorBoundary, type JSX, lazy, type ParentProps, Show, Suspense } from "solid-js"
+import { Component, createEffect, ErrorBoundary, type JSX, lazy, type ParentProps, Show, Suspense } from "solid-js"
 import { CommandProvider } from "@/context/command"
 import { CommentsProvider } from "@/context/comments"
 import { FileProvider } from "@/context/file"
@@ -30,6 +30,7 @@ import DirectoryLayout from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
 import { ErrorPage } from "./pages/error"
 import { Dynamic } from "solid-js/web"
+import { useTheme } from "@opencode-ai/ui/theme"
 
 const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
@@ -60,6 +61,29 @@ export const SessionIndexRoute = () => <Navigate href="session" />
 function UiI18nBridge(props: ParentProps) {
   const language = useLanguage()
   return <I18nProvider value={{ locale: language.locale, t: language.t }}>{props.children}</I18nProvider>
+}
+
+function FixedExperienceGuards(props: ParentProps) {
+  const language = useLanguage()
+  const theme = useTheme()
+
+  createEffect(() => {
+    // TODO: 后续支持设置页后，移除这里的强制覆盖，改回用户可配置。
+    if (language.locale() !== "zh") {
+      language.setLocale("zh")
+    }
+
+    // TODO: 后续支持主题切换后，移除这里的强制覆盖，改回用户可配置。
+    if (theme.themeId() !== "oc-2") {
+      theme.setTheme("oc-2")
+    }
+
+    if (theme.colorScheme() !== "light") {
+      theme.setColorScheme("light")
+    }
+  })
+
+  return props.children
 }
 
 declare global {
@@ -123,17 +147,19 @@ export function AppBaseProviders(props: ParentProps) {
       <ThemeProvider>
         <LanguageProvider>
           <SettingsProvider>
-            <UiI18nBridge>
-              <ErrorBoundary fallback={(error) => <ErrorPage error={error} />}>
-                <DialogProvider>
-                  <MarkedProviderWithNativeParser>
-                    <FileComponentProvider component={File}>
-                      <AuthProvider>{props.children}</AuthProvider>
-                    </FileComponentProvider>
-                  </MarkedProviderWithNativeParser>
-                </DialogProvider>
-              </ErrorBoundary>
-            </UiI18nBridge>
+            <FixedExperienceGuards>
+              <UiI18nBridge>
+                <ErrorBoundary fallback={(error) => <ErrorPage error={error} />}>
+                  <DialogProvider>
+                    <MarkedProviderWithNativeParser>
+                      <FileComponentProvider component={File}>
+                        <AuthProvider>{props.children}</AuthProvider>
+                      </FileComponentProvider>
+                    </MarkedProviderWithNativeParser>
+                  </DialogProvider>
+                </ErrorBoundary>
+              </UiI18nBridge>
+            </FixedExperienceGuards>
           </SettingsProvider>
         </LanguageProvider>
       </ThemeProvider>

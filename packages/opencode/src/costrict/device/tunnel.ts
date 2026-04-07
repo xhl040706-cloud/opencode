@@ -327,50 +327,6 @@ async function readHTTPRequest(stream: YamuxStream): Promise<{ method: string; p
   }
 }
 
-async function serializeResponse(resp: Response): Promise<Buffer> {
-  const statusLine = `HTTP/1.1 ${resp.status} ${resp.statusText || statusText(resp.status)}\r\n`
-  let headerStr = statusLine
-  resp.headers.forEach((v, k) => {
-    if (k.toLowerCase() === "transfer-encoding") return
-    headerStr += `${k}: ${v}\r\n`
-  })
-
-  const bodyBuf = Buffer.from(await resp.arrayBuffer())
-  headerStr += `content-length: ${bodyBuf.length}\r\n\r\n`
-  return Buffer.concat([Buffer.from(headerStr), bodyBuf])
-}
-
-async function serializeStreamingResponse(resp: Response, stream: YamuxStream) {
-  const statusLine = `HTTP/1.1 ${resp.status} ${resp.statusText || statusText(resp.status)}\r\n`
-  let headerStr = statusLine
-  resp.headers.forEach((v, k) => {
-    if (k.toLowerCase() === "transfer-encoding") return
-    if (k.toLowerCase() === "content-length") return
-    headerStr += `${k}: ${v}\r\n`
-  })
-  headerStr += "transfer-encoding: chunked\r\n\r\n"
-  await stream.write(Buffer.from(headerStr))
-
-  if (!resp.body) {
-    await stream.write(Buffer.from("0\r\n\r\n"))
-    return
-  }
-
-  const reader = resp.body.getReader()
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    const chunk = Buffer.from(value)
-    const frame = Buffer.concat([
-      Buffer.from(`${chunk.length.toString(16)}\r\n`),
-      chunk,
-      Buffer.from("\r\n"),
-    ])
-    await stream.write(frame)
-  }
-  await stream.write(Buffer.from("0\r\n\r\n"))
-}
-
 function statusText(code: number): string {
   const map: Record<number, string> = {
     200: "OK", 201: "Created", 204: "No Content",
@@ -432,6 +388,52 @@ async function handleWebSocketStream(stream: YamuxStream, req: { method: string;
   await Promise.race([socketToStream(), streamToSocket()]).catch(() => {})
 }
 
+async function handleHTTPStream(stream: YamuxStream, req: { method: string; path: string; headers: Record<string, string>; body: Buffer }, localPort: number) {
+  const socket = net.createConnection(localPort, "127.0.0.1")
+
+  await new Promise<void>((resolve, reject) => {
+    socket.once("connect", resolve)
+    socket.once("error", reject)
+  })
+
+  let rawReq = `${req.method} ${req.path} HTTP/1.1\r\nHost: 127.0.0.1:${localPort}\r\n`
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (k === "host") continue
+    if (k === "connection") continue
+    if (k === "transfer-encoding") continue
+    if (k === "content-length") continue
+    rawReq += `${k}: ${v}\r\n`
+  }
+  if (req.body.length > 0) {
+    rawReq += `content-length: ${req.body.length}\r\n`
+  }
+  rawReq += "\r\n"
+  socket.write(rawReq)
+  if (req.body.length > 0) {
+    socket.write(req.body)
+  }
+
+  const socketToStream = async () => {
+    for await (const chunk of socket as AsyncIterable<Buffer>) {
+      await stream.write(chunk)
+    }
+    stream.close()
+  }
+
+  const streamToSocket = async () => {
+    while (true) {
+      const chunk = await stream.read()
+      if (!chunk) break
+      socket.write(chunk)
+    }
+    socket.end()
+  }
+
+  socket.on("error", () => stream.close())
+
+  await Promise.race([socketToStream(), streamToSocket()]).catch(() => {})
+}
+
 async function handleStream(stream: YamuxStream, localPort: number) {
   const req = await readHTTPRequest(stream)
   if (!req) {
@@ -445,56 +447,8 @@ async function handleStream(stream: YamuxStream, localPort: number) {
     return
   }
 
-  const url = `http://127.0.0.1:${localPort}${req.path}`
-  const headers: Record<string, string> = {}
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (k === "host") continue
-    if (k === "transfer-encoding") continue
-    if (k === "content-length") continue
-    if (k === "connection") continue
-    if (k === "accept-encoding") continue
-    headers[k] = v
-  }
-  const init: RequestInit = { method: req.method, headers }
-  if (req.body.length > 0) {
-    init.body = new Uint8Array(req.body)
-    headers["content-length"] = String(req.body.length)
-  }
-
-  log.debug("proxy →", { method: req.method, url, body: req.body.length })
-
-  const resp = await fetch(url, init).catch((e) => {
-    log.warn("upstream fetch failed", { error: e.message })
-    return null
-  })
-
-  if (!resp) {
-    log.debug("proxy ←", { method: req.method, path: req.path, status: 502 })
-    await stream.write(Buffer.from("HTTP/1.1 502 Bad Gateway\r\ncontent-length: 0\r\n\r\n"))
-    stream.close()
-    return
-  }
-
-  const isStreaming =
-    resp.headers.get("content-type")?.includes("text/event-stream") ||
-    resp.headers.get("transfer-encoding") === "chunked"
-  const noBody = resp.status === 204 || resp.status === 304 || (resp.status >= 100 && resp.status < 200)
-
-  log.debug("proxy ←", { method: req.method, path: req.path, status: resp.status, streaming: isStreaming })
-
-  if (noBody) {
-    const statusLine = `HTTP/1.1 ${resp.status} ${resp.statusText || statusText(resp.status)}\r\n`
-    let headerStr = statusLine
-    resp.headers.forEach((v, k) => { headerStr += `${k}: ${v}\r\n` })
-    headerStr += "\r\n"
-    await stream.write(Buffer.from(headerStr))
-  } else if (isStreaming) {
-    await serializeStreamingResponse(resp, stream)
-  } else {
-    await stream.write(await serializeResponse(resp))
-  }
-
-  stream.close()
+  log.debug("proxy http →", { method: req.method, path: req.path, body: req.body.length })
+  await handleHTTPStream(stream, req, localPort)
 }
 
 async function runSession(gatewayURL: string, deviceId: string, deviceToken: string, localPort: number): Promise<void> {

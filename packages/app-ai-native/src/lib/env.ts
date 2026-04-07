@@ -56,7 +56,7 @@ export function getEnv(key: string, defaultValue?: string): string | undefined {
 export const env = {
   // Server configuration
   get CLOUD_SERVER_HOST() {
-    return getEnv("VITE_CLOUD_SERVER_HOST", "localhost")
+    return getEnv("VITE_CLOUD_SERVER_HOST", "127.0.0.1")
   },
   get CLOUD_SERVER_PORT() {
     return getEnv("VITE_CLOUD_SERVER_PORT", "18080")
@@ -68,7 +68,7 @@ export const env = {
     return getEnv("VITE_API_PREFIX", "")
   },
   get APP_URL() {
-    return getEnv("VITE_APP_URL", "http://localhost:3000")
+    return getEnv("VITE_APP_URL", "http://127.0.0.1:3000")
   },
   get API_URL() {
     return getEnv("VITE_API_URL", "")
@@ -89,7 +89,7 @@ export const env = {
     return getEnv("VITE_OPENCODE_CLOUD_DEVICE_ID", "")
   },
   get OPENCODE_SERVER_HOST() {
-    return getEnv("VITE_OPENCODE_SERVER_HOST", "localhost")
+    return getEnv("VITE_OPENCODE_SERVER_HOST", "127.0.0.1")
   },
   get OPENCODE_SERVER_PORT() {
     return getEnv("VITE_OPENCODE_SERVER_PORT", "8080")

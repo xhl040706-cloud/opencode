@@ -38,9 +38,17 @@ async function saveDevice(info: DeviceInfo): Promise<void> {
 const CLOUD_API_PREFIX = "cloud-api"
 
 export function getCloudBaseUrl(credBaseUrl?: string): string {
-  if (Flag.COSTRICT_CLOUD_BASE_URL) return Flag.COSTRICT_CLOUD_BASE_URL.replace(/\/$/, "")
-  const base = (credBaseUrl || Flag.COSTRICT_BASE_URL || "https://zgsm.sangfor.com").replace(/\/$/, "")
+  const raw = (Flag.COSTRICT_CLOUD_BASE_URL || credBaseUrl || Flag.COSTRICT_BASE_URL || "https://zgsm.sangfor.com").replace(/\/$/, "")
+  if (raw.endsWith(`/${CLOUD_API_PREFIX}`)) return raw
+  if (Flag.COSTRICT_CLOUD_BASE_URL) return raw
+  const base = raw
   return `${base}/${CLOUD_API_PREFIX}`
+}
+
+export function getCloudApiUrl(path: string, baseUrl?: string) {
+  const base = getCloudBaseUrl(baseUrl)
+  const next = path.startsWith("/") ? path : `/${path}`
+  return `${base}${next}`
 }
 
 export async function register(): Promise<DeviceInfo> {
@@ -63,7 +71,7 @@ export async function register(): Promise<DeviceInfo> {
 
   log.info("registering device", { device_id: deviceId })
 
-  const res = await fetch(`${baseUrl}/api/devices/register`, {
+  const res = await fetch(getCloudApiUrl("/api/devices/register", baseUrl), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -121,7 +129,7 @@ export async function rotateToken(): Promise<string> {
   const device = await loadDevice()
   if (!device) throw new Error("Device not registered. Run `cs device start` first.")
 
-  const res = await fetch(`${device.base_url}/api/devices/${device.device_id}/token/rotate`, {
+  const res = await fetch(getCloudApiUrl(`/api/devices/${device.device_id}/token/rotate`, device.base_url), {
     method: "POST",
     headers: { Authorization: `Bearer ${device.device_token}` },
   })

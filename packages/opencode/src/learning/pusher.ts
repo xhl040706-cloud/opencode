@@ -8,7 +8,7 @@ import { isCoStrictTokenValid, refreshCoStrictToken, extractExpiryFromJWT, parse
 import { saveCoStrictCredentials } from "@/costrict/provider/credentials"
 import { Installation } from "@/installation"
 import { v7 as uuidv7 } from "uuid"
-import { getCloudBaseUrl } from "@/costrict/device/client"
+import { getCloudApiUrl, getCloudBaseUrl } from "@/costrict/device/client"
 
 const log = Log.create({ service: "learning.pusher" })
 const MAX_LOGGED_RESPONSE_BODY = 2000
@@ -235,7 +235,7 @@ export namespace SkillPusher {
       }
 
       // Push to server
-      const requestUrl = `${baseUrl}/api/items`
+      const requestUrl = getCloudApiUrl("/api/items", baseUrl)
       const response = await authFetch(requestUrl, {
         method: "POST",
         body: JSON.stringify(requestBody),
@@ -341,7 +341,7 @@ export namespace SkillPusher {
         visibility: options.visibility || "private",
       }
 
-      const requestUrl = `${baseUrl}/api/items/${candidate.remoteId}`
+      const requestUrl = getCloudApiUrl(`/api/items/${candidate.remoteId}`, baseUrl)
       const response = await authFetch(requestUrl, {
         method: "PUT",
         body: JSON.stringify(requestBody),
