@@ -25,7 +25,7 @@ COPY packages/ui ./packages/ui
 COPY packages/util ./packages/util
 
 # Install all workspace dependencies
-RUN bun install
+RUN bun install --ignore-scripts
 
 # Build arguments for environment variables
 ARG VITE_CLOUD_SERVER_HOST=localhost
