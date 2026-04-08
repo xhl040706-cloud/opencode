@@ -1,5 +1,5 @@
 import { createStore } from "solid-js/store"
-import { createMemo, createSignal, For, Show } from "solid-js"
+import { createMemo, createSignal, For, onCleanup, Show } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import type { TextareaRenderable } from "@opentui/core"
 import { useKeybind } from "../../context/keybind"
@@ -28,6 +28,16 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
     editing: false,
   })
 
+  const [remainingSeconds, setRemainingSeconds] = createSignal(60)
+
+  const countdownTimer = setInterval(() => {
+    setRemainingSeconds(prev => Math.max(0, prev - 1))
+  }, 1000)
+
+  onCleanup(() => {
+    clearInterval(countdownTimer)
+  })
+
   let textarea: TextareaRenderable | undefined
 
   const question = createMemo(() => questions()[store.tab])
@@ -44,6 +54,7 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
   })
 
   function submit() {
+    clearInterval(countdownTimer)
     const answers = questions().map((_, i) => store.answers[i] ?? [])
     sdk.client.question.reply({
       requestID: props.request.id,
@@ -315,7 +326,7 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
           <box paddingLeft={1} gap={1}>
             <box>
               <text fg={theme.text}>
-                {question()?.question}
+                {question()?.question} ({remainingSeconds()}s)
                 {multi() ? " (select all that apply)" : ""}
               </text>
             </box>
