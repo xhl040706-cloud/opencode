@@ -46,7 +46,7 @@ export default function DashboardCapabilities() {
     repos: [] as Repository[],
   })
 
-  const userId = createMemo(() => user()?.sub ?? "")
+  const userId = createMemo(() => user()?.id ?? user()?.subjectId ?? user()?.sub ?? "")
   const username = createMemo(() => user()?.preferred_username || user()?.name || "")
 
   const loadItems = async (page = state.itemPage, type = state.itemTypeFilter) => {
