@@ -37,6 +37,7 @@ import { errorMessage } from "./util/error"
 import { PluginCommand } from "./cli/cmd/plug"
 import { CloudCommand } from "./cli/cmd/cloud"
 import { LearningCommand } from "./cli/cmd/learning"
+import { RawDumpCommand } from "./cli/cmd/raw-dump"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -162,6 +163,7 @@ const cli = yargs(hideBin(process.argv))
   .command(PluginCommand)
   .command(CloudCommand)
   .command(LearningCommand)
+  .command(RawDumpCommand)
   .command(DbCommand)
   .fail((msg, err) => {
     if (

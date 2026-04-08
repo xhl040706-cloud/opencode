@@ -1155,6 +1155,12 @@ export namespace Config {
         })
         .optional()
         .describe("Usage reporting configuration"),
+      raw_dump: z
+        .object({
+          enabled: z.boolean().optional().describe("Enable raw task/conversation/commit dumping to CoStrict statistics"),
+        })
+        .optional()
+        .describe("Raw dump reporting configuration"),
     })
     .strict()
     .meta({
