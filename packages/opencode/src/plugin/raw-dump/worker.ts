@@ -95,6 +95,10 @@ function extractFilesFromDiff(diff: string) {
   return Array.from(files)
 }
 
+function toCommitComment(subject: string) {
+  return Array.from(subject).slice(0, 150).join("")
+}
+
 function extractDiffFromParts(parts: MessageV2.Part[]) {
   const diffs: string[] = []
   const files = new Set<string>()
@@ -243,15 +247,33 @@ function getRawDumpUrl(baseUrl: string, endpoint: string) {
 }
 
 async function postJson(baseUrl: string, headers: Headers, endpoint: string, body: Record<string, unknown>) {
+  log.debug("raw dump request", {
+    endpoint,
+    body,
+  })
+
   const res = await fetch(getRawDumpUrl(baseUrl, endpoint), {
     method: "POST",
     headers,
     body: JSON.stringify(body),
   })
+
   if (!res.ok) {
     const text = await res.text().catch(() => "")
+    log.debug("raw dump response", {
+      endpoint,
+      status: res.status,
+      ok: res.ok,
+      body: text,
+    })
     throw new Error(`${endpoint} failed: ${res.status} ${text}`)
   }
+
+  log.debug("raw dump response", {
+    endpoint,
+    status: res.status,
+    ok: res.ok,
+  })
 }
 
 async function gitText(args: string[], cwd: string) {
@@ -409,6 +431,7 @@ async function uploadCommits(payload: {
       diff_lines: countDiffLines(diff),
       diff,
       files: extractFilesFromDiff(diff),
+      comment: toCommitComment(commit.subject),
       subject: commit.subject,
     }
     await postJson(payload.authData.baseUrl, payload.authData.headers, "/raw-store/commit", body)
