@@ -25,7 +25,7 @@ export default function DashboardRepositories() {
     syncStatuses: {} as Record<string, SyncStatus | undefined>,
   })
 
-  const userId = createMemo(() => user()?.sub ?? "")
+  const userId = createMemo(() => user()?.id ?? user()?.subjectId ?? user()?.sub ?? "")
 
   const loadRepos = async () => {
     if (!userId()) return

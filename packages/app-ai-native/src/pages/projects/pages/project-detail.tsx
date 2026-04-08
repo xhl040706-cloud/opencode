@@ -76,7 +76,7 @@ export default function ProjectDetail() {
     }
   })
 
-  const currentUserId = createMemo(() => auth.user()?.sub || "")
+  const currentUserId = createMemo(() => auth.user()?.id || auth.user()?.subjectId || auth.user()?.sub || "")
   const userInfo = (userId: string) => project()?.users[userId]
   const userName = (userId: string) => userInfo(userId)?.name ?? userId
   const userAvatar = (userId: string) => userInfo(userId)?.avatarUrl

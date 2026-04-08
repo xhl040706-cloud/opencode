@@ -48,6 +48,7 @@ export async function push(items: Report[]) {
         session_id: item.session_id,
         request_id: item.request_id,
         message_id: item.message_id,
+        request_time: item.request_time,
         date: item.date,
         updated: item.updated,
         model_id: item.model_id,

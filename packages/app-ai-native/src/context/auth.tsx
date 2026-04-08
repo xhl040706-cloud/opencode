@@ -6,6 +6,33 @@ import { createStore } from "solid-js/store"
 import { onMount } from "solid-js"
 import type { CasdoorUser } from "@/pages/store/lib/auth"
 
+function normalizeAuthUser(raw: any): CasdoorUser | null {
+  if (!raw || typeof raw !== "object") return null
+
+  const id = raw.id ?? raw.subjectId ?? raw.sub
+  if (!id) return null
+
+  const username = raw.username ?? raw.preferred_username
+  const displayName = raw.name ?? raw.preferred_username ?? raw.username
+  const avatarUrl = raw.avatarUrl ?? raw.picture
+
+  return {
+    id,
+    subjectId: raw.subjectId ?? id,
+    username,
+    avatarUrl,
+    casdoorUniversalId: raw.casdoorUniversalId,
+
+    // backward-compatible aliases
+    sub: raw.sub ?? raw.subjectId ?? raw.id,
+    name: displayName,
+    preferred_username: raw.preferred_username ?? username ?? displayName,
+    email: raw.email,
+    picture: avatarUrl,
+    owner: raw.owner,
+  }
+}
+
 interface AuthState {
   user: CasdoorUser | null
   loading: boolean
@@ -29,7 +56,12 @@ export function AuthProvider(props: ParentProps) {
   async function fetchUser() {
     try {
       const res = await fetch(`${PREFIX}/api/auth/me`, { credentials: "include" })
-      setState("user", res.ok ? ((await res.json()).user ?? null) : null)
+	    if (!res.ok) {
+	      setState("user", null)
+	      return
+	    }
+	    const payload = await res.json()
+	    setState("user", normalizeAuthUser(payload?.user))
     } catch {
       setState("user", null)
     }

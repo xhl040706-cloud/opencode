@@ -1,7 +1,15 @@
 import { env } from "@/lib/env"
 
 export interface CasdoorUser {
-  sub: string
+  // Current backend-aligned fields
+  id: string
+  subjectId?: string
+  username?: string
+  avatarUrl?: string
+  casdoorUniversalId?: string
+
+  // Backward-compatible aliases still used by existing UI code
+  sub?: string
   name?: string
   preferred_username?: string
   email?: string

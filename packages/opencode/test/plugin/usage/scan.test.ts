@@ -112,6 +112,7 @@ describe("plugin.usage.scan", () => {
 
     const list = await read()
     expect(list.map((x) => x.message_id)).toEqual(["ok-1", "ok-2"])
+    expect(list.map((x) => x.request_time)).toEqual(list.map((x) => x.date))
   })
 
   test("historical scan does not duplicate records across repeated runs", async () => {
@@ -158,5 +159,6 @@ describe("plugin.usage.scan", () => {
 
     const list = await read()
     expect(list.map((x) => x.message_id)).toEqual(["existing", "new"])
+    expect(list.map((x) => x.request_time)).toEqual([undefined, list[1].date])
   })
 })

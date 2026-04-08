@@ -15,6 +15,7 @@ function build(msg: MessageV2.WithParts, url: string): Report | undefined {
     session_id: msg.info.sessionID,
     request_id: msg.info.requestID ?? "",
     message_id: msg.info.id,
+    request_time: day(msg.info.time.created),
     date: day(msg.info.time.created),
     updated: day(msg.info.time.completed),
     model_id: msg.info.modelID,
