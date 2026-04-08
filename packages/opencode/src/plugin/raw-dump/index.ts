@@ -10,7 +10,7 @@ async function enabled() {
   return cfg.raw_dump?.enabled !== false
 }
 
-export async function RawDumpPlugin(_input: PluginInput): Promise<Hooks> {
+export async function RawDumpPlugin(input: PluginInput): Promise<Hooks> {
   if (!(await enabled())) return {}
 
   return {
@@ -25,6 +25,7 @@ export async function RawDumpPlugin(_input: PluginInput): Promise<Hooks> {
       spawnRawDumpWorker({
         sessionID: info.sessionID,
         messageID: info.id,
+        directory: input.directory,
       })
     },
   }

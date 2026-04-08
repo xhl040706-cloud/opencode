@@ -6,6 +6,7 @@ const RAW_DUMP_EVENT_ENV_KEY = "__RAW_DUMP_EVENT__"
 export interface RawDumpEventPayload {
   sessionID: string
   messageID: string
+  directory: string
 }
 
 export function getRawDumpEventEnvKey() {

@@ -9,6 +9,7 @@ import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
 import { SessionID } from "@/session/schema"
 import { SessionSummary } from "@/session/summary"
+import { Instance } from "@/project/instance"
 import { git } from "@/util/git"
 import { getRawDumpEventEnvKey, type RawDumpEventPayload } from "./spawn"
 
@@ -311,7 +312,14 @@ async function uploadConversation(payload: {
   const assistantInfo = payload.assistant.info
   const requestID = assistantInfo.requestID || assistantInfo.id
   const key = buildConversationKey(payload.session.id, requestID)
-  if (payload.state.conversation[key]) return
+  if (payload.state.conversation[key]) {
+    log.info("raw dump conversation skipped", {
+      task_id: payload.session.id,
+      request_id: requestID,
+      reason: "already_uploaded",
+    })
+    return false
+  }
 
   const request = extractRequestMetrics(payload.user, payload.assistant)
   const body = {
@@ -340,6 +348,11 @@ async function uploadConversation(payload: {
 
   await postJson(payload.authData.baseUrl, payload.authData.headers, "/raw-store/task-conversation", body)
   payload.state.conversation[key] = true
+  log.info("raw dump conversation uploaded", {
+    task_id: payload.session.id,
+    request_id: requestID,
+  })
+  return true
 }
 
 async function uploadSummary(payload: {
@@ -377,6 +390,9 @@ async function uploadSummary(payload: {
   }
 
   await postJson(payload.authData.baseUrl, payload.authData.headers, "/raw-store/task-summary", body)
+  log.info("raw dump summary uploaded", {
+    task_id: payload.session.id,
+  })
 }
 
 function parseCommitLog(output: string) {
@@ -403,7 +419,13 @@ async function uploadCommits(payload: {
   state: RawDumpState
 }) {
   const repoInfo = await getRepoInfo(payload.workDir)
-  if (!repoInfo.repo_addr || !repoInfo.repo_branch) return
+  if (!repoInfo.repo_addr || !repoInfo.repo_branch) {
+    log.info("raw dump commit skipped", {
+      work_dir: payload.workDir,
+      reason: "missing_repo_info",
+    })
+    return 0
+  }
 
   const stateKey = `${repoInfo.repo_addr}#${repoInfo.repo_branch}#${payload.workDir}`
   const lastCommit = payload.state.commits[stateKey]
@@ -412,7 +434,13 @@ async function uploadCommits(payload: {
     : ["log", "--since=30 days ago", "--format=%H|%aI|%an|%ae|%s"]
   const logText = await gitText(args, payload.workDir)
   const commits = parseCommitLog(logText)
-  if (!commits.length) return
+  if (!commits.length) {
+    log.info("raw dump commit skipped", {
+      work_dir: payload.workDir,
+      reason: "no_new_commits",
+    })
+    return 0
+  }
 
   for (const commit of commits) {
     const diff = await gitText(["show", "--format=", "--diff-filter=ACDMR", commit.commit_id], payload.workDir)
@@ -435,9 +463,15 @@ async function uploadCommits(payload: {
       subject: commit.subject,
     }
     await postJson(payload.authData.baseUrl, payload.authData.headers, "/raw-store/commit", body)
+    log.info("raw dump commit uploaded", {
+      commit_id: commit.commit_id,
+      repo_addr: repoInfo.repo_addr,
+      repo_branch: repoInfo.repo_branch,
+    })
   }
 
   payload.state.commits[stateKey] = commits[0]!.commit_id
+  return commits.length
 }
 
 function parseWorkerPayload(): RawDumpEventPayload {
@@ -447,29 +481,63 @@ function parseWorkerPayload(): RawDumpEventPayload {
 }
 
 export async function runRawDumpWorker() {
-  Log.useStderr()
-
   try {
     const payload = parseWorkerPayload()
-    const authData = await auth()
-    const session = await Session.get(SessionID.make(payload.sessionID))
-    const messages = await Session.messages({ sessionID: SessionID.make(payload.sessionID) })
-    const assistant = messages.find(
-      (item): item is MessageV2.WithParts & { info: MessageV2.Assistant } =>
-        item.info.id === payload.messageID && item.info.role === "assistant",
-    )
-    if (!assistant || assistant.info.role !== "assistant") return
-    const user = messages.find(
-      (item): item is MessageV2.WithParts & { info: MessageV2.User } =>
-        item.info.id === assistant.info.parentID && item.info.role === "user",
-    )
-    if (!user || user.info.role !== "user") return
+    log.info("raw dump worker started", {
+      session_id: payload.sessionID,
+      message_id: payload.messageID,
+      directory: payload.directory,
+    })
 
-    const state = await readState()
-    await uploadConversation({ session, user, assistant, authData, state })
-    await uploadSummary({ session, messages, authData })
-    await uploadCommits({ workDir: session.directory, authData, state })
-    await writeState(state)
+    await Instance.provide({
+      directory: payload.directory,
+      fn: async () => {
+        const authData = await auth()
+        const session = await Session.get(SessionID.make(payload.sessionID))
+        const messages = await Session.messages({ sessionID: SessionID.make(payload.sessionID) })
+        log.info("raw dump session loaded", {
+          session_id: session.id,
+          message_count: messages.length,
+          directory: session.directory,
+        })
+        const assistant = messages.find(
+          (item): item is MessageV2.WithParts & { info: MessageV2.Assistant } =>
+            item.info.id === payload.messageID && item.info.role === "assistant",
+        )
+        if (!assistant || assistant.info.role !== "assistant") {
+          log.info("raw dump worker skipped", {
+            session_id: payload.sessionID,
+            message_id: payload.messageID,
+            reason: "assistant_message_not_found",
+          })
+          return
+        }
+        const user = messages.find(
+          (item): item is MessageV2.WithParts & { info: MessageV2.User } =>
+            item.info.id === assistant.info.parentID && item.info.role === "user",
+        )
+        if (!user || user.info.role !== "user") {
+          log.info("raw dump worker skipped", {
+            session_id: payload.sessionID,
+            message_id: payload.messageID,
+            reason: "parent_user_message_not_found",
+          })
+          return
+        }
+
+        const state = await readState()
+        const conversationUploaded = await uploadConversation({ session, user, assistant, authData, state })
+        await uploadSummary({ session, messages, authData })
+        const commitCount = await uploadCommits({ workDir: session.directory, authData, state })
+        await writeState(state)
+        log.info("raw dump worker completed", {
+          session_id: session.id,
+          message_id: payload.messageID,
+          conversation_uploaded: conversationUploaded,
+          commits_uploaded: commitCount,
+        })
+      },
+    })
   } catch (error) {
     log.warn("raw dump worker failed", {
       error: error instanceof Error ? error.message : String(error),
