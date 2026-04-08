@@ -23,7 +23,7 @@ type Msg = {
 }
 
 const sessions = mock(() => [] as Array<{ id: string; directory: string }>)
-const stream = mock((_id: string) => [] as AsyncIterable<Msg>)
+const stream = mock((_id: string) => iter<Msg>([]))
 const repo = mock(async (_dir: string) => "https://example.com/repo.git")
 
 mock.module("@/session", () => ({

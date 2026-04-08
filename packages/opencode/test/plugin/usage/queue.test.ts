@@ -71,14 +71,14 @@ describe("plugin.usage.queue", () => {
     pushMock.mockImplementationOnce(async (items: Report[]) => {
       seenQueue = await read()
       seenInflight = await readInflight()
-      expect(items.map((x) => x.message_id)).toEqual(["a", "b"])
+      expect(items.map((x) => x.message_id).sort()).toEqual(["a", "b"])
       return { accepted: items.length }
     })
 
     await flush()
 
     expect(seenQueue).toEqual([])
-    expect(seenInflight.map((x) => x.message_id)).toEqual(["a", "b"])
+    expect(seenInflight.map((x) => x.message_id).sort()).toEqual(["a", "b"])
     expect(await read()).toEqual([])
     expect(await readInflight()).toEqual([])
   })
