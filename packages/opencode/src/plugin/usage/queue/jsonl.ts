@@ -14,6 +14,7 @@ export type Report = {
   session_id: string
   request_id: string
   message_id: string
+  request_time?: string
   date: string
   updated: string
   model_id: string

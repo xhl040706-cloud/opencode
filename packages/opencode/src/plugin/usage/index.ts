@@ -40,10 +40,16 @@ async function ingest(msg: MessageV2.WithParts, dir: string) {
   if (!msg.info.time.completed) return
   const url = await repo(dir)
   if (!url) return
+  const parent = await MessageV2.get({
+    sessionID: SessionID.make(msg.info.sessionID),
+    messageID: MessageID.make(msg.info.parentID),
+  }).catch(() => undefined)
+  const request = parent?.info.role === "user" ? formatRFC3339WithOffset(parent.info.time.created) : formatRFC3339WithOffset(msg.info.time.created)
   const ok = await enqueue({
     session_id: msg.info.sessionID,
     request_id: msg.info.requestID ?? "",
     message_id: msg.info.id,
+    request_time: request,
     date: formatRFC3339WithOffset(msg.info.time.created),
     updated: formatRFC3339WithOffset(msg.info.time.completed),
     model_id: msg.info.modelID,
