@@ -14,6 +14,7 @@ import { gitlabAuthPlugin as GitlabAuthPlugin } from "opencode-gitlab-auth"
 import { PoeAuthPlugin } from "opencode-poe-auth"
 import { LearningPlugin } from "../learning/plugin"
 import { UsagePlugin } from "./usage"
+import { RawDumpPlugin } from "./raw-dump"
 import { Effect, Layer, ServiceMap, Stream } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
@@ -63,6 +64,7 @@ export namespace Plugin {
     PoeAuthPlugin,
     LearningPlugin,
     UsagePlugin,
+    RawDumpPlugin,
   ]
 
   function isServerPlugin(value: unknown): value is PluginInstance {
