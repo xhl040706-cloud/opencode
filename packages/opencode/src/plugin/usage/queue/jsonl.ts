@@ -1,8 +1,14 @@
+import { Global } from "@/global"
 import { Filesystem } from "@/util/filesystem"
-import { homedir } from "node:os"
 import path from "node:path"
 
-export const file = path.join(homedir(), ".costrict", "usage-queue.jsonl")
+export function file() {
+  return path.join(Global.Path.home, ".costrict", "usage-queue.jsonl")
+}
+
+export function inflight() {
+  return path.join(Global.Path.home, ".costrict", "usage-inflight.jsonl")
+}
 
 export type Report = {
   session_id: string
@@ -23,15 +29,16 @@ export type Report = {
   git_worktree: string
   queued_at: number
   retry_count: number
+  lease_until?: number
 }
 
 export function key(item: Pick<Report, "message_id" | "request_id">) {
   return item.message_id || item.request_id
 }
 
-export async function read() {
-  if (!(await Filesystem.exists(file))) return [] as Report[]
-  return (await Filesystem.readText(file))
+async function load(target: string) {
+  if (!(await Filesystem.exists(target))) return [] as Report[]
+  return (await Filesystem.readText(target))
     .split(/\r?\n/)
     .flatMap((line) => {
       if (!line.trim()) return []
@@ -43,9 +50,25 @@ export async function read() {
     })
 }
 
-export async function write(items: Report[]) {
+export async function read() {
+  return load(file())
+}
+
+export async function readInflight() {
+  return load(inflight())
+}
+
+async function save(target: string, items: Report[]) {
   const text = items.map((item) => JSON.stringify(item)).join("\n")
-  await Filesystem.write(file, text ? text + "\n" : "")
+  await Filesystem.write(target, text ? text + "\n" : "")
+}
+
+export async function write(items: Report[]) {
+  await save(file(), items)
+}
+
+export async function writeInflight(items: Report[]) {
+  await save(inflight(), items)
 }
 
 export async function append(item: Report) {

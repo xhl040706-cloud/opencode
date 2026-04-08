@@ -1,10 +1,12 @@
 import type { Hooks, PluginInput } from "@opencode-ai/plugin"
 import { Config } from "@/config/config"
+import { Global } from "@/global"
 import { MessageV2 } from "@/session/message-v2"
 import { MessageID, SessionID } from "@/session/schema"
+import { Filesystem } from "@/util/filesystem"
+import path from "node:path"
 import { repo } from "./git/repo"
-import { enqueue, flush, FLUSH_INTERVAL, BATCH_SIZE } from "./queue/flush"
-import { read } from "./queue/jsonl"
+import { enqueue, flush, FLUSH_INTERVAL } from "./queue/flush"
 import { scan } from "./queue/scan"
 
 let timer: Timer | undefined
@@ -27,6 +29,10 @@ function formatRFC3339WithOffset(ms: number) {
 async function enabled() {
   const cfg = await Config.get()
   return cfg.usage?.report !== false
+}
+
+async function ensure() {
+  await Filesystem.write(path.join(Global.Path.home, ".costrict", ".keep"), "")
 }
 
 async function ingest(msg: MessageV2.WithParts, dir: string) {
@@ -54,13 +60,13 @@ async function ingest(msg: MessageV2.WithParts, dir: string) {
     queued_at: Date.now(),
     retry_count: 0,
   })
-  if (!ok) return
-  const list = await read()
-  if (list.length >= BATCH_SIZE) await flush()
+  if (!ok.ok) return
+  if (ok.flush) await flush()
 }
 
 export async function UsagePlugin(input: PluginInput): Promise<Hooks> {
   if (!(await enabled())) return {}
+  await ensure()
   if (timer) clearInterval(timer)
   if (exit) process.off("beforeExit", exit)
   timer = setInterval(() => void flush(), FLUSH_INTERVAL)
