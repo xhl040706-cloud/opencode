@@ -1,4 +1,4 @@
-import { For, Show, createMemo, onCleanup, onMount, type Component } from "solid-js"
+import { For, Show, createMemo, createSignal, onCleanup, onMount, type Component } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useMutation } from "@tanstack/solid-query"
 import { Button } from "@opencode-ai/ui/button"
@@ -56,6 +56,8 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
   const sdk = useSDK()
   const language = useLanguage()
 
+  const [remainingSeconds, setRemainingSeconds] = createSignal(30)
+
   const questions = createMemo(() => props.request.questions)
   const total = createMemo(() => questions().length)
 
@@ -70,6 +72,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
 
   let root: HTMLDivElement | undefined
   let replied = false
+  let countdownTimer: ReturnType<typeof setInterval> | undefined
 
   const question = createMemo(() => questions()[store.tab])
   const options = createMemo(() => question()?.options ?? [])
@@ -148,10 +151,15 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
     if (dock instanceof HTMLElement) observer.observe(dock)
     if (scroller instanceof HTMLElement) observer.observe(scroller)
 
+    countdownTimer = setInterval(() => {
+      setRemainingSeconds((prev) => Math.max(0, prev - 1))
+    }, 1000)
+
     onCleanup(() => {
       window.removeEventListener("resize", update)
       observer.disconnect()
       if (raf !== undefined) cancelAnimationFrame(raf)
+      if (countdownTimer !== undefined) clearInterval(countdownTimer)
     })
   })
 
@@ -182,19 +190,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
     onError: fail,
   }))
 
-  const rejectMutation = useMutation(() => ({
-    mutationFn: () => sdk.client.question.reject({ requestID: props.request.id }),
-    onMutate: () => {
-      props.onSubmit()
-    },
-    onSuccess: () => {
-      replied = true
-      cache.delete(props.request.id)
-    },
-    onError: fail,
-  }))
-
-  const sending = createMemo(() => replyMutation.isPending || rejectMutation.isPending)
+  const sending = createMemo(() => replyMutation.isPending)
 
   const reply = async (answers: QuestionAnswer[]) => {
     if (sending()) return
@@ -203,10 +199,16 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
 
   const reject = async () => {
     if (sending()) return
-    await rejectMutation.mutateAsync()
+    const defaults = questions().map((q) =>
+      q.options.length > 0 ? [q.options[0].label] : []
+    )
+    await replyMutation.mutateAsync(defaults)
   }
 
-  const submit = () => void reply(questions().map((_, i) => store.answers[i] ?? []))
+  const submit = () => {
+    if (countdownTimer !== undefined) clearInterval(countdownTimer)
+    void reply(questions().map((_, i) => store.answers[i] ?? []))
+  }
 
   const answered = (i: number) => {
     if ((store.answers[i]?.length ?? 0) > 0) return true
@@ -332,6 +334,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
       header={
         <>
           <div data-slot="question-header-title">{summary()}</div>
+          <span data-slot="question-countdown">({remainingSeconds()}s)</span>
           <div data-slot="question-progress">
             <For each={questions()}>
               {(_, i) => (
