@@ -179,4 +179,47 @@ describe("costrict.device.client", () => {
     expect(calls.filter((x) => x.includes("/api/devices/register"))).toHaveLength(2)
     expect(calls.some((x) => x.includes("/oidc-auth/api/v1/plugin/login/token"))).toBe(true)
   })
+
+  test("register accepts wrapped refresh token responses", async () => {
+    const calls: string[] = []
+    globalThis.fetch = mock(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+      calls.push(url)
+
+      if (url.includes("/api/devices/register") && calls.filter((x) => x.includes("/api/devices/register")).length === 1) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401 })
+      }
+
+      if (url.includes("/oidc-auth/api/v1/plugin/login/token")) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              access_token: createJWT({ exp: Math.floor(Date.now() / 1000) + 60 * 60 }),
+              refresh_token: createJWT({ exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60 }),
+            },
+          }),
+          { status: 200 },
+        )
+      }
+
+      if (url.includes("/api/devices/register")) {
+        return new Response(
+          JSON.stringify({
+            device: { deviceId: "machine-1" },
+            token: "device-token-1",
+          }),
+          { status: 201 },
+        )
+      }
+
+      return new Response("unexpected", { status: 500 })
+    }) as unknown as typeof fetch
+
+    const { register } = await import("../../../src/costrict/device/client.ts")
+    const device = await register()
+
+    expect(device.device_token).toBe("device-token-1")
+    expect(calls.some((x) => x.includes("/oidc-auth/api/v1/plugin/login/token"))).toBe(true)
+  })
 })

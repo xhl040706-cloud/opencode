@@ -12,8 +12,15 @@ import {
 import { extractExpiryFromJWT } from "./token"
 import { Log } from "../../util/log"
 import { buildOAuthParams } from "./oauth-params"
+import { Flag } from "../../flag/flag"
 
 const log = Log.create({ service: "costrict" })
+
+function insecure() {
+  if (!Flag.COSTRICT_INSECURE_SKIP_TLS_VERIFY) return
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+  log.warn("TLS certificate verification is disabled (COSTRICT_INSECURE_SKIP_TLS_VERIFY=true) - this is insecure!")
+}
 
 /**
  * Token 轮询响应
@@ -94,6 +101,8 @@ export async function pollLoginToken(
   intervalMs: number = 5000,
   abortSignal?: AbortSignal,
 ): Promise<TokenResponse> {
+  insecure()
+
   // 构建查询参数 (保留 machine_code)
   const params = buildOAuthParams(true, machineId, state)
   const queryString = params
@@ -204,6 +213,8 @@ export async function pollLoginToken(
 export async function loginCoStrict(
   openBrowser?: (url: string) => Promise<void>,
 ): Promise<CoStrictCredentials> {
+  insecure()
+
   const baseUrl = getCoStrictBaseURL()
   const state = generateState()
   const machineId = generateMachineId()
