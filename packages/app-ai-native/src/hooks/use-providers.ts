@@ -1,7 +1,10 @@
+import type { ProviderListResponse } from "@opencode-ai/sdk/v2/client"
 import { useGlobalSync } from "@/context/global-sync"
 import { decode64 } from "@/utils/base64"
 import { useParams } from "@solidjs/router"
 import { createMemo } from "solid-js"
+
+const EMPTY: ProviderListResponse = { all: [], connected: [], default: {} }
 
 export const popularProviders = [
   "costrict",
@@ -21,11 +24,10 @@ export function useProviders() {
   const params = useParams()
   const currentDirectory = createMemo(() => decode64(params.dir) ?? "")
   const providers = createMemo(() => {
-    if (currentDirectory()) {
-      const [projectStore] = globalSync.child(currentDirectory())
-      return projectStore.provider
-    }
-    return globalSync.data.provider
+    const dir = currentDirectory()
+    if (!dir) return EMPTY
+    const [projectStore] = globalSync.child(dir)
+    return projectStore.provider
   })
   const connectedIDs = createMemo(() => new Set(providers().connected))
   const connected = createMemo(() => providers().all.filter((p) => connectedIDs().has(p.id)))

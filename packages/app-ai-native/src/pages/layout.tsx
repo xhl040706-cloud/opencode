@@ -903,12 +903,8 @@ export default function Layout(props: ParentProps) {
         keybind: "mod+o",
         onSelect: () => chooseWorkspace(),
       },
-      {
-        id: "provider.connect",
-        title: language.t("command.provider.connect"),
-        category: language.t("command.category.provider"),
-        onSelect: () => connectProvider(),
-      },
+      // Web no longer initiates provider/model authentication directly.
+      // Authentication is expected to be completed on the device side.
       {
         id: "server.switch",
         title: language.t("command.server.switch"),
@@ -1904,7 +1900,7 @@ export default function Layout(props: ParentProps) {
       if (workspace.vcs !== "git") return false
       return layout.sidebar.workspaces(workspace.worktree)()
     })
-    const homedir = createMemo(() => globalSync.data.path.home)
+    const homedir = createMemo(() => globalSync.child(panelProps.project?.worktree ?? "", { bootstrap: false })[0].path.home)
 
     return (
       <div
@@ -2080,28 +2076,8 @@ export default function Layout(props: ParentProps) {
           )}
         </Show>
 
-        <div
-          class="shrink-0 px-2 py-3 border-t border-border-weak-base"
-          classList={{
-            hidden: !(providers.all().length > 0 && providers.paid().length === 0),
-          }}
-        >
-          <div class="rounded-md bg-background-base shadow-xs-border-base">
-            <div class="p-3 flex flex-col gap-2">
-              <div class="text-12-medium text-text-strong">{language.t("sidebar.gettingStarted.title")}</div>
-              <div class="text-text-base">{language.t("sidebar.gettingStarted.line1")}</div>
-              <div class="text-text-base">{language.t("sidebar.gettingStarted.line2")}</div>
-            </div>
-            <Button
-              class="flex w-full text-left justify-start text-12-medium text-text-strong stroke-[1.5px] rounded-md rounded-t-none shadow-none border-t border-border-weak-base px-3"
-              size="large"
-              icon="plus"
-              onClick={connectProvider}
-            >
-              {language.t("command.provider.connect")}
-            </Button>
-          </div>
-        </div>
+        {/* Web no longer exposes provider/model authentication entry points.
+            Authentication is handled on the device side for the current architecture. */}
       </div>
     )
   }
@@ -2223,8 +2199,7 @@ export default function Layout(props: ParentProps) {
 
         <main
           classList={{
-            "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base": true,
-            "xl:border-l xl:rounded-tl-[12px]": !layout.sidebar.opened(),
+            "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t": true
           }}
         >
           <Show when={!autoselecting()} fallback={<div class="size-full" />}>

@@ -3,8 +3,6 @@ import type { OpencodeClient } from "@opencode-ai/sdk/v2/client"
 export function workspaceAdapter(sdk: OpencodeClient) {
   return {
     health: () => sdk.global.health(),
-    globalConfig: () => sdk.global.config.get(),
-    config: () => sdk.config.get(),
     path: () => sdk.path.get(),
     agents: () => sdk.app.agents(),
     sessionGet: (sessionID: string) => sdk.session.get({ sessionID }),

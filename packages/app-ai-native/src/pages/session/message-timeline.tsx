@@ -344,14 +344,10 @@ export function MessageTimeline(props: {
       })
   }
 
-  const navigateAfterSessionRemoval = (sessionID: string, parentID?: string, nextSessionID?: string) => {
+  const navigateAfterSessionRemoval = (sessionID: string, parentID?: string) => {
     if (params.id !== sessionID) return
     if (parentID) {
       navigate(`/workspace/${params.workspaceID}/${params.dir}/session/${parentID}`)
-      return
-    }
-    if (nextSessionID) {
-      navigate(`/workspace/${params.workspaceID}/${params.dir}/session/${nextSessionID}`)
       return
     }
     navigate(`/workspace/${params.workspaceID}/${params.dir}/session`)
@@ -360,10 +356,6 @@ export function MessageTimeline(props: {
   const archiveSession = async (sessionID: string) => {
     const session = sync.session.get(sessionID)
     if (!session) return
-
-    const sessions = sync.data.session ?? []
-    const index = sessions.findIndex((s) => s.id === sessionID)
-    const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
 
     await api()
       .sessionUpdate({ sessionID, time: { archived: Date.now() } })
@@ -374,7 +366,7 @@ export function MessageTimeline(props: {
             if (index !== -1) draft.session.splice(index, 1)
           }),
         )
-        navigateAfterSessionRemoval(sessionID, session.parentID, nextSession?.id)
+        navigateAfterSessionRemoval(sessionID, session.parentID)
       })
       .catch((err) => {
         showToast({
@@ -387,10 +379,6 @@ export function MessageTimeline(props: {
   const deleteSession = async (sessionID: string) => {
     const session = sync.session.get(sessionID)
     if (!session) return false
-
-    const sessions = (sync.data.session ?? []).filter((s) => !s.parentID && !s.time?.archived)
-    const index = sessions.findIndex((s) => s.id === sessionID)
-    const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
 
     const result = await api()
       .sessionDelete(sessionID)
@@ -440,7 +428,7 @@ export function MessageTimeline(props: {
       }),
     )
 
-    navigateAfterSessionRemoval(sessionID, session.parentID, nextSession?.id)
+    navigateAfterSessionRemoval(sessionID, session.parentID)
     return true
   }
 

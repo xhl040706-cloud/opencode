@@ -10,6 +10,7 @@ import { useGlobalSDK } from "@/context/global-sdk"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLayout } from "@/context/layout"
 import { useLanguage } from "@/context/language"
+import { useServer } from "@/context/server"
 
 interface DialogSelectDirectoryProps {
   title?: string
@@ -251,15 +252,23 @@ export function DialogSelectDirectory(props: DialogSelectDirectoryProps) {
   const layout = useLayout()
   const dialog = useDialog()
   const language = useLanguage()
+  const server = useServer()
 
   const [filter, setFilter] = createSignal("")
   let list: ListRef | undefined
+  const base = createMemo(() => server.projects.last() ?? layout.projects.list()[0]?.worktree)
 
-  const missingBase = createMemo(() => !(sync.data.path.home || sync.data.path.directory))
+  const missingBase = createMemo(() => {
+    const directory = base()
+    if (!directory) return true
+    const [store] = sync.child(directory, { bootstrap: false })
+    return !(store.path.home || store.path.directory)
+  })
   const [fallbackPath] = createResource(
-    () => (missingBase() ? true : undefined),
-    async () => {
-      return sdk.client.path
+    () => (missingBase() ? base() : undefined),
+    async (directory) => {
+      if (!directory) return
+      return sdk.createClient({ directory, throwOnError: true }).path
         .get()
         .then((x) => x.data)
         .catch(() => undefined)
@@ -267,10 +276,18 @@ export function DialogSelectDirectory(props: DialogSelectDirectoryProps) {
     { initialValue: undefined },
   )
 
-  const home = createMemo(() => sync.data.path.home || fallbackPath()?.home || "")
-  const start = createMemo(
-    () => sync.data.path.home || sync.data.path.directory || fallbackPath()?.home || fallbackPath()?.directory,
-  )
+  const home = createMemo(() => {
+    const directory = base()
+    if (!directory) return fallbackPath()?.home || ""
+    const [store] = sync.child(directory, { bootstrap: false })
+    return store.path.home || fallbackPath()?.home || ""
+  })
+  const start = createMemo(() => {
+    const directory = base()
+    if (!directory) return fallbackPath()?.directory || fallbackPath()?.home
+    const [store] = sync.child(directory, { bootstrap: false })
+    return store.path.directory || store.path.home || fallbackPath()?.directory || fallbackPath()?.home
+  })
 
   const directories = useDirectorySearch({
     sdk,

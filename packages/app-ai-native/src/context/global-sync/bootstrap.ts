@@ -1,11 +1,7 @@
 import type {
-  Config,
   OpencodeClient,
-  Path,
   PermissionRequest,
   Project,
-  ProviderAuthResponse,
-  ProviderListResponse,
   QuestionRequest,
   Todo,
 } from "@opencode-ai/sdk/v2/client"
@@ -21,14 +17,10 @@ import { workspaceAdapter } from "@/context/workspace-adapter"
 
 type GlobalStore = {
   ready: boolean
-  path: Path
   project: Project[]
   session_todo: {
     [sessionID: string]: Todo[]
   }
-  provider: ProviderListResponse
-  provider_auth: ProviderAuthResponse
-  config: Config
   reload: undefined | "pending" | "complete"
 }
 
@@ -56,44 +48,14 @@ export async function bootstrapGlobal(input: {
     return
   }
 
-  const required = [
-    retry(() =>
-      api.path().then((x) => {
-        input.setGlobalStore("path", x.data!)
-      }),
-    ),
-    retry(() =>
-      api.globalConfig().then((x) => {
-        input.setGlobalStore("config", x.data!)
-      }),
-    ),
-  ]
+  const required = []
 
   const optional = [
-    retry(() =>
-      input.globalSDK.project.list().then((x) => {
-        const projects = (x.data ?? [])
-          .filter((p) => !!p?.id)
-          .filter((p) => !!p.worktree && !p.worktree.includes("opencode-test"))
-          .slice()
-          .sort((a, b) => cmp(a.id, b.id))
-        input.setGlobalStore("project", projects)
-      }),
-    ),
-    retry(() =>
-      input.globalSDK.provider.list().then((x) => {
-        input.setGlobalStore("provider", normalizeProviderList(x.data!))
-      }),
-    ),
-    retry(() =>
-      input.globalSDK.provider.auth().then((x) => {
-        input.setGlobalStore("provider_auth", x.data ?? {})
-      }),
-    ),
+    // Provider auth is intentionally not bootstrapped in web mode anymore.
+    // Model/provider authentication is handled on the device side for now.
   ]
 
-  const requiredResults = await Promise.allSettled(required)
-  const requiredErrors = requiredResults
+  const requiredErrors = (await Promise.allSettled(required))
     .filter((r): r is PromiseRejectedResult => r.status === "rejected")
     .map((r) => r.reason)
   if (requiredErrors.length) {
@@ -143,7 +105,6 @@ export async function bootstrapDirectory(input: {
 
   const required = {
     agent: () => api.agents().then((x) => input.setStore("agent", x.data ?? [])),
-    config: () => api.config().then((x) => input.setStore("config", x.data!)),
   }
 
   try {
@@ -163,18 +124,12 @@ export async function bootstrapDirectory(input: {
   if (input.store.status !== "complete") input.setStore("status", "partial")
 
   const optional = [
-    input.sdk.project.current().then((x) => {
-      const id = x.data?.id
-      if (!id) return
-      input.setStore("project", id)
-    }),
     input.sdk.provider.list().then((x) => {
       const data = x.data
       if (!data) return
       input.setStore("provider", normalizeProviderList(data))
     }),
     api.path().then((x) => input.setStore("path", x.data!)),
-    input.sdk.command.list().then((x) => input.setStore("command", x.data ?? [])),
     api.sessionStatus().then((x) => input.setStore("session_status", x.data!)),
     input.loadSessions(input.directory),
     input.sdk.mcp.status().then((x) => input.setStore("mcp", x.data!)),

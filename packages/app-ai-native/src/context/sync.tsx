@@ -102,6 +102,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     type SessionGetResponse = Awaited<ReturnType<typeof sdk.client.session.get>>
     type SessionDiffResponse = Awaited<ReturnType<typeof sdk.client.session.diff>>
     type SessionTodoResponse = Awaited<ReturnType<typeof sdk.client.session.todo>>
+    type CommandListResponse = Awaited<ReturnType<typeof sdk.client.command.list>>
 
     const current = createMemo(() => globalSync.child(sdk.directory))
     const target = (directory?: string) => {
@@ -113,6 +114,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const inflight = new Map<string, Promise<void>>()
     const inflightDiff = new Map<string, Promise<void>>()
     const inflightTodo = new Map<string, Promise<void>>()
+    const inflightCommand = new Map<string, Promise<void>>()
     const [meta, setMeta] = createStore({
       limit: {} as Record<string, number>,
       complete: {} as Record<string, boolean>,
@@ -381,6 +383,20 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               if (match.found) draft.session.splice(match.index, 1)
             }),
           )
+        },
+      },
+      command: {
+        async load() {
+          const directory = sdk.directory
+          const client = sdk.client
+          const [store, setStore] = globalSync.child(directory)
+          if (store.command.length > 0) return store.command
+          return runInflight(inflightCommand, directory, () =>
+            retry<CommandListResponse>(() => client.command.list()).then((res) => {
+              const list = res.data ?? []
+              setStore("command", reconcile(list, { key: "name" }))
+            }),
+          ).then(() => globalSync.child(directory, { bootstrap: false })[0].command)
         },
       },
       absolute,

@@ -1,12 +1,4 @@
-import type {
-  Config,
-  OpencodeClient,
-  Path,
-  Project,
-  ProviderAuthResponse,
-  ProviderListResponse,
-  Todo,
-} from "@opencode-ai/sdk/v2/client"
+import type { OpencodeClient, Project, Todo } from "@opencode-ai/sdk/v2/client"
 import { showToast } from "@opencode-ai/ui/toast"
 import { getFilename } from "@opencode-ai/util/path"
 import {
@@ -40,14 +32,10 @@ import { workspaceKey } from "@/pages/layout/helpers"
 type GlobalStore = {
   ready: boolean
   error?: InitError
-  path: Path
   project: Project[]
   session_todo: {
     [sessionID: string]: Todo[]
   }
-  provider: ProviderListResponse
-  provider_auth: ProviderAuthResponse
-  config: Config
   reload: undefined | "pending" | "complete"
 }
 
@@ -70,12 +58,8 @@ function createGlobalSync() {
 
   const [globalStore, setGlobalStore] = createStore<GlobalStore>({
     ready: false,
-    path: { state: "", config: "", worktree: "", directory: "", home: "" },
     project: projectCache.value,
     session_todo: {},
-    provider: { all: [], connected: [], default: {} },
-    provider_auth: {},
-    config: {},
     reload: undefined,
   })
 
@@ -429,24 +413,6 @@ function createGlobalSync() {
     },
   }
 
-  const updateConfig = async (config: Config) => {
-    setGlobalStore("reload", "pending")
-    lastBoot = 0
-    booted.clear()
-    return globalSDK.client.global.config
-      .update({ config })
-      .then(bootstrap)
-      .then(() => {
-        queue.refresh()
-        setGlobalStore("reload", undefined)
-        queue.refresh()
-      })
-      .catch((error) => {
-        setGlobalStore("reload", undefined)
-        throw error
-      })
-  }
-
   return {
     data: globalStore,
     set,
@@ -458,7 +424,6 @@ function createGlobalSync() {
     },
     child: children.child,
     bootstrap,
-    updateConfig,
     project: projectApi,
     todo: {
       set: setSessionTodo,

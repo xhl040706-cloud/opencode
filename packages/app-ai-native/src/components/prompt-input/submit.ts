@@ -268,7 +268,8 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     if (text.startsWith("/")) {
       const [cmdName, ...args] = text.split(" ")
       const commandName = cmdName.slice(1)
-      const customCommand = sync.data.command.find((c) => c.name === commandName)
+      const commands = sync.data.command.length > 0 ? sync.data.command : await sync.command.load()
+      const customCommand = commands.find((c) => c.name === commandName)
       if (customCommand) {
         clearInput()
         api

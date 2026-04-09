@@ -100,13 +100,6 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         model: {},
       })
 
-      const resolveConfigured = () => {
-        if (!sync.data.config.model) return
-        const [providerID, modelID] = sync.data.config.model.split("/")
-        const key = { providerID, modelID }
-        if (isModelValid(key)) return key
-      }
-
       const resolveRecent = () => {
         for (const item of models.recent.list()) {
           if (isModelValid(item)) return item
@@ -131,7 +124,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       }
 
       const fallbackModel = createMemo<ModelKey | undefined>(() => {
-        return resolveConfigured() ?? resolveRecent() ?? resolveDefault()
+        return resolveRecent() ?? resolveDefault()
       })
 
       const current = createMemo(() => {

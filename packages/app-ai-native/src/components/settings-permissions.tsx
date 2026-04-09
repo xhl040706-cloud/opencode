@@ -1,8 +1,8 @@
 import { Select } from "@opencode-ai/ui/select"
-import { showToast } from "@opencode-ai/ui/toast"
 import { Component, For, createMemo, type JSX } from "solid-js"
-import { useGlobalSync } from "@/context/global-sync"
+import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
+import { Persist, persisted } from "@/utils/persist"
 
 type PermissionAction = "allow" | "ask" | "deny"
 
@@ -131,8 +131,13 @@ function getRuleDefault(value: unknown): PermissionAction | undefined {
 }
 
 export const SettingsPermissions: Component = () => {
-  const globalSync = useGlobalSync()
   const language = useLanguage()
+  const [store, setStore] = persisted(
+    Persist.global("settings.permission", ["settings.permission.v1"]),
+    createStore<{ permission: PermissionMap }>({
+      permission: {},
+    }),
+  )
 
   const actions = createMemo(
     (): Array<{ value: PermissionAction; label: string }> =>
@@ -143,7 +148,7 @@ export const SettingsPermissions: Component = () => {
   )
 
   const permission = createMemo(() => {
-    return toMap(globalSync.data.config.permission)
+    return store.permission
   })
 
   const actionFor = (id: string): PermissionAction => {
@@ -158,21 +163,13 @@ export const SettingsPermissions: Component = () => {
   }
 
   const setPermission = async (id: string, action: PermissionAction) => {
-    const before = globalSync.data.config.permission
-    const map = toMap(before)
+    const map = toMap(permission())
     const existing = map[id]
 
     const nextValue =
       existing && typeof existing === "object" && !Array.isArray(existing) ? { ...existing, "*": action } : action
 
-    const rollback = (err: unknown) => {
-      globalSync.set("config", "permission", before)
-      const message = err instanceof Error ? err.message : String(err)
-      showToast({ title: language.t("settings.permissions.toast.updateFailed.title"), description: message })
-    }
-
-    globalSync.set("config", "permission", { ...map, [id]: nextValue })
-    globalSync.updateConfig({ permission: { [id]: nextValue } }).catch(rollback)
+    setStore("permission", { ...map, [id]: nextValue })
   }
 
   return (
