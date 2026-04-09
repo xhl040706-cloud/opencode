@@ -71,6 +71,17 @@ const FIXTURES = {
     `data: {"choices":[{"finish_reason":"tool_calls","index":0,"delta":{"content":null,"role":"assistant","tool_calls":[{"function":{"arguments":"{}","name":"read_file"},"id":"call_reasoning_only_2","index":1,"type":"function"}]}}],"created":1769917420,"id":"opaque-only","usage":{"completion_tokens":12,"prompt_tokens":123,"prompt_tokens_details":{"cached_tokens":0},"total_tokens":135,"reasoning_tokens":0},"model":"gemini-3-flash-preview"}`,
     `data: [DONE]`,
   ],
+
+  fragmentedToolArgumentsMissingBrace: [
+    `data: {"id":"gen-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"","role":"assistant"},"finish_reason":null}]}`,
+    `data: {"id":"gen-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"toolu_1","type":"function","function":{"name":"task","arguments":""}}]},"finish_reason":null}]}`,
+    `data: {"id":"gen-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"type":"function","function":{"arguments":"{\\"descripti"}}]},"finish_reason":null}]}`,
+    `data: {"id":"gen-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"type":"function","function":{"arguments":"on\\": \\"Implem"}}]},"finish_reason":null}]}`,
+    `data: {"id":"gen-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"type":"function","function":{"arguments":"ent fibo"}}]},"finish_reason":null}]}`,
+    `data: {"id":"gen-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"type":"function","function":{"arguments":"nacci DP"}}]},"finish_reason":null}]}`,
+    `data: {"id":"gen-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"type":"function","function":{"arguments":"\\""}}]},"finish_reason":null}]}`,
+    `data: [DONE]`,
+  ],
 }
 
 function createMockFetch(chunks: string[]) {
@@ -480,6 +491,25 @@ describe("doStream", () => {
         },
       },
     })
+  })
+
+  test("should emit error and skip unfinished tool call with invalid JSON arguments", async () => {
+    const mockFetch = createMockFetch(FIXTURES.fragmentedToolArgumentsMissingBrace)
+    const model = createModel(mockFetch)
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: false,
+    })
+
+    const parts = await convertReadableStreamToArray(stream)
+
+    const err = parts.find((p) => p.type === "error")
+    expect(err).toBeDefined()
+    expect(String((err as { error: unknown }).error)).toContain("incomplete JSON")
+
+    const call = parts.find((p) => p.type === "tool-call" && p.toolCallId === "toolu_1")
+    expect(call).toBeUndefined()
   })
 
   test("should include response metadata from first chunk", async () => {
