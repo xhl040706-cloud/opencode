@@ -1,4 +1,4 @@
-import { Show, createMemo } from "solid-js"
+import { Show, createMemo, onMount } from "solid-js"
 import { DateTime } from "luxon"
 import { useSync } from "@/context/sync"
 import { useLanguage } from "@/context/language"
@@ -31,6 +31,11 @@ export function NewSessionView(props: NewSessionViewProps) {
     const workspace = sync.project
     if (!workspace) return false
     return sync.data.path.directory !== workspace.worktree
+  })
+
+  onMount(() => {
+    if (sync.data.vcs !== undefined) return
+    void sync.vcs.load()
   })
 
   const label = (value: string) => {

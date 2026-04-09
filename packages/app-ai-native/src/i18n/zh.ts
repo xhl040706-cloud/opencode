@@ -1245,9 +1245,6 @@ export const dict = {
   "workspace.emptySessions": "暂无会话，点击上方按钮新建",
   "workspace.session.new": "新会话",
 
-  "workspace.history.title": "会话历史",
-  "workspace.history.empty": "暂无会话历史",
-  "workspace.history.createSession": "新建会话",
 
   "workspace.device.list": "设备列表",
   "workspace.device.search": "搜索设备...",

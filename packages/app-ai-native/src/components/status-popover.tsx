@@ -160,6 +160,20 @@ const useMcpToggle = (input: {
   return { loading, toggle }
 }
 
+const useStatusLoad = (input: { sync: ReturnType<typeof useSync>; sdk: ReturnType<typeof useSDK> }) => {
+  const [loaded, setLoaded] = createSignal(false)
+
+  const load = async () => {
+    if (loaded()) return
+    setLoaded(true)
+    const [mcp, lsp] = await Promise.allSettled([input.sdk.client.mcp.status(), input.sdk.client.lsp.status()])
+    if (mcp.status === "fulfilled" && mcp.value.data) input.sync.set("mcp", mcp.value.data)
+    if (lsp.status === "fulfilled") input.sync.set("lsp", lsp.value.data ?? [])
+  }
+
+  return { load }
+}
+
 export function StatusPopover() {
   const sync = useSync()
   const sdk = useSDK()
@@ -181,6 +195,7 @@ export function StatusPopover() {
   const health = {} as Record<ServerConnection.Key, ServerHealth | undefined>
   const sortedServers = createMemo(() => listServersByHealth(servers(), server.key, health))
   const mcp = useMcpToggle({ sync, sdk, language })
+  const status = useStatusLoad({ sync, sdk })
   const defaultServer = useDefaultServerKey(platform.getDefaultServerUrl)
   const mcpNames = createMemo(() => Object.keys(sync.data.mcp ?? {}).sort((a, b) => a.localeCompare(b)))
   const mcpStatus = (name: string) => sync.data.mcp?.[name]?.status
@@ -224,6 +239,10 @@ export function StatusPopover() {
       gutter={4}
       placement="bottom-end"
       shift={-168}
+      onOpenChange={(open) => {
+        if (!open) return
+        void status.load()
+      }}
     >
       <div class="flex items-center gap-1 w-[360px] rounded-xl shadow-[var(--shadow-lg-border-base)]">
         <Tabs

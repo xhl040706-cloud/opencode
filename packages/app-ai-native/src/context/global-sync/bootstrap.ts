@@ -130,15 +130,6 @@ export async function bootstrapDirectory(input: {
       input.setStore("provider", normalizeProviderList(data))
     }),
     api.path().then((x) => input.setStore("path", x.data!)),
-    api.sessionStatus().then((x) => input.setStore("session_status", x.data!)),
-    input.loadSessions(input.directory),
-    input.sdk.mcp.status().then((x) => input.setStore("mcp", x.data!)),
-    input.sdk.lsp.status().then((x) => input.setStore("lsp", x.data!)),
-    input.sdk.vcs.get().then((x) => {
-      const next = x.data ?? input.store.vcs
-      input.setStore("vcs", next)
-      if (next?.branch) input.vcsCache.setStore("value", next)
-    }),
     api.permissions().then((x) => {
       const grouped = groupBySession(
         (x.data ?? []).filter((perm): perm is PermissionRequest => !!perm?.id && !!perm.sessionID),

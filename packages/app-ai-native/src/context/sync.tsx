@@ -103,6 +103,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     type SessionDiffResponse = Awaited<ReturnType<typeof sdk.client.session.diff>>
     type SessionTodoResponse = Awaited<ReturnType<typeof sdk.client.session.todo>>
     type CommandListResponse = Awaited<ReturnType<typeof sdk.client.command.list>>
+    type VcsResponse = Awaited<ReturnType<typeof sdk.client.vcs.get>>
 
     const current = createMemo(() => globalSync.child(sdk.directory))
     const target = (directory?: string) => {
@@ -115,6 +116,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const inflightDiff = new Map<string, Promise<void>>()
     const inflightTodo = new Map<string, Promise<void>>()
     const inflightCommand = new Map<string, Promise<void>>()
+    const inflightVcs = new Map<string, Promise<void>>()
     const [meta, setMeta] = createStore({
       limit: {} as Record<string, number>,
       complete: {} as Record<string, boolean>,
@@ -397,6 +399,20 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               setStore("command", reconcile(list, { key: "name" }))
             }),
           ).then(() => globalSync.child(directory, { bootstrap: false })[0].command)
+        },
+      },
+      vcs: {
+        async load() {
+          const directory = sdk.directory
+          const client = sdk.client
+          const [store, setStore] = globalSync.child(directory)
+          if (store.vcs !== undefined) return store.vcs
+          return runInflight(inflightVcs, directory, () =>
+            retry<VcsResponse>(() => client.vcs.get()).then((res) => {
+              const next = res.data
+              setStore("vcs", next)
+            }),
+          ).then(() => globalSync.child(directory, { bootstrap: false })[0].vcs)
         },
       },
       absolute,

@@ -1472,9 +1472,6 @@ export const dict = {
   "workspace.emptySessions": "No sessions yet, click above to create one",
   "workspace.session.new": "New session",
 
-  "workspace.history.title": "Session History",
-  "workspace.history.empty": "No session history",
-  "workspace.history.createSession": "New Session",
 
   "workspace.device.list": "Device List",
   "workspace.device.search": "Search devices...",
