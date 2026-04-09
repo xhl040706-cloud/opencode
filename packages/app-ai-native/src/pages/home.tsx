@@ -23,7 +23,7 @@ export default function Home() {
   const { navigateToNewSession, encodeDirectory } = useWorkspaceNavigate()
   const server = useServer()
   const language = useLanguage()
-  const homedir = createMemo(() => sync.data.path.home)
+  const home = (directory: string) => sync.child(directory, { bootstrap: false })[0].path.home
   const recent = createMemo(() => {
     return sync.data.project
       .slice()
@@ -115,7 +115,7 @@ export default function Home() {
                     class="text-14-mono text-left justify-between px-3"
                     onClick={() => openProject(project.worktree)}
                   >
-                    {project.worktree.replace(homedir(), "~")}
+                    {project.worktree.replace(home(project.worktree), "~")}
                     <div class="text-14-regular text-text-weak">
                       {DateTime.fromMillis(project.time.updated ?? project.time.created).toRelative()}
                     </div>

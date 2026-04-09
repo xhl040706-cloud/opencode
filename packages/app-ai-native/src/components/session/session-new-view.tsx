@@ -1,7 +1,6 @@
-import { Show, createMemo } from "solid-js"
+import { Show, createMemo, onMount } from "solid-js"
 import { DateTime } from "luxon"
 import { useSync } from "@/context/sync"
-import { useSDK } from "@/context/sdk"
 import { useLanguage } from "@/context/language"
 import { Icon } from "@opencode-ai/ui/icon"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
@@ -18,7 +17,6 @@ interface NewSessionViewProps {
 
 export function NewSessionView(props: NewSessionViewProps) {
   const sync = useSync()
-  const sdk = useSDK()
   const language = useLanguage()
 
   const sandboxes = createMemo(() => sync.project?.sandboxes ?? [])
@@ -28,11 +26,16 @@ export function NewSessionView(props: NewSessionViewProps) {
     if (options().includes(selection)) return selection
     return MAIN_WORKTREE
   })
-  const projectRoot = createMemo(() => sync.project?.worktree ?? sdk.directory)
+  const workspaceRoot = createMemo(() => sync.project?.worktree ?? sync.data.path.directory)
   const isWorktree = createMemo(() => {
-    const project = sync.project
-    if (!project) return false
-    return sdk.directory !== project.worktree
+    const workspace = sync.project
+    if (!workspace) return false
+    return sync.data.path.directory !== workspace.worktree
+  })
+
+  onMount(() => {
+    if (sync.data.vcs !== undefined) return
+    void sync.vcs.load()
   })
 
   const label = (value: string) => {
@@ -54,8 +57,8 @@ export function NewSessionView(props: NewSessionViewProps) {
       <div class="flex justify-center items-start gap-3 min-h-5">
         <Icon name="folder" size="small" class="mt-0.5 shrink-0" />
         <div class="text-12-medium text-text-weak select-text leading-5">
-          {getDirectory(projectRoot())}
-          <span class="text-text-strong">{getFilename(projectRoot())}</span>
+          {getDirectory(workspaceRoot())}
+          <span class="text-text-strong">{getFilename(workspaceRoot())}</span>
         </div>
       </div>
       <div class="flex justify-center items-start gap-3 min-h-5">

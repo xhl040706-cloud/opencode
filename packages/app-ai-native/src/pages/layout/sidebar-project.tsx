@@ -41,12 +41,12 @@ export const ProjectDragOverlay = (props: {
   projects: Accessor<LocalProject[]>
   activeProject: Accessor<string | undefined>
 }): JSX.Element => {
-  const project = createMemo(() => props.projects().find((p) => p.worktree === props.activeProject()))
+  const workspace = createMemo(() => props.projects().find((p) => p.worktree === props.activeProject()))
   return (
-    <Show when={project()}>
-      {(p) => (
+    <Show when={workspace()}>
+      {(w) => (
         <div class="bg-background-base rounded-xl p-1">
-          <ProjectIcon project={p()} />
+          <ProjectIcon project={w()} />
         </div>
       )}
     </Show>
@@ -78,6 +78,8 @@ const ProjectTile = (props: {
 }): JSX.Element => {
   const notification = useNotification()
   const layout = useLayout()
+  const workspace = createMemo(() => props.project)
+
   const unseenCount = createMemo(() =>
     props.dirs().reduce((total, directory) => total + notification.project.unseenCount(directory), 0),
   )
@@ -99,9 +101,9 @@ const ProjectTile = (props: {
       <ContextMenu.Trigger
         as="button"
         type="button"
-        aria-label={displayName(props.project)}
+        aria-label={displayName(workspace())}
         data-action="project-switch"
-        data-project={base64Encode(props.project.worktree)}
+        data-project={base64Encode(workspace().worktree)}
         classList={{
           "flex items-center justify-center size-10 p-1 rounded-lg overflow-hidden transition-colors cursor-default border border-transparent": true,
           "bg-surface-base-active hover:bg-surface-base-active": props.selected(),
@@ -112,17 +114,17 @@ const ProjectTile = (props: {
         onMouseEnter={(event: MouseEvent) => {
           if (!props.overlay()) return
           if (props.suppressHover()) return
-          props.onProjectMouseEnter(props.project.worktree, event)
+          props.onProjectMouseEnter(workspace().worktree, event)
         }}
         onMouseLeave={() => {
           if (props.suppressHover()) props.setSuppressHover(false)
           if (!props.overlay()) return
-          props.onProjectMouseLeave(props.project.worktree)
+          props.onProjectMouseLeave(workspace().worktree)
         }}
         onFocus={() => {
           if (!props.overlay()) return
           if (props.suppressHover()) return
-          props.onProjectFocus(props.project.worktree)
+          props.onProjectFocus(workspace().worktree)
         }}
         onClick={() => {
           if (props.selected()) {
@@ -131,32 +133,32 @@ const ProjectTile = (props: {
             return
           }
           props.setSuppressHover(false)
-          props.navigateToProject(props.project.worktree)
+          props.navigateToProject(workspace().worktree)
         }}
         onBlur={() => props.setOpen(false)}
       >
-        <ProjectIcon project={props.project} notify />
+        <ProjectIcon project={workspace()} notify />
       </ContextMenu.Trigger>
       <ContextMenu.Portal mount={!props.mobile ? props.nav() : undefined}>
         <ContextMenu.Content>
-          <ContextMenu.Item onSelect={() => props.showEditProjectDialog(props.project)}>
+          <ContextMenu.Item onSelect={() => props.showEditProjectDialog(workspace())}>
             <ContextMenu.ItemLabel>{props.language.t("common.edit")}</ContextMenu.ItemLabel>
           </ContextMenu.Item>
           <ContextMenu.Item
             data-action="project-workspaces-toggle"
-            data-project={base64Encode(props.project.worktree)}
-            disabled={props.project.vcs !== "git" && !props.workspacesEnabled(props.project)}
-            onSelect={() => props.toggleProjectWorkspaces(props.project)}
+            data-project={base64Encode(workspace().worktree)}
+            disabled={workspace().vcs !== "git" && !props.workspacesEnabled(workspace())}
+            onSelect={() => props.toggleProjectWorkspaces(workspace())}
           >
             <ContextMenu.ItemLabel>
-              {props.workspacesEnabled(props.project)
+              {props.workspacesEnabled(workspace())
                 ? props.language.t("sidebar.workspaces.disable")
                 : props.language.t("sidebar.workspaces.enable")}
             </ContextMenu.ItemLabel>
           </ContextMenu.Item>
           <ContextMenu.Item
             data-action="project-clear-notifications"
-            data-project={base64Encode(props.project.worktree)}
+            data-project={base64Encode(workspace().worktree)}
             disabled={unseenCount() === 0}
             onSelect={clear}
           >
@@ -165,8 +167,8 @@ const ProjectTile = (props: {
           <ContextMenu.Separator />
           <ContextMenu.Item
             data-action="project-close-menu"
-            data-project={base64Encode(props.project.worktree)}
-            onSelect={() => props.closeProject(props.project.worktree)}
+            data-project={base64Encode(workspace().worktree)}
+            onSelect={() => props.closeProject(workspace().worktree)}
           >
             <ContextMenu.ItemLabel>{props.language.t("common.close")}</ContextMenu.ItemLabel>
           </ContextMenu.Item>
@@ -192,20 +194,24 @@ const ProjectPreviewPanel = (props: {
   language: ReturnType<typeof useLanguage>
 }): JSX.Element => (
   <div class="-m-3 p-2 flex flex-col w-72">
+    {(() => {
+      const workspace = () => props.project
+      return (
+        <>
     <div class="px-4 pt-2 pb-1 flex items-center gap-2">
-      <div class="text-14-medium text-text-strong truncate grow">{displayName(props.project)}</div>
+      <div class="text-14-medium text-text-strong truncate grow">{displayName(workspace())}</div>
       <Tooltip value={props.language.t("common.close")} placement="top" gutter={6}>
         <IconButton
           icon="circle-x"
           variant="ghost"
           class="shrink-0"
           data-action="project-close-hover"
-          data-project={base64Encode(props.project.worktree)}
+          data-project={base64Encode(workspace().worktree)}
           aria-label={props.language.t("common.close")}
           onClick={(event) => {
             event.stopPropagation()
             props.setOpen(false)
-            props.ctx.closeProject(props.project.worktree)
+            props.ctx.closeProject(workspace().worktree)
           }}
         />
       </Tooltip>
@@ -220,7 +226,7 @@ const ProjectPreviewPanel = (props: {
               <SessionItem
                 {...props.ctx.sessionProps}
                 session={session}
-                slug={base64Encode(props.project.worktree)}
+                slug={base64Encode(workspace().worktree)}
                 dense
                 mobile={props.mobile}
                 popover={false}
@@ -269,12 +275,15 @@ const ProjectPreviewPanel = (props: {
           props.ctx.openSidebar()
           props.setOpen(false)
           if (props.selected()) return
-          props.ctx.navigateToProject(props.project.worktree)
+          props.ctx.navigateToProject(workspace().worktree)
         }}
       >
         {props.language.t("sidebar.project.viewAllSessions")}
       </Button>
     </div>
+        </>
+      )
+    })()}
   </div>
 )
 
@@ -286,13 +295,14 @@ export const SortableProject = (props: {
 }): JSX.Element => {
   const globalSync = useGlobalSync()
   const language = useLanguage()
-  const sortable = createSortable(props.project.worktree)
+  const workspace = createMemo(() => props.project)
+  const sortable = createSortable(workspace().worktree)
   const selected = createMemo(() =>
-    projectSelected(props.ctx.currentDir(), props.project.worktree, props.project.sandboxes),
+    projectSelected(props.ctx.currentDir(), workspace().worktree, workspace().sandboxes),
   )
-  const workspaces = createMemo(() => props.ctx.workspaceIds(props.project).slice(0, 2))
-  const workspaceEnabled = createMemo(() => props.ctx.workspacesEnabled(props.project))
-  const dirs = createMemo(() => props.ctx.workspaceIds(props.project))
+  const workspaces = createMemo(() => props.ctx.workspaceIds(workspace()).slice(0, 2))
+  const workspaceEnabled = createMemo(() => props.ctx.workspacesEnabled(workspace()))
+  const dirs = createMemo(() => props.ctx.workspaceIds(workspace()))
   const [state, setState] = createStore({
     open: false,
     menu: false,
@@ -308,7 +318,7 @@ export const SortableProject = (props: {
       open: state.open,
       overlay: overlay(),
       hoverProject: props.ctx.hoverProject(),
-      worktree: props.project.worktree,
+      worktree: workspace().worktree,
     }),
   )
 
@@ -327,12 +337,12 @@ export const SortableProject = (props: {
   const label = (directory: string) => {
     const [data] = globalSync.child(directory, { bootstrap: false })
     const kind =
-      directory === props.project.worktree ? language.t("workspace.type.local") : language.t("workspace.type.sandbox")
-    const name = props.ctx.workspaceLabel(directory, data.vcs?.branch, props.project.id)
+      directory === workspace().worktree ? language.t("workspace.type.local") : language.t("workspace.type.sandbox")
+    const name = props.ctx.workspaceLabel(directory, data.vcs?.branch, workspace().id)
     return `${kind} : ${name}`
   }
 
-  const projectStore = createMemo(() => globalSync.child(props.project.worktree, { bootstrap: false })[0])
+  const projectStore = createMemo(() => globalSync.child(workspace().worktree, { bootstrap: false })[0])
   const projectSessions = createMemo(() => sortedRootSessions(projectStore(), props.sortNow()).slice(0, 2))
   const projectChildren = createMemo(() => childMapByParent(projectStore().session))
   const workspaceSessions = (directory: string) => {
@@ -345,7 +355,7 @@ export const SortableProject = (props: {
   }
   const tile = () => (
     <ProjectTile
-      project={props.project}
+      project={workspace()}
       mobile={props.mobile}
       nav={props.ctx.nav}
       sidebarHovering={props.ctx.sidebarHovering}
@@ -388,7 +398,7 @@ export const SortableProject = (props: {
           }}
         >
           <ProjectPreviewPanel
-            project={props.project}
+            project={workspace()}
             mobile={props.mobile}
             selected={selected}
             workspaceEnabled={workspaceEnabled}

@@ -13,6 +13,7 @@ import { usePermission } from "@/context/permission"
 import { type ImageAttachmentPart, type Prompt, usePrompt } from "@/context/prompt"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
+import { workspaceAdapter } from "@/context/workspace-adapter"
 import { Identifier } from "@/utils/id"
 import { Worktree as WorktreeState } from "@/utils/worktree"
 import { buildRequestParts } from "./build-request-parts"
@@ -91,10 +92,8 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       pending.delete(sessionID)
       return Promise.resolve()
     }
-    return sdk.client.session
-      .abort({
-        sessionID,
-      })
+    return workspaceAdapter(sdk.client)
+      .sessionAbort(sessionID)
       .catch(() => {})
   }
 
@@ -151,11 +150,12 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     let sessionDirectory = projectDirectory
     let client = sdk.client
+    let api = workspaceAdapter(client)
 
     if (isNewSession) {
       if (worktreeSelection === "create") {
-        const createdWorktree = await client.worktree
-          .create({ directory: projectDirectory })
+        const createdWorktree = await api
+          .worktreeCreate(projectDirectory)
           .then((x) => x.data)
           .catch((err) => {
             showToast({
@@ -185,6 +185,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           directory: sessionDirectory,
           throwOnError: true,
         })
+        api = workspaceAdapter(client)
         globalSync.child(sessionDirectory)
       }
 
@@ -193,8 +194,8 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     let session = input.info() as Session | undefined
     if (!session && isNewSession) {
-      session = await client.session
-        .create()
+      session = await api
+        .sessionCreate()
         .then((x) => x.data ?? undefined)
         .catch((err) => {
           showToast({
@@ -247,8 +248,8 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     if (mode === "shell") {
       clearInput()
-      client.session
-        .shell({
+      api
+        .sessionShell({
           sessionID: session.id,
           agent,
           model,
@@ -267,11 +268,12 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     if (text.startsWith("/")) {
       const [cmdName, ...args] = text.split(" ")
       const commandName = cmdName.slice(1)
-      const customCommand = sync.data.command.find((c) => c.name === commandName)
+      const commands = sync.data.command.length > 0 ? sync.data.command : await sync.command.load()
+      const customCommand = commands.find((c) => c.name === commandName)
       if (customCommand) {
         clearInput()
-        client.session
-          .command({
+        api
+          .sessionCommand({
             sessionID: session.id,
             command: commandName,
             arguments: args.join(" "),
@@ -397,7 +399,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     const send = async () => {
       const ok = await waitForWorktree()
       if (!ok) return
-      await client.session.promptAsync({
+      await api.sessionPromptAsync({
         sessionID: session.id,
         agent,
         model,

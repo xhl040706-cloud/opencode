@@ -12,8 +12,15 @@ import {
 import { extractExpiryFromJWT } from "./token"
 import { Log } from "../../util/log"
 import { buildOAuthParams } from "./oauth-params"
+import { Flag } from "../../flag/flag"
 
 const log = Log.create({ service: "costrict" })
+
+function insecure() {
+  if (!Flag.COSTRICT_INSECURE_SKIP_TLS_VERIFY) return
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+  log.warn("TLS certificate verification is disabled (COSTRICT_INSECURE_SKIP_TLS_VERIFY=true) - this is insecure!")
+}
 
 /**
  * Token 轮询响应
@@ -94,6 +101,8 @@ export async function pollLoginToken(
   intervalMs: number = 5000,
   abortSignal?: AbortSignal,
 ): Promise<TokenResponse> {
+  insecure()
+
   // 构建查询参数 (保留 machine_code)
   const params = buildOAuthParams(true, machineId, state)
   const queryString = params
@@ -204,6 +213,8 @@ export async function pollLoginToken(
 export async function loginCoStrict(
   openBrowser?: (url: string) => Promise<void>,
 ): Promise<CoStrictCredentials> {
+  insecure()
+
   const baseUrl = getCoStrictBaseURL()
   const state = generateState()
   const machineId = generateMachineId()
@@ -218,25 +229,8 @@ export async function loginCoStrict(
   if (openBrowser) {
     await openBrowser(loginUrl)
   } else {
-    // 默认使用系统命令打开浏览器
-    const { spawn } = await import("node:child_process")
-    const platform = process.platform
-
-    let command: string
-    let args: string[]
-
-    if (platform === "darwin") {
-      command = "open"
-      args = [loginUrl]
-    } else if (platform === "win32") {
-      command = "cmd.exe"
-      args = ["/c", "start", "", loginUrl]
-    } else {
-      command = "xdg-open"
-      args = [loginUrl]
-    }
-
-    spawn(command, args, { detached: true, stdio: "ignore" }).unref()
+    const open = (await import("open")).default
+    await open(loginUrl)
   }
 
   // 轮询获取 Token

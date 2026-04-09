@@ -35,6 +35,7 @@ import { Global } from "@/global"
 import type { LanguageModelV2Usage } from "@ai-sdk/provider"
 import { Effect, Layer, Scope, ServiceMap } from "effect"
 import { makeRuntime } from "@/effect/run-service"
+import { AppFileSystem } from "@/filesystem"
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -71,7 +72,7 @@ export namespace Session {
       slug: row.slug,
       projectID: row.project_id,
       workspaceID: row.workspace_id ?? undefined,
-      directory: row.directory,
+      directory: AppFileSystem.normalizePath(row.directory),
       parentID: row.parent_id ?? undefined,
       title: row.title,
       version: row.version,
@@ -95,7 +96,7 @@ export namespace Session {
       workspace_id: info.workspaceID,
       parent_id: info.parentID,
       slug: info.slug,
-      directory: info.directory,
+      directory: AppFileSystem.normalizePath(info.directory),
       title: info.title,
       version: info.version,
       share_url: info.share?.url,
@@ -363,6 +364,8 @@ export namespace Session {
 
   export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Session") {}
 
+  const dir = (value: string) => AppFileSystem.normalizePath(value)
+
   type Patch = z.infer<typeof Event.Updated.schema>["info"]
 
   const db = <T>(fn: (d: Parameters<typeof Database.use>[0] extends (trx: infer D) => any ? D : never) => T) =>
@@ -389,7 +392,7 @@ export namespace Session {
           slug: Slug.create(),
           version: Installation.VERSION,
           projectID: ctx.project.id,
-          directory: input.directory,
+          directory: dir(input.directory),
           workspaceID: input.workspaceID,
           parentID: input.parentID,
           title: input.title ?? createDefaultTitle(!!input.parentID),
@@ -744,6 +747,7 @@ export namespace Session {
   export function* list(input?: {
     directory?: string
     workspaceID?: WorkspaceID
+    archived?: boolean
     roots?: boolean
     start?: number
     search?: string
@@ -751,12 +755,16 @@ export namespace Session {
   }) {
     const project = Instance.project
     const conditions = [eq(SessionTable.project_id, project.id)]
+    const directory = input?.directory ? dir(input.directory) : undefined
 
     if (input?.workspaceID) {
       conditions.push(eq(SessionTable.workspace_id, input.workspaceID))
     }
-    if (input?.directory) {
-      conditions.push(eq(SessionTable.directory, input.directory))
+    if (directory) {
+      conditions.push(eq(SessionTable.directory, directory))
+    }
+    if (!input?.archived) {
+      conditions.push(isNull(SessionTable.time_archived))
     }
     if (input?.roots) {
       conditions.push(isNull(SessionTable.parent_id))
@@ -794,9 +802,10 @@ export namespace Session {
     archived?: boolean
   }) {
     const conditions: SQL[] = []
+    const directory = input?.directory ? dir(input.directory) : undefined
 
-    if (input?.directory) {
-      conditions.push(eq(SessionTable.directory, input.directory))
+    if (directory) {
+      conditions.push(eq(SessionTable.directory, directory))
     }
     if (input?.roots) {
       conditions.push(isNull(SessionTable.parent_id))

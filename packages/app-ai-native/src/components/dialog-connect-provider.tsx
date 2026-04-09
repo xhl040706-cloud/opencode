@@ -14,17 +14,17 @@ import { createStore, produce } from "solid-js/store"
 import { Link } from "@/components/link"
 import { useLanguage } from "@/context/language"
 import { useGlobalSDK } from "@/context/global-sdk"
-import { useGlobalSync } from "@/context/global-sync"
 import { usePlatform } from "@/context/platform"
+import { useProviders } from "@/hooks/use-providers"
 import { DialogSelectModel } from "./dialog-select-model"
 import { DialogSelectProvider } from "./dialog-select-provider"
 
 export function DialogConnectProvider(props: { provider: string }) {
   const dialog = useDialog()
-  const globalSync = useGlobalSync()
   const globalSDK = useGlobalSDK()
   const platform = usePlatform()
   const language = useLanguage()
+  const providers = useProviders()
 
   const alive = { value: true }
   const timer = { current: undefined as ReturnType<typeof setTimeout> | undefined }
@@ -36,16 +36,13 @@ export function DialogConnectProvider(props: { provider: string }) {
     timer.current = undefined
   })
 
-  const provider = createMemo(() => globalSync.data.provider.all.find((x) => x.id === props.provider)!)
-  const methods = createMemo(
-    () =>
-      globalSync.data.provider_auth[props.provider] ?? [
-        {
-          type: "api",
-          label: language.t("provider.connect.method.apiKey"),
-        },
-      ],
-  )
+  const provider = createMemo(() => providers.all().find((x) => x.id === props.provider)!)
+  const methods = createMemo(() => [
+    {
+      type: "api",
+      label: language.t("provider.connect.method.apiKey"),
+    },
+  ])
   const [store, setStore] = createStore({
     methodIndex: undefined as undefined | number,
     authorization: undefined as undefined | ProviderAuthAuthorization,

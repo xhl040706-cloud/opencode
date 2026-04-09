@@ -5,12 +5,12 @@ import { Tag } from "@opencode-ai/ui/tag"
 import { showToast } from "@opencode-ai/ui/toast"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
 import { createMemo, type Component, For, Show } from "solid-js"
+import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
 import { useGlobalSDK } from "@/context/global-sdk"
-import { useGlobalSync } from "@/context/global-sync"
+import { Persist, persisted } from "@/utils/persist"
 import { DialogConnectProvider } from "./dialog-connect-provider"
 import { DialogSelectProvider } from "./dialog-select-provider"
-import { DialogCustomProvider } from "./dialog-custom-provider"
 
 type ProviderSource = "env" | "api" | "config" | "custom"
 type ProviderItem = ReturnType<ReturnType<typeof useProviders>["connected"]>[number]
@@ -30,8 +30,14 @@ export const SettingsProviders: Component = () => {
   const dialog = useDialog()
   const language = useLanguage()
   const globalSDK = useGlobalSDK()
-  const globalSync = useGlobalSync()
   const providers = useProviders()
+  const [store, setStore] = persisted(
+    Persist.global("settings.provider", ["settings.provider.v1"]),
+    createStore({
+      custom: [] as string[],
+      disabled: [] as string[],
+    }),
+  )
 
   const connected = createMemo(() => {
     return providers
@@ -61,7 +67,7 @@ export const SettingsProviders: Component = () => {
     if (current === "env") return language.t("settings.providers.tag.environment")
     if (current === "api") return language.t("provider.connect.method.apiKey")
     if (current === "config") {
-      if (isConfigCustom(item.id)) return language.t("settings.providers.tag.custom")
+      if (store.custom.includes(item.id)) return language.t("settings.providers.tag.custom")
       return language.t("settings.providers.tag.config")
     }
     if (current === "custom") return language.t("settings.providers.tag.custom")
@@ -72,45 +78,16 @@ export const SettingsProviders: Component = () => {
 
   const note = (id: string) => PROVIDER_NOTES.find((item) => item.match(id))?.key
 
-  const isConfigCustom = (providerID: string) => {
-    const provider = globalSync.data.config.provider?.[providerID]
-    if (!provider) return false
-    if (provider.npm !== "@ai-sdk/openai-compatible") return false
-    if (!provider.models || Object.keys(provider.models).length === 0) return false
-    return true
-  }
-
-  const disableProvider = async (providerID: string, name: string) => {
-    const before = globalSync.data.config.disabled_providers ?? []
-    const next = before.includes(providerID) ? before : [...before, providerID]
-    globalSync.set("config", "disabled_providers", next)
-
-    await globalSync
-      .updateConfig({ disabled_providers: next })
-      .then(() => {
-        showToast({
-          variant: "success",
-          icon: "circle-check",
-          title: language.t("provider.disconnect.toast.disconnected.title", { provider: name }),
-          description: language.t("provider.disconnect.toast.disconnected.description", { provider: name }),
-        })
-      })
-      .catch((err: unknown) => {
-        globalSync.set("config", "disabled_providers", before)
-        const message = err instanceof Error ? err.message : String(err)
-        showToast({ title: language.t("common.requestFailed"), description: message })
-      })
-  }
-
   const disconnect = async (providerID: string, name: string) => {
-    if (isConfigCustom(providerID)) {
-      await globalSDK.client.auth.remove({ providerID }).catch(() => undefined)
-      await disableProvider(providerID, name)
-      return
-    }
     await globalSDK.client.auth
       .remove({ providerID })
       .then(async () => {
+        if (store.custom.includes(providerID)) {
+          setStore("custom", (list) => list.filter((id) => id !== providerID))
+        }
+        if (store.disabled.includes(providerID)) {
+          setStore("disabled", (list) => list.filter((id) => id !== providerID))
+        }
         await globalSDK.client.global.dispose()
         showToast({
           variant: "success",
@@ -206,32 +183,6 @@ export const SettingsProviders: Component = () => {
                 </div>
               )}
             </For>
-
-            <div
-              class="flex items-center justify-between gap-4 min-h-16 border-b border-border-weak-base last:border-none flex-wrap py-3"
-              data-component="custom-provider-section"
-            >
-              <div class="flex flex-col min-w-0">
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <ProviderIcon id="synthetic" class="size-5 shrink-0 icon-strong-base" />
-                  <span class="text-14-medium text-text-strong">{language.t("provider.custom.title")}</span>
-                  <Tag>{language.t("settings.providers.tag.custom")}</Tag>
-                </div>
-                <span class="text-12-regular text-text-weak pl-8">
-                  {language.t("settings.providers.custom.description")}
-                </span>
-              </div>
-              <Button
-                size="large"
-                variant="secondary"
-                icon="plus-small"
-                onClick={() => {
-                  dialog.show(() => <DialogCustomProvider back="close" />)
-                }}
-              >
-                {language.t("common.connect")}
-              </Button>
-            </div>
           </div>
 
           <Button

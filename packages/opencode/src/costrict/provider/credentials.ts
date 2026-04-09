@@ -11,6 +11,10 @@ import { Log } from "../../util/log"
 
 const log = Log.create({ service: "costrict-credentials" })
 
+function getCoStrictHomeDir(): string {
+  return process.env.COSTRICT_TEST_HOME || homedir()
+}
+
 /**
  * CoStrict 凭证格式 (与 IDE 插件兼容)
  */
@@ -32,7 +36,7 @@ export interface CoStrictCredentials {
  * @returns ~/.costrict/share/auth.json
  */
 export function getCoStrictCredentialsPath(): string {
-  const home = homedir()
+  const home = getCoStrictHomeDir()
   return join(home, ".costrict", "share", "auth.json")
 }
 
@@ -105,7 +109,7 @@ export async function saveCoStrictCredentials(
 ): Promise<void> {
   try {
     const filepath = getCoStrictCredentialsPath()
-    const dir = join(homedir(), ".costrict", "share")
+    const dir = join(getCoStrictHomeDir(), ".costrict", "share")
 
     // 确保目录存在
     await fs.mkdir(dir, { recursive: true, mode: 0o755 })

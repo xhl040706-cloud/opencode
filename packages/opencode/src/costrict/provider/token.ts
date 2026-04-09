@@ -127,6 +127,34 @@ export interface RefreshTokenResponse {
   refresh_token: string
 }
 
+function parseRefreshTokenResponse(data: unknown): RefreshTokenResponse | null {
+  if (!data || typeof data !== "object") return null
+  if (
+    "access_token" in data &&
+    typeof data.access_token === "string" &&
+    "refresh_token" in data &&
+    typeof data.refresh_token === "string"
+  ) {
+    return {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    }
+  }
+  if (!("data" in data) || !data.data || typeof data.data !== "object") return null
+  if (
+    "access_token" in data.data &&
+    typeof data.data.access_token === "string" &&
+    "refresh_token" in data.data &&
+    typeof data.data.refresh_token === "string"
+  ) {
+    return {
+      access_token: data.data.access_token,
+      refresh_token: data.data.refresh_token,
+    }
+  }
+  return null
+}
+
 /**
  * 刷新 CoStrict Token
  *
@@ -175,16 +203,17 @@ export async function refreshCoStrictToken(
       })
     }
 
-    const data = (await response.json()) as RefreshTokenResponse
+    const body = await response.json()
+    const data = parseRefreshTokenResponse(body)
 
-    if (!data.access_token || !data.refresh_token) {
+    if (!data) {
       log.error("Token refresh response missing fields")
       throw new APICallError({
         message: "Token refresh response is missing required fields",
         url,
         requestBodyValues: undefined,
         statusCode: 500,
-        responseBody: JSON.stringify(data),
+        responseBody: JSON.stringify(body),
         isRetryable: false,
       })
     }

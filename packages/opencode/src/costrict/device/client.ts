@@ -1,12 +1,15 @@
 import { promises as fs } from "node:fs"
 import { join } from "node:path"
 import { homedir } from "node:os"
-import { loadCoStrictCredentials } from "../provider/credentials"
+import { loadCoStrictCredentials, saveCoStrictCredentials, type CoStrictCredentials } from "../provider/credentials"
+import { extractExpiryFromJWT, isCoStrictTokenValid, refreshCoStrictToken } from "../provider/token"
 import { Flag } from "../../flag/flag"
 import { Installation } from "../../installation"
 import { Log } from "../../util/log"
 
 const log = Log.create({ service: "device-client" })
+const INVALID_DEVICE_TOKEN_STATUSES = new Set([401, 403])
+const INVALID_AUTH_TOKEN_STATUSES = new Set([401, 403])
 
 export interface DeviceInfo {
   device_id: string
@@ -15,8 +18,12 @@ export interface DeviceInfo {
   base_url: string
 }
 
+function getCoStrictHomeDir(): string {
+  return process.env.COSTRICT_TEST_HOME || homedir()
+}
+
 export function getDevicePath(): string {
-  return join(homedir(), ".costrict", "share", "device.json")
+  return join(getCoStrictHomeDir(), ".costrict", "share", "device.json")
 }
 
 export async function loadDevice(): Promise<DeviceInfo | null> {
@@ -30,9 +37,19 @@ export async function loadDevice(): Promise<DeviceInfo | null> {
 }
 
 async function saveDevice(info: DeviceInfo): Promise<void> {
-  const dir = join(homedir(), ".costrict", "share")
+  const dir = join(getCoStrictHomeDir(), ".costrict", "share")
   await fs.mkdir(dir, { recursive: true, mode: 0o755 })
   await fs.writeFile(getDevicePath(), JSON.stringify(info, null, 2), { encoding: "utf-8", mode: 0o600 })
+}
+
+export async function clearDevice(): Promise<void> {
+  try {
+    await fs.unlink(getDevicePath())
+    log.info("local device registration cleared")
+  } catch (e: any) {
+    if (e.code === "ENOENT") return
+    throw e
+  }
 }
 
 const CLOUD_API_PREFIX = "cloud-api"
@@ -51,27 +68,35 @@ export function getCloudApiUrl(path: string, baseUrl?: string) {
   return `${base}${next}`
 }
 
-export async function register(): Promise<DeviceInfo> {
-  const existing = await loadDevice()
-  if (existing) {
-    log.info("device already registered, reusing", { device_id: existing.device_id })
-    const resolved = getCloudBaseUrl()
-    if (resolved !== existing.base_url) {
-      existing.base_url = resolved
-      log.info("base_url overridden by env", { base_url: resolved })
-    }
-    return existing
+async function renew(creds: CoStrictCredentials): Promise<CoStrictCredentials> {
+  if (!creds.refresh_token) return creds
+  const next = await refreshCoStrictToken({
+    baseUrl: creds.base_url,
+    refreshToken: creds.refresh_token,
+    state: creds.state,
+  })
+  const expiry = extractExpiryFromJWT(next.access_token)
+  const fresh = {
+    ...creds,
+    access_token: next.access_token,
+    refresh_token: next.refresh_token,
+    expiry_date: expiry,
+    updated_at: new Date().toISOString(),
+    expired_at: new Date(expiry).toISOString(),
   }
+  await saveCoStrictCredentials(fresh)
+  return fresh
+}
 
+async function auth(): Promise<CoStrictCredentials> {
   const creds = await loadCoStrictCredentials()
   if (!creds?.access_token) throw new Error("Not logged in. Please run `cs auth login` first.")
+  if (!creds.refresh_token || isCoStrictTokenValid(creds)) return creds
+  return renew(creds)
+}
 
-  const baseUrl = getCloudBaseUrl(creds.base_url)
-  const deviceId = creds.machine_id
-
-  log.info("registering device", { device_id: deviceId })
-
-  const res = await fetch(getCloudApiUrl("/api/devices/register", baseUrl), {
+async function enroll(creds: CoStrictCredentials, baseUrl: string, deviceId: string) {
+  return fetch(getCloudApiUrl("/api/devices/register", baseUrl), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -84,6 +109,32 @@ export async function register(): Promise<DeviceInfo> {
       version: Installation.VERSION,
     }),
   })
+}
+
+export async function register(): Promise<DeviceInfo> {
+  const existing = await loadDevice()
+  if (existing) {
+    log.info("device already registered, reusing", { device_id: existing.device_id })
+    const resolved = getCloudBaseUrl()
+    if (resolved !== existing.base_url) {
+      existing.base_url = resolved
+      log.info("base_url overridden by env", { base_url: resolved })
+    }
+    return existing
+  }
+
+  let creds = await auth()
+
+  const baseUrl = getCloudBaseUrl(creds.base_url)
+  const deviceId = creds.machine_id
+
+  log.info("registering device", { device_id: deviceId })
+
+  let res = await enroll(creds, baseUrl, deviceId)
+  if ((res.status === 401 || res.status === 403) && creds.refresh_token) {
+    creds = await renew(creds)
+    res = await enroll(creds, baseUrl, deviceId)
+  }
 
   if (res.status === 409) {
     const body = (await res.json().catch(() => ({}))) as {
@@ -144,4 +195,47 @@ export async function rotateToken(): Promise<string> {
   await saveDevice(device)
   log.info("device token rotated", { device_id: device.device_id })
   return data.token
+}
+
+export async function validateDeviceToken(device: DeviceInfo): Promise<void> {
+  const res = await fetch(getCloudApiUrl("/cloud/device/gateway-assign", device.base_url), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${device.device_token}`,
+    },
+    body: JSON.stringify({
+      deviceID: device.device_id,
+      version: Installation.VERSION,
+    }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "")
+    throw new Error(`Device token validation failed: ${res.status} ${body}`)
+  }
+
+  log.info("device token validated", { device_id: device.device_id })
+}
+
+export function isInvalidDeviceTokenError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const match = error.message.match(/Device token validation failed: (\d{3})\b/)
+  if (!match) return false
+  return INVALID_DEVICE_TOKEN_STATUSES.has(Number(match[1]))
+}
+
+export function isInvalidRegistrationAuthError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const match = error.message.match(/Device registration failed: (\d{3})\b/)
+  if (!match) return false
+  return INVALID_AUTH_TOKEN_STATUSES.has(Number(match[1]))
+}
+
+export function isMissingRegistrationAuthError(error: unknown): boolean {
+  return error instanceof Error && error.message === "Not logged in. Please run `cs auth login` first."
+}
+
+export function isExpiredRegistrationAuthError(error: unknown): boolean {
+  return error instanceof Error && error.message === "Refresh token is invalid or expired"
 }

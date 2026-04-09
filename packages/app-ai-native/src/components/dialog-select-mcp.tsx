@@ -1,4 +1,4 @@
-import { Component, createMemo, createSignal, Show } from "solid-js"
+import { Component, createMemo, createSignal, onMount, Show } from "solid-js"
 import { useSync } from "@/context/sync"
 import { useSDK } from "@/context/sdk"
 import { Dialog } from "@opencode-ai/ui/dialog"
@@ -18,6 +18,13 @@ export const DialogSelectMcp: Component = () => {
   const sdk = useSDK()
   const language = useLanguage()
   const [loading, setLoading] = createSignal<string | null>(null)
+
+  onMount(() => {
+    if (Object.keys(sync.data.mcp ?? {}).length > 0) return
+    void sdk.client.mcp.status().then((result) => {
+      if (result.data) sync.set("mcp", result.data)
+    })
+  })
 
   const items = createMemo(() =>
     Object.entries(sync.data.mcp ?? {})

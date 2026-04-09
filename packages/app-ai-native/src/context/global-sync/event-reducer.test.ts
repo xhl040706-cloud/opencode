@@ -66,7 +66,6 @@ const baseState = (input: Partial<State> = {}) =>
     projectMeta: undefined,
     icon: undefined,
     provider: {} as State["provider"],
-    config: {} as State["config"],
     path: { directory: "/tmp" } as State["path"],
     session: [],
     sessionTotal: 0,

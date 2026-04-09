@@ -5,7 +5,8 @@ import { retry } from "@opencode-ai/util/retry"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { useGlobalSync } from "./global-sync"
 import { useSDK } from "./sdk"
-import type { Message, Part } from "@opencode-ai/sdk/v2/client"
+import type { Message, Part, Project } from "@opencode-ai/sdk/v2/client"
+import { workspaceAdapter } from "./workspace-adapter"
 
 function sortParts(parts: Part[]) {
   return parts.filter((part) => !!part?.id).sort((a, b) => cmp(a.id, b.id))
@@ -101,6 +102,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     type SessionGetResponse = Awaited<ReturnType<typeof sdk.client.session.get>>
     type SessionDiffResponse = Awaited<ReturnType<typeof sdk.client.session.diff>>
     type SessionTodoResponse = Awaited<ReturnType<typeof sdk.client.session.todo>>
+    type CommandListResponse = Awaited<ReturnType<typeof sdk.client.command.list>>
+    type VcsResponse = Awaited<ReturnType<typeof sdk.client.vcs.get>>
 
     const current = createMemo(() => globalSync.child(sdk.directory))
     const target = (directory?: string) => {
@@ -112,6 +115,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const inflight = new Map<string, Promise<void>>()
     const inflightDiff = new Map<string, Promise<void>>()
     const inflightTodo = new Map<string, Promise<void>>()
+    const inflightCommand = new Map<string, Promise<void>>()
+    const inflightVcs = new Map<string, Promise<void>>()
     const [meta, setMeta] = createStore({
       limit: {} as Record<string, number>,
       complete: {} as Record<string, boolean>,
@@ -142,6 +147,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const loadMessages = async (input: {
       directory: string
       client: typeof sdk.client
+      store: Child[0]
       setStore: Setter
       sessionID: string
       limit: number
@@ -152,8 +158,18 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       setMeta("loading", key, true)
       await fetchMessages(input)
         .then((next) => {
+          const merged = (() => {
+            const prev = input.store.message[input.sessionID]
+            if (!prev?.length) return next.session
+            const map = new Map<string, Message>(next.session.map((item) => [item.id, item] as const))
+            for (const item of prev) {
+              if (!item?.id || map.has(item.id)) continue
+              map.set(item.id, item)
+            }
+            return [...map.values()].sort((a: Message, b: Message) => cmp(a.id, b.id))
+          })()
           batch(() => {
-            input.setStore("message", input.sessionID, reconcile(next.session, { key: "id" }))
+            input.setStore("message", input.sessionID, reconcile(merged, { key: "id" }))
             for (const p of next.part) {
               input.setStore("part", p.id, p.part)
             }
@@ -183,7 +199,17 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         const store = current()[0]
         const match = Binary.search(globalSync.data.project, store.project, (p) => p.id)
         if (match.found) return globalSync.data.project[match.index]
-        return undefined
+        if (!store.path.directory) return undefined
+        const now = Date.now()
+        return {
+          id: store.project || store.path.directory,
+          worktree: store.path.directory,
+          name: store.projectMeta?.name,
+          time: {
+            created: now,
+            updated: now,
+          },
+        } as Project
       },
       session: {
         get: getSession,
@@ -222,6 +248,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         async sync(sessionID: string) {
           const directory = sdk.directory
           const client = sdk.client
+          const api = workspaceAdapter(client)
           const [store, setStore] = globalSync.child(directory)
           const key = keyFor(directory, sessionID)
           const hasSession = Binary.search(store.session, sessionID, (s) => s.id).found
@@ -230,7 +257,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
           const sessionReq = hasSession
             ? Promise.resolve()
-            : retry<SessionGetResponse>(() => client.session.get({ sessionID })).then((session) => {
+            : retry<SessionGetResponse>(() => api.sessionGet(sessionID)).then((session) => {
                 const data = session.data
                 if (!data) return
                 setStore(
@@ -249,6 +276,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const messagesReq = loadMessages({
             directory,
             client,
+            store,
             setStore,
             sessionID,
             limit,
@@ -259,12 +287,13 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         async diff(sessionID: string) {
           const directory = sdk.directory
           const client = sdk.client
+          const api = workspaceAdapter(client)
           const [store, setStore] = globalSync.child(directory)
           if (store.session_diff[sessionID] !== undefined) return
 
           const key = keyFor(directory, sessionID)
           return runInflight(inflightDiff, key, () =>
-            retry<SessionDiffResponse>(() => client.session.diff({ sessionID })).then((diff) => {
+            retry<SessionDiffResponse>(() => api.sessionDiff(sessionID)).then((diff) => {
               setStore("session_diff", sessionID, reconcile(diff.data ?? [], { key: "file" }))
             }),
           )
@@ -272,6 +301,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         async todo(sessionID: string) {
           const directory = sdk.directory
           const client = sdk.client
+          const api = workspaceAdapter(client)
           const [store, setStore] = globalSync.child(directory)
           const existing = store.todo[sessionID]
           const cached = globalSync.data.session_todo[sessionID]
@@ -288,7 +318,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
           const key = keyFor(directory, sessionID)
           return runInflight(inflightTodo, key, () =>
-            retry<SessionTodoResponse>(() => client.session.todo({ sessionID })).then((todo) => {
+            retry<SessionTodoResponse>(() => api.sessionTodo(sessionID)).then((todo) => {
               const list = todo.data ?? []
               setStore("todo", sessionID, reconcile(list, { key: "id" }))
               globalSync.todo.set(sessionID, list)
@@ -321,6 +351,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             await loadMessages({
               directory,
               client,
+              store: current()[0],
               setStore,
               sessionID,
               limit: currentLimit + step,
@@ -330,9 +361,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         fetch: async (count = 10) => {
           const directory = sdk.directory
           const client = sdk.client
+          const api = workspaceAdapter(client)
           const [store, setStore] = globalSync.child(directory)
           setStore("limit", (x) => x + count)
-          await client.session.list().then((x) => {
+          await api.sessionList().then((x) => {
             const sessions = (x.data ?? [])
               .filter((s) => !!s?.id)
               .sort((a, b) => cmp(a.id, b.id))
@@ -344,14 +376,43 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         archive: async (sessionID: string) => {
           const directory = sdk.directory
           const client = sdk.client
+          const api = workspaceAdapter(client)
           const [, setStore] = globalSync.child(directory)
-          await client.session.update({ sessionID, time: { archived: Date.now() } })
+          await api.sessionUpdate({ sessionID, time: { archived: Date.now() } })
           setStore(
             produce((draft) => {
               const match = Binary.search(draft.session, sessionID, (s) => s.id)
               if (match.found) draft.session.splice(match.index, 1)
             }),
           )
+        },
+      },
+      command: {
+        async load() {
+          const directory = sdk.directory
+          const client = sdk.client
+          const [store, setStore] = globalSync.child(directory)
+          if (store.command.length > 0) return store.command
+          return runInflight(inflightCommand, directory, () =>
+            retry<CommandListResponse>(() => client.command.list()).then((res) => {
+              const list = res.data ?? []
+              setStore("command", reconcile(list, { key: "name" }))
+            }),
+          ).then(() => globalSync.child(directory, { bootstrap: false })[0].command)
+        },
+      },
+      vcs: {
+        async load() {
+          const directory = sdk.directory
+          const client = sdk.client
+          const [store, setStore] = globalSync.child(directory)
+          if (store.vcs !== undefined) return store.vcs
+          return runInflight(inflightVcs, directory, () =>
+            retry<VcsResponse>(() => client.vcs.get()).then((res) => {
+              const next = res.data
+              setStore("vcs", next)
+            }),
+          ).then(() => globalSync.child(directory, { bootstrap: false })[0].vcs)
         },
       },
       absolute,

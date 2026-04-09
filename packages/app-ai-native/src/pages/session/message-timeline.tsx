@@ -21,6 +21,7 @@ import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
+import { workspaceAdapter } from "@/context/workspace-adapter"
 import { parseCommentNote, readCommentMetadata } from "@/utils/comment-note"
 
 type MessageComment = {
@@ -212,6 +213,7 @@ export function MessageTimeline(props: {
   const params = useParams()
   const navigate = useNavigate()
   const sdk = useSDK()
+  const api = createMemo(() => workspaceAdapter(sdk.client))
   const sync = useSync()
   const settings = useSettings()
   const dialog = useDialog()
@@ -322,8 +324,8 @@ export function MessageTimeline(props: {
     }
 
     setTitle("saving", true)
-    await sdk.client.session
-      .update({ sessionID: id, title: next })
+    await api()
+      .sessionUpdate({ sessionID: id, title: next })
       .then(() => {
         sync.set(
           produce((draft) => {
@@ -342,14 +344,10 @@ export function MessageTimeline(props: {
       })
   }
 
-  const navigateAfterSessionRemoval = (sessionID: string, parentID?: string, nextSessionID?: string) => {
+  const navigateAfterSessionRemoval = (sessionID: string, parentID?: string) => {
     if (params.id !== sessionID) return
     if (parentID) {
       navigate(`/workspace/${params.workspaceID}/${params.dir}/session/${parentID}`)
-      return
-    }
-    if (nextSessionID) {
-      navigate(`/workspace/${params.workspaceID}/${params.dir}/session/${nextSessionID}`)
       return
     }
     navigate(`/workspace/${params.workspaceID}/${params.dir}/session`)
@@ -359,12 +357,8 @@ export function MessageTimeline(props: {
     const session = sync.session.get(sessionID)
     if (!session) return
 
-    const sessions = sync.data.session ?? []
-    const index = sessions.findIndex((s) => s.id === sessionID)
-    const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
-
-    await sdk.client.session
-      .update({ sessionID, time: { archived: Date.now() } })
+    await api()
+      .sessionUpdate({ sessionID, time: { archived: Date.now() } })
       .then(() => {
         sync.set(
           produce((draft) => {
@@ -372,7 +366,7 @@ export function MessageTimeline(props: {
             if (index !== -1) draft.session.splice(index, 1)
           }),
         )
-        navigateAfterSessionRemoval(sessionID, session.parentID, nextSession?.id)
+        navigateAfterSessionRemoval(sessionID, session.parentID)
       })
       .catch((err) => {
         showToast({
@@ -386,12 +380,8 @@ export function MessageTimeline(props: {
     const session = sync.session.get(sessionID)
     if (!session) return false
 
-    const sessions = (sync.data.session ?? []).filter((s) => !s.parentID && !s.time?.archived)
-    const index = sessions.findIndex((s) => s.id === sessionID)
-    const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
-
-    const result = await sdk.client.session
-      .delete({ sessionID })
+    const result = await api()
+      .sessionDelete(sessionID)
       .then((x) => x.data)
       .catch((err) => {
         showToast({
@@ -438,7 +428,7 @@ export function MessageTimeline(props: {
       }),
     )
 
-    navigateAfterSessionRemoval(sessionID, session.parentID, nextSession?.id)
+    navigateAfterSessionRemoval(sessionID, session.parentID)
     return true
   }
 

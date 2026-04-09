@@ -1,7 +1,6 @@
 import type {
   Agent,
   Command,
-  Config,
   FileDiff,
   LspStatus,
   McpStatus,
@@ -39,7 +38,6 @@ export type State = {
   projectMeta: ProjectMeta | undefined
   icon: string | undefined
   provider: ProviderListResponse
-  config: Config
   path: Path
   session: Session[]
   sessionTotal: number

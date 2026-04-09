@@ -19,6 +19,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     const connected = createMemo(() => new Set(providers.connected().map((provider) => provider.id)))
 
     function isModelValid(model: ModelKey) {
+      if (providers.all().length === 0) return false
       const provider = providers.all().find((x) => x.id === model.providerID)
       return !!provider?.models[model.modelID] && connected().has(model.providerID)
     }
@@ -99,13 +100,6 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         model: {},
       })
 
-      const resolveConfigured = () => {
-        if (!sync.data.config.model) return
-        const [providerID, modelID] = sync.data.config.model.split("/")
-        const key = { providerID, modelID }
-        if (isModelValid(key)) return key
-      }
-
       const resolveRecent = () => {
         for (const item of models.recent.list()) {
           if (isModelValid(item)) return item
@@ -113,6 +107,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       }
 
       const resolveDefault = () => {
+        if (providers.connected().length === 0) return
         const defaults = providers.default()
         for (const provider of providers.connected()) {
           const configured = defaults[provider.id]
@@ -129,7 +124,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       }
 
       const fallbackModel = createMemo<ModelKey | undefined>(() => {
-        return resolveConfigured() ?? resolveRecent() ?? resolveDefault()
+        return resolveRecent() ?? resolveDefault()
       })
 
       const current = createMemo(() => {

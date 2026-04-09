@@ -14,6 +14,7 @@ import {
   type VcsCache,
 } from "./types"
 import { canDisposeDirectory, pickDirectoriesToEvict } from "./eviction"
+import { workspaceKey } from "@/pages/layout/helpers"
 
 export function createChildStoreManager(input: {
   owner: Owner
@@ -22,6 +23,11 @@ export function createChildStoreManager(input: {
   onBootstrap: (directory: string) => void
   onDispose: (directory: string) => void
 }) {
+  const norm = (directory: string) => {
+    if (!directory) return directory
+    return workspaceKey(directory)
+  }
+
   const children: Record<string, [Store<State>, SetStoreFunction<State>]> = {}
   const vcsCache = new Map<string, VcsCache>()
   const metaCache = new Map<string, MetaCache>()
@@ -32,18 +38,21 @@ export function createChildStoreManager(input: {
   const disposers = new Map<string, () => void>()
 
   const mark = (directory: string) => {
+    directory = norm(directory)
     if (!directory) return
     lifecycle.set(directory, { lastAccessAt: Date.now() })
     runEviction(directory)
   }
 
   const pin = (directory: string) => {
+    directory = norm(directory)
     if (!directory) return
     pins.set(directory, (pins.get(directory) ?? 0) + 1)
     mark(directory)
   }
 
   const unpin = (directory: string) => {
+    directory = norm(directory)
     if (!directory) return
     const next = (pins.get(directory) ?? 0) - 1
     if (next > 0) {
@@ -54,9 +63,10 @@ export function createChildStoreManager(input: {
     runEviction()
   }
 
-  const pinned = (directory: string) => (pins.get(directory) ?? 0) > 0
+  const pinned = (directory: string) => (pins.get(norm(directory)) ?? 0) > 0
 
   const pinForOwner = (directory: string) => {
+    directory = norm(directory)
     const current = getOwner()
     if (!current) return
     if (current === input.owner) return
@@ -77,6 +87,7 @@ export function createChildStoreManager(input: {
   }
 
   function disposeDirectory(directory: string) {
+    directory = norm(directory)
     if (
       !canDisposeDirectory({
         directory,
@@ -104,6 +115,7 @@ export function createChildStoreManager(input: {
   }
 
   function runEviction(skip?: string) {
+    skip = skip ? norm(skip) : skip
     const stores = Object.keys(children)
     if (stores.length === 0) return
     const list = pickDirectoriesToEvict({
@@ -121,6 +133,7 @@ export function createChildStoreManager(input: {
   }
 
   function ensureChild(directory: string) {
+    directory = norm(directory)
     if (!directory) console.error("No directory provided")
     if (!children[directory]) {
       const vcs = runWithOwner(input.owner, () =>
@@ -160,7 +173,6 @@ export function createChildStoreManager(input: {
             projectMeta: initialMeta,
             icon: initialIcon,
             provider: { all: [], connected: [], default: {} },
-            config: {},
             path: { state: "", config: "", worktree: "", directory: "", home: "" },
             status: "loading" as const,
             agent: [],
@@ -216,6 +228,7 @@ export function createChildStoreManager(input: {
   }
 
   function child(directory: string, options: ChildOptions = {}) {
+    directory = norm(directory)
     const childStore = ensureChild(directory)
     pinForOwner(directory)
     const shouldBootstrap = options.bootstrap ?? true
@@ -226,6 +239,7 @@ export function createChildStoreManager(input: {
   }
 
   function projectMeta(directory: string, patch: ProjectMeta) {
+    directory = norm(directory)
     const [store, setStore] = ensureChild(directory)
     const cached = metaCache.get(directory)
     if (!cached) return
@@ -243,6 +257,7 @@ export function createChildStoreManager(input: {
   }
 
   function projectIcon(directory: string, value: string | undefined) {
+    directory = norm(directory)
     const [store, setStore] = ensureChild(directory)
     const cached = iconCache.get(directory)
     if (!cached) return

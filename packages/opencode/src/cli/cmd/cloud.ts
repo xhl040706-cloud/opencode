@@ -3,13 +3,23 @@ import fs from "fs"
 import path from "path"
 import { Server } from "../../server/server"
 import { cmd } from "./cmd"
-import { register, getCloudBaseUrl } from "../../costrict/device/client"
+import {
+  register,
+  getCloudBaseUrl,
+  validateDeviceToken,
+  clearDevice,
+  isInvalidDeviceTokenError,
+  isInvalidRegistrationAuthError,
+  isMissingRegistrationAuthError,
+  isExpiredRegistrationAuthError,
+} from "../../costrict/device/client"
 import { connect } from "../../costrict/device/tunnel"
 import { initCloudNotifier } from "../../costrict/device/notify"
 import { Daemon } from "../../costrict/device/daemon"
 import { Log } from "../../util/log"
 import { Flag } from "../../flag/flag"
 import { Instance } from "../../project/instance"
+import { loginCoStrict as loginCoStrictAuth } from "../../costrict/provider/auth"
 import {
   downloadFavoriteItem,
   loadFavoriteItem,
@@ -266,8 +276,52 @@ async function startDaemon() {
   }
 
   // Perform device registration in the foreground so auth errors are visible
-  const device = await register()
+  const login = async () => {
+    console.warn("cloud registration requires CoStrict login, starting `cs auth login --provider costrict`...")
+    await loginCoStrictAuth()
+    console.log("CoStrict login completed")
+  }
+
+  let device
+  try {
+    device = await register()
+  } catch (error) {
+    if (
+      !isMissingRegistrationAuthError(error) &&
+      !isInvalidRegistrationAuthError(error) &&
+      !isExpiredRegistrationAuthError(error)
+    ) throw error
+    await login()
+    device = await register()
+  }
   console.log(`device registered: ${device.device_id}`)
+
+  try {
+    await validateDeviceToken(device)
+    console.log("device token validated")
+  } catch (error) {
+    if (!isInvalidDeviceTokenError(error)) throw error
+
+    console.warn("device token is invalid, regenerating local device registration...")
+    await clearDevice()
+    try {
+      device = await register()
+    } catch (registerError) {
+      if (isInvalidRegistrationAuthError(registerError)) {
+        console.warn("automatic device re-registration requires refreshing your CoStrict login...")
+        await login()
+        device = await register()
+      } else if (isMissingRegistrationAuthError(registerError) || isExpiredRegistrationAuthError(registerError)) {
+        await login()
+        device = await register()
+      } else {
+        throw registerError
+      }
+    }
+    console.log(`device re-registered: ${device.device_id}`)
+    await validateDeviceToken(device)
+    console.log("device token validated")
+  }
 
   const logFd = Daemon.openLogFd()
 

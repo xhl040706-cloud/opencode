@@ -6,6 +6,7 @@ import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
+import type { Session } from "@opencode-ai/sdk/v2/client"
 import type { Device, DeviceStatus, Workspace, WorkspaceDirectory } from "../types"
 import { DeviceList } from "./device-list"
 import { CreateWorkspaceDialogContent } from "./create-workspace-dialog"
@@ -484,15 +485,9 @@ export function WorkspaceSidebar() {
   )
 }
 
-type SessionData = {
-  id: string
-  title: string
-  directory: string
-  time: { created: number; updated?: number }
-  parentID?: string
-}
-
 const PAGE_SIZE = 10
+
+type SessionData = Pick<Session, "id" | "title" | "directory" | "time" | "parentID">
 
 /**
  * Loads and displays sessions for a workspace.
@@ -505,11 +500,12 @@ function WorkspaceSessions(props: { id: string }) {
   const { workspaces } = useWorkspace()
   const { navigateToSession, encodeDirectory: encodeDir } = useWorkspaceNavigate()
   const params = useParams()
-  const [sessions, setSessions] = createSignal<SessionData[]>([])
   const [loading, setLoading] = createSignal(false)
+  const [statusMap, setStatusMap] = createSignal<Record<string, { type: string }>>({})
+  const [pending, setPending] = createSignal<SessionData[]>([])
+  const [sessions, setSessions] = createSignal<SessionData[]>([])
   const [more, setMore] = createSignal(false)
   const [limit, setLimit] = createSignal(PAGE_SIZE)
-  const [statusMap, setStatusMap] = createSignal<Record<string, { type: string }>>({})
 
   // Always derive workspace from the stable id
   const workspace = createMemo(() => workspaces().find((w) => w.id === props.id))
@@ -521,30 +517,41 @@ function WorkspaceSessions(props: { id: string }) {
     return s?.type === "busy" || s?.type === "retry"
   }
 
+  const merged = createMemo(() => {
+    const seen = new Set<string>()
+    const extra = pending().filter((s) => {
+      if (seen.has(s.id)) return false
+      seen.add(s.id)
+      return true
+    })
+    const list = sessions().filter((s) => {
+      if (seen.has(s.id)) return false
+      seen.add(s.id)
+      return true
+    })
+    return [...extra, ...list]
+  })
+
   const load = async (cap: number) => {
     const uid = device()
     if (!uid) return
     const directories = dirs()
     if (directories.length === 0) return
-    // Capture id at call time for stale-check
-    const target = props.id
-
     setLoading(true)
     try {
       const url = getProxyUrl(uid)
       const all: SessionData[] = []
       for (const dir of directories) {
-        const qs = new URLSearchParams({ directory: dir.path, roots: "true", limit: String(cap) })
+        const qs = new URLSearchParams({ directory: dir.path, archived: "false", roots: "true", limit: String(cap) })
         const res = await fetch(`${url}/session?${qs}`, { credentials: "include" }).catch(() => null)
         if (!res?.ok) continue
         const body = await res.json().catch(() => [])
         const items = (Array.isArray(body) ? body : (body.data ?? [])) as SessionData[]
         for (const s of items) {
-          if (!s.parentID && !all.some((x) => x.id === s.id)) all.push(s)
+          if (s.time?.archived || s.parentID || all.some((x) => x.id === s.id)) continue
+          all.push(s)
         }
       }
-      // Stale guard: if the component's id changed while fetching, discard
-      if (props.id !== target) return
       all.sort((a, b) => (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created))
       setMore(all.length >= cap)
       setSessions(all)
@@ -590,13 +597,14 @@ function WorkspaceSessions(props: { id: string }) {
     on([dirs, device], ([newDirs, newDevice], prev) => {
       if (!loaded) {
         loaded = true
-        load(PAGE_SIZE)
+        void load(PAGE_SIZE)
         return
       }
       if (!prev || newDirs !== prev[0] || newDevice !== prev[1]) {
+        setPending([])
         setSessions([])
         setLimit(PAGE_SIZE)
-        load(PAGE_SIZE)
+        void load(PAGE_SIZE)
       }
     }),
   )
@@ -604,7 +612,7 @@ function WorkspaceSessions(props: { id: string }) {
   const loadMore = () => {
     const next = limit() + PAGE_SIZE
     setLimit(next)
-    load(next)
+    void load(next)
   }
 
   // Watch current session ID: insert placeholder if not in list
@@ -614,72 +622,32 @@ function WorkspaceSessions(props: { id: string }) {
       (id) => {
         if (params.workspaceID !== props.id) return
         // Insert placeholder for new session not yet in list
-        if (id && !sessions().some((s) => s.id === id)) {
+        if (id && !merged().some((s) => s.id === id)) {
           const primary = dirs()[0]
           if (primary) {
-            setSessions((list) => [
+            const now = Date.now()
+            setPending((list) => [
               {
                 id,
                 title: "",
                 directory: primary.path,
-                time: { created: Date.now() },
+                time: { created: now, updated: now },
               },
-              ...list,
+              ...list.filter((s) => s.id !== id),
             ])
           }
+          return
         }
-      },
-    ),
-  )
-
-  // When the active session is a placeholder (no title), poll the list until title appears
-  createEffect(
-    on(
-      () => {
-        if (params.workspaceID !== props.id) return undefined
-        const id = params.id
-        if (!id) return undefined
-        const s = sessions().find((x) => x.id === id)
-        return s && !s.title ? id : undefined
-      },
-      (id) => {
         if (!id) return
-        let stopped = false
-        let attempts = 0
-        const MAX_ATTEMPTS = 30
-
-        const poll = async () => {
-          while (!stopped) {
-            await new Promise((r) => setTimeout(r, 2000))
-            if (stopped) break
-            if (++attempts > MAX_ATTEMPTS) break
-            const uid = device()
-            if (!uid) break
-            const directories = dirs()
-            if (directories.length === 0) break
-            const url = getProxyUrl(uid)
-            for (const dir of directories) {
-              const qs = new URLSearchParams({ directory: dir.path, roots: "true", limit: String(PAGE_SIZE) })
-              const res = await fetch(`${url}/session?${qs}`, { credentials: "include" }).catch(() => null)
-              if (!res?.ok) continue
-              const body = await res.json().catch(() => null)
-              const items = (Array.isArray(body) ? body : (body.data ?? [])) as SessionData[]
-              const found = items.find((s) => s.id === id)
-              if (!found?.title) continue
-              setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, title: found.title } : s)))
-              stopped = true
-              break
-            }
-          }
-        }
-
-        void poll()
-        return () => {
-          stopped = true
-        }
+        setPending((list) => list.filter((s) => s.id !== id))
       },
     ),
   )
+
+  createEffect(() => {
+    const ids = new Set(sessions().map((s) => s.id))
+    setPending((list) => list.filter((s) => !ids.has(s.id) || !s.title))
+  })
 
   const click = (session: SessionData) => {
     navigateToSession(session.id, { workspaceId: props.id, dir: encodeDir(session.directory) })
@@ -695,15 +663,16 @@ function WorkspaceSessions(props: { id: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ time: { archived: Date.now() } }),
     }).catch(() => null)
+    setPending((prev) => prev.filter((s) => s.id !== session.id))
     setSessions((prev) => prev.filter((s) => s.id !== session.id))
     if (params.id === session.id) navigateToSession("", { workspaceId: props.id, dir: encodeDir(session.directory) })
   }
 
   return (
     <div class="pl-2 pr-1 py-1">
-      <Show when={sessions().length > 0}>
+      <Show when={merged().length > 0}>
         <nav class="flex flex-col gap-0.5">
-          <For each={sessions()}>
+          <For each={merged()}>
             {(session) => {
               const active = () => params.id === session.id
               return (
@@ -763,13 +732,13 @@ function WorkspaceSessions(props: { id: string }) {
           </Show>
         </nav>
       </Show>
-      <Show when={loading() && sessions().length === 0}>
+      <Show when={loading() && merged().length === 0}>
         <div class="flex items-center gap-2 py-3 px-2">
           <Spinner class="size-3.5" />
           <span class="text-xs text-sidebar-foreground/50">{t("workspace.loadingSessions")}</span>
         </div>
       </Show>
-      <Show when={!loading() && sessions().length === 0}>
+      <Show when={!loading() && merged().length === 0}>
         <div class="flex items-center gap-2 py-3 px-2">
           <span class="text-xs text-sidebar-foreground/50">{t("workspace.emptySessions")}</span>
         </div>

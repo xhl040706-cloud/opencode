@@ -287,7 +287,11 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
     if (directory && !dirs.includes(directory)) return [...dirs, directory]
     return dirs
   })
-  const homedir = createMemo(() => globalSync.data.path.home)
+  const homedir = createMemo(() => {
+    const directory = projectDirectory()
+    if (!directory) return ""
+    return globalSync.child(directory, { bootstrap: false })[0].path.home
+  })
   const label = (directory: string) => {
     const current = project()
     const kind =
