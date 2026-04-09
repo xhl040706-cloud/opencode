@@ -665,11 +665,27 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
                 id: toolCall.id,
               })
 
+              if (!isParsableJson(toolCall.function.arguments)) {
+                finishReason = {
+                  unified: "error",
+                  raw: finishReason.raw,
+                }
+                controller.enqueue({
+                  type: "error",
+                  error: new InvalidResponseDataError({
+                    data: toolCall,
+                    message: `Tool call arguments are incomplete JSON for '${toolCall.function.name}'.`,
+                  }),
+                })
+                continue
+              }
+
               controller.enqueue({
                 type: "tool-call",
                 toolCallId: toolCall.id ?? generateId(),
                 toolName: toolCall.function.name,
                 input: toolCall.function.arguments,
+                providerMetadata: reasoningOpaque ? { copilot: { reasoningOpaque } } : undefined,
               })
             }
 

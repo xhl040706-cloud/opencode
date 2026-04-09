@@ -443,8 +443,46 @@ describe("reasoning (copilot-specific)", () => {
         role: "assistant",
         content: "Done!",
         tool_calls: undefined,
-        reasoning_text: undefined,
+        reasoning_text: "",
         reasoning_opaque: "opaque-text-456",
+      },
+    ])
+  })
+
+  test("should include empty reasoning_text when tool call has reasoning_opaque", () => {
+    const result = convertToCopilotMessages([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool-call",
+            toolCallId: "call1",
+            toolName: "read_file",
+            input: {},
+            providerOptions: {
+              copilot: { reasoningOpaque: "opaque-tool-1" },
+            },
+          },
+        ],
+      },
+    ])
+
+    expect(result).toEqual([
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call1",
+            type: "function",
+            function: {
+              name: "read_file",
+              arguments: JSON.stringify({}),
+            },
+          },
+        ],
+        reasoning_text: "",
+        reasoning_opaque: "opaque-tool-1",
       },
     ])
   })
