@@ -222,4 +222,16 @@ describe("costrict.device.client", () => {
     expect(device.device_token).toBe("device-token-1")
     expect(calls.some((x) => x.includes("/oidc-auth/api/v1/plugin/login/token"))).toBe(true)
   })
+
+  test("register includes the registration URL in error messages", async () => {
+    globalThis.fetch = mock(async () => {
+      return new Response(JSON.stringify({ error_msg: "404 Route Not Found" }), { status: 404 })
+    }) as unknown as typeof fetch
+
+    const { register } = await import("../../../src/costrict/device/client.ts")
+
+    await expect(register()).rejects.toThrow(
+      "Device registration failed: 404 https://costrict.test/cloud-api/api/devices/register {\"error_msg\":\"404 Route Not Found\"}",
+    )
+  })
 })

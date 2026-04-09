@@ -3,6 +3,7 @@ import { existsSync } from "node:fs"
 import { mkdir, rm } from "node:fs/promises"
 import { applyEdits, modify } from "jsonc-parser"
 import { loadCoStrictCredentials, saveCoStrictCredentials } from "../provider/credentials"
+import { getCoStrictBaseURL } from "../provider/auth"
 import { extractExpiryFromJWT, isCoStrictTokenValid, parseJWT, refreshCoStrictToken } from "../provider/token"
 import { getCloudBaseUrl } from "../device/client"
 import { Global } from "../../global"
@@ -148,8 +149,9 @@ async function createAuthenticatedFetch() {
   if (!creds) throw new Error("Not authenticated. Please run `cs auth login` first.")
 
   if (creds.refresh_token && !isCoStrictTokenValid(creds)) {
+    const resolvedBaseUrl = getCoStrictBaseURL(undefined, creds.base_url)
     const refreshed = await refreshCoStrictToken({
-      baseUrl: creds.base_url,
+      baseUrl: resolvedBaseUrl,
       refreshToken: creds.refresh_token,
       state: creds.state,
     }).catch(() => null)
@@ -158,6 +160,7 @@ async function createAuthenticatedFetch() {
 
     await saveCoStrictCredentials({
       ...creds,
+      base_url: resolvedBaseUrl,
       access_token: refreshed.access_token,
       refresh_token: refreshed.refresh_token,
       expiry_date: extractExpiryFromJWT(refreshed.access_token),
@@ -167,6 +170,7 @@ async function createAuthenticatedFetch() {
 
     creds = {
       ...creds,
+      base_url: resolvedBaseUrl,
       access_token: refreshed.access_token,
       refresh_token: refreshed.refresh_token,
       expiry_date: extractExpiryFromJWT(refreshed.access_token),
