@@ -488,7 +488,7 @@ type SessionData = {
   id: string
   title: string
   directory: string
-  time: { created: number; updated?: number }
+  time: { created: number; updated?: number; archived?: number }
   parentID?: string
 }
 
@@ -521,6 +521,8 @@ function WorkspaceSessions(props: { id: string }) {
     return s?.type === "busy" || s?.type === "retry"
   }
 
+  const isActive = (session: SessionData) => !session.time?.archived
+
   const load = async (cap: number) => {
     const uid = device()
     if (!uid) return
@@ -534,11 +536,11 @@ function WorkspaceSessions(props: { id: string }) {
       const url = getProxyUrl(uid)
       const all: SessionData[] = []
       for (const dir of directories) {
-        const qs = new URLSearchParams({ directory: dir.path, roots: "true", limit: String(cap) })
+        const qs = new URLSearchParams({ directory: dir.path, archived: "false", roots: "true", limit: String(cap) })
         const res = await fetch(`${url}/session?${qs}`, { credentials: "include" }).catch(() => null)
         if (!res?.ok) continue
         const body = await res.json().catch(() => [])
-        const items = (Array.isArray(body) ? body : (body.data ?? [])) as SessionData[]
+        const items = ((Array.isArray(body) ? body : (body.data ?? [])) as SessionData[]).filter(isActive)
         for (const s of items) {
           if (!s.parentID && !all.some((x) => x.id === s.id)) all.push(s)
         }
@@ -659,11 +661,11 @@ function WorkspaceSessions(props: { id: string }) {
             if (directories.length === 0) break
             const url = getProxyUrl(uid)
             for (const dir of directories) {
-              const qs = new URLSearchParams({ directory: dir.path, roots: "true", limit: String(PAGE_SIZE) })
+              const qs = new URLSearchParams({ directory: dir.path, archived: "false", roots: "true", limit: String(PAGE_SIZE) })
               const res = await fetch(`${url}/session?${qs}`, { credentials: "include" }).catch(() => null)
               if (!res?.ok) continue
               const body = await res.json().catch(() => null)
-              const items = (Array.isArray(body) ? body : (body.data ?? [])) as SessionData[]
+              const items = ((Array.isArray(body) ? body : (body.data ?? [])) as SessionData[]).filter(isActive)
               const found = items.find((s) => s.id === id)
               if (!found?.title) continue
               setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, title: found.title } : s)))
