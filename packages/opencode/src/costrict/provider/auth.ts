@@ -218,25 +218,8 @@ export async function loginCoStrict(
   if (openBrowser) {
     await openBrowser(loginUrl)
   } else {
-    // 默认使用系统命令打开浏览器
-    const { spawn } = await import("node:child_process")
-    const platform = process.platform
-
-    let command: string
-    let args: string[]
-
-    if (platform === "darwin") {
-      command = "open"
-      args = [loginUrl]
-    } else if (platform === "win32") {
-      command = "cmd.exe"
-      args = ["/c", "start", "", loginUrl]
-    } else {
-      command = "xdg-open"
-      args = [loginUrl]
-    }
-
-    spawn(command, args, { detached: true, stdio: "ignore" }).unref()
+    const open = (await import("open")).default
+    await open(loginUrl)
   }
 
   // 轮询获取 Token
