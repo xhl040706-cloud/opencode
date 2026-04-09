@@ -21,6 +21,7 @@ import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
+import { workspaceAdapter } from "@/context/workspace-adapter"
 import { parseCommentNote, readCommentMetadata } from "@/utils/comment-note"
 
 type MessageComment = {
@@ -212,6 +213,7 @@ export function MessageTimeline(props: {
   const params = useParams()
   const navigate = useNavigate()
   const sdk = useSDK()
+  const api = createMemo(() => workspaceAdapter(sdk.client))
   const sync = useSync()
   const settings = useSettings()
   const dialog = useDialog()
@@ -322,8 +324,8 @@ export function MessageTimeline(props: {
     }
 
     setTitle("saving", true)
-    await sdk.client.session
-      .update({ sessionID: id, title: next })
+    await api()
+      .sessionUpdate({ sessionID: id, title: next })
       .then(() => {
         sync.set(
           produce((draft) => {
@@ -363,8 +365,8 @@ export function MessageTimeline(props: {
     const index = sessions.findIndex((s) => s.id === sessionID)
     const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
 
-    await sdk.client.session
-      .update({ sessionID, time: { archived: Date.now() } })
+    await api()
+      .sessionUpdate({ sessionID, time: { archived: Date.now() } })
       .then(() => {
         sync.set(
           produce((draft) => {
@@ -390,8 +392,8 @@ export function MessageTimeline(props: {
     const index = sessions.findIndex((s) => s.id === sessionID)
     const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
 
-    const result = await sdk.client.session
-      .delete({ sessionID })
+    const result = await api()
+      .sessionDelete(sessionID)
       .then((x) => x.data)
       .catch((err) => {
         showToast({

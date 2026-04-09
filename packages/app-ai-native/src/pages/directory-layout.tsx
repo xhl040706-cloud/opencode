@@ -8,6 +8,7 @@ import { decode64 } from "@/utils/base64"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
 import { DirectoryContext } from "@/context/directory"
+import { workspaceKey } from "@/pages/layout/helpers"
 import { workspaceApi } from "./workspace/lib/api"
 import { useActiveWorkspace } from "./workspace/active-workspace"
 
@@ -37,7 +38,11 @@ export default function Layout(props: ParentProps) {
     (id) => workspaceApi.get(id).then((r) => r.workspace).catch(() => undefined),
   )
 
-  const directory = createMemo(() => decode64(params.dir) ?? "")
+  const directory = createMemo(() => {
+    const dir = decode64(params.dir) ?? ""
+    if (!dir) return ""
+    return workspaceKey(dir)
+  })
 
   createEffect(() => {
     const ws = workspace()

@@ -34,6 +34,8 @@ import type { ProjectMeta } from "./global-sync/types"
 import { SESSION_RECENT_LIMIT } from "./global-sync/types"
 import { sanitizeProject } from "./global-sync/utils"
 import { formatServerError } from "@/utils/server-errors"
+import { workspaceAdapter } from "./workspace-adapter"
+import { workspaceKey } from "@/pages/layout/helpers"
 
 type GlobalStore = {
   ready: boolean
@@ -196,10 +198,11 @@ function createGlobalSync() {
     }
 
     const limit = Math.max(store.limit + SESSION_RECENT_LIMIT, SESSION_RECENT_LIMIT)
+    const api = workspaceAdapter(globalSDK.client)
     const promise = loadRootSessionsWithFallback({
       directory,
       limit,
-      list: (query) => globalSDK.client.session.list(query),
+      list: (query) => api.sessionList(query.directory),
     })
       .then((x) => {
         if (!active) return
@@ -281,8 +284,9 @@ function createGlobalSync() {
 
   const unsub = globalSDK.event.listen((e) => {
     if (!active) return
-    const directory = e.name
     const event = e.details
+    const raw = e.name === "global" ? (inferDirectory(event) ?? e.name) : e.name
+    const directory = raw === "global" ? raw : workspaceKey(raw)
 
     if (directory === "global") {
       applyGlobalEvent({
@@ -347,6 +351,46 @@ function createGlobalSync() {
   let pending: Promise<void> | undefined
   let lastBoot = 0
   const BOOT_COOLDOWN_MS = 2_000
+
+  const dirForSession = (sessionID: string | undefined) => {
+    if (!sessionID) return
+    return Object.entries(children.children).find(([, child]) => child[0].session.some((s) => s.id === sessionID))?.[0]
+  }
+
+  const dirForMessage = (messageID: string | undefined) => {
+    if (!messageID) return
+    return Object.entries(children.children).find(([, child]) =>
+      Object.values(child[0].message).some((messages) => messages?.some((m) => m.id === messageID)),
+    )?.[0]
+  }
+
+  const inferDirectory = (event: { type: string; properties?: unknown }) => {
+    switch (event.type) {
+      case "session.created":
+      case "session.updated":
+      case "session.deleted":
+        return (event.properties as { info?: { directory?: string | null } })?.info?.directory ?? undefined
+      case "session.diff":
+      case "todo.updated":
+      case "session.status":
+      case "permission.replied":
+      case "question.replied":
+      case "question.rejected":
+        return dirForSession((event.properties as { sessionID?: string })?.sessionID)
+      case "message.updated":
+        return dirForSession((event.properties as { info?: { sessionID?: string } })?.info?.sessionID)
+      case "message.removed":
+        return dirForSession((event.properties as { sessionID?: string })?.sessionID)
+      case "message.part.updated":
+        return dirForMessage((event.properties as { part?: { messageID?: string } })?.part?.messageID)
+      case "message.part.removed":
+      case "message.part.delta":
+        return dirForMessage((event.properties as { messageID?: string })?.messageID)
+      case "permission.asked":
+      case "question.asked":
+        return dirForSession((event.properties as { sessionID?: string })?.sessionID)
+    }
+  }
 
   async function bootstrap() {
     if (!active) return

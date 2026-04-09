@@ -137,8 +137,10 @@ export function SessionContextTab() {
   const metrics = createMemo(() => getSessionContextMetrics(messages(), sync.data.provider.all))
   const ctx = createMemo(() => metrics().context)
   const formatter = createMemo(() => createSessionContextFormatter(language.intl()))
+  const hasProviders = createMemo(() => sync.data.provider.all.length > 0)
 
   const cost = createMemo(() => {
+    if (!hasProviders()) return language.t("common.notAvailable")
     return usd().format(metrics().totalCost)
   })
 
@@ -165,12 +167,14 @@ export function SessionContextTab() {
   const providerLabel = createMemo(() => {
     const c = ctx()
     if (!c) return "—"
+    if (!hasProviders()) return language.t("common.notAvailable")
     return c.providerLabel
   })
 
   const modelLabel = createMemo(() => {
     const c = ctx()
     if (!c) return "—"
+    if (!hasProviders()) return language.t("common.notAvailable")
     return c.modelLabel
   })
 

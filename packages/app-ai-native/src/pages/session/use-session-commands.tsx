@@ -10,6 +10,7 @@ import { usePermission } from "@/context/permission"
 import { usePrompt } from "@/context/prompt"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
+import { workspaceAdapter } from "@/context/workspace-adapter"
 import { useTerminal } from "@/context/terminal"
 import { DialogSelectFile } from "@/components/dialog-select-file"
 import { DialogSelectModel } from "@/components/dialog-select-model"
@@ -43,6 +44,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const permission = usePermission()
   const prompt = usePrompt()
   const sdk = useSDK()
+  const api = createMemo(() => workspaceAdapter(sdk.client))
   const sync = useSync()
   const terminal = useTerminal()
   const layout = useLayout()
@@ -97,6 +99,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const mcpCommand = withCategory(language.t("command.category.mcp"))
   const agentCommand = withCategory(language.t("command.category.agent"))
   const permissionsCommand = withCategory(language.t("command.category.permissions"))
+  const hasMcp = createMemo(() => Object.keys(sync.data.mcp ?? {}).length > 0)
 
   const sessionCommands = createMemo(() => [
     sessionCommand({
@@ -233,7 +236,16 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       description: language.t("command.mcp.toggle.description"),
       keybind: "mod+;",
       slash: "mcp",
-      onSelect: () => dialog.show(() => <DialogSelectMcp />),
+      disabled: !hasMcp(),
+      onSelect: () => {
+        if (!hasMcp()) {
+          showToast({
+            title: language.t("dialog.mcp.empty"),
+          })
+          return
+        }
+        dialog.show(() => <DialogSelectMcp />)
+      },
     }),
     agentCommand({
       id: "agent.cycle",
@@ -297,12 +309,12 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
         const sessionID = params.id
         if (!sessionID) return
         if (status()?.type !== "idle") {
-          await sdk.client.session.abort({ sessionID }).catch(() => {})
+          await api().sessionAbort(sessionID).catch(() => {})
         }
         const revert = info()?.revert?.messageID
         const message = findLast(userMessages(), (x) => !revert || x.id < revert)
         if (!message) return
-        await sdk.client.session.revert({ sessionID, messageID: message.id })
+        await api().sessionRevert(sessionID, message.id)
         const parts = sync.data.part[message.id]
         if (parts) {
           const restored = extractPromptFromParts(parts, { directory: sdk.directory })
@@ -325,13 +337,13 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
         if (!revertMessageID) return
         const nextMessage = userMessages().find((x) => x.id > revertMessageID)
         if (!nextMessage) {
-          await sdk.client.session.unrevert({ sessionID })
+          await api().sessionUnrevert(sessionID)
           prompt.reset()
           const lastMsg = findLast(userMessages(), (x) => x.id >= revertMessageID)
           setActiveMessage(lastMsg)
           return
         }
-        await sdk.client.session.revert({ sessionID, messageID: nextMessage.id })
+        await api().sessionRevert(sessionID, nextMessage.id)
         const priorMsg = findLast(userMessages(), (x) => x.id < nextMessage.id)
         setActiveMessage(priorMsg)
       },
@@ -353,7 +365,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
           })
           return
         }
-        await sdk.client.session.summarize({
+        await api().sessionSummarize({
           sessionID,
           modelID: model.id,
           providerID: model.provider.id,
@@ -433,8 +445,8 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
             return
           }
 
-          const url = await sdk.client.session
-            .share({ sessionID: params.id })
+          const url = await api()
+            .sessionShare(params.id, sdk.directory)
             .then((res) => res.data?.share?.url)
             .catch(() => undefined)
           if (!url) {
@@ -457,8 +469,8 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
         disabled: !params.id || !info()?.share?.url,
         onSelect: async () => {
           if (!params.id) return
-          await sdk.client.session
-            .unshare({ sessionID: params.id })
+          await api()
+            .sessionUnshare(params.id, sdk.directory)
             .then(() =>
               showToast({
                 title: language.t("toast.session.unshare.success.title"),

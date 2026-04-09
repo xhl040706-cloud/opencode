@@ -7,11 +7,13 @@ import { showToast } from "@opencode-ai/ui/toast"
 import type { QuestionAnswer, QuestionRequest } from "@opencode-ai/sdk/v2"
 import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
+import { workspaceAdapter } from "@/context/workspace-adapter"
 
 const cache = new Map<string, { tab: number; answers: QuestionAnswer[]; custom: string[]; customOn: boolean[] }>()
 
 export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit: () => void }> = (props) => {
   const sdk = useSDK()
+  const api = workspaceAdapter(sdk.client)
   const language = useLanguage()
 
   const questions = createMemo(() => props.request.questions)
@@ -132,7 +134,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
     props.onSubmit()
     setStore("sending", true)
     try {
-      await sdk.client.question.reply({ requestID: props.request.id, answers })
+      await api.questionReply(props.request.id, answers)
       replied = true
       cache.delete(props.request.id)
     } catch (err) {
@@ -148,7 +150,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
     props.onSubmit()
     setStore("sending", true)
     try {
-      await sdk.client.question.reject({ requestID: props.request.id })
+      await api.questionReject(props.request.id)
       replied = true
       cache.delete(props.request.id)
     } catch (err) {

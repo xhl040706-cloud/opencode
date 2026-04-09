@@ -47,7 +47,9 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
 
   const metrics = createMemo(() => getSessionContextMetrics(messages(), sync.data.provider.all))
   const context = createMemo(() => metrics().context)
+  const hasProviders = createMemo(() => sync.data.provider.all.length > 0)
   const cost = createMemo(() => {
+    if (!hasProviders()) return language.t("common.notAvailable")
     return usd().format(metrics().totalCost)
   })
 

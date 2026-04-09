@@ -21,6 +21,7 @@ import { useLayout } from "@/context/layout"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
+import { workspaceAdapter } from "@/context/workspace-adapter"
 import { decode64 } from "@/utils/base64"
 import { Persist, persisted } from "@/utils/persist"
 import { StatusPopover } from "../status-popover"
@@ -145,7 +146,7 @@ function useSessionShare(args: {
       }
     | undefined
   sessionID: () => string | undefined
-  projectDirectory: () => string
+  workspaceDirectory: () => string
   platform: ReturnType<typeof usePlatform>
 }) {
   const [state, setState] = createStore({
@@ -171,8 +172,8 @@ function useSessionShare(args: {
     const sessionID = args.sessionID()
     if (!sessionID || state.share) return
     setState("share", true)
-    args.globalSDK.client.session
-      .share({ sessionID, directory: args.projectDirectory() })
+    workspaceAdapter(args.globalSDK.client)
+      .sessionShare(sessionID, args.workspaceDirectory())
       .catch((error) => {
         console.error("Failed to share session", error)
       })
@@ -185,8 +186,8 @@ function useSessionShare(args: {
     const sessionID = args.sessionID()
     if (!sessionID || state.unshare) return
     setState("unshare", true)
-    args.globalSDK.client.session
-      .unshare({ sessionID, directory: args.projectDirectory() })
+    workspaceAdapter(args.globalSDK.client)
+      .sessionUnshare(sessionID, args.workspaceDirectory())
       .catch((error) => {
         console.error("Failed to unshare session", error)
       })
@@ -231,16 +232,16 @@ export function SessionHeader() {
   const platform = usePlatform()
   const language = useLanguage()
 
-  const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
-  const project = createMemo(() => {
-    const directory = projectDirectory()
+  const workspaceDirectory = createMemo(() => decode64(params.dir) ?? "")
+  const workspace = createMemo(() => {
+    const directory = workspaceDirectory()
     if (!directory) return
     return layout.projects.list().find((p) => p.worktree === directory || p.sandboxes?.includes(directory))
   })
   const name = createMemo(() => {
-    const current = project()
+    const current = workspace()
     if (current) return current.name || getFilename(current.worktree)
-    return getFilename(projectDirectory())
+    return getFilename(workspaceDirectory())
   })
   const hotkey = createMemo(() => command.keybind("file.open"))
 
@@ -314,7 +315,7 @@ export function SessionHeader() {
 
   const openDir = (app: OpenApp) => {
     if (opening() || !canOpen() || !platform.openPath) return
-    const directory = projectDirectory()
+    const directory = workspaceDirectory()
     if (!directory) return
 
     const item = options().find((o) => o.id === app)
@@ -329,7 +330,7 @@ export function SessionHeader() {
   }
 
   const copyPath = () => {
-    const directory = projectDirectory()
+    const directory = workspaceDirectory()
     if (!directory) return
     navigator.clipboard
       .writeText(directory)
@@ -348,7 +349,7 @@ export function SessionHeader() {
     globalSDK,
     currentSession,
     sessionID: () => params.id,
-    projectDirectory,
+    workspaceDirectory,
     platform,
   })
 
@@ -391,7 +392,7 @@ export function SessionHeader() {
           <Portal mount={mount()}>
             <div class="flex items-center gap-2">
               <StatusPopover />
-              <Show when={projectDirectory()}>
+              <Show when={workspaceDirectory()}>
                 <div class="hidden xl:flex items-center">
                   <Show
                     when={canOpen()}
