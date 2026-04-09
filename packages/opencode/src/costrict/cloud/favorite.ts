@@ -69,6 +69,10 @@ type RemoteListResponse = {
   hasMore?: boolean
 }
 
+type FavoriteListItem = FavoriteItem & {
+  content: ""
+}
+
 // Map store itemType values to our local type names
 const STORE_TYPE_MAP: Record<string, FavoriteItemType> = {
   skill: "skill",
@@ -193,7 +197,7 @@ async function createAuthenticatedFetch() {
   }
 }
 
-async function listRemoteCandidates(storeType?: string) {
+async function listRemoteCandidates(storeType?: string, extraParams?: Record<string, string>) {
   const { baseUrl, json } = await createAuthenticatedFetch()
   const result: Array<{ id: string } & Record<string, unknown>> = []
 
@@ -203,6 +207,11 @@ async function listRemoteCandidates(storeType?: string) {
       pageSize: String(FAVORITE_PAGE_SIZE),
     })
     if (storeType) params.set("type", storeType)
+    if (extraParams) {
+      for (const [key, value] of Object.entries(extraParams)) {
+        params.set(key, value)
+      }
+    }
     const data = await json<RemoteListResponse>(`${baseUrl}/api/items?${params.toString()}`)
     const items = data.items ?? []
     result.push(...items)
@@ -215,6 +224,28 @@ async function listRemoteCandidates(storeType?: string) {
 /** @deprecated Use listRemoteCandidates("skill") */
 async function listRemoteSkillCandidates() {
   return listRemoteCandidates("skill")
+}
+
+function parseFavoriteListItem(data: Record<string, unknown>): FavoriteListItem | undefined {
+  const storeType = String(data.itemType ?? "")
+  const localType = STORE_TYPE_MAP[storeType]
+  if (!localType) return undefined
+
+  return {
+    id: String(data.id),
+    slug: String(data.slug ?? data.id),
+    name: String(data.name ?? data.slug ?? data.id),
+    description: String(data.description ?? ""),
+    itemType: localType,
+    content: "",
+    category: typeof data.category === "string" ? data.category : undefined,
+    version: typeof data.version === "string" ? data.version : undefined,
+    favoriteCount: typeof data.favoriteCount === "number" ? data.favoriteCount : undefined,
+    favorited: typeof data.favorited === "boolean" ? data.favorited : undefined,
+    createdBy: typeof data.createdBy === "string" ? data.createdBy : undefined,
+    createdAt: typeof data.createdAt === "string" ? data.createdAt : undefined,
+    updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : undefined,
+  }
 }
 
 async function getRemoteItem(id: string): Promise<FavoriteItem> {
@@ -245,6 +276,19 @@ async function getRemoteItem(id: string): Promise<FavoriteItem> {
 /** @deprecated Use getRemoteItem */
 async function getRemoteSkill(id: string): Promise<FavoriteItem> {
   return getRemoteItem(id)
+}
+
+async function resolveFavoriteItem(slugOrId: string): Promise<FavoriteItemWithStatus> {
+  const favorites = await listFavoriteItems()
+  const item = favorites.find((f) => f.slug === slugOrId || f.id === slugOrId)
+  if (!item) throw new Error(`Favorite item not found: ${slugOrId}`)
+
+  const detail = await getRemoteItem(item.id)
+  return {
+    ...detail,
+    status: item.status,
+    localPath: item.localPath,
+  }
 }
 
 async function getFavoritePathsFromConfig() {
@@ -496,20 +540,15 @@ async function ensureInstalled(slugOrId: string) {
 export async function listFavoriteItems(type?: FavoriteItemType): Promise<FavoriteItemWithStatus[]> {
   // Fetch candidates: either a specific store type, or all supported types
   const storeTypes = type ? [LOCAL_TO_STORE_TYPE[type]] : Object.values(LOCAL_TO_STORE_TYPE)
-  const allCandidates: Array<{ id: string } & Record<string, unknown>> = []
-  for (const st of [...new Set(storeTypes)]) {
-    const candidates = await listRemoteCandidates(st)
-    allCandidates.push(...candidates)
-  }
-
-  const details = await Promise.all(
-    allCandidates.map(async (item) =>
-      getRemoteItem(String(item.id)).catch((error) => {
-        log.warn("failed to inspect remote favorite candidate", { id: item.id, error })
-        return undefined
+  const candidatePages = await Promise.all(
+    [...new Set(storeTypes)].map(async (st) =>
+      listRemoteCandidates(st, { favorited: "true" }).catch((error) => {
+        log.warn("failed to fetch remote favorite candidates", { type: st, error })
+        return []
       }),
     ),
   )
+  const candidates = candidatePages.flat()
 
   const [activeSkillPaths, activeAgentNames, activeCommandNames, activeMcpNames, state] = await Promise.all([
     getFavoritePathsFromConfig(),
@@ -522,7 +561,9 @@ export async function listFavoriteItems(type?: FavoriteItemType): Promise<Favori
   const seen = new Set<string>()
   const result: FavoriteItemWithStatus[] = []
 
-  for (const item of details) {
+  for (const candidate of candidates) {
+    const item = parseFavoriteListItem(candidate)
+    if (!item) continue
     if (!item?.favorited) continue
     if (seen.has(item.slug)) continue
     seen.add(item.slug)
@@ -543,10 +584,7 @@ export async function listFavoriteSkills(): Promise<FavoriteItemWithStatus[]> {
 }
 
 export async function viewFavoriteItem(slugOrId: string): Promise<FavoriteItemWithStatus> {
-  const favorites = await listFavoriteItems()
-  const item = favorites.find((f) => f.slug === slugOrId || f.id === slugOrId)
-  if (!item) throw new Error(`Favorite item not found: ${slugOrId}`)
-  return item
+  return resolveFavoriteItem(slugOrId)
 }
 
 /** @deprecated Use viewFavoriteItem */
@@ -555,7 +593,7 @@ export async function viewFavoriteSkill(slugOrId: string): Promise<FavoriteItemW
 }
 
 export async function downloadFavoriteItem(slugOrId: string) {
-  const item = await viewFavoriteItem(slugOrId)
+  const item = await resolveFavoriteItem(slugOrId)
   const localPath = await persistInstalledItem(item)
   await mutateState((state) => {
     const record = state.items[item.slug]

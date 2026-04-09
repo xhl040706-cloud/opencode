@@ -70,39 +70,36 @@ describe("costrict.cloud.favorite", () => {
 
   test("lists only favorited skills with Cloud status by default", async () => {
     const listResponse = {
-      items: [{ id: "skill-1" }, { id: "skill-2" }],
+      items: [
+        {
+          id: "skill-1",
+          slug: "favorite-skill",
+          name: "Favorite Skill",
+          description: "first favorite",
+          itemType: "skill",
+          favorited: true,
+          favoriteCount: 5,
+        },
+        {
+          id: "skill-2",
+          slug: "not-favorited-skill",
+          name: "Not Favorited",
+          description: "second item",
+          itemType: "skill",
+          favorited: false,
+          favoriteCount: 1,
+        },
+      ],
       hasMore: false,
     }
-    const details = {
-      "skill-1": {
-        id: "skill-1",
-        slug: "favorite-skill",
-        name: "Favorite Skill",
-        description: "first favorite",
-        itemType: "skill",
-        content: "---\nname: favorite-skill\ndescription: first favorite\n---\n",
-        favorited: true,
-        favoriteCount: 5,
-      },
-      "skill-2": {
-        id: "skill-2",
-        slug: "not-favorited-skill",
-        name: "Not Favorited",
-        description: "second item",
-        itemType: "skill",
-        content: "---\nname: not-favorited-skill\ndescription: second item\n---\n",
-        favorited: false,
-        favoriteCount: 1,
-      },
-    } as const
 
     globalThis.fetch = mock(async (input: string | URL | Request) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
       if (url.includes("/api/items?")) {
+        expect(url).toContain("favorited=true")
         return new Response(JSON.stringify(listResponse), { status: 200 })
       }
-      const id = url.split("/").at(-1)!
-      return new Response(JSON.stringify(details[id as keyof typeof details]), { status: 200 })
+      return new Response("not found", { status: 404 })
     }) as unknown as typeof fetch
 
     const { listFavoriteSkills } = await import("../../../src/costrict/cloud/favorite")
@@ -111,6 +108,7 @@ describe("costrict.cloud.favorite", () => {
     expect(items).toHaveLength(1)
     expect(items[0]?.slug).toBe("favorite-skill")
     expect(items[0]?.status).toBe("Cloud")
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4)
   })
 
   test("supports Cloud -> Downloaded -> Active -> Unloaded -> Cloud lifecycle", async () => {
@@ -129,7 +127,25 @@ describe("costrict.cloud.favorite", () => {
     globalThis.fetch = mock(async (input: string | URL | Request) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
       if (url.includes("/api/items?")) {
-        return new Response(JSON.stringify({ items: [{ id: skill.id }], hasMore: false }), { status: 200 })
+        expect(url).toContain("favorited=true")
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: skill.id,
+                slug: skill.slug,
+                name: skill.name,
+                description: skill.description,
+                itemType: skill.itemType,
+                favorited: true,
+                favoriteCount: skill.favoriteCount,
+                version: skill.version,
+              },
+            ],
+            hasMore: false,
+          }),
+          { status: 200 },
+        )
       }
       if (url.endsWith(`/api/items/${skill.id}`)) {
         return new Response(JSON.stringify(skill), { status: 200 })
@@ -208,7 +224,24 @@ describe("costrict.cloud.favorite", () => {
     globalThis.fetch = mock(async (input: string | URL | Request) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
       if (url.includes("/api/items?")) {
-        return new Response(JSON.stringify({ items: [{ id: skill.id }], hasMore: false }), { status: 200 })
+        expect(url).toContain("favorited=true")
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: skill.id,
+                slug: skill.slug,
+                name: skill.name,
+                description: skill.description,
+                itemType: skill.itemType,
+                favorited: true,
+                favoriteCount: skill.favoriteCount,
+              },
+            ],
+            hasMore: false,
+          }),
+          { status: 200 },
+        )
       }
       return new Response(JSON.stringify(skill), { status: 200 })
     }) as unknown as typeof fetch
