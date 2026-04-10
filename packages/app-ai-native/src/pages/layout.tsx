@@ -52,7 +52,6 @@ import { setSessionHandoff } from "@/pages/session/handoff"
 
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme"
-import { DialogSelectProvider } from "@/components/dialog-select-provider"
 import { DialogSelectServer } from "@/components/dialog-select-server"
 import { DialogSettings } from "@/components/dialog-settings"
 import { useCommand, type CommandOption } from "@/context/command"
@@ -1053,10 +1052,6 @@ export default function Layout(props: ParentProps) {
 
     return commands
   })
-
-  function connectProvider() {
-    dialog.show(() => <DialogSelectProvider />)
-  }
 
   function openServer() {
     dialog.show(() => <DialogSelectServer />)

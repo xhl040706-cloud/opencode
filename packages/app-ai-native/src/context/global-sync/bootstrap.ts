@@ -10,7 +10,7 @@ import { getFilename } from "@opencode-ai/util/path"
 import { retry } from "@opencode-ai/util/retry"
 import { batch } from "solid-js"
 import { reconcile, type SetStoreFunction, type Store } from "solid-js/store"
-import type { State, VcsCache } from "./types"
+import type { ProviderCapabilitiesResponse, State, VcsCache } from "./types"
 import { cmp, normalizeProviderList } from "./utils"
 import { formatServerError } from "@/utils/server-errors"
 import { workspaceAdapter } from "@/context/workspace-adapter"
@@ -91,9 +91,108 @@ function groupBySession<T extends { id: string; sessionID: string }>(input: T[])
   }, {})
 }
 
+function legacyProviderToCapability(
+  input: Awaited<ReturnType<OpencodeClient["provider"]["list"]>>["data"],
+): ProviderCapabilitiesResponse {
+  if (!input) return { connected: [] }
+  return {
+    connected: input.all
+      .filter((provider) => input.connected.includes(provider.id))
+      .map((provider) => ({
+        id: provider.id,
+        name: provider.name,
+        source: "custom" as const,
+        default_model: input.default[provider.id],
+        models: Object.fromEntries(
+          Object.entries(provider.models).map(([key, model]) => [
+            key,
+            {
+              id: model.id,
+              name: model.name,
+              family: model.family,
+              release_date: model.release_date,
+              cost: model.cost
+                ? {
+                    input: model.cost.input,
+                    output: model.cost.output,
+                    cache: {
+                      read: model.cost.cache_read ?? 0,
+                      write: model.cost.cache_write ?? 0,
+                    },
+                    experimentalOver200K: model.cost.context_over_200k
+                      ? {
+                          input: model.cost.context_over_200k.input,
+                          output: model.cost.context_over_200k.output,
+                          cache: {
+                            read: model.cost.context_over_200k.cache_read ?? 0,
+                            write: model.cost.context_over_200k.cache_write ?? 0,
+                          },
+                        }
+                      : undefined,
+                  }
+                : undefined,
+              limit: {
+                context: model.limit.context,
+                input: model.limit.input,
+                output: model.limit.output,
+              },
+              capabilities: {
+                temperature: model.temperature,
+                reasoning: model.reasoning,
+                attachment: model.attachment,
+                toolcall: model.tool_call,
+                input: {
+                  text: model.modalities?.input?.includes("text") ?? false,
+                  audio: model.modalities?.input?.includes("audio") ?? false,
+                  image: model.modalities?.input?.includes("image") ?? false,
+                  video: model.modalities?.input?.includes("video") ?? false,
+                  pdf: model.modalities?.input?.includes("pdf") ?? false,
+                },
+                output: {
+                  text: model.modalities?.output?.includes("text") ?? false,
+                  audio: model.modalities?.output?.includes("audio") ?? false,
+                  image: model.modalities?.output?.includes("image") ?? false,
+                  video: model.modalities?.output?.includes("video") ?? false,
+                  pdf: model.modalities?.output?.includes("pdf") ?? false,
+                },
+                interleaved: model.interleaved ?? false,
+              },
+              status:
+                model.status === "deprecated" || model.status === "alpha" || model.status === "beta"
+                  ? model.status
+                  : ("active" as const),
+              variants: model.variants,
+            },
+          ]),
+        ),
+      })),
+  }
+}
+
+async function loadProviderCapabilities(input: {
+  sdk: OpencodeClient
+  directory: string
+  baseUrl: string
+  setStore: SetStoreFunction<State>
+}) {
+  const base = input.baseUrl
+  if (!base) {
+    const data = await input.sdk.provider.list().then((x) => x.data)
+    if (data) input.setStore("provider", normalizeProviderList(legacyProviderToCapability(data)))
+    return
+  }
+  const res = await fetch(`${base}/provider/capabilities?directory=${encodeURIComponent(input.directory)}`, {
+    credentials: "include",
+  })
+  if (!res.ok) throw new Error(`provider capabilities request failed: ${res.status}`)
+  const data = await res.json()
+  if (data) input.setStore("provider", normalizeProviderList(data))
+}
+
 export async function bootstrapDirectory(input: {
   directory: string
   sdk: OpencodeClient
+  baseUrl: string
   store: Store<State>
   setStore: SetStoreFunction<State>
   vcsCache: VcsCache
@@ -124,11 +223,7 @@ export async function bootstrapDirectory(input: {
   if (input.store.status !== "complete") input.setStore("status", "partial")
 
   const optional = [
-    input.sdk.provider.list().then((x) => {
-      const data = x.data
-      if (!data) return
-      input.setStore("provider", normalizeProviderList(data))
-    }),
+    loadProviderCapabilities(input),
     api.path().then((x) => input.setStore("path", x.data!)),
     api.permissions().then((x) => {
       const grouped = groupBySession(

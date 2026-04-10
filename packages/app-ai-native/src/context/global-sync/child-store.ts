@@ -172,7 +172,7 @@ export function createChildStoreManager(input: {
             project: "",
             projectMeta: initialMeta,
             icon: initialIcon,
-            provider: { all: [], connected: [], default: {} },
+            provider: { connected: [] },
             path: { state: "", config: "", worktree: "", directory: "", home: "" },
             status: "loading" as const,
             agent: [],

@@ -249,6 +249,7 @@ function createGlobalSync() {
       await bootstrapDirectory({
         directory,
         sdk,
+        baseUrl: globalSDK.createClient({ directory, throwOnError: true }).client.getConfig().baseUrl ?? "",
         store: child[0],
         setStore: child[1],
         vcsCache: cache,
