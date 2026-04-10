@@ -29,7 +29,7 @@ export const LearningPlugin: Plugin = async (input: PluginInput): Promise<Hooks>
   // Return combined hooks - both modules have an 'event' hook, so we chain them
   return {
     event: async (input: { event: any }) => {
-      log.info(">>> LEARNING PLUGIN EVENT CALLED <<<", { eventType: input?.event?.type })
+      // log.info(">>> LEARNING PLUGIN EVENT CALLED <<<", { eventType: input?.event?.type })
       // Call conversation hooks first
       if (conversationHooks.event) {
         try {

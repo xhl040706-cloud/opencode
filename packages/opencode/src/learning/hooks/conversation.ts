@@ -14,18 +14,18 @@ export namespace ConversationHooks {
    * Register conversation-related hooks
    */
   export function register(): Partial<Hooks> {
-    log.info("registering conversation hooks")
+    // log.info("registering conversation hooks")
     return {
       // Hook into message events
       event: async (input: { event: any }) => {
         // First log before anything else to confirm this function is called
-        log.info(">>> CONVERSATION HOOK CALLED <<<", { inputType: input?.event?.type })
+        // log.info(">>> CONVERSATION HOOK CALLED <<<", { inputType: input?.event?.type })
         try {
-          log.info("received event in conversation hook", {
-            hasInput: !!input,
-            hasEvent: !!input?.event,
-            type: input?.event?.type,
-          })
+          // log.info("received event in conversation hook", {
+          //   hasInput: !!input,
+          //   hasEvent: !!input?.event,
+          //   type: input?.event?.type,
+          // })
           const event = input?.event
           if (!event) {
             log.warn("event is undefined in conversation hook")
@@ -34,7 +34,7 @@ export namespace ConversationHooks {
 
           // Handle message-related events
           if (event.type?.startsWith("session.") || event.type?.startsWith("message.")) {
-            log.info("handling message event", { type: event.type })
+            // log.info("handling message event", { type: event.type })
             await handleMessageEvent(event)
           }
 
