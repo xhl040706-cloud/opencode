@@ -13,6 +13,93 @@ import { Log } from "../../util/log"
 
 const log = Log.create({ service: "server" })
 
+const ProviderCapabilityModel = z.object({
+  id: z.string(),
+  name: z.string(),
+  family: z.string().optional(),
+  release_date: z.string(),
+  cost: z
+    .object({
+      input: z.number(),
+      output: z.number(),
+      cache: z.object({
+        read: z.number(),
+        write: z.number(),
+      }),
+      experimentalOver200K: z
+        .object({
+          input: z.number(),
+          output: z.number(),
+          cache: z.object({
+            read: z.number(),
+            write: z.number(),
+          }),
+        })
+        .optional(),
+    })
+    .optional(),
+  limit: z.object({
+    context: z.number(),
+    input: z.number().optional(),
+    output: z.number(),
+  }),
+  capabilities: z.object({
+    temperature: z.boolean(),
+    reasoning: z.boolean(),
+    attachment: z.boolean(),
+    toolcall: z.boolean(),
+    input: z.object({
+      text: z.boolean(),
+      audio: z.boolean(),
+      image: z.boolean(),
+      video: z.boolean(),
+      pdf: z.boolean(),
+    }),
+    output: z.object({
+      text: z.boolean(),
+      audio: z.boolean(),
+      image: z.boolean(),
+      video: z.boolean(),
+      pdf: z.boolean(),
+    }),
+    interleaved: z.union([
+      z.boolean(),
+      z.object({
+        field: z.enum(["reasoning_content", "reasoning_details"]),
+      }),
+    ]),
+  }),
+  status: z.enum(["alpha", "beta", "deprecated", "active"]),
+  variants: z.record(z.string(), z.record(z.string(), z.any())).optional(),
+})
+
+const ProviderCapability = z.object({
+  id: z.string(),
+  name: z.string(),
+  source: z.enum(["env", "config", "custom", "api"]),
+  default_model: z.string().optional(),
+  models: z.record(z.string(), ProviderCapabilityModel),
+})
+
+function capability(input: Provider.Info) {
+  return {
+    id: input.id,
+    name: input.name,
+    source: input.source,
+    models: mapValues(input.models, (model) => ({
+      id: model.id,
+      name: model.name,
+      family: model.family,
+      release_date: model.release_date,
+      cost: model.cost,
+      limit: model.limit,
+      capabilities: model.capabilities,
+      status: model.status,
+      variants: model.variants,
+    })),
+  }
+}
+
 export const ProviderRoutes = lazy(() =>
   new Hono()
     .get(
@@ -60,6 +147,53 @@ export const ProviderRoutes = lazy(() =>
           all: Object.values(providers),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),
           connected: Object.keys(connected),
+        })
+      },
+    )
+    .get(
+      "/capabilities",
+      describeRoute({
+        summary: "List provider capabilities",
+        description: "Get a lightweight list of provider model capabilities for model selection UI.",
+        operationId: "provider.capabilities",
+        responses: {
+          200: {
+            description: "Lightweight provider capabilities",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    connected: ProviderCapability.array(),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const config = await Config.get()
+        const disabled = new Set(config.disabled_providers ?? [])
+        const enabled = config.enabled_providers ? new Set(config.enabled_providers) : undefined
+
+        const allProviders = await ModelsDev.get()
+        const filteredProviders: Record<string, (typeof allProviders)[string]> = {}
+        for (const [key, value] of Object.entries(allProviders)) {
+          if ((enabled ? enabled.has(key) : true) && !disabled.has(key)) {
+            filteredProviders[key] = value
+          }
+        }
+
+        const connected = await Provider.list()
+        const providers = Object.assign(
+          mapValues(filteredProviders, (x) => Provider.fromModelsDevProvider(x)),
+          connected,
+        )
+        return c.json({
+          connected: Object.values(connected).map((item) => ({
+            ...capability(item),
+            default_model: Provider.sort(Object.values(item.models))[0]?.id,
+          })),
         })
       },
     )
