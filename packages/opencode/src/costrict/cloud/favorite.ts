@@ -500,34 +500,41 @@ async function persistInstalledSkill(skill: FavoriteItem) {
 }
 
 async function ensureInstalled(slugOrId: string) {
-  const state = await readState()
-  const hit = state.items[slugOrId] ?? Object.values(state.items).find((item) => item.id === slugOrId)
-  if (hit) {
-    // Check that content file exists
-    const contentExists = await (async () => {
+  const hasUsableLocalContent = async (hit: FavoriteStateRecord) => {
+    const contentPath = (() => {
       switch (hit.itemType) {
         case "skill":
-          return Filesystem.exists(path.join(hit.localPath, "SKILL.md"))
+          return path.join(hit.localPath, "SKILL.md")
         case "agent":
-          return Filesystem.exists(path.join(hit.localPath, `${hit.slug}.md`))
+          return path.join(hit.localPath, `${hit.slug}.md`)
         case "command":
-          return Filesystem.exists(path.join(hit.localPath, `${hit.slug}.md`))
+          return path.join(hit.localPath, `${hit.slug}.md`)
         case "mcp":
-          return Filesystem.exists(path.join(hit.localPath, "mcp.json"))
+          return path.join(hit.localPath, "mcp.json")
       }
     })()
-    if (contentExists) return hit
+    if (!(await Filesystem.exists(contentPath))) return false
+    return (await Filesystem.size(contentPath)) > 0
   }
 
-  const favorites = await listFavoriteItems()
-  const item = favorites.find((f) => f.slug === slugOrId || f.id === slugOrId)
-  if (!item) throw new Error(`Favorite item not found: ${slugOrId}`)
-  const localPath = await persistInstalledItem(item)
+  const state = await readState()
+  const hit = state.items[slugOrId] ?? Object.values(state.items).find((item) => item.id === slugOrId)
+  if (hit && (await hasUsableLocalContent(hit))) return hit
+
+  let remote = hit ? await getRemoteItem(hit.id).catch(() => undefined) : undefined
+  if (!remote) {
+    const favorites = await listFavoriteItems()
+    const listed = favorites.find((f) => f.slug === slugOrId || f.id === slugOrId)
+    if (!listed) throw new Error(`Favorite item not found: ${slugOrId}`)
+    remote = await getRemoteItem(listed.id)
+  }
+
+  const localPath = await persistInstalledItem(remote)
   return {
-    id: item.id,
-    slug: item.slug,
-    name: item.name,
-    itemType: item.itemType,
+    id: remote.id,
+    slug: remote.slug,
+    name: remote.name,
+    itemType: remote.itemType,
     localPath,
     lifecycle: "downloaded" as const,
     installedAt: new Date().toISOString(),
