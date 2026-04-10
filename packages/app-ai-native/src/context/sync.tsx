@@ -98,12 +98,12 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     type Child = ReturnType<(typeof globalSync)["child"]>
     type Setter = Child[1]
-    type SessionMessagesResponse = Awaited<ReturnType<typeof sdk.client.session.messages>>
-    type SessionGetResponse = Awaited<ReturnType<typeof sdk.client.session.get>>
-    type SessionDiffResponse = Awaited<ReturnType<typeof sdk.client.session.diff>>
-    type SessionTodoResponse = Awaited<ReturnType<typeof sdk.client.session.todo>>
-    type CommandListResponse = Awaited<ReturnType<typeof sdk.client.command.list>>
-    type VcsResponse = Awaited<ReturnType<typeof sdk.client.vcs.get>>
+    type ConversationMessagesResponse = { data: Awaited<ReturnType<typeof sdk.client.conversation.messages>> }
+    type ConversationGetResponse = { data: Awaited<ReturnType<typeof sdk.client.conversation.get>> }
+    type ConversationDiffResponse = { data: Awaited<ReturnType<typeof sdk.client.conversation.diff>> }
+    type ConversationTodoResponse = { data: Awaited<ReturnType<typeof sdk.client.conversation.todo>> }
+    type CommandListResponse = { data: Awaited<ReturnType<typeof sdk.client.runtime.commands>> }
+    type VcsResponse = { data: Awaited<ReturnType<typeof sdk.client.runtime.vcs>> }
 
     const current = createMemo(() => globalSync.child(sdk.directory))
     const target = (directory?: string) => {
@@ -131,8 +131,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     }
 
     const fetchMessages = async (input: { client: typeof sdk.client; sessionID: string; limit: number }) => {
-      const messages = await retry<SessionMessagesResponse>(() =>
-        input.client.session.messages({ sessionID: input.sessionID, limit: input.limit }),
+      const messages = await retry<ConversationMessagesResponse>(() =>
+        input.client.conversation.messages(input.sessionID, { directory: sdk.directory, limit: input.limit }).then((data) => ({ data })),
       )
       const items = (messages.data ?? []).filter((x) => !!x?.info?.id)
       const session = items.map((x) => x.info).sort((a, b) => cmp(a.id, b.id))
@@ -257,7 +257,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
           const sessionReq = hasSession
             ? Promise.resolve()
-            : retry<SessionGetResponse>(() => api.sessionGet(sessionID)).then((session) => {
+            : retry<ConversationGetResponse>(() => api.sessionGet(sessionID)).then((session) => {
                 const data = session.data
                 if (!data) return
                 setStore(
@@ -293,7 +293,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
           const key = keyFor(directory, sessionID)
           return runInflight(inflightDiff, key, () =>
-            retry<SessionDiffResponse>(() => api.sessionDiff(sessionID)).then((diff) => {
+            retry<ConversationDiffResponse>(() => api.sessionDiff(sessionID)).then((diff) => {
               setStore("session_diff", sessionID, reconcile(diff.data ?? [], { key: "file" }))
             }),
           )
@@ -318,7 +318,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
           const key = keyFor(directory, sessionID)
           return runInflight(inflightTodo, key, () =>
-            retry<SessionTodoResponse>(() => api.sessionTodo(sessionID)).then((todo) => {
+            retry<ConversationTodoResponse>(() => api.sessionTodo(sessionID)).then((todo) => {
               const list = todo.data ?? []
               setStore("todo", sessionID, reconcile(list, { key: "id" }))
               globalSync.todo.set(sessionID, list)
@@ -394,7 +394,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const [store, setStore] = globalSync.child(directory)
           if (store.command.length > 0) return store.command
           return runInflight(inflightCommand, directory, () =>
-            retry<CommandListResponse>(() => client.command.list()).then((res) => {
+            retry<CommandListResponse>(() => client.runtime.commands(directory).then((data) => ({ data }))).then((res) => {
               const list = res.data ?? []
               setStore("command", reconcile(list, { key: "name" }))
             }),
@@ -408,7 +408,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const [store, setStore] = globalSync.child(directory)
           if (store.vcs !== undefined) return store.vcs
           return runInflight(inflightVcs, directory, () =>
-            retry<VcsResponse>(() => client.vcs.get()).then((res) => {
+            retry<VcsResponse>(() => client.runtime.vcs(directory).then((data) => ({ data }))).then((res) => {
               const next = res.data
               setStore("vcs", next)
             }),

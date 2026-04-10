@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs"
 import { join } from "node:path"
 import { homedir } from "node:os"
 import { createCoStrictCustomLoader } from "../../../src/costrict/provider/index"
+import { getCoStrictBaseURL } from "../../../src/costrict/provider/auth"
 import { Installation } from "../../../src/installation/index"
 import { clearModelCache } from "../../../src/costrict/provider/models"
 
@@ -91,6 +92,95 @@ test("createCoStrictCustomLoader: conditional refresh with refresh_token and inv
     expect(refreshCalls.length).toBeGreaterThan(0)
   } finally {
     globalThis.fetch = originalFetch
+    await fs.unlink(filepath).catch(() => {})
+  }
+})
+
+test("getCoStrictBaseURL: env overrides credentials base_url for environment switch", () => {
+  const previous = process.env.COSTRICT_BASE_URL
+  process.env.COSTRICT_BASE_URL = "https://prod.example.com"
+
+  try {
+    expect(getCoStrictBaseURL(undefined, "https://test.example.com")).toBe("https://prod.example.com")
+    expect(getCoStrictBaseURL("https://provider.example.com", "https://test.example.com")).toBe("https://prod.example.com")
+  } finally {
+    if (previous === undefined) delete process.env.COSTRICT_BASE_URL
+    else process.env.COSTRICT_BASE_URL = previous
+  }
+})
+
+test("createCoStrictCustomLoader: refresh uses COSTRICT_BASE_URL when auth.json points elsewhere", async () => {
+  const testHome = process.env.COSTRICT_TEST_HOME
+  if (!testHome) throw new Error("COSTRICT_TEST_HOME not set")
+
+  const previous = process.env.COSTRICT_BASE_URL
+  process.env.COSTRICT_BASE_URL = "https://prod.example.com"
+
+  const credentials = {
+    id: "opencode",
+    name: "OpenCode Auth",
+    access_token: "expired-access-token",
+    refresh_token: "valid-refresh-token",
+    state: "test-state",
+    machine_id: "test-machine-id",
+    base_url: "https://test.example.com",
+    expiry_date: Date.now() - 3600000,
+    updated_at: new Date().toISOString(),
+  }
+
+  const filepath = join(testHome, ".costrict", "share", "auth.json")
+  await fs.mkdir(join(testHome, ".costrict", "share"), { recursive: true })
+  await fs.writeFile(filepath, JSON.stringify(credentials, null, 2))
+
+  const originalFetch = globalThis.fetch
+  const mockFetch = mock((input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString()
+
+    if (url.includes("/login/token")) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ access_token: "new-access-token", refresh_token: "new-refresh-token" }),
+        headers: new Headers(),
+        text: () => Promise.resolve(""),
+      })
+    }
+
+    if (url.includes("/models")) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: [{ id: "gpt-4", name: "GPT-4" }] }),
+        headers: new Headers(),
+        text: () => Promise.resolve(""),
+      })
+    }
+
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({}),
+      headers: new Headers(),
+      text: () => Promise.resolve(""),
+    })
+  })
+
+  globalThis.fetch = mockFetch as unknown as typeof fetch
+
+  try {
+    const provider = { id: "costrict", name: "CoStrict", api: "https://provider.example.com" }
+    await createCoStrictCustomLoader(provider)
+
+    const calls = mockFetch.mock.calls as any[][]
+    const refreshCall = calls.find((call) => call[0]?.toString().includes("/login/token"))
+    expect(refreshCall?.[0]?.toString()).toContain("https://prod.example.com/oidc-auth/api/v1/plugin/login/token")
+
+    const saved = JSON.parse(await fs.readFile(filepath, "utf-8")) as { base_url: string }
+    expect(saved.base_url).toBe("https://prod.example.com")
+  } finally {
+    globalThis.fetch = originalFetch
+    if (previous === undefined) delete process.env.COSTRICT_BASE_URL
+    else process.env.COSTRICT_BASE_URL = previous
     await fs.unlink(filepath).catch(() => {})
   }
 })

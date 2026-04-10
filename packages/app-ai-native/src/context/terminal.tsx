@@ -182,8 +182,8 @@ function createWorkspaceTerminalSession(sdk: ReturnType<typeof useSDK>, dir: str
       if (index >= 0) {
         setStore("all", index, (item) => ({ ...item, ...pty }))
       }
-      sdk.client.pty
-        .update({
+      sdk.client.runtime
+        .terminalUpdate({
           ptyID: pty.id,
           title: pty.title,
           size: pty.cols && pty.rows ? { rows: pty.rows, cols: pty.cols } : undefined,
@@ -200,8 +200,8 @@ function createWorkspaceTerminalSession(sdk: ReturnType<typeof useSDK>, dir: str
       const index = store.all.findIndex((x) => x.id === id)
       const pty = store.all[index]
       if (!pty) return
-      const clone = await sdk.client.pty
-        .create({
+      const clone = await sdk.client.runtime
+        .terminalCreate({
           title: pty.title,
         })
         .catch((error: unknown) => {
@@ -261,7 +261,7 @@ function createWorkspaceTerminalSession(sdk: ReturnType<typeof useSDK>, dir: str
         })
       }
 
-      await sdk.client.pty.remove({ ptyID: id }).catch((error: unknown) => {
+      await sdk.client.runtime.terminalRemove(id).catch((error: unknown) => {
         console.error("Failed to close terminal", error)
       })
     },

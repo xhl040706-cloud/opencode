@@ -9,7 +9,6 @@ import type {
   Path,
   PermissionRequest,
   Project,
-  ProviderListResponse,
   QuestionRequest,
   Session,
   SessionStatus,
@@ -18,6 +17,69 @@ import type {
 } from "@opencode-ai/sdk/v2/client"
 import type { Accessor } from "solid-js"
 import type { SetStoreFunction, Store } from "solid-js/store"
+
+export type ProviderCapabilityModel = {
+  id: string
+  name: string
+  family?: string
+  release_date: string
+  cost?: {
+    input: number
+    output: number
+    cache: {
+      read: number
+      write: number
+    }
+    experimentalOver200K?: {
+      input: number
+      output: number
+      cache: {
+        read: number
+        write: number
+      }
+    }
+  }
+  limit: {
+    context: number
+    input?: number
+    output: number
+  }
+  capabilities: {
+    temperature: boolean
+    reasoning: boolean
+    attachment: boolean
+    toolcall: boolean
+    input: {
+      text: boolean
+      audio: boolean
+      image: boolean
+      video: boolean
+      pdf: boolean
+    }
+    output: {
+      text: boolean
+      audio: boolean
+      image: boolean
+      video: boolean
+      pdf: boolean
+    }
+    interleaved: boolean | { field: "reasoning_content" | "reasoning_details" }
+  }
+  status: "alpha" | "beta" | "deprecated" | "active"
+  variants?: Record<string, Record<string, unknown>>
+}
+
+export type ProviderCapability = {
+  id: string
+  name: string
+  source: "env" | "config" | "custom" | "api"
+  default_model?: string
+  models: Record<string, ProviderCapabilityModel>
+}
+
+export type ProviderCapabilitiesResponse = {
+  connected: ProviderCapability[]
+}
 
 export type ProjectMeta = {
   name?: string
@@ -37,7 +99,7 @@ export type State = {
   project: string
   projectMeta: ProjectMeta | undefined
   icon: string | undefined
-  provider: ProviderListResponse
+  provider: ProviderCapabilitiesResponse
   path: Path
   session: Session[]
   sessionTotal: number

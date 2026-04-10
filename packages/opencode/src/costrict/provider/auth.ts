@@ -42,7 +42,7 @@ export function generateState(): string {
 
 /**
  * 获取 CoStrict Base URL
- * 优先级: providerApi > credentialsBaseUrl > 环境变量 > 默认值
+ * 优先级: 环境变量 > providerApi > credentialsBaseUrl > 默认值
  *
  * @param providerApi 来自配置文件的 provider.api
  * @param credentialsBaseUrl 来自凭证文件的 base_url
@@ -52,7 +52,7 @@ export function getCoStrictBaseURL(providerApi?: string, credentialsBaseUrl?: st
   const envUrl = process.env["COSTRICT_BASE_URL"]
   const defaultUrl = "https://zgsm.sangfor.com"
 
-  const baseUrl = providerApi || credentialsBaseUrl || envUrl || defaultUrl
+  const baseUrl = envUrl || providerApi || credentialsBaseUrl || defaultUrl
 
   // 移除可能的端点后缀
   return baseUrl.replace(/\/chat-rag\/api\/v1$/, "").replace(/\/$/, "")

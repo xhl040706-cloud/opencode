@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs"
 import { join } from "node:path"
 import { homedir } from "node:os"
 import { loadCoStrictCredentials, saveCoStrictCredentials, type CoStrictCredentials } from "../provider/credentials"
+import { getCoStrictBaseURL } from "../provider/auth"
 import { extractExpiryFromJWT, isCoStrictTokenValid, refreshCoStrictToken } from "../provider/token"
 import { Flag } from "../../flag/flag"
 import { Installation } from "../../installation"
@@ -70,14 +71,16 @@ export function getCloudApiUrl(path: string, baseUrl?: string) {
 
 async function renew(creds: CoStrictCredentials): Promise<CoStrictCredentials> {
   if (!creds.refresh_token) return creds
+  const baseUrl = getCoStrictBaseURL(undefined, creds.base_url)
   const next = await refreshCoStrictToken({
-    baseUrl: creds.base_url,
+    baseUrl,
     refreshToken: creds.refresh_token,
     state: creds.state,
   })
   const expiry = extractExpiryFromJWT(next.access_token)
   const fresh = {
     ...creds,
+    base_url: baseUrl,
     access_token: next.access_token,
     refresh_token: next.refresh_token,
     expiry_date: expiry,
@@ -96,7 +99,8 @@ async function auth(): Promise<CoStrictCredentials> {
 }
 
 async function enroll(creds: CoStrictCredentials, baseUrl: string, deviceId: string) {
-  return fetch(getCloudApiUrl("/api/devices/register", baseUrl), {
+  const url = getCloudApiUrl("/api/devices/register", baseUrl)
+  return fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -160,7 +164,8 @@ export async function register(): Promise<DeviceInfo> {
 
   if (!res.ok) {
     const body = await res.text().catch(() => "")
-    throw new Error(`Device registration failed: ${res.status} ${body}`)
+    const registerUrl = getCloudApiUrl("/api/devices/register", baseUrl)
+    throw new Error(`Device registration failed: ${res.status} ${registerUrl} ${body}`)
   }
 
   const data = (await res.json()) as { device: { deviceId: string }; token: string }

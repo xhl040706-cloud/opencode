@@ -3,6 +3,7 @@ import { Global } from "../../global"
 import { Filesystem } from "../../util/filesystem"
 import { Log } from "../../util/log"
 import { loadCoStrictCredentials } from "../provider/credentials"
+import { getCoStrictBaseURL } from "../provider/auth"
 import { isCoStrictTokenValid, refreshCoStrictToken } from "../provider/token"
 import { getCloudApiUrl } from "../device/client"
 import { ForbiddenError, NotLoggedInError, UnauthorizedError } from "./types"
@@ -74,7 +75,7 @@ export async function resolveToken(url: string): Promise<string | undefined> {
   if (!credentials.refresh_token) throw new NotLoggedInError()
 
   const refreshed = await refreshCoStrictToken({
-    baseUrl: credentials.base_url,
+    baseUrl: getCoStrictBaseURL(undefined, credentials.base_url),
     refreshToken: credentials.refresh_token,
     state: credentials.state,
   }).catch(() => null)

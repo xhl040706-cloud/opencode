@@ -21,6 +21,7 @@ export interface ShellToolParams {
   dir_path?: string
   is_background?: boolean
   timeout?: number
+  env?: NodeJS.ProcessEnv
 }
 
 export class ShellToolInvocation {
@@ -140,6 +141,7 @@ export class ShellToolInvocation {
         false, // Interactive shell disabled
         {
           ...shellExecutionConfig,
+          env: this.params.env,
           pager: "cat",
           timeout: timeoutMs,
         },

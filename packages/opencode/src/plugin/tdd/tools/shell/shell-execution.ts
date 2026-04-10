@@ -14,6 +14,17 @@ const log = debugLogger.clone().tag("scope", "shell-execution")
 
 const SIGKILL_TIMEOUT_MS = 200
 
+function args(executable: string, command: string) {
+  const name = executable.toLowerCase()
+  if (name.endsWith("powershell.exe")) {
+    return ["-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", command]
+  }
+  if (name.endsWith("pwsh.exe") || name === "pwsh") {
+    return ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
+  }
+  return [command]
+}
+
 export type ShellOutputEvent = {
   type: "data"
   chunk: string
@@ -30,6 +41,7 @@ export interface ShellExecutionConfig {
     keepEnvVars?: string[]
     removeEnvVars?: string[]
   }
+  env?: NodeJS.ProcessEnv
   disableDynamicLineTrimming?: boolean
   scrollback?: number
   timeout?: number
@@ -60,7 +72,7 @@ export class ShellExecutionService {
     _shouldUseNodePty: boolean,
     shellExecutionConfig: ShellExecutionConfig,
   ): Promise<ShellExecutionHandle> {
-    return this.childProcessFallback(commandToExecute, cwd, onOutputEvent, abortSignal, shellExecutionConfig.timeout)
+    return this.childProcessFallback(commandToExecute, cwd, onOutputEvent, abortSignal, shellExecutionConfig)
   }
 
   private static childProcessFallback(
@@ -68,13 +80,15 @@ export class ShellExecutionService {
     cwd: string,
     onOutputEvent: (event: ShellOutputEvent) => void,
     abortSignal: AbortSignal,
-    timeoutMs: number | undefined,
+    cfg: ShellExecutionConfig,
   ): ShellExecutionHandle {
     try {
       const isWindows = os.platform() === "win32"
       const shellConfig = getShellConfiguration()
       const { executable, argsPrefix } = shellConfig
-      const shellArgs = [...argsPrefix, commandToExecute]
+      const shellArgs =
+        shellConfig.shell === "powershell" ? args(executable, commandToExecute) : [...argsPrefix, commandToExecute]
+      const timeoutMs = cfg.timeout
 
       log.info("Starting shell process", {
         executable,
@@ -82,7 +96,6 @@ export class ShellExecutionService {
         cwd,
         timeout: timeoutMs,
       })
-
       const child = spawn(executable, shellArgs, {
         cwd,
         stdio: ["ignore", "pipe", "pipe"],
@@ -92,6 +105,7 @@ export class ShellExecutionService {
         windowsHide: isWindows,
         env: {
           ...process.env,
+          ...cfg.env,
           GEMINI_CLI: "1",
           TERM: "xterm-256color",
           PAGER: "cat",

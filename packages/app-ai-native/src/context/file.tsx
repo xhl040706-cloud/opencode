@@ -73,7 +73,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     const tree = createFileTreeStore({
       scope,
       normalizeDir: path.normalizeDir,
-      list: (dir) => sdk.client.file.list({ path: dir }).then((x) => x.data ?? []),
+      list: (dir) => sdk.client.runtime.fileList(dir).then((x) => (x as FileState["content"][] | undefined) ?? []),
       onError: (message) => {
         showToast({
           variant: "error",
@@ -171,11 +171,11 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
 
       setLoading(file)
 
-      const promise = sdk.client.file
-        .read({ path: file })
+      const promise = sdk.client.runtime
+        .fileRead(file)
         .then((x) => {
           if (scope() !== directory) return
-          const content = x.data
+          const content = x as FileState["content"]
           setLoaded(file, content)
 
           if (!content) return
@@ -195,8 +195,8 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
     }
 
     const search = (query: string, dirs: "true" | "false") =>
-      sdk.client.find.files({ query, dirs }).then(
-        (x) => (x.data ?? []).map(path.normalize),
+      sdk.client.runtime.findFiles(query, dirs, sdk.directory).then(
+        (x) => ((x as string[] | undefined) ?? []).map(path.normalize),
         () => [],
       )
 

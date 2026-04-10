@@ -352,15 +352,19 @@ function parsePowerShellCommandDetails(command: string, executable: string): Com
   }
 
   try {
+    const args = executable.toLowerCase().includes("pwsh")
+      ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", POWERSHELL_PARSER_SCRIPT]
+      : ["-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", POWERSHELL_PARSER_SCRIPT]
     const result = spawnSync(
       executable,
-      ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", POWERSHELL_PARSER_SCRIPT],
+      args,
       {
         env: {
           ...process.env,
           [POWERSHELL_COMMAND_ENV]: command,
         },
         encoding: "utf-8",
+        windowsHide: true,
       },
     )
 
@@ -550,25 +554,16 @@ function detectShellConfigurationFromEnv(): ShellConfiguration {
       }
 
       if (!baseConfig) {
-        try {
-          const result = spawnSync("pwsh.exe", ["-NoProfile", "-Command", 'Write-Output "OK"'], {
-            encoding: "utf-8",
-            timeout: 2000,
-            windowsHide: true,
-          })
-          if (result.status === 0) {
-            baseConfig = {
-              executable: "pwsh.exe",
-              argsPrefix: ["-NoProfile", "-Command"],
-              shell: "powershell",
-            }
-          }
-        } catch {}
+        baseConfig = {
+          executable: "pwsh.exe",
+          argsPrefix: ["-NoProfile", "-Command"],
+          shell: "powershell",
+        }
       }
 
       if (!baseConfig) {
         baseConfig = {
-          executable: "powershell.exe",
+          executable: "pwsh.exe",
           argsPrefix: ["-NoProfile", "-Command"],
           shell: "powershell",
         }
@@ -620,7 +615,7 @@ function detectShellConfigurationFromEnv(): ShellConfiguration {
         }
       } else {
         baseConfig = {
-          executable: "powershell.exe",
+          executable: "pwsh.exe",
           argsPrefix: ["-NoProfile", "-Command"],
           shell: "powershell",
         }
@@ -629,7 +624,7 @@ function detectShellConfigurationFromEnv(): ShellConfiguration {
 
     if (!baseConfig) {
       baseConfig = {
-        executable: "powershell.exe",
+        executable: "pwsh.exe",
         argsPrefix: ["-NoProfile", "-Command"],
         shell: "powershell",
       }
@@ -637,7 +632,7 @@ function detectShellConfigurationFromEnv(): ShellConfiguration {
 
     if (!baseConfig) {
       baseConfig = {
-        executable: "powershell.exe",
+        executable: "pwsh.exe",
         argsPrefix: ["-NoProfile", "-Command"],
         shell: "powershell",
       }
@@ -646,6 +641,7 @@ function detectShellConfigurationFromEnv(): ShellConfiguration {
     baseConfig = { executable: "bash", argsPrefix: ["-c"], shell: "bash" }
   }
 
+  if (isWindows()) return baseConfig
   const version = getShellVersion(baseConfig.executable, baseConfig.shell)
   return { ...baseConfig, version }
 }
@@ -763,76 +759,35 @@ function isShellProcess(name: string): boolean {
 
 async function detectShellFromParentProcess(): Promise<ShellConfiguration | null> {
   const isWin = isWindows()
+  if (isWin) return null
   const MAX_TRAVERSAL_DEPTH = 10
 
   let foundCmdExe = false
 
-  if (isWin) {
-    const processMap = await getProcessTableWindows()
-    if (processMap.size === 0) {
-      debugLogger.debug("Failed to get process table on Windows")
-      return null
+  let currentPid = process.pid
+  let depth = 0
+
+  while (depth < MAX_TRAVERSAL_DEPTH) {
+    const procInfo = await getProcessInfoUnix(currentPid)
+    if (!procInfo) {
+      debugLogger.debug(`Failed to get process info for PID ${currentPid}`)
+      break
     }
 
-    let currentPid = process.pid
-    let depth = 0
+    debugLogger.debug(`Checking process: ${procInfo.name} (PID: ${currentPid})`)
 
-    while (depth < MAX_TRAVERSAL_DEPTH) {
-      const proc = processMap.get(currentPid)
-      if (!proc) {
-        debugLogger.debug(`Process ${currentPid} not found in process table`)
-        break
-      }
-
-      debugLogger.debug(`Checking process: ${proc.name} (PID: ${proc.pid})`)
-
-      if (isCmdProcess(proc.name)) {
-        debugLogger.debug("Found cmd.exe, but continuing search for better shell")
-        foundCmdExe = true
-      } else if (isShellProcess(proc.name)) {
-        debugLogger.debug(`Found shell process: ${proc.name}`)
-        return createShellConfigFromName(proc.name, proc.command, isWin)
-      }
-
-      if (proc.parentPid === 0 || !processMap.has(proc.parentPid)) {
-        debugLogger.debug("Reached root of process tree")
-        break
-      }
-
-      currentPid = proc.parentPid
-      depth++
+    if (isShellProcess(procInfo.name)) {
+      debugLogger.debug(`Found shell process: ${procInfo.name}`)
+      return createShellConfigFromName(procInfo.name, procInfo.command, isWin)
     }
 
-    if (foundCmdExe) {
-      debugLogger.debug("Only found cmd.exe, falling back to PowerShell for better compatibility")
-      return getFallbackPowerShellConfig()
+    if (procInfo.parentPid <= 1) {
+      debugLogger.debug("Reached root of process tree")
+      break
     }
-  } else {
-    let currentPid = process.pid
-    let depth = 0
 
-    while (depth < MAX_TRAVERSAL_DEPTH) {
-      const procInfo = await getProcessInfoUnix(currentPid)
-      if (!procInfo) {
-        debugLogger.debug(`Failed to get process info for PID ${currentPid}`)
-        break
-      }
-
-      debugLogger.debug(`Checking process: ${procInfo.name} (PID: ${currentPid})`)
-
-      if (isShellProcess(procInfo.name)) {
-        debugLogger.debug(`Found shell process: ${procInfo.name}`)
-        return createShellConfigFromName(procInfo.name, procInfo.command, isWin)
-      }
-
-      if (procInfo.parentPid <= 1) {
-        debugLogger.debug("Reached root of process tree")
-        break
-      }
-
-      currentPid = procInfo.parentPid
-      depth++
-    }
+    currentPid = procInfo.parentPid
+    depth++
   }
 
   debugLogger.debug("No shell process found in process tree")
@@ -846,7 +801,7 @@ function isCmdProcess(name: string): boolean {
 
 function getFallbackPowerShellConfig(): ShellConfiguration {
   return {
-    executable: "powershell.exe",
+    executable: "pwsh.exe",
     argsPrefix: ["-NoProfile", "-Command"],
     shell: "powershell",
   }

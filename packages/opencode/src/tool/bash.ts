@@ -1,23 +1,22 @@
 import z from "zod"
 import os from "os"
-import { spawn } from "child_process"
 import { Tool } from "./tool"
 import path from "path"
 import DESCRIPTION from "./bash.txt"
 import { Log } from "../util/log"
 import { Instance } from "../project/instance"
 import { lazy } from "@/util/lazy"
-import { Language, type Node } from "web-tree-sitter"
+import type { Node } from "web-tree-sitter"
 
 import { Filesystem } from "@/util/filesystem"
 import { Process } from "@/util/process"
-import { fileURLToPath } from "url"
 import { Flag } from "@/flag/flag"
 import { Shell } from "@/shell/shell"
 
 import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncate"
 import { Plugin } from "@/plugin"
+import { ShellToolInvocation } from "@/plugin/tdd/tools/shell"
 
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
@@ -61,11 +60,15 @@ type Scan = {
 
 export const log = Log.create({ service: "bash-tool" })
 
-const resolveWasm = (asset: string) => {
-  if (asset.startsWith("file://")) return fileURLToPath(asset)
-  if (asset.startsWith("/") || /^[a-z]:/i.test(asset)) return asset
-  const url = new URL(asset, import.meta.url)
-  return fileURLToPath(url)
+function tokens(text: string) {
+  return text.match(/"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|\S+/g) ?? []
+}
+
+function part(text: string): Part["type"] {
+  if (text.startsWith("-")) return "command_parameter"
+  if (text.startsWith('"')) return "string"
+  if (text.startsWith("'")) return "raw_string"
+  return "word"
 }
 
 function parts(node: Node) {
@@ -251,13 +254,41 @@ async function collect(root: Node, cwd: string, ps: boolean, shell: string): Pro
   return scan
 }
 
+async function collectPs(command: string, cwd: string, shell: string): Promise<Scan> {
+  const scan: Scan = {
+    dirs: new Set<string>(),
+    patterns: new Set<string>(),
+    always: new Set<string>(),
+  }
+
+  const list = tokens(command).map((text) => ({ text, type: part(text) }))
+  const cmd = list[0]?.text.toLowerCase()
+
+  if (cmd && FILES.has(cmd)) {
+    for (const arg of pathArgs(list, true)) {
+      const resolved = await argPath(arg, cwd, true, shell)
+      log.info("resolved path", { arg, resolved })
+      if (!resolved || Instance.containsPath(resolved)) continue
+      const dir = (await Filesystem.isDir(resolved)) ? resolved : path.dirname(resolved)
+      scan.dirs.add(dir)
+    }
+  }
+
+  if (list.length && (!cmd || !CWD.has(cmd))) {
+    scan.patterns.add(command.trim())
+    scan.always.add(BashArity.prefix(list.map((item) => item.text)).join(" ") + " *")
+  }
+
+  return scan
+}
+
 function preview(text: string) {
   if (text.length <= MAX_METADATA_LENGTH) return text
   return text.slice(0, MAX_METADATA_LENGTH) + "\n\n..."
 }
 
-async function parse(command: string, ps: boolean) {
-  const tree = await parser().then((p) => (ps ? p.ps : p.bash).parse(command))
+async function parse(command: string) {
+  const tree = await parser().then((p) => p.bash.parse(command))
   if (!tree) throw new Error("Failed to parse command")
   return tree.rootNode
 }
@@ -293,31 +324,8 @@ async function shellEnv(ctx: Tool.Context, cwd: string) {
   }
 }
 
-function launch(shell: string, name: string, command: string, cwd: string, env: NodeJS.ProcessEnv) {
-  if (process.platform === "win32" && PS.has(name)) {
-    return spawn(shell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command], {
-      cwd,
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: false,
-      windowsHide: true,
-    })
-  }
-
-  return spawn(command, {
-    shell,
-    cwd,
-    env,
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: process.platform !== "win32",
-    windowsHide: process.platform === "win32",
-  })
-}
-
 async function run(
   input: {
-    shell: string
-    name: string
     command: string
     cwd: string
     env: NodeJS.ProcessEnv
@@ -326,7 +334,6 @@ async function run(
   },
   ctx: Tool.Context,
 ) {
-  const proc = launch(input.shell, input.name, input.command, input.cwd, input.env)
   let output = ""
 
   ctx.metadata({
@@ -336,8 +343,8 @@ async function run(
     },
   })
 
-  const append = (chunk: Buffer) => {
-    output += chunk.toString()
+  const append = (chunk: string) => {
+    output += chunk
     ctx.metadata({
       metadata: {
         output: preview(output),
@@ -345,67 +352,23 @@ async function run(
       },
     })
   }
+  const tool = new ShellToolInvocation(
+    {
+      command: input.command,
+      timeout: input.timeout,
+      env: input.env,
+    },
+    input.cwd,
+  )
+  const result = await tool.execute(ctx.abort, append)
 
-  proc.stdout?.on("data", append)
-  proc.stderr?.on("data", append)
-
-  let expired = false
-  let aborted = false
-  let exited = false
-
-  const kill = () => Shell.killTree(proc, { exited: () => exited })
-
-  if (ctx.abort.aborted) {
-    aborted = true
-    await kill()
-  }
-
-  const abort = () => {
-    aborted = true
-    void kill()
-  }
-
-  ctx.abort.addEventListener("abort", abort, { once: true })
-  const timer = setTimeout(() => {
-    expired = true
-    void kill()
-  }, input.timeout + 100)
-
-  await new Promise<void>((resolve, reject) => {
-    const cleanup = () => {
-      clearTimeout(timer)
-      ctx.abort.removeEventListener("abort", abort)
-    }
-
-    proc.once("exit", () => {
-      exited = true
-    })
-
-    proc.once("close", () => {
-      exited = true
-      cleanup()
-      resolve()
-    })
-
-    proc.once("error", (error) => {
-      exited = true
-      cleanup()
-      reject(error)
-    })
-  })
-
-  const metadata: string[] = []
-  if (expired) metadata.push(`bash tool terminated command after exceeding timeout ${input.timeout} ms`)
-  if (aborted) metadata.push("User aborted the command")
-  if (metadata.length > 0) {
-    output += "\n\n<bash_metadata>\n" + metadata.join("\n") + "\n</bash_metadata>"
-  }
+  output = result.output
 
   return {
     title: input.description,
     metadata: {
       output: preview(output),
-      exit: proc.exitCode,
+      exit: result.exitCode,
       description: input.description,
     },
     output,
@@ -413,30 +376,22 @@ async function run(
 }
 
 const parser = lazy(async () => {
-  const { Parser } = await import("web-tree-sitter")
+  const { Parser, Language } = await import("web-tree-sitter")
   const { default: treeWasm } = await import("web-tree-sitter/tree-sitter.wasm" as string, {
     with: { type: "wasm" },
   })
-  const treePath = resolveWasm(treeWasm)
   await Parser.init({
     locateFile() {
-      return treePath
+      return treeWasm
     },
   })
   const { default: bashWasm } = await import("tree-sitter-bash/tree-sitter-bash.wasm" as string, {
     with: { type: "wasm" },
   })
-  const { default: psWasm } = await import("tree-sitter-powershell/tree-sitter-powershell.wasm" as string, {
-    with: { type: "wasm" },
-  })
-  const bashPath = resolveWasm(bashWasm)
-  const psPath = resolveWasm(psWasm)
-  const [bashLanguage, psLanguage] = await Promise.all([Language.load(bashPath), Language.load(psPath)])
+  const bashLanguage = await Language.load(bashWasm)
   const bash = new Parser()
   bash.setLanguage(bashLanguage)
-  const ps = new Parser()
-  ps.setLanguage(psLanguage)
-  return { bash, ps }
+  return { bash }
 })
 
 // TODO: we may wanna rename this tool so it works better on other shells
@@ -478,15 +433,12 @@ export const BashTool = Tool.define("bash", async () => {
       }
       const timeout = params.timeout ?? DEFAULT_TIMEOUT
       const ps = PS.has(name)
-      const root = await parse(params.command, ps)
-      const scan = await collect(root, cwd, ps, shell)
+      const scan = ps ? await collectPs(params.command, cwd, shell) : await parse(params.command).then((root) => collect(root, cwd, false, shell))
       if (!Instance.containsPath(cwd)) scan.dirs.add(cwd)
       await ask(ctx, scan)
 
       return run(
         {
-          shell,
-          name,
           command: params.command,
           cwd,
           env: await shellEnv(ctx, cwd),

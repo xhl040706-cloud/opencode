@@ -19,8 +19,8 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     const connected = createMemo(() => new Set(providers.connected().map((provider) => provider.id)))
 
     function isModelValid(model: ModelKey) {
-      if (providers.all().length === 0) return false
-      const provider = providers.all().find((x) => x.id === model.providerID)
+      if (providers.connected().length === 0) return false
+      const provider = providers.connected().find((x) => x.id === model.providerID)
       return !!provider?.models[model.modelID] && connected().has(model.providerID)
     }
 
@@ -108,9 +108,8 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
 
       const resolveDefault = () => {
         if (providers.connected().length === 0) return
-        const defaults = providers.default()
         for (const provider of providers.connected()) {
-          const configured = defaults[provider.id]
+          const configured = provider.default_model
           if (configured) {
             const key = { providerID: provider.id, modelID: configured }
             if (isModelValid(key)) return key

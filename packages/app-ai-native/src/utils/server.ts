@@ -1,12 +1,17 @@
-import { createOpencodeClient } from "@opencode-ai/sdk/v2/client"
 import type { ServerConnection } from "@/context/server"
+import { createDeviceClient, type DeviceClient } from "@/client/device-client"
 
 export function createSdkForServer({
   server,
   ...config
-}: Omit<NonNullable<Parameters<typeof createOpencodeClient>[0]>, "baseUrl"> & {
+}: {
   server: ServerConnection.HttpBase
-}) {
+  headers?: HeadersInit
+  fetch?: typeof globalThis.fetch
+  signal?: AbortSignal
+  directory?: string
+  throwOnError?: boolean
+}): DeviceClient {
   const auth = (() => {
     if (!server.password) return
     return {
@@ -14,7 +19,7 @@ export function createSdkForServer({
     }
   })()
 
-  return createOpencodeClient({
+  return createDeviceClient({
     ...config,
     headers: { ...config.headers, ...auth },
     baseUrl: server.url,

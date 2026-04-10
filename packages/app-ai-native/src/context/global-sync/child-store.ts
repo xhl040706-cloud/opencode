@@ -23,6 +23,30 @@ export function createChildStoreManager(input: {
   onBootstrap: (directory: string) => void
   onDispose: (directory: string) => void
 }) {
+  const empty = createStore<State>({
+    project: "",
+    projectMeta: undefined,
+    icon: undefined,
+    provider: { connected: [] },
+    path: { state: "", config: "", worktree: "", directory: "", home: "" },
+    status: "loading",
+    agent: [],
+    command: [],
+    session: [],
+    sessionTotal: 0,
+    session_status: {},
+    session_diff: {},
+    todo: {},
+    permission: {},
+    question: {},
+    mcp: {},
+    lsp: [],
+    vcs: undefined,
+    limit: 5,
+    message: {},
+    part: {},
+  })
+
   const norm = (directory: string) => {
     if (!directory) return directory
     return workspaceKey(directory)
@@ -134,7 +158,7 @@ export function createChildStoreManager(input: {
 
   function ensureChild(directory: string) {
     directory = norm(directory)
-    if (!directory) console.error("No directory provided")
+    if (!directory) throw new Error("No directory provided")
     if (!children[directory]) {
       const vcs = runWithOwner(input.owner, () =>
         persisted(
@@ -172,7 +196,7 @@ export function createChildStoreManager(input: {
             project: "",
             projectMeta: initialMeta,
             icon: initialIcon,
-            provider: { all: [], connected: [], default: {} },
+            provider: { connected: [] },
             path: { state: "", config: "", worktree: "", directory: "", home: "" },
             status: "loading" as const,
             agent: [],
@@ -229,6 +253,9 @@ export function createChildStoreManager(input: {
 
   function child(directory: string, options: ChildOptions = {}) {
     directory = norm(directory)
+    if (!directory) {
+      return empty
+    }
     const childStore = ensureChild(directory)
     pinForOwner(directory)
     const shouldBootstrap = options.bootstrap ?? true

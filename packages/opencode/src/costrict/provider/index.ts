@@ -46,8 +46,9 @@ function createCoStrictFetch() {
       log.debug("Token expired, refreshing...", { hasState: !!creds.state })
 
       try {
+        const resolvedBaseUrl = getCoStrictBaseURL(undefined, creds.base_url)
         const refreshed = await refreshCoStrictToken({
-          baseUrl: creds.base_url,
+          baseUrl: resolvedBaseUrl,
           refreshToken: creds.refresh_token,
           state: creds.state, // 可选参数
         })
@@ -55,6 +56,7 @@ function createCoStrictFetch() {
         // 更新凭证
         await saveCoStrictCredentials({
           ...creds,
+          base_url: resolvedBaseUrl,
           access_token: refreshed.access_token,
           refresh_token: refreshed.refresh_token,
           expiry_date: extractExpiryFromJWT(refreshed.access_token),
@@ -96,8 +98,9 @@ function createCoStrictFetch() {
 
       try {
         // 强制刷新 token
+        const resolvedBaseUrl = getCoStrictBaseURL(undefined, creds.base_url)
         const refreshed = await refreshCoStrictToken({
-          baseUrl: creds.base_url,
+          baseUrl: resolvedBaseUrl,
           refreshToken: creds.refresh_token,
           state: creds.state, // 可选参数
         })
@@ -105,6 +108,7 @@ function createCoStrictFetch() {
         // 保存新 token
         await saveCoStrictCredentials({
           ...creds,
+          base_url: resolvedBaseUrl,
           access_token: refreshed.access_token,
           refresh_token: refreshed.refresh_token,
           expiry_date: extractExpiryFromJWT(refreshed.access_token),
@@ -146,7 +150,7 @@ export async function createCoStrictCustomLoader(provider: any) {
   const credentials = await loadCoStrictCredentials()
 
   // 2. 确定 baseURL
-  // 优先级: provider.api > credentials.base_url > 环境变量 > 默认值
+  // 优先级: 环境变量 > provider.api > credentials.base_url > 默认值
   const baseUrl = getCoStrictBaseURL(provider.api, credentials?.base_url)
 
   if (!credentials) {
@@ -171,8 +175,9 @@ export async function createCoStrictCustomLoader(provider: any) {
       log.debug("Token expired during loader creation, refreshing...", { hasState: !!credentials.state })
 
       try {
+        const resolvedBaseUrl = getCoStrictBaseURL(undefined, credentials.base_url)
         const refreshed = await refreshCoStrictToken({
-          baseUrl: credentials.base_url,
+          baseUrl: resolvedBaseUrl,
           refreshToken: credentials.refresh_token,
           state: credentials.state, // 可选参数
         })
@@ -180,6 +185,7 @@ export async function createCoStrictCustomLoader(provider: any) {
         // 更新凭证
         await saveCoStrictCredentials({
           ...credentials,
+          base_url: resolvedBaseUrl,
           access_token: refreshed.access_token,
           refresh_token: refreshed.refresh_token,
           expiry_date: extractExpiryFromJWT(refreshed.access_token),

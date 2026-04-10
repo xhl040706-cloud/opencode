@@ -36,7 +36,7 @@ export function DialogConnectProvider(props: { provider: string }) {
     timer.current = undefined
   })
 
-  const provider = createMemo(() => providers.all().find((x) => x.id === props.provider)!)
+  const provider = createMemo(() => providers.connected().find((x) => x.id === props.provider)!)
   const methods = createMemo(() => [
     {
       type: "api",

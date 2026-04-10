@@ -44,7 +44,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const permission = usePermission()
   const prompt = usePrompt()
   const sdk = useSDK()
-  const api = createMemo(() => workspaceAdapter(sdk.client))
+  const conversation = createMemo(() => workspaceAdapter(sdk.client))
   const sync = useSync()
   const terminal = useTerminal()
   const layout = useLayout()
@@ -309,12 +309,12 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
         const sessionID = params.id
         if (!sessionID) return
         if (status()?.type !== "idle") {
-          await api().sessionAbort(sessionID).catch(() => {})
+          await conversation().sessionAbort(sessionID).catch(() => {})
         }
         const revert = info()?.revert?.messageID
         const message = findLast(userMessages(), (x) => !revert || x.id < revert)
         if (!message) return
-        await api().sessionRevert(sessionID, message.id)
+        await conversation().sessionRevert(sessionID, message.id)
         const parts = sync.data.part[message.id]
         if (parts) {
           const restored = extractPromptFromParts(parts, { directory: sdk.directory })
@@ -337,13 +337,13 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
         if (!revertMessageID) return
         const nextMessage = userMessages().find((x) => x.id > revertMessageID)
         if (!nextMessage) {
-          await api().sessionUnrevert(sessionID)
+          await conversation().sessionUnrevert(sessionID)
           prompt.reset()
           const lastMsg = findLast(userMessages(), (x) => x.id >= revertMessageID)
           setActiveMessage(lastMsg)
           return
         }
-        await api().sessionRevert(sessionID, nextMessage.id)
+        await conversation().sessionRevert(sessionID, nextMessage.id)
         const priorMsg = findLast(userMessages(), (x) => x.id < nextMessage.id)
         setActiveMessage(priorMsg)
       },
@@ -365,7 +365,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
           })
           return
         }
-        await api().sessionSummarize({
+        await conversation().sessionSummarize({
           sessionID,
           modelID: model.id,
           providerID: model.provider.id,

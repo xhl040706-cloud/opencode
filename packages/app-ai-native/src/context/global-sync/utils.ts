@@ -1,11 +1,12 @@
-import type { Project, ProviderListResponse } from "@opencode-ai/sdk/v2/client"
+import type { Project } from "@opencode-ai/sdk/v2/client"
+import type { ProviderCapabilitiesResponse } from "./types"
 
 export const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 
-export function normalizeProviderList(input: ProviderListResponse): ProviderListResponse {
+export function normalizeProviderList(input: ProviderCapabilitiesResponse): ProviderCapabilitiesResponse {
   return {
     ...input,
-    all: input.all.map((provider) => ({
+    connected: input.connected.map((provider) => ({
       ...provider,
       models: Object.fromEntries(Object.entries(provider.models).filter(([, info]) => info.status !== "deprecated")),
     })),

@@ -52,7 +52,6 @@ import { setSessionHandoff } from "@/pages/session/handoff"
 
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme"
-import { DialogSelectProvider } from "@/components/dialog-select-provider"
 import { DialogSelectServer } from "@/components/dialog-select-server"
 import { DialogSettings } from "@/components/dialog-settings"
 import { useCommand, type CommandOption } from "@/context/command"
@@ -602,6 +601,7 @@ export default function Layout(props: ParentProps) {
 
     const result: Session[] = []
     for (const dir of dirs) {
+      if (!dir) continue
       const [dirStore] = globalSync.child(dir, { bootstrap: false })
       const dirSessions = sortedRootSessions(dirStore, now)
       result.push(...dirSessions)
@@ -684,12 +684,14 @@ export default function Layout(props: ParentProps) {
     return [...map.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   }
 
-  type SessionMessagesResponse = Awaited<ReturnType<typeof globalSDK.client.session.messages>>
+  type ConversationMessagesResponse = { data: Awaited<ReturnType<typeof globalSDK.client.conversation.messages>> }
 
   async function prefetchMessages(directory: string, sessionID: string, token: number) {
     const [store, setStore] = globalSync.child(directory, { bootstrap: false })
 
-    return retry<SessionMessagesResponse>(() => globalSDK.client.session.messages({ directory, sessionID, limit: prefetchChunk }))
+    return retry<ConversationMessagesResponse>(() =>
+      globalSDK.client.conversation.messages(sessionID, { directory, limit: prefetchChunk }).then((data) => ({ data })),
+    )
       .then((messages) => {
         if (prefetchToken.value !== token) return
 
@@ -862,12 +864,13 @@ export default function Layout(props: ParentProps) {
   }
 
   async function archiveSession(session: Session) {
+    if (!session.directory) return
     const [store, setStore] = globalSync.child(session.directory)
     const sessions = store.session ?? []
     const index = sessions.findIndex((s) => s.id === session.id)
     const nextSession = sessions[index + 1] ?? sessions[index - 1]
 
-    await globalSDK.client.session.update({
+    await globalSDK.client.conversation.update(session.id, {
       directory: session.directory,
       sessionID: session.id,
       time: { archived: Date.now() },
@@ -1053,10 +1056,6 @@ export default function Layout(props: ParentProps) {
 
     return commands
   })
-
-  function connectProvider() {
-    dialog.show(() => <DialogSelectProvider />)
-  }
 
   function openServer() {
     dialog.show(() => <DialogSelectServer />)
@@ -1900,7 +1899,11 @@ export default function Layout(props: ParentProps) {
       if (workspace.vcs !== "git") return false
       return layout.sidebar.workspaces(workspace.worktree)()
     })
-    const homedir = createMemo(() => globalSync.child(panelProps.project?.worktree ?? "", { bootstrap: false })[0].path.home)
+    const homedir = createMemo(() => {
+      const directory = panelProps.project?.worktree
+      if (!directory) return ""
+      return globalSync.child(directory, { bootstrap: false })[0].path.home
+    })
 
     return (
       <div
