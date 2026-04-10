@@ -213,7 +213,7 @@ export function MessageTimeline(props: {
   const params = useParams()
   const navigate = useNavigate()
   const sdk = useSDK()
-  const api = createMemo(() => workspaceAdapter(sdk.client))
+  const conversation = createMemo(() => workspaceAdapter(sdk.client))
   const sync = useSync()
   const settings = useSettings()
   const dialog = useDialog()
@@ -324,7 +324,7 @@ export function MessageTimeline(props: {
     }
 
     setTitle("saving", true)
-    await api()
+    await conversation()
       .sessionUpdate({ sessionID: id, title: next })
       .then(() => {
         sync.set(
@@ -357,7 +357,7 @@ export function MessageTimeline(props: {
     const session = sync.session.get(sessionID)
     if (!session) return
 
-    await api()
+    await conversation()
       .sessionUpdate({ sessionID, time: { archived: Date.now() } })
       .then(() => {
         sync.set(
@@ -380,7 +380,7 @@ export function MessageTimeline(props: {
     const session = sync.session.get(sessionID)
     if (!session) return false
 
-    const result = await api()
+    const result = await conversation()
       .sessionDelete(sessionID)
       .then((x) => x.data)
       .catch((err) => {

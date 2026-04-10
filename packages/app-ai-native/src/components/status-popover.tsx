@@ -144,8 +144,8 @@ const useMcpToggle = (input: {
       await (status?.status === "connected"
         ? input.sdk.client.mcp.disconnect({ name })
         : input.sdk.client.mcp.connect({ name }))
-      const result = await input.sdk.client.mcp.status()
-      if (result.data) input.sync.set("mcp", result.data)
+      const result = await input.sdk.client.runtime.mcpStatus(input.sdk.directory)
+      if (result) input.sync.set("mcp", result as any)
     } catch (err) {
       showToast({
         variant: "error",
@@ -166,9 +166,12 @@ const useStatusLoad = (input: { sync: ReturnType<typeof useSync>; sdk: ReturnTyp
   const load = async () => {
     if (loaded()) return
     setLoaded(true)
-    const [mcp, lsp] = await Promise.allSettled([input.sdk.client.mcp.status(), input.sdk.client.lsp.status()])
-    if (mcp.status === "fulfilled" && mcp.value.data) input.sync.set("mcp", mcp.value.data)
-    if (lsp.status === "fulfilled") input.sync.set("lsp", lsp.value.data ?? [])
+    const [mcp, lsp] = await Promise.allSettled([
+      input.sdk.client.runtime.mcpStatus(input.sdk.directory),
+      input.sdk.client.runtime.lspStatus(input.sdk.directory),
+    ])
+    if (mcp.status === "fulfilled" && mcp.value) input.sync.set("mcp", mcp.value as any)
+    if (lsp.status === "fulfilled") input.sync.set("lsp", (lsp.value as any) ?? [])
   }
 
   return { load }

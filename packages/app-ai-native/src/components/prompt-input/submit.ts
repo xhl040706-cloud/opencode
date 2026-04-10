@@ -150,11 +150,11 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     let sessionDirectory = projectDirectory
     let client = sdk.client
-    let api = workspaceAdapter(client)
+    let conversation = workspaceAdapter(client)
 
     if (isNewSession) {
       if (worktreeSelection === "create") {
-        const createdWorktree = await api
+        const createdWorktree = await conversation
           .worktreeCreate(projectDirectory)
           .then((x) => x.data)
           .catch((err) => {
@@ -185,7 +185,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           directory: sessionDirectory,
           throwOnError: true,
         })
-        api = workspaceAdapter(client)
+        conversation = workspaceAdapter(client)
         globalSync.child(sessionDirectory)
       }
 
@@ -194,7 +194,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     let session = input.info() as Session | undefined
     if (!session && isNewSession) {
-      session = await api
+      session = await conversation
         .sessionCreate()
         .then((x) => x.data ?? undefined)
         .catch((err) => {
@@ -248,7 +248,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     if (mode === "shell") {
       clearInput()
-      api
+      conversation
         .sessionShell({
           sessionID: session.id,
           agent,
@@ -272,7 +272,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       const customCommand = commands.find((c) => c.name === commandName)
       if (customCommand) {
         clearInput()
-        api
+        conversation
           .sessionCommand({
             sessionID: session.id,
             command: commandName,
@@ -399,7 +399,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     const send = async () => {
       const ok = await waitForWorktree()
       if (!ok) return
-      await api.sessionPromptAsync({
+      await conversation.sessionPromptAsync({
         sessionID: session.id,
         agent,
         model,

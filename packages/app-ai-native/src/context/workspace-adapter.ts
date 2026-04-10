@@ -1,34 +1,37 @@
-import type { OpencodeClient } from "@opencode-ai/sdk/v2/client"
-
-export function workspaceAdapter(sdk: OpencodeClient) {
+export function workspaceAdapter(sdk: any) {
   return {
-    health: () => sdk.global.health(),
-    path: () => sdk.path.get(),
-    agents: () => sdk.app.agents(),
-    sessionGet: (sessionID: string) => sdk.session.get({ sessionID }),
-    sessionList: (directory?: string) => (directory ? sdk.session.list({ directory }) : sdk.session.list()),
-    sessionMessages: (sessionID: string, directory: string, limit: number) => sdk.session.messages({ sessionID, directory, limit }),
-    sessionStatus: () => sdk.session.status(),
-    sessionDiff: (sessionID: string) => sdk.session.diff({ sessionID }),
-    sessionTodo: (sessionID: string) => sdk.session.todo({ sessionID }),
-    sessionCreate: () => sdk.session.create(),
-    sessionUpdate: (input: Parameters<OpencodeClient["session"]["update"]>[0]) => sdk.session.update(input),
-    sessionDelete: (sessionID: string) => sdk.session.delete({ sessionID }),
-    sessionAbort: (sessionID: string) => sdk.session.abort({ sessionID }),
-    sessionRevert: (sessionID: string, messageID: string) => sdk.session.revert({ sessionID, messageID }),
-    sessionUnrevert: (sessionID: string) => sdk.session.unrevert({ sessionID }),
-    sessionSummarize: (input: Parameters<OpencodeClient["session"]["summarize"]>[0]) => sdk.session.summarize(input),
-    sessionShell: (input: Parameters<OpencodeClient["session"]["shell"]>[0]) => sdk.session.shell(input),
-    sessionCommand: (input: Parameters<OpencodeClient["session"]["command"]>[0]) => sdk.session.command(input),
-    sessionPromptAsync: (input: Parameters<OpencodeClient["session"]["promptAsync"]>[0]) =>
-      sdk.session.promptAsync(input),
-    sessionShare: (sessionID: string, directory: string) => sdk.session.share({ sessionID, directory }),
-    sessionUnshare: (sessionID: string, directory: string) => sdk.session.unshare({ sessionID, directory }),
-    worktreeCreate: (directory: string) => sdk.worktree.create({ directory }),
-    permissions: () => sdk.permission.list(),
-    questions: () => sdk.question.list(),
-    questionReply: (requestID: string, answers: Parameters<OpencodeClient["question"]["reply"]>[0]["answers"]) =>
-      sdk.question.reply({ requestID, answers }),
-    questionReject: (requestID: string) => sdk.question.reject({ requestID }),
+    health: () => sdk.runtime.health().then((data) => ({ data })),
+    path: () => sdk.runtime.targetContext().then((data) => ({ data })),
+    agents: () => sdk.runtime.agents().then((data) => ({ data })),
+    sessionGet: (sessionID: string) => sdk.conversation.get(sessionID).then((data) => ({ data })),
+    sessionList: (directory?: string) => sdk.conversation.list(directory ? { directory } : undefined).then((data) => ({ data })),
+    sessionMessages: (sessionID: string, directory: string, limit: number) =>
+      sdk.conversation.messages(sessionID, { directory, limit }).then((data) => ({ data })),
+    sessionStatus: () => sdk.conversation.status().then((data) => ({ data })),
+    sessionDiff: (sessionID: string) => sdk.conversation.diff(sessionID).then((data) => ({ data })),
+    sessionTodo: (sessionID: string) => sdk.conversation.todo(sessionID).then((data) => ({ data })),
+    sessionCreate: () => sdk.conversation.create().then((data) => ({ data })),
+    sessionUpdate: (input: { sessionID: string } & Record<string, unknown>) =>
+      sdk.conversation.update(input.sessionID, input).then((data) => ({ data })),
+    sessionDelete: (sessionID: string) => sdk.conversation.delete(sessionID).then((data) => ({ data })),
+    sessionAbort: (sessionID: string) => sdk.conversation.abort(sessionID).then((data) => ({ data })),
+    sessionRevert: (sessionID: string, messageID: string) =>
+      sdk.conversation.revert(sessionID, messageID).then((data) => ({ data })),
+    sessionUnrevert: (sessionID: string) => sdk.conversation.unrevert(sessionID).then((data) => ({ data })),
+    sessionSummarize: (input: { sessionID: string } & Record<string, unknown>) =>
+      sdk.conversation.summarize(input.sessionID, input).then((data) => ({ data })),
+    sessionShell: (input: { sessionID: string } & Record<string, unknown>) =>
+      sdk.conversation.shell(input.sessionID, input).then((data) => ({ data })),
+    sessionCommand: (input: { sessionID: string } & Record<string, unknown>) =>
+      sdk.conversation.command(input.sessionID, input).then((data) => ({ data })),
+    sessionPromptAsync: (input: { sessionID: string } & Record<string, unknown>) =>
+      sdk.conversation.promptAsync(input.sessionID, input).then((data) => ({ data })),
+    sessionShare: (_sessionID: string, _directory: string) => Promise.resolve({ data: undefined }),
+    sessionUnshare: (_sessionID: string, _directory: string) => Promise.resolve({ data: undefined }),
+    worktreeCreate: (directory: string) => sdk.raw.worktree.create({ directory }),
+    permissions: () => sdk.interaction.permissions().then((data) => ({ data })),
+    questions: () => sdk.interaction.questions().then((data) => ({ data })),
+    questionReply: (requestID: string, answers: unknown) => sdk.interaction.questionReply(requestID, { answers }).then((data) => ({ data })),
+    questionReject: (requestID: string) => sdk.interaction.questionReject(requestID).then((data) => ({ data })),
   }
 }

@@ -226,9 +226,8 @@ export async function bootstrapDirectory(input: {
     loadProviderCapabilities(input),
     api.path().then((x) => input.setStore("path", x.data!)),
     api.permissions().then((x) => {
-      const grouped = groupBySession(
-        (x.data ?? []).filter((perm): perm is PermissionRequest => !!perm?.id && !!perm.sessionID),
-      )
+      const list = (x.data ?? []) as PermissionRequest[]
+      const grouped = groupBySession(list.filter((perm): perm is PermissionRequest => !!perm?.id && !!perm.sessionID))
       batch(() => {
         for (const sessionID of Object.keys(input.store.permission)) {
           if (grouped[sessionID]) continue
@@ -247,7 +246,8 @@ export async function bootstrapDirectory(input: {
       })
     }),
     api.questions().then((x) => {
-      const grouped = groupBySession((x.data ?? []).filter((q): q is QuestionRequest => !!q?.id && !!q.sessionID))
+      const list = (x.data ?? []) as QuestionRequest[]
+      const grouped = groupBySession(list.filter((q): q is QuestionRequest => !!q?.id && !!q.sessionID))
       batch(() => {
         for (const sessionID of Object.keys(input.store.question)) {
           if (grouped[sessionID]) continue

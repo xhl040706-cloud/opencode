@@ -76,7 +76,7 @@ export const { use: usePermission, provider: PermissionProvider } = createSimple
     }
 
     const respond: PermissionRespondFn = (input) => {
-      globalSDK.client.permission.respond(input).catch(() => {
+      globalSDK.client.interaction.permissionRespond(input.permissionID, input).catch(() => {
         responded.delete(input.permissionID)
       })
     }
@@ -134,12 +134,12 @@ export const { use: usePermission, provider: PermissionProvider } = createSimple
         }),
       )
 
-      globalSDK.client.permission
-        .list({ directory })
+      globalSDK.client.interaction
+        .permissions(directory)
         .then((x) => {
           if (enableVersion.get(key) !== version) return
           if (!isAutoAccepting(sessionID, directory)) return
-          for (const perm of x.data ?? []) {
+          for (const perm of (x as PermissionRequest[] | undefined) ?? []) {
             if (!perm?.id) continue
             if (!shouldAutoRespond(perm, directory)) continue
             respondOnce(perm, directory)

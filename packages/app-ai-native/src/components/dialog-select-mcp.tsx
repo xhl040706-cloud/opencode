@@ -21,8 +21,8 @@ export const DialogSelectMcp: Component = () => {
 
   onMount(() => {
     if (Object.keys(sync.data.mcp ?? {}).length > 0) return
-    void sdk.client.mcp.status().then((result) => {
-      if (result.data) sync.set("mcp", result.data)
+    void sdk.client.runtime.mcpStatus(sdk.directory).then((result) => {
+      if (result) sync.set("mcp", result as any)
     })
   })
 
@@ -43,8 +43,8 @@ export const DialogSelectMcp: Component = () => {
         await sdk.client.mcp.connect({ name })
       }
 
-      const result = await sdk.client.mcp.status()
-      if (result.data) sync.set("mcp", result.data)
+      const result = await sdk.client.runtime.mcpStatus(sdk.directory)
+      if (result) sync.set("mcp", result as any)
     } finally {
       setLoading(null)
     }

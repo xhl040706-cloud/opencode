@@ -9,7 +9,11 @@ const EMPTY: ProviderCapabilitiesResponse = { connected: [] }
 export function useProviders() {
   const globalSync = useGlobalSync()
   const params = useParams()
-  const currentDirectory = createMemo(() => decode64(params.dir) ?? "")
+  const currentDirectory = createMemo(() => {
+    const value = decode64(params.dir)
+    if (!value?.trim()) return ""
+    return value
+  })
   const providers = createMemo(() => {
     const dir = currentDirectory()
     if (!dir) return EMPTY
