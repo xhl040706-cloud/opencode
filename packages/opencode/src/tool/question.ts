@@ -11,7 +11,7 @@ export const QuestionTool = Tool.define("question", {
     questions: z.array(Question.Info.omit({ custom: true })).describe("Questions to ask"),
   }),
   async execute(params, ctx) {
-    const timeout = 60000
+    const timeout = 600000
     const defaultAnswers = params.questions.map((q) =>
       q.options.length > 0 ? [q.options[0].label] : []
     )

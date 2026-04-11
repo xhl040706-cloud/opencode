@@ -28,7 +28,7 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
     editing: false,
   })
 
-  const [remainingSeconds, setRemainingSeconds] = createSignal(60)
+  const [remainingSeconds, setRemainingSeconds] = createSignal(600)
 
   const countdownTimer = setInterval(() => {
     setRemainingSeconds(prev => Math.max(0, prev - 1))
