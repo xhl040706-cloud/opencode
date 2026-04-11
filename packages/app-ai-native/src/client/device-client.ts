@@ -223,7 +223,7 @@ export function createDeviceClient(opts: ClientOpts): DeviceClient {
       unshare: sdk.session.unshare,
     },
     runtime: {
-      health: () => http.get<{ healthy: boolean; version?: string }>("/global/health"),
+      health: () => http.get<{ ok: boolean; data?: { status?: string; version?: string } }>("/api/v1/runtime/health").then((res) => ({ healthy: res.ok && res.data?.status === "ok", version: res.data?.version })),
       targetContext: (directory?: string) => http.get("/path", { directory: dir(directory) }),
       modelCapabilities: (directory?: string) => http.get("/provider/capabilities", { directory: dir(directory) }),
       agents: (directory?: string) => http.get("/agent", { directory: dir(directory) }),
