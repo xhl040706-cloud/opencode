@@ -269,6 +269,7 @@ export function DeviceTerminalProvider(props: ParentProps) {
     ready: () => terminal().ready(),
     all: () => terminal().all(),
     active: () => terminal().active(),
+    clear: () => terminal().clear(),
     new: () => terminal().new(),
     update: (pty: Partial<LocalPTY> & { id: string }) => terminal().update(pty),
     clone: (id: string) => terminal().clone(id),
