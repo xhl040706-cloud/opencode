@@ -169,6 +169,131 @@ test("loads JSONC config file", async () => {
   })
 })
 
+test("loads project costrict.jsonc and overrides opencode.json for mcp/agent/command", async () => {
+  await using tmp = await tmpdir({
+    init: async (dir) => {
+      await Filesystem.write(
+        path.join(dir, "opencode.json"),
+        JSON.stringify({
+          $schema: "https://opencode.ai/config.json",
+          model: "opencode/model",
+          mcp: {
+            shared: {
+              type: "local",
+              command: ["echo", "from-opencode"],
+            },
+          },
+          agent: {
+            helper: {
+              model: "test/model",
+              temperature: 0.2,
+              description: "from-opencode",
+            },
+          },
+          command: {
+            shared: {
+              template: "from opencode",
+              description: "from-opencode",
+            },
+          },
+        }),
+      )
+
+      await Filesystem.write(
+        path.join(dir, "costrict.jsonc"),
+        `{
+          // project-level costrict config should override opencode config
+          "$schema": "https://opencode.ai/config.json",
+          "model": "costrict/model",
+          "mcp": {
+            "shared": {
+              "type": "local",
+              "command": ["echo", "from-costrict"]
+            }
+          },
+          "agent": {
+            "helper": {
+              "model": "test/model",
+              "temperature": 0.9,
+              "description": "from-costrict"
+            }
+          },
+          "command": {
+            "shared": {
+              "template": "from costrict",
+              "description": "from-costrict"
+            }
+          }
+        }`,
+      )
+    },
+  })
+
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const config = await Config.get()
+      expect(config.model).toBe("costrict/model")
+      expect(config.mcp?.["shared"]).toEqual({
+        type: "local",
+        command: ["echo", "from-costrict"],
+      })
+      expect(config.agent?.["helper"]).toEqual(
+        expect.objectContaining({
+          model: "test/model",
+          temperature: 0.9,
+          description: "from-costrict",
+        }),
+      )
+      expect(config.command?.["shared"]).toEqual({
+        template: "from costrict",
+        description: "from-costrict",
+      })
+    },
+  })
+})
+
+test("loads both global config.json and global costrict.json with costrict taking precedence", async () => {
+  await using globalTmp = await tmpdir()
+  await using projectTmp = await tmpdir()
+
+  const prev = Global.Path.config
+  ;(Global.Path as { config: string }).config = globalTmp.path
+  await Config.invalidate()
+
+  try {
+    await Filesystem.write(
+      path.join(globalTmp.path, "config.json"),
+      JSON.stringify({
+        $schema: "https://opencode.ai/config.json",
+        model: "legacy-global-config",
+        username: "legacy-user",
+      }),
+    )
+    await Filesystem.write(
+      path.join(globalTmp.path, "costrict.json"),
+      JSON.stringify({
+        $schema: "https://opencode.ai/config.json",
+        model: "costrict-global-config",
+      }),
+    )
+
+    await Instance.provide({
+      directory: projectTmp.path,
+      fn: async () => {
+        const config = await Config.get()
+        expect(config.model).toBe("costrict-global-config")
+        // value only in config.json should still be present
+        expect(config.username).toBe("legacy-user")
+      },
+    })
+  } finally {
+    await Instance.disposeAll()
+    ;(Global.Path as { config: string }).config = prev
+    await Config.invalidate()
+  }
+})
+
 test("merges multiple config files with correct precedence", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {
