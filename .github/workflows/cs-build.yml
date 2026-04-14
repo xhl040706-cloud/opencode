@@ -82,6 +82,12 @@ jobs:
           bun install --os="*" --cpu="*" @opentui/core@$(node -p "require('./package.json').dependencies['@opentui/core']")
           bun install --os="*" --cpu="*" @parcel/watcher@$(node -p "require('./package.json').dependencies['@parcel/watcher']")
 
+      - name: Setup SSH agent
+        if: steps.check.outputs.skip == 'false'
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MY_SSH_PRIVATE_KEY }}
+
       - name: Build platform
         if: steps.check.outputs.skip == 'false'
         env:
