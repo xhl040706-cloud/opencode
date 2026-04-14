@@ -24,6 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MY_SSH_PRIVATE_KEY }}
+
       - uses: ./.github/actions/setup-bun
 
       - name: Setup npm
@@ -36,11 +41,6 @@ jobs:
         run: |
           bun run --cwd packages/opencode build:builtin-agents
           bun run --cwd packages/opencode build:builtin-skills
-
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.MY_SSH_PRIVATE_KEY }}
 
       - name: Publish to npm
         run: ./packages/opencode/script/publish.ts
