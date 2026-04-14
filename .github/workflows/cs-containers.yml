@@ -45,5 +45,5 @@ jobs:
       - name: Build and push containers
         run: bun ./packages/containers/script/build.ts --push
         env:
-          REGISTRY: ${{ env.REGISTRY }}
+          REGISTRY: ghcr.io/zgsm-sangfor/costrict-cli
           TAG: ${{ env.TAG }}

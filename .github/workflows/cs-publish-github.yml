@@ -33,7 +33,7 @@ jobs:
   # - Outputs version info for subsequent jobs
   version:
     runs-on: ubuntu-latest
-    if: github.repository == 'zgsm-ai/opencode'
+    if: github.repository == 'zgsm-sangfor/opencode'
     steps:
       - uses: actions/checkout@v3
         with:
@@ -89,7 +89,7 @@ jobs:
   build-cli:
     needs: version
     runs-on: ubuntu-latest
-    if: github.repository == 'zgsm-ai/opencode'
+    if: github.repository == 'zgsm-sangfor/opencode'
     steps:
       - uses: actions/checkout@v3
         with:
