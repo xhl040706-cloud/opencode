@@ -3,6 +3,7 @@ export type TransportOpts = {
   headers?: HeadersInit
   fetch?: typeof globalThis.fetch
   signal?: AbortSignal
+  directory?: string
 }
 
 type Query = Record<string, string | number | boolean | undefined>
@@ -29,13 +30,15 @@ async function parse(res: Response) {
 }
 
 export function createDeviceTransport(opts: TransportOpts) {
-  const run = async <T>(method: string, path: string, input?: { query?: Query; body?: unknown; signal?: AbortSignal }) => {
+  const run = async <T>(method: string, path: string, input?: { query?: Query; body?: unknown; signal?: AbortSignal; directory?: string }) => {
     const fn = opts.fetch ?? globalThis.fetch
+    const dir = input?.directory ?? opts.directory
     const res = await fn(join(opts.baseUrl, query(path, input?.query)), {
       method,
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        ...(dir ? { "X-Workspace-Directory": dir } : {}),
         ...opts.headers,
       },
       signal: input?.signal ?? opts.signal,
@@ -50,8 +53,9 @@ export function createDeviceTransport(opts: TransportOpts) {
   }
 
   return {
-    get<T>(path: string, input?: Query, signal?: AbortSignal) {
-      return run<T>("GET", path, { query: input, signal })
+    get<T>(path: string, input?: Query & { directory?: string }, signal?: AbortSignal) {
+      const { directory, ...query } = input ?? ({} as Query & { directory?: string })
+      return run<T>("GET", path, { query, signal, directory })
     },
     post<T>(path: string, body?: unknown, signal?: AbortSignal) {
       return run<T>("POST", path, { body, signal })

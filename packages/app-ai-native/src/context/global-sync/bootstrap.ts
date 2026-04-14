@@ -203,7 +203,8 @@ export async function bootstrapDirectory(input: {
   if (input.store.status !== "complete") input.setStore("status", "loading")
 
   const required = {
-    agent: () => api.agents().then((x) => input.setStore("agent", x.data ?? [])),
+    agent: () => api.sessionModes().then((x) => input.setStore("agent", x.data ?? [])),
+    agentRuntimes: () => api.agentRuntimes().then((x) => input.setStore("agentRuntimes", x.data ?? [])),
   }
 
   try {
