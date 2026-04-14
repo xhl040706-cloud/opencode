@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "version": "3.0.24",
+  "version": "3.0.25",
   "name": "@costrict/cs",
   "type": "module",
   "license": "MIT",
@@ -12,7 +12,7 @@
     "build:builtin-agents": "bun run script/generate-agents.ts",
     "build:builtin-skills": "bun run script/generate-skills.ts",
     "build:builtin": "bun run build:builtin-agents && bun run build:builtin-skills",
-    "build": "bun run build:builtin-skills && bun run script/build.ts",
+    "build": "bun run build:builtin && bun run script/build.ts",
     "dev": "bun run build:builtin-agents && bun run --conditions=browser ./src/index.ts",
     "random": "echo 'Random script updated at $(date)' && echo 'Change queued successfully' && echo 'Another change made' && echo 'Yet another change' && echo 'One more change' && echo 'Final change' && echo 'Another final change' && echo 'Yet another final change'",
     "clean": "echo 'Cleaning up...' && rm -rf node_modules dist",
