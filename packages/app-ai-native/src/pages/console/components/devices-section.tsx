@@ -5,6 +5,7 @@ import { useLanguage } from "@/context/language"
 import type { Device, UpdateDeviceRequest } from "@/pages/workspace/types"
 import { DeviceCard } from "./device-card"
 import { deviceManagementService } from "../lib/device-management-service"
+import { sx } from "@/pages/store/lib/styles"
 
 type DevicesSectionProps = {
   devices?: () => Device[] | undefined
@@ -80,17 +81,17 @@ export function DevicesSection(props: DevicesSectionProps = {}) {
   }
 
   return (
-    <section class="store-cshell">
-      <div class="store-tbar">
+    <section class={sx.cshell}>
+      <div class={sx.toolbar}>
         <div>
-          <h2 class="store-tbar-title">{language.t("store.devices.title")}</h2>
-          <p class="store-tbar-sub">{language.t("store.devices.description")}</p>
+          <h2 class={sx.toolbarTitle}>{language.t("store.devices.title")}</h2>
+          <p class={sx.toolbarSub}>{language.t("store.devices.description")}</p>
         </div>
-        <div class="store-tbar-acts">
-          <div class="store-swrap">
-            <Icon name="magnifying-glass" size="small" />
+        <div class={sx.toolbarActs}>
+          <div class={sx.searchWrap}>
+            <Icon name="magnifying-glass" size="small" class={sx.searchIcon} />
             <input
-              class="store-sinput"
+              class={sx.search}
               type="search"
               value={deviceSearch()}
               onInput={(e) => setDeviceSearch(e.currentTarget.value)}
@@ -102,17 +103,17 @@ export function DevicesSection(props: DevicesSectionProps = {}) {
 
       <Show
         when={!loading()}
-        fallback={<div class="store-dash-empty">{language.t("store.devices.loading")}</div>}
+        fallback={<div class={sx.empty}>{language.t("store.devices.loading")}</div>}
       >
         <Show
           when={filteredDevices().length > 0}
           fallback={
-            <div class="store-dash-empty">
+            <div class={sx.empty}>
               {deviceSearch() ? language.t("store.devices.empty.search") : language.t("store.devices.empty.default")}
             </div>
           }
         >
-          <div class="store-dash-grid">
+          <div class={sx.dashGrid}>
             <For each={filteredDevices()}>
               {(device) => <DeviceCard device={device} onUpdate={handleUpdateDevice} />}
             </For>

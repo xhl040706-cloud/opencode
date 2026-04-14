@@ -21,12 +21,14 @@ import BestPracticeCarousel from "../components/best-practice-carousel"
 import { Icon, type IconProps } from "@opencode-ai/ui/icon"
 import { LocalIcon } from "@/components/local-icon"
 import { useAuth } from "../hooks/use-auth"
+import { cn } from "@/lib/utils"
+import { st, sx } from "../lib/styles"
 
 const STORE_TYPES = [
-  { value: "skill", labelKey: "store.sidebar.nav.skills", descKey: "store.home.type.skill.description", icon: "sparkles" as IconProps["name"], color: "#F59E0B" },
-  { value: "subagent", labelKey: "store.sidebar.nav.subagents", descKey: "store.home.type.subagent.description", icon: "brain" as IconProps["name"], color: "#3b82f6" },
-  { value: "command", labelKey: "store.sidebar.nav.commands", descKey: "store.home.type.command.description", icon: "console" as IconProps["name"], color: "#10B981" },
-  { value: "mcp", labelKey: "store.sidebar.nav.mcpServers", descKey: "store.home.type.mcp.description", icon: "mcp" as IconProps["name"], color: "#8B5CF6" },
+  { value: "skill", labelKey: "store.sidebar.nav.skills", descKey: "store.home.type.skill.description", icon: "sparkles" as IconProps["name"], color: "#F59E0B", bg: "#FEF3C7" },
+  { value: "subagent", labelKey: "store.sidebar.nav.subagents", descKey: "store.home.type.subagent.description", icon: "brain" as IconProps["name"], color: "#3b82f6", bg: "#DBEAFE" },
+  { value: "command", labelKey: "store.sidebar.nav.commands", descKey: "store.home.type.command.description", icon: "console" as IconProps["name"], color: "#10B981", bg: "#D1FAE5" },
+  { value: "mcp", labelKey: "store.sidebar.nav.mcpServers", descKey: "store.home.type.mcp.description", icon: "mcp" as IconProps["name"], color: "#8B5CF6", bg: "#EDE9FE" },
 ] as const
 
 type StoreType = (typeof STORE_TYPES)[number]["value"]
@@ -311,31 +313,31 @@ export default function Home() {
   })
 
   return (
-    <div class="store-page min-h-full" style={{ "max-width": "1100px", margin: "0 auto", padding: "1.5rem 1.75rem 3rem" }}>
+    <div class="mx-auto grid min-h-full w-full max-w-[1100px] gap-6 px-7 pt-6 pb-12 max-[1280px]:gap-5 max-[768px]:px-4 max-[768px]:pb-10">
       <Show
         when={isTypeListMode()}
         fallback={
           <>
             {/* ═══ HOME MODE ═══ */}
-            <header class="store-page-header">
+            <header class="relative overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[linear-gradient(135deg,var(--native-panel),color-mix(in_srgb,var(--native-primary)_4%,var(--native-panel)))] p-7 before:pointer-events-none before:absolute before:right-[-10%] before:top-[-60%] before:h-[340px] before:w-[340px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--native-primary)_6%,transparent),transparent_70%)] before:content-['']">
               <div>
-                <h1 class="store-page-title">{language.t("store.home.hero.title")}</h1>
-                <p class="store-page-description">{language.t("store.home.hero.description")}</p>
+                <h1 class="relative m-0 text-[1.625rem] leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t("store.home.hero.title")}</h1>
+                <p class="relative mt-2 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t("store.home.hero.description")}</p>
               </div>
             </header>
 
-            <div class="store-page-main">
-              <section class="store-section">
-                <div class="store-stat-grid">
+            <div class="grid min-w-0 gap-6 max-[1280px]:gap-5">
+              <section class={sx.section}>
+                <div class={sx.statGrid}>
                   <For each={statCards()}>
                     {(entry) => (
-                      <article class="store-stat-card" data-stat={entry.value}>
-                        <div class="store-stat-card-icon">
+                      <article class={sx.statCard} style={{ "--stat-accent": entry.color, "--stat-bg": entry.bg }}>
+                        <div class={sx.statIcon}>
                           <Icon name={entry.icon} />
                         </div>
                         <div>
-                          <div class="store-stat-card-label">{language.t(entry.labelKey)}</div>
-                          <p class="store-stat-card-value">
+                          <div class={sx.statLabel}>{language.t(entry.labelKey)}</div>
+                          <p class={sx.statValue}>
                             <Show when={entry.total !== null} fallback="—">
                               {entry.total?.toLocaleString()}
                             </Show>
@@ -349,15 +351,15 @@ export default function Home() {
 
               <BestPracticeCarousel activeType={activeType} onSelectItem={setSelectedItemId} />
 
-              <section class="store-section">
-                <div class="store-type-tabs" role="tablist" aria-label={language.t("store.home.mainTabsLabel")}>
+              <section class={sx.section}>
+                <div class={sx.tabs} role="tablist" aria-label={language.t("store.home.mainTabsLabel")}>
                   <For each={STORE_TYPES}>
                     {(entry) => (
                       <button
                         type="button"
                         role="tab"
                         aria-selected={entry.value === activeType()}
-                        class={`store-type-tab ${entry.value === activeType() ? "store-type-tab-active" : ""}`}
+                        class={st.tab(entry.value === activeType())}
                         onClick={() => handleTypeChange(entry.value)}
                       >
                         {language.t(entry.labelKey)}
@@ -374,53 +376,53 @@ export default function Home() {
         }
       >
         {/* ═══ TYPE LIST MODE ═══ */}
-        <div class="store-page-main">
+        <div class="grid min-w-0 gap-6 max-[1280px]:gap-5">
           {/* Type Hero Header */}
-          <header class="tp-hero" style={{ "--tp-accent": typeMeta().color }}>
-            <div class="tp-hero-icon">
+          <header class="relative flex flex-col gap-5 overflow-hidden rounded-[1.25rem] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[linear-gradient(135deg,var(--native-panel),color-mix(in_srgb,var(--tp-accent)_5%,var(--native-panel)))] px-7 py-6 before:pointer-events-none before:absolute before:right-[-5%] before:top-[-40%] before:h-[280px] before:w-[280px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--tp-accent)_8%,transparent),transparent_70%)] before:content-[''] lg:flex-row lg:items-center lg:justify-between" style={{ "--tp-accent": typeMeta().color }}>
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[var(--native-radius-lg)] bg-[color-mix(in_srgb,var(--tp-accent)_10%,transparent)]">
               <Icon name={typeMeta().icon} />
             </div>
-            <div class="tp-hero-text">
-              <h1 class="tp-hero-title">{language.t(typeMeta().labelKey)}</h1>
-              <p class="tp-hero-desc">{language.t(typeMeta().descKey)}</p>
+            <div class="relative min-w-0 flex-1">
+              <h1 class="m-0 text-[1.375rem] leading-[1.2] font-extrabold tracking-[-0.03em] text-[var(--native-foreground)]">{language.t(typeMeta().labelKey)}</h1>
+              <p class="mt-1 text-[0.8125rem] leading-[1.5] text-[var(--native-muted)]">{language.t(typeMeta().descKey)}</p>
             </div>
-            <div class="tp-hero-stats">
-              <div class="tp-hstat">
-                <div class="tp-hstat-val">{typeAggregate().total.toLocaleString()}</div>
-                <div class="tp-hstat-label">{language.t("store.typeList.stat.total")}</div>
+            <div class="relative grid w-full grid-cols-2 gap-2.5 lg:w-auto lg:min-w-[14rem]">
+              <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_srgb,var(--native-border)_8%,transparent)] bg-[color-mix(in_srgb,var(--tp-accent)_4%,var(--native-panel))] px-3.5 py-2 text-center">
+                <div class="text-[1.125rem] leading-[1.3] font-extrabold text-[var(--native-foreground)] [font-variant-numeric:tabular-nums]">{typeAggregate().total.toLocaleString()}</div>
+                <div class="text-[12px] uppercase tracking-[0.04em] text-[var(--native-muted)]">{language.t("store.typeList.stat.total")}</div>
               </div>
-              <div class="tp-hstat">
-                <div class="tp-hstat-val">{formatCompact(typeAggregate().installs)}</div>
-                <div class="tp-hstat-label">{language.t("store.typeList.stat.installs")}</div>
+              <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_srgb,var(--native-border)_8%,transparent)] bg-[color-mix(in_srgb,var(--tp-accent)_4%,var(--native-panel))] px-3.5 py-2 text-center">
+                <div class="text-[1.125rem] leading-[1.3] font-extrabold text-[var(--native-foreground)] [font-variant-numeric:tabular-nums]">{formatCompact(typeAggregate().installs)}</div>
+                <div class="text-[12px] uppercase tracking-[0.04em] text-[var(--native-muted)]">{language.t("store.typeList.stat.installs")}</div>
               </div>
             </div>
           </header>
 
           {/* Popular Cards (Top 3) */}
-          <section class="store-section">
-            <div class="store-section-heading">
+          <section class={sx.section}>
+            <div class={sx.head}>
               <div>
-                <h2 class="store-section-title">{language.t("store.typeList.popular", { type: language.t(typeMeta().labelKey) })}</h2>
-                <p class="store-section-subtitle">{language.t("store.typeList.popularSub")}</p>
+                <h2 class={sx.title}>{language.t("store.typeList.popular", { type: language.t(typeMeta().labelKey) })}</h2>
+                <p class={sx.sub}>{language.t("store.typeList.popularSub")}</p>
               </div>
             </div>
-            <div class="tp-featured" style={{ "--tp-accent": typeMeta().color }}>
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3" style={{ "--tp-accent": typeMeta().color }}>
               <For each={popularItems()}>
                 {(item, idx) => (
-                  <article class="tp-fcard" onClick={() => setSelectedItemId(item.id)}>
-                    <span class="tp-fcard-rank">#{idx() + 1}</span>
-                    <div class="tp-fcard-icon">
+                  <article class="relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[var(--native-panel)] py-3.5 pr-4 pl-8 shadow-[var(--native-shadow-sm)] transition-all hover:-translate-y-px hover:border-[color:color-mix(in_srgb,var(--tp-accent)_20%,transparent)] hover:shadow-[var(--native-shadow-md)]" onClick={() => setSelectedItemId(item.id)}>
+                    <span class="absolute left-0 top-0 flex h-[1.375rem] w-[1.375rem] items-center justify-center rounded-br-[var(--native-radius-sm)] bg-[var(--tp-accent)] text-[12px] font-extrabold text-white">#{idx() + 1}</span>
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--native-radius-md)] bg-[color-mix(in_srgb,var(--tp-accent)_8%,transparent)]">
                       <Icon name={typeMeta().icon} />
                     </div>
-                    <div class="tp-fcard-info">
-                      <div class="tp-fcard-name">{item.name}</div>
-                      <div class="tp-fcard-meta">
-                        <span><LocalIcon name="star" size="small" />{(item.favoriteCount ?? 0).toLocaleString()}</span>
-                        <span><LocalIcon name="download" size="small" />{(item.installCount ?? 0).toLocaleString()}</span>
+                    <div class="min-w-0 flex-1">
+                      <div class="truncate text-[0.8125rem] font-bold text-[var(--native-foreground)]">{item.name}</div>
+                      <div class="mt-0.5 flex gap-2.5 text-[12px] text-[var(--native-muted)] [font-variant-numeric:tabular-nums]">
+                        <span class="inline-flex items-center gap-0.5"><LocalIcon name="star" size="small" />{(item.favoriteCount ?? 0).toLocaleString()}</span>
+                        <span class="inline-flex items-center gap-0.5"><LocalIcon name="download" size="small" />{(item.installCount ?? 0).toLocaleString()}</span>
                       </div>
                     </div>
                     <Show when={item.category}>
-                      <span class="tp-fcard-cat">{categories().find((c) => c.slug === item.category)
+                      <span class="shrink-0 whitespace-nowrap rounded-[var(--native-radius-full)] bg-[color-mix(in_srgb,var(--tp-accent)_8%,transparent)] px-1.5 py-px text-[12px] text-[var(--tp-accent)]">{categories().find((c) => c.slug === item.category)
                         ? categoryName(categories().find((c) => c.slug === item.category)!)
                         : item.category}</span>
                     </Show>
@@ -436,7 +438,7 @@ export default function Home() {
       </Show>
 
       <Sheet open={detailOpen()} onOpenChange={(open) => !open && setSelectedItemId(null)} modal={false}>
-        <SheetContent position="right" class="store-detail-sheet w-[min(48rem,92vw)] sm:max-w-none">
+        <SheetContent position="right" class={cn(sx.sheet, "w-[min(48rem,92vw)] sm:max-w-none")} style={{ "background-color": "var(--st-surface-lowest, #ffffff)" }}>
           <SheetHeader class="sr-only">
             <SheetTitle>{language.t("store.home.detail.title")}</SheetTitle>
             <SheetDescription>{language.t("store.home.detail.description")}</SheetDescription>
@@ -446,7 +448,7 @@ export default function Home() {
               <Suspense fallback={<div class="flex justify-center py-16 text-muted-foreground">{language.t("store.loading")}</div>}>
                 <ItemDetailContent
                   itemId={itemId()}
-                  class="store-detail-content custom-scrollbar"
+                  class={cn(sx.sheetBody, "custom-scrollbar")}
                   onItemLoaded={setDetailItem}
                   favorited={favorited()}
                   favoriteCount={favoriteCount()}
@@ -477,11 +479,11 @@ export default function Home() {
         : language.t(typeMeta().descKey)
 
     return (
-      <section class="store-section store-content-shell">
-        <div class="store-section-heading">
+      <section class={cn(sx.section, sx.shell)}>
+        <div class={sx.head}>
           <div>
-            <h2 class="store-section-title">{tableTitle()}</h2>
-            <p class="store-section-subtitle">{tableSub()}</p>
+            <h2 class={sx.title}>{tableTitle()}</h2>
+            <p class={sx.sub}>{tableSub()}</p>
           </div>
           <div class="flex items-center gap-2">
             <TextField class="w-48">
@@ -535,55 +537,51 @@ export default function Home() {
           </div>
         </div>
 
-        <div class="store-table-shell">
+        <div class={sx.tableShell}>
           <Show
             when={!showError()}
             fallback={
-              <div class="store-table-state">
+              <div class={sx.state}>
                 {listError() || language.t("store.console.capabilities.toast.loadFailed")}
               </div>
             }
           >
             <Show
               when={rows().length > 0 || !list.loading}
-              fallback={<div class="store-table-state">{language.t("store.loading")}</div>}
+              fallback={<div class={sx.state}>{language.t("store.loading")}</div>}
             >
               <Show when={list.loading && rows().length > 0}>
-                <div class="store-table-loading-overlay">
-                  <div class="store-table-loading-spinner" />
+                <div class={sx.overlay}>
+                  <div class={sx.spinner} />
                 </div>
               </Show>
-              <Table class="store-data-table">
-                <TableHeader>
-                  <TableRow class="store-data-table-head-row">
-                    <TableHead>{language.t("store.console.capabilities.name")}</TableHead>
+              <Table class="text-[0.8125rem]">
+                <TableHeader class={sx.thead}>
+                  <TableRow>
+                    <TableHead class={sx.th}>{language.t("store.console.capabilities.name")}</TableHead>
                     <For each={SORTS}>
                       {([by, label]) => (
-                        <TableHead aria-sort={sortState(by)}>
+                        <TableHead class={sx.th} aria-sort={sortState(by)}>
                           <button
                             type="button"
-                            class={`store-sort-btn ${sort.by === by ? "store-sort-btn-active" : ""}`}
+                            class={st.sort(sort.by === by)}
                             onClick={() => handleSortChange(by)}
                           >
                             <span>{language.t(label)}</span>
-                            <span class="store-sort-icon" aria-hidden="true">
-                              <span
-                                class={`store-sort-arrow store-sort-arrow-up ${sort.by === by && sort.order === "asc" ? "store-sort-arrow-active" : ""}`}
-                              />
-                              <span
-                                class={`store-sort-arrow store-sort-arrow-down ${sort.by === by && sort.order === "desc" ? "store-sort-arrow-active" : ""}`}
-                              />
+                            <span class={sx.sortIcon} aria-hidden="true">
+                              <span class={st.arrow("up", sort.by === by && sort.order === "asc")} />
+                              <span class={st.arrow("down", sort.by === by && sort.order === "desc")} />
                             </span>
                           </button>
                         </TableHead>
                       )}
                     </For>
-                    <TableHead class="store-col-category">
+                    <TableHead class={cn(sx.th, sx.colCategory)}>
                       {language.t("store.console.capabilities.category")}
                     </TableHead>
-                    <TableHead>{language.t("store.scanResults.securityScan")}</TableHead>
-                    <TableHead class="store-col-updated">{language.t("store.detail.updated")}</TableHead>
-                    <TableHead class="store-col-action text-right">{language.t("store.home.table.action")}</TableHead>
+                    <TableHead class={sx.th}>{language.t("store.scanResults.securityScan")}</TableHead>
+                    <TableHead class={cn(sx.th, sx.colUpdated)}>{language.t("store.detail.updated")}</TableHead>
+                    <TableHead class={cn(sx.th, sx.colAction, "text-right")}>{language.t("store.home.table.action")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -593,33 +591,33 @@ export default function Home() {
                   >
                     <For each={rows()}>
                       {(item) => (
-                        <TableRow class="store-data-table-row cursor-pointer" onClick={() => setSelectedItemId(item.id)}>
-                          <TableCell>
-                            <span class="store-item-name">{item.name}</span>
+                        <TableRow class={sx.row} onClick={() => setSelectedItemId(item.id)}>
+                          <TableCell class={sx.td}>
+                            <span class={sx.item}>{item.name}</span>
                           </TableCell>
-                          <TableCell class="store-data-table-muted">
+                          <TableCell class={cn(sx.td, sx.mut)}>
                             {item.favoriteCount?.toLocaleString() ?? "0"}
                           </TableCell>
-                          <TableCell class="store-data-table-muted">
+                          <TableCell class={cn(sx.td, sx.mut)}>
                             {item.installCount?.toLocaleString() ?? "0"}
                           </TableCell>
-                          <TableCell class="store-data-table-muted">
+                          <TableCell class={cn(sx.td, sx.mut)}>
                             {item.previewCount?.toLocaleString() ?? "0"}
                           </TableCell>
-                          <TableCell class="store-col-category store-data-table-muted">
+                          <TableCell class={cn(sx.td, sx.colCategory, sx.mut)}>
                             {item.category
                               ? categories().find((c) => c.slug === item.category)
                                 ? categoryName(categories().find((c) => c.slug === item.category)!)
                                 : item.category
                               : "—"}
                           </TableCell>
-                          <TableCell>
+                          <TableCell class={sx.td}>
                             <SecurityTag status={item.securityStatus} />
                           </TableCell>
-                          <TableCell class="store-col-updated store-data-table-muted">
+                          <TableCell class={cn(sx.td, sx.colUpdated, sx.mut)}>
                             {formatDate(item.updatedAt)}
                           </TableCell>
-                          <TableCell class="store-col-action text-right" onClick={(e: MouseEvent) => e.stopPropagation()}>
+                          <TableCell class={cn(sx.td, sx.colAction, "text-right")} onClick={(e: MouseEvent) => e.stopPropagation()}>
                             <DropdownMenu placement="bottom-end">
                               <DropdownMenuTrigger
                                 as={Button<"button">}
@@ -661,8 +659,8 @@ export default function Home() {
           </Show>
         </div>
 
-        <div class="store-pagination">
-          <div class="store-pagination-summary">
+        <div class={sx.pager}>
+          <div class={sx.pagerSum}>
             <Show when={totalItems() > 0} fallback={language.t("store.home.pagination.empty")}>
               {language.t("store.console.capabilities.showing", {
                 from: Math.min((page() - 1) * PAGE_SIZE + 1, totalItems()),
@@ -671,14 +669,14 @@ export default function Home() {
               })}
             </Show>
           </div>
-          <div class="store-pagination-actions">
-            <button class="store-page-btn" disabled={page() <= 1} onClick={() => handlePageChange(page() - 1)}>
+          <div class={sx.pagerActs}>
+            <button class={st.page(false)} disabled={page() <= 1} onClick={() => handlePageChange(page() - 1)}>
               <Icon name="chevron-left" />
             </button>
             <For each={visiblePages()}>
               {(pageNumber) => (
                 <button
-                  class={`store-page-btn ${pageNumber === page() ? "store-page-btn-active" : ""}`}
+                  class={st.page(pageNumber === page())}
                   onClick={() => handlePageChange(pageNumber)}
                 >
                   {pageNumber}
@@ -686,7 +684,7 @@ export default function Home() {
               )}
             </For>
             <button
-              class="store-page-btn"
+              class={st.page(false)}
               disabled={page() >= totalPages()}
               onClick={() => handlePageChange(page() + 1)}
             >
@@ -702,8 +700,8 @@ export default function Home() {
 function TableEmptyState(props: { colSpan: number; message: string }) {
   return (
     <TableRow>
-      <TableCell colSpan={props.colSpan}>
-        <div class="store-table-state">{props.message}</div>
+      <TableCell class="border-b-0 p-0" colSpan={props.colSpan}>
+        <div class={sx.state}>{props.message}</div>
       </TableCell>
     </TableRow>
   )

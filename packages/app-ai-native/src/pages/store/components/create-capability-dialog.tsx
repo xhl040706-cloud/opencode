@@ -217,7 +217,7 @@ export function CreateCapabilityDialog(props: CreateCapabilityDialogProps) {
                   <option value={option.value}>{option.label}</option>
                 ))}
               </select>
-              <span style={{ color: "var(--st-text-secondary)" }}>/</span>
+              <span style={{ color: "var(--native-muted)" }}>/</span>
               <input
                 value={store.slug}
                 onInput={(e) => {

@@ -15,6 +15,8 @@ import EditProjectDialog from "../components/edit-project-dialog"
 import ProjectInviteDialog from "../components/project-invite-dialog"
 import ProjectRepositoryBindingsDrawer from "../components/project-repository-bindings-drawer"
 import { projectsApi } from "../lib/project-api"
+import { cn } from "@/lib/utils"
+import { st, sx } from "@/pages/store/lib/styles"
 
 type DetailTabKey = "activity" | "members" | "invitations"
 
@@ -156,8 +158,8 @@ export default function ProjectDetail() {
           </>
         )}
       </Show>
-      <Show when={!project.loading} fallback={<div class="store-table-state">{language.t("store.loading")}</div>}>
-        <Show when={project()} fallback={<div class="store-table-state">{language.t("projects.detail.empty")}</div>}>
+      <Show when={!project.loading} fallback={<div class={sx.state}>{language.t("store.loading")}</div>}>
+        <Show when={project()} fallback={<div class={sx.state}>{language.t("projects.detail.empty")}</div>}>
           {(item) => (
             <div class="projects-page-main project-detail-main gap-6">
               <header class="projects-page-header project-detail-header space-y-4">
@@ -176,9 +178,9 @@ export default function ProjectDetail() {
                     <div class="project-detail-header-title-wrap min-w-0 flex items-center gap-3">
                       <div class="project-detail-header-title-row flex min-w-0 flex-wrap items-center gap-3">
                         <h1 class="project-detail-title text-[2.25rem] leading-none font-bold tracking-tight text-foreground whitespace-nowrap">{item().project.name}</h1>
-                        <span class="project-detail-role-badge store-badge shrink-0">{currentUserRole()}</span>
+                        <span class={cn("project-detail-role-badge shrink-0", sx.badge)}>{currentUserRole()}</span>
                         <Show when={item().project.archivedAt}>
-                          <span class="project-detail-archived-badge store-badge shrink-0">{language.t("projects.detail.archivedBadge")}</span>
+                          <span class={cn("project-detail-archived-badge shrink-0", sx.badge)}>{language.t("projects.detail.archivedBadge")}</span>
                         </Show>
                       </div>
                     </div>
@@ -211,7 +213,7 @@ export default function ProjectDetail() {
                 <div class="project-detail-content-header shrink-0 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div class="project-detail-content-heading">
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                      <h2 class="project-detail-content-title store-section-title">{language.t("projects.detail.contentSectionTitle")}</h2>
+                      <h2 class="project-detail-content-title m-0 text-[1rem] font-bold text-[var(--native-foreground)]">{language.t("projects.detail.contentSectionTitle")}</h2>
                       <div class="project-detail-header-meta flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                         <Show when={item().project.enabledAt}>
                           <span class="project-detail-header-meta-item">
@@ -225,16 +227,16 @@ export default function ProjectDetail() {
                         </Show>
                       </div>
                     </div>
-                    <p class="project-detail-content-subtitle store-section-subtitle">{language.t("projects.detail.contentSectionDescription")}</p>
+                    <p class="project-detail-content-subtitle mt-0.5 text-[0.8125rem] text-[var(--native-muted)]">{language.t("projects.detail.contentSectionDescription")}</p>
                   </div>
-                  <div class="project-detail-tabs store-type-tabs" role="tablist" aria-label={language.t("projects.detail.contentSectionTitle")}>
+                  <div class={cn("project-detail-tabs", sx.tabs)} role="tablist" aria-label={language.t("projects.detail.contentSectionTitle")}>
                     <For each={["activity", "members", "invitations"] as const}>
                       {(tab) => (
                         <button
                           type="button"
                           role="tab"
                           aria-selected={state.detailTab === tab}
-                          class={`store-type-tab ${state.detailTab === tab ? "store-type-tab-active" : ""}`}
+                          class={st.tab(state.detailTab === tab)}
                           onClick={() => {
                             setState("detailTab", tab)
                           }}
@@ -252,8 +254,8 @@ export default function ProjectDetail() {
                       <div class="project-detail-bound-repositories flex min-h-0 flex-1 flex-col p-4">
                         <div class="project-detail-bound-repositories-header mb-3 shrink-0 flex items-center justify-between gap-4">
                           <div class="project-detail-bound-repositories-heading">
-                            <h3 class="project-detail-bound-repositories-title store-section-title">{language.t("projects.detail.boundRepositoriesTitle")}</h3>
-                            <p class="project-detail-bound-repositories-subtitle store-section-subtitle">{language.t("projects.detail.boundRepositoriesDescription")}</p>
+                            <h3 class="project-detail-bound-repositories-title m-0 text-[1rem] font-bold text-[var(--native-foreground)]">{language.t("projects.detail.boundRepositoriesTitle")}</h3>
+                            <p class="project-detail-bound-repositories-subtitle mt-0.5 text-[0.8125rem] text-[var(--native-muted)]">{language.t("projects.detail.boundRepositoriesDescription")}</p>
                           </div>
                           <Button
                             variant="outline"
@@ -270,7 +272,7 @@ export default function ProjectDetail() {
                           fallback={
                             <div class="flex min-h-0 flex-1 items-center justify-center">
                               <div class="max-w-sm text-center">
-                                <div class="text-base font-semibold text-foreground">
+                                <div class="text-[1rem] font-semibold text-foreground">
                                   {language.t("projects.detail.emptyRepositories")}
                                 </div>
                                 <p class="mt-2 text-sm text-muted-foreground">
@@ -289,8 +291,8 @@ export default function ProjectDetail() {
                                       <div class="project-detail-activity-repo-label text-xs text-muted-foreground">
                                         {language.t("projects.detail.repositoryInfo")}
                                       </div>
-                                      <h3 class="project-detail-activity-repo-title store-section-title truncate">{repo.displayName || repo.gitRepoUrl}</h3>
-                                      <p class="project-detail-activity-repo-subtitle store-section-subtitle truncate">{repo.gitRepoUrl}</p>
+                                      <h3 class="project-detail-activity-repo-title m-0 truncate text-[1rem] font-bold text-[var(--native-foreground)]">{repo.displayName || repo.gitRepoUrl}</h3>
+                                      <p class="project-detail-activity-repo-subtitle mt-0.5 truncate text-[0.8125rem] text-[var(--native-muted)]">{repo.gitRepoUrl}</p>
                                     </div>
 
                                     <div class="project-detail-activity-shared-users min-w-0">
@@ -400,7 +402,7 @@ function invitationStatusLabel(language: ReturnType<typeof useLanguage>, status:
 
 function DetailTable(props: { headers: string[]; rows: JSX.Element[][]; emptyMessage?: string }) {
   return (
-    <div class="project-detail-table store-table-shell flex h-full min-h-0 flex-1 flex-col overflow-auto">
+    <div class={cn("project-detail-table flex h-full min-h-0 flex-1 flex-col overflow-auto", sx.tableShell)}>
       <Table class="project-detail-table-inner">
         <TableHeader>
           <TableRow class="project-detail-table-head-row">
@@ -436,7 +438,7 @@ function TableEmptyState(props: { colSpan: number; message: string }) {
   return (
     <TableRow class="project-detail-table-empty-row">
       <TableCell class="project-detail-table-empty-cell" colSpan={props.colSpan}>
-        <div class="project-detail-table-empty store-table-state">{props.message}</div>
+        <div class={cn("project-detail-table-empty", sx.state)}>{props.message}</div>
       </TableCell>
     </TableRow>
   )

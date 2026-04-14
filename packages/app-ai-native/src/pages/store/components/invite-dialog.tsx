@@ -92,12 +92,12 @@ export function InviteDialog(props: Props) {
       </div>
       <div class="modal-section" style={{ flex: "1", "overflow-y": "auto" }}>
         <Show when={store.searching}>
-          <div style={{ padding: "1rem 0", "text-align": "center", "font-size": "0.8125rem", color: "var(--st-text-secondary)" }}>
+          <div style={{ padding: "1rem 0", "text-align": "center", "font-size": "0.8125rem", color: "var(--native-muted)" }}>
             {language.t("store.loading")}
           </div>
         </Show>
         <Show when={!store.searching && store.results.length === 0 && store.query.trim()}>
-          <div style={{ padding: "1rem 0", "text-align": "center", "font-size": "0.8125rem", color: "var(--st-text-secondary)" }}>
+          <div style={{ padding: "1rem 0", "text-align": "center", "font-size": "0.8125rem", color: "var(--native-muted)" }}>
             {language.t("store.inviteDialog.empty")}
           </div>
         </Show>
@@ -122,9 +122,9 @@ export function InviteDialog(props: Props) {
                             "align-items": "center",
                             "justify-content": "center",
                             "border-radius": "9999px",
-                            background: "var(--st-surface-low)",
+                            background: "var(--native-bg-subtle)",
                             "font-size": "0.8125rem",
-                            color: "var(--st-text)",
+                            color: "var(--native-foreground)",
                           }}
                         >
                           {(user.name || user.preferred_username || "?")[0].toUpperCase()}
@@ -147,7 +147,7 @@ export function InviteDialog(props: Props) {
                       <div
                         style={{
                           "font-size": "0.8125rem",
-                          color: "var(--st-text)",
+                          color: "var(--native-foreground)",
                           overflow: "hidden",
                           "text-overflow": "ellipsis",
                           "white-space": "nowrap",
@@ -158,7 +158,7 @@ export function InviteDialog(props: Props) {
                       <div
                         style={{
                           "font-size": "12px",
-                          color: "var(--st-text-secondary)",
+                          color: "var(--native-muted)",
                           overflow: "hidden",
                           "text-overflow": "ellipsis",
                           "white-space": "nowrap",

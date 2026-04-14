@@ -36,7 +36,7 @@ export default function WorkspaceHome() {
               <div class="flex justify-end items-start mb-4">
                 <Icon name="terminal" class="text-[#F59E0B] p-2 bg-[#F59E0B]/5 rounded-xl" />
               </div>
-              <h3 class="text-base font-extrabold mb-2" style={{ color: "#000000" }}>{language.t("workspace.home.step1.title")}</h3>
+              <h3 class="text-[1rem] font-extrabold mb-2" style={{ color: "#000000" }}>{language.t("workspace.home.step1.title")}</h3>
               <p class="text-xs text-[#424752] leading-relaxed mb-6">
                 {language.t("workspace.home.step1.description")}
               </p>
@@ -58,7 +58,7 @@ export default function WorkspaceHome() {
               <div class="flex justify-end items-start mb-4">
                 <Icon name="folder-add-left" class="text-[#2E6CC4] p-2 bg-[#2E6CC4]/5 rounded-xl" />
               </div>
-              <h3 class="text-base font-extrabold mb-2" style={{ color: "#000000" }}>{language.t("workspace.home.step2.title")}</h3>
+              <h3 class="text-[1rem] font-extrabold mb-2" style={{ color: "#000000" }}>{language.t("workspace.home.step2.title")}</h3>
               <p class="text-xs text-[#424752] leading-relaxed mb-6">
                 {language.t("workspace.home.step2.description")}
               </p>
@@ -77,7 +77,7 @@ export default function WorkspaceHome() {
               <div class="flex justify-end items-start mb-4">
                 <Icon name="code" class="text-[#10B981] p-2 bg-[#10B981]/5 rounded-xl" />
               </div>
-              <h3 class="text-base font-extrabold mb-2" style={{ color: "#000000" }}>{language.t("workspace.home.step3.title")}</h3>
+              <h3 class="text-[1rem] font-extrabold mb-2" style={{ color: "#000000" }}>{language.t("workspace.home.step3.title")}</h3>
               <p class="text-xs text-[#424752] leading-relaxed mb-6">
                 {language.t("workspace.home.step3.description")}
               </p>

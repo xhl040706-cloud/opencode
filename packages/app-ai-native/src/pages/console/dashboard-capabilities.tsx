@@ -15,6 +15,8 @@ import { CreateCapabilityDialog } from "@/pages/store/components/create-capabili
 import { EditCapabilityDialog } from "@/pages/store/components/edit-capability-dialog"
 import { MoveCapabilityDialog } from "@/pages/store/components/move-capability-dialog"
 import { typeKey } from "@/pages/store/lib/constants"
+import { cn } from "@/lib/utils"
+import { st, sx } from "@/pages/store/lib/styles"
 
 const PAGE_SIZE = 10
 
@@ -28,7 +30,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 const SUB = {
   "font-size": "0.8125rem",
-  color: "var(--st-text-secondary)",
+  color: "var(--native-muted)",
   "margin-bottom": "0.75rem",
 }
 
@@ -196,7 +198,7 @@ export default function DashboardCapabilities() {
   const visColor = (vis?: string | null) => {
     if (vis === "public") return { bg: "color-mix(in srgb, #22c55e 12%, transparent)", c: "#22c55e" }
     if (vis === "private") return { bg: "color-mix(in srgb, #f59e0b 12%, transparent)", c: "#f59e0b" }
-    return { bg: "rgba(156,163,175,0.12)", c: "var(--st-text-secondary)" }
+    return { bg: "rgba(156,163,175,0.12)", c: "var(--native-muted)" }
   }
 
   createEffect(() => {
@@ -235,26 +237,26 @@ export default function DashboardCapabilities() {
     total: number
   }) => (
     <Show when={props.totalPages > 1}>
-      <div class="store-pag">
-        <p class="store-pag-sum">
+      <div class={sx.pager}>
+        <p class={sx.pagerSum}>
           {language.t("store.console.capabilities.showing", {
             from: (props.page - 1) * PAGE_SIZE + 1,
             to: Math.min(props.page * PAGE_SIZE, props.total),
             total: props.total,
           })}
         </p>
-        <div class="store-pag-acts">
-          <button class="store-pbtn" disabled={props.page <= 1} onClick={() => props.onPage(props.page - 1)}>
+        <div class={sx.pagerActs}>
+          <button class={st.page(false)} disabled={props.page <= 1} onClick={() => props.onPage(props.page - 1)}>
             <Icon name="chevron-left" size="small" />
           </button>
           <For each={props.pages}>
             {(p) => (
               <Show
                 when={p !== "..."}
-                fallback={<span class="store-pbtn" style={{ cursor: "default" }}>...</span>}
+                fallback={<span class={cn(sx.page, "cursor-default hover:bg-transparent hover:text-[var(--native-muted)]")}>...</span>}
               >
                 <button
-                  class={`store-pbtn${props.page === p ? " store-pbtn-on" : ""}`}
+                  class={st.page(props.page === p)}
                   onClick={() => props.onPage(p as number)}
                 >
                   {p}
@@ -262,7 +264,7 @@ export default function DashboardCapabilities() {
               </Show>
             )}
           </For>
-          <button class="store-pbtn" disabled={props.page >= props.totalPages} onClick={() => props.onPage(props.page + 1)}>
+          <button class={st.page(false)} disabled={props.page >= props.totalPages} onClick={() => props.onPage(props.page + 1)}>
             <Icon name="chevron-right" size="small" />
           </button>
         </div>
@@ -273,17 +275,17 @@ export default function DashboardCapabilities() {
   return (
     <Show
       when={!loading()}
-      fallback={<div class="store-dash-empty">{language.t("store.loading")}</div>}
+      fallback={<div class={sx.empty}>{language.t("store.loading")}</div>}
     >
       <Show
         when={user()}
         fallback={
-          <div class="store-dash-empty" style={{ "min-height": "40vh", display: "flex", "align-items": "center", "justify-content": "center" }}>
+          <div class={cn(sx.empty, "flex min-h-[40vh] items-center justify-center")}>
             <div style={{ "text-align": "center" }}>
-              <h1 class="store-tbar-title">{language.t("store.console")}</h1>
-              <p class="store-tbar-sub" style={{ "margin-bottom": "0.75rem" }}>{language.t("store.console.authDescription")}</p>
+              <h1 class={sx.toolbarTitle}>{language.t("store.console")}</h1>
+              <p class={cn(sx.toolbarSub, "mb-3")}>{language.t("store.console.authDescription")}</p>
               <button
-                class="store-fbtn store-fbtn-primary"
+                class={cn(sx.btn, sx.btnPrimary)}
                 onClick={() => { window.location.href = getLoginUrl("/store/dashboard/capabilities") }}
               >
                 {language.t("store.console.login")}
@@ -292,29 +294,29 @@ export default function DashboardCapabilities() {
           </div>
         }
       >
-        <div class="store-tbar">
+        <div class={sx.toolbar}>
           <div>
-            <h2 class="store-tbar-title">{language.t("store.console.capabilities.title")}</h2>
-            <p class="store-tbar-sub">{language.t("store.console.capabilities.description")}</p>
+            <h2 class={sx.toolbarTitle}>{language.t("store.console.capabilities.title")}</h2>
+            <p class={sx.toolbarSub}>{language.t("store.console.capabilities.description")}</p>
           </div>
         </div>
 
         {/* My Created */}
-        <section class="store-cshell" style={{ "margin-bottom": "1rem" }}>
-          <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "0.75rem" }}>
+        <section class={cn(sx.cshell, "mb-4")}>
+          <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p style={{ ...SUB, "margin-bottom": 0 }}>{language.t("store.console.capabilities.myCreated")}</p>
-            <button class="store-fbtn store-fbtn-primary" onClick={openCreateCapability}>
+            <button class={cn(sx.btn, sx.btnPrimary)} onClick={openCreateCapability}>
               <Icon name="plus" size="small" />
               {language.t("store.console.newCapability")}
             </button>
           </div>
 
           <Show when={state.filtersShown || state.items.length > 0 || state.totalItems > 0}>
-            <div class="store-dash-filter-bar">
+            <div class={sx.filterBar}>
               <For each={["all", "skill", "subagent", "command", "mcp"]}>
                 {(type) => (
                   <button
-                    class={`store-dash-filter-btn${state.itemTypeFilter === type ? " store-dash-filter-btn-on" : ""}`}
+                    class={st.filter(state.itemTypeFilter === type)}
                     onClick={() => {
                       setState("itemTypeFilter", type)
                       setState("itemPage", 1)
@@ -331,14 +333,14 @@ export default function DashboardCapabilities() {
 
           <Show
             when={!state.loadingItems}
-            fallback={<div class="store-dash-empty">{language.t("store.console.capabilities.loading")}</div>}
+            fallback={<div class={sx.empty}>{language.t("store.console.capabilities.loading")}</div>}
           >
             <Show
               when={state.totalItems > 0 || state.items.length > 0}
-              fallback={<div class="store-dash-empty">{language.t("store.console.capabilities.empty")}</div>}
+              fallback={<div class={sx.empty}>{language.t("store.console.capabilities.empty")}</div>}
             >
-              <div class="store-tshell">
-                <table class="store-dt">
+              <div class={sx.tshell}>
+                <table class={sx.dt}>
                   <thead>
                     <tr>
                       <th>{language.t("store.console.capabilities.name")}</th>
@@ -356,11 +358,11 @@ export default function DashboardCapabilities() {
                         return (
                           <tr onClick={() => setSelectedItemId(item.id)}>
                             <td>
-                              <span style={{ color: "var(--st-text)" }}>{item.name}</span>
+                              <span style={{ color: "var(--native-foreground)" }}>{item.name}</span>
                             </td>
                             <td>
                               <span
-                                class="store-dash-pill"
+                                class={sx.pill}
                                 style={{
                                   background: `color-mix(in srgb, ${tc()} 12%, transparent)`,
                                   color: tc(),
@@ -371,7 +373,7 @@ export default function DashboardCapabilities() {
                             </td>
                             <td>
                               <span
-                                class="store-dash-pill"
+                                class={sx.pill}
                                 style={{ background: vc().bg, color: vc().c }}
                               >
                                 {item.repoVisibility === "public"
@@ -381,32 +383,32 @@ export default function DashboardCapabilities() {
                                     : "-"}
                               </span>
                             </td>
-                            <td class="store-mut">{item.repoName || "—"}</td>
+                            <td class={sx.mut}>{item.repoName || "—"}</td>
                             <td style={{ "text-align": "right" }}>
                               <div style={{ display: "flex", gap: "1px", "justify-content": "flex-end" }} onClick={(e) => e.stopPropagation()}>
                                 <button
-                                  class="store-abtn"
+                                  class={sx.action}
                                   title={language.t("common.open")}
                                   onClick={() => setSelectedItemId(item.id)}
                                 >
                                   <Icon name="arrow-right" size="small" />
                                 </button>
                                 <button
-                                  class="store-abtn"
+                                  class={sx.action}
                                   title={language.t("store.console.capabilities.move")}
                                   onClick={() => openMoveCapability(item)}
                                 >
                                   <Icon name="share" size="small" />
                                 </button>
                                 <button
-                                  class="store-abtn"
+                                  class={sx.action}
                                   title={language.t("store.console.capabilities.edit")}
                                   onClick={() => openEditCapability(item)}
                                 >
                                   <Icon name="edit" size="small" />
                                 </button>
                                 <button
-                                  class="store-abtn"
+                                  class={sx.action}
                                   title={language.t("store.console.capabilities.delete")}
                                   onClick={() => handleDeleteItem(item.id)}
                                 >
@@ -437,19 +439,19 @@ export default function DashboardCapabilities() {
         </section>
 
         {/* My Favorited */}
-        <section class="store-cshell">
+        <section class={sx.cshell}>
           <p style={SUB}>{language.t("store.console.capabilities.myFavorited")}</p>
 
           <Show
             when={!favState.loading}
-            fallback={<div class="store-dash-empty">{language.t("store.console.capabilities.favorited.loading")}</div>}
+            fallback={<div class={sx.empty}>{language.t("store.console.capabilities.favorited.loading")}</div>}
           >
             <Show
               when={favState.total > 0 || favState.items.length > 0}
-              fallback={<div class="store-dash-empty">{language.t("store.console.capabilities.favorited.empty")}</div>}
+              fallback={<div class={sx.empty}>{language.t("store.console.capabilities.favorited.empty")}</div>}
             >
-              <div class="store-tshell">
-                <table class="store-dt">
+              <div class={sx.tshell}>
+                <table class={sx.dt}>
                   <thead>
                     <tr>
                       <th>{language.t("store.console.capabilities.name")}</th>
@@ -465,11 +467,11 @@ export default function DashboardCapabilities() {
                         return (
                           <tr onClick={() => setSelectedItemId(item.id)}>
                             <td>
-                              <span style={{ color: "var(--st-text)" }}>{item.name}</span>
+                              <span style={{ color: "var(--native-foreground)" }}>{item.name}</span>
                             </td>
                             <td>
                               <span
-                                class="store-dash-pill"
+                                class={sx.pill}
                                 style={{
                                   background: `color-mix(in srgb, ${tc()} 12%, transparent)`,
                                   color: tc(),
@@ -478,10 +480,10 @@ export default function DashboardCapabilities() {
                                 {typeLabel(item.itemType)}
                               </span>
                             </td>
-                            <td class="store-mut">{item.repoName || "—"}</td>
+                            <td class={sx.mut}>{item.repoName || "—"}</td>
                             <td style={{ "text-align": "right" }}>
                               <button
-                                class="store-abtn"
+                                class={sx.action}
                                 title={language.t("store.detail.unfavorite")}
                                 onClick={(e) => { e.stopPropagation(); void unfavoriteItem(item.id) }}
                               >
@@ -511,7 +513,7 @@ export default function DashboardCapabilities() {
         </section>
 
         <Sheet open={detailOpen()} onOpenChange={(open) => !open && setSelectedItemId(null)} modal={false}>
-          <SheetContent position="right" class="store-detail-sheet w-[min(48rem,92vw)] sm:max-w-none">
+          <SheetContent position="right" class={cn(sx.sheet, "w-[min(48rem,92vw)] sm:max-w-none")} style={{ "background-color": "var(--st-surface-lowest, #ffffff)" }}>
             <SheetHeader class="sr-only">
               <SheetTitle>{language.t("store.home.detail.title")}</SheetTitle>
               <SheetDescription>{language.t("store.home.detail.description")}</SheetDescription>
@@ -521,7 +523,7 @@ export default function DashboardCapabilities() {
                 <Suspense fallback={<div class="flex justify-center py-16 text-muted-foreground">{language.t("store.loading")}</div>}>
                   <ItemDetailContent
                     itemId={itemId()}
-                    class="store-detail-content custom-scrollbar"
+                    class={cn(sx.sheetBody, "custom-scrollbar")}
                     onItemLoaded={setDetailItem}
                     favorited={favorited()}
                     favoriteCount={favoriteCount()}
