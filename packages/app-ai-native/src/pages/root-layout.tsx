@@ -23,10 +23,10 @@ function NavButton(props: {
         aria-label={props.label}
         onClick={props.onClick}
         class={[
-          "flex items-center justify-center size-10 transition-colors cursor-pointer outline-none",
+          "relative flex size-10 items-center justify-center rounded-[var(--native-radius-md)] transition-colors cursor-pointer outline-none",
           props.active
-            ? "bg-[#2E6CC4]/10 text-[#2E6CC4] border-l-2 border-l-[#2E6CC4]"
-            : "text-[var(--st-text-muted)] hover:bg-[var(--st-surface)] hover:text-[var(--st-text)]",
+            ? "bg-[color-mix(in_srgb,var(--native-primary)_10%,transparent)] text-[var(--native-primary)] before:absolute before:top-2 before:bottom-2 before:left-[-0.5rem] before:w-[2px] before:rounded-r-full before:bg-[var(--native-primary)] before:content-['']"
+            : "text-[var(--native-dim)] hover:bg-[var(--native-surface)] hover:text-[var(--native-foreground)]",
         ].join(" ")}
       >
         <Icon name={props.icon} size="normal" />
@@ -58,7 +58,7 @@ function UserButton() {
     >
       <DropdownMenu placement="right-end">
         <DropdownMenu.Trigger
-          class="flex items-center justify-center size-10 hover:bg-[var(--st-surface)] transition-colors"
+          class="flex size-10 items-center justify-center rounded-[var(--native-radius-full)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-surface)] hover:text-[var(--native-foreground)]"
           aria-label={language.t("sidebar.user.menu")}
         >
           <Show
@@ -118,8 +118,7 @@ export default function RootLayout(props: ParentProps) {
     <div class="flex h-full w-full overflow-hidden">
       <aside
         data-component="root-layout-nav"
-        class="fixed inset-y-0 left-0 z-40 flex w-12 flex-col items-center py-4 transition-opacity duration-200"
-        style={{ background: "var(--st-surface-lowest)", "border-right": "1px solid rgba(194,198,212,0.2)" }}
+        class="fixed inset-y-0 left-0 z-40 flex w-12 flex-col items-center border-r border-[color:color-mix(in_srgb,var(--native-border)_20%,transparent)] bg-[var(--native-panel)] py-4 transition-opacity duration-200"
       >
         <nav class="flex flex-1 flex-col gap-2">
           <NavButton
@@ -149,7 +148,7 @@ export default function RootLayout(props: ParentProps) {
             <button
               type="button"
               onClick={() => platform.openLink("https://docs.costrict.ai/cli/guide/installation")}
-              class="flex size-10 items-center justify-center text-[var(--st-text-muted)] transition-colors hover:bg-[var(--st-surface)] hover:text-[var(--st-text)]"
+              class="flex size-10 items-center justify-center rounded-[var(--native-radius-full)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-surface)] hover:text-[var(--native-foreground)]"
               aria-label={language.t("sidebar.help")}
             >
               <Icon name="help" />

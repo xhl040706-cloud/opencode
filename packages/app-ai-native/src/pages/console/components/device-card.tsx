@@ -1,6 +1,8 @@
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Icon } from "@opencode-ai/ui/icon"
 import { useLanguage } from "@/context/language"
+import { cn } from "@/lib/utils"
+import { sx } from "@/pages/store/lib/styles"
 import type { UpdateDeviceRequest, Device } from "@/pages/workspace/types"
 import { DeviceEditDialog } from "./device-edit-dialog"
 
@@ -12,7 +14,7 @@ type DeviceCardProps = {
 const statusProps = (status?: string) => {
   if (status === "online") return { c: "#22c55e", label: "Online" }
   if (status === "offline") return { c: "#9ca3af", label: "Offline" }
-  return { c: "var(--st-text-secondary)", label: "Unknown" }
+  return { c: "var(--native-muted)", label: "Unknown" }
 }
 
 export function DeviceCard(props: DeviceCardProps) {
@@ -32,11 +34,11 @@ export function DeviceCard(props: DeviceCardProps) {
   const labels = () => props.device.label?.split(",").map((l) => l.trim()).filter(Boolean) ?? []
 
   return (
-    <div class="store-dash-card">
-      <div class="store-dash-card-head">
-        <span class="store-dash-card-name">{props.device.displayName}</span>
+    <div class={sx.dashCard}>
+      <div class={sx.dashHead}>
+        <span class={sx.dashName}>{props.device.displayName}</span>
         <span
-          class="store-dash-pill"
+          class={sx.pill}
           style={{
             background: `color-mix(in srgb, ${sp().c} 12%, transparent)`,
             color: sp().c,
@@ -46,23 +48,23 @@ export function DeviceCard(props: DeviceCardProps) {
         </span>
       </div>
 
-      <div class="store-dev-card-platform">
+      <div class={sx.platform}>
         <Icon name="server" size="small" />
         {props.device.platform || language.t("store.devices.unknownPlatform")}
         {props.device.version ? ` · v${props.device.version}` : ""}
       </div>
 
-      <div class="store-dash-card-slug" style={{ "margin-bottom": "0.25rem" }}>
+      <div class={cn(sx.dashSlug, "mb-1")}>
         ID: {props.device.deviceId.slice(0, 8)}
       </div>
 
-      <div class="store-dev-card-labels">
+      <div class={sx.labels}>
         {labels().map((label) => (
           <span
-            class="store-dash-pill"
+            class={sx.pill}
             style={{
-              background: "color-mix(in srgb, var(--st-accent) 8%, transparent)",
-              color: "var(--st-accent)",
+              background: "color-mix(in srgb, var(--native-primary) 8%, transparent)",
+              color: "var(--native-primary)",
             }}
           >
             {label}
@@ -70,8 +72,8 @@ export function DeviceCard(props: DeviceCardProps) {
         ))}
       </div>
 
-      <div class="store-dash-card-foot">
-        <button class="store-abtn" title={language.t("common.edit")} onClick={handleEdit}>
+      <div class={sx.dashFoot}>
+        <button class={sx.action} title={language.t("common.edit")} onClick={handleEdit}>
           <Icon name="edit" size="small" />
         </button>
       </div>

@@ -7,7 +7,7 @@ import { categoryKey, typeKey } from "../lib/constants"
 import { getInstallCommand } from "./item-detail-content"
 import { useAuth } from "../hooks/use-auth"
 import SecurityTag from "./security-tag"
-import "./best-practice-carousel.css"
+import { sx } from "../lib/styles"
 
 const TYPE_COLOR: Record<string, string> = {
   skill: "rgb(234,179,8)",
@@ -156,15 +156,15 @@ export default function BestPracticeCarousel(props: BestPracticeCarouselProps) {
   const favCount = (id: string) => favMap()[id]?.count ?? 0
 
   return (
-    <section class="store-section">
-      <div class="bp-carousel-heading">
+    <section class={sx.section}>
+      <div class="mb-4 flex items-end justify-between gap-4">
         <div>
-          <h2 class="store-section-title">{language.t("store.home.bestPractices.title")}</h2>
-          <p class="store-section-subtitle">{language.t("store.home.bestPractices.description")}</p>
+          <h2 class={sx.title}>{language.t("store.home.bestPractices.title")}</h2>
+          <p class={sx.sub}>{language.t("store.home.bestPractices.description")}</p>
         </div>
-        <div class="bp-carousel-nav">
+        <div class="flex shrink-0 gap-1.5">
           <button
-            class="bp-carousel-arrow"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-[color:color-mix(in_srgb,var(--native-border)_20%,transparent)] bg-[color-mix(in_srgb,var(--native-panel)_80%,transparent)] text-[var(--native-muted)] transition-[background-color,color,opacity] hover:bg-[color-mix(in_srgb,var(--native-surface)_60%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-30"
             disabled={!canScrollLeft()}
             onClick={() => scrollBy(-1)}
             aria-label="Scroll left"
@@ -172,7 +172,7 @@ export default function BestPracticeCarousel(props: BestPracticeCarouselProps) {
             <Icon name="chevron-left" size="small" />
           </button>
           <button
-            class="bp-carousel-arrow"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-[color:color-mix(in_srgb,var(--native-border)_20%,transparent)] bg-[color-mix(in_srgb,var(--native-panel)_80%,transparent)] text-[var(--native-muted)] transition-[background-color,color,opacity] hover:bg-[color-mix(in_srgb,var(--native-surface)_60%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-30"
             disabled={!canScrollRight()}
             onClick={() => scrollBy(1)}
             aria-label="Scroll right"
@@ -187,93 +187,97 @@ export default function BestPracticeCarousel(props: BestPracticeCarouselProps) {
         fallback={
           <Show
             when={recommended.loading}
-            fallback={<div class="bp-carousel-empty">{language.t("store.home.emptyCategory")}</div>}
+            fallback={<div class="flex min-h-40 items-center justify-center text-sm text-[var(--native-muted)]">{language.t("store.home.emptyCategory")}</div>}
           >
-            <div class="bp-carousel-skeleton">
-              <For each={[0, 1, 2]}>{() => <div class="bp-card-skeleton" />}</For>
+            <div class="flex gap-4">
+              <For each={[0, 1, 2]}>
+                {() => <div class="h-[17rem] min-w-[280px] flex-[0_0_calc((100%_-_2rem)/3)] rounded-[var(--native-radius-lg)] bg-[color-mix(in_srgb,var(--native-bg-subtle)_50%,transparent)] animate-pulse max-[1024px]:min-w-[260px] max-[1024px]:flex-[0_0_calc((100%_-_1rem)/2)] max-[720px]:min-w-[240px] max-[720px]:flex-[0_0_85%]" />}
+              </For>
             </div>
           </Show>
         }
       >
-          <div class="bp-carousel-track" ref={trackRef}>
-            <For each={items()}>
-              {(item) => (
-                <article
-                  class="bp-card"
-                  style={{ "--card-accent": TYPE_COLOR[item.itemType] ?? TYPE_COLOR.skill }}
-                  onClick={() => props.onSelectItem(item.id)}
-                >
-                  {/* Visual area */}
-                  <div class="bp-card-visual">
-                    <Icon
-                      name={TYPE_ICON[item.itemType] ?? "sparkles"}
-                      class="bp-card-visual-icon"
-                    />
-                    <span class="bp-card-visual-symbol">
-                      {TYPE_LABEL[item.itemType] ?? "\u2726"}
+        <div class="flex gap-4 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden" ref={trackRef}>
+          <For each={items()}>
+            {(item) => (
+              <article
+                class="flex min-w-[280px] flex-[0_0_calc((100%_-_2rem)/3)] snap-start flex-col overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--native-panel)_98%,transparent),color-mix(in_srgb,var(--native-bg-subtle)_96%,transparent))] shadow-[0_16px_40px_-32px_color-mix(in_srgb,var(--native-primary)_20%,transparent)] transition-[transform,box-shadow,border-color] hover:-translate-y-[3px] hover:border-[color:color-mix(in_srgb,var(--card-accent)_25%,transparent)] hover:shadow-[0_20px_48px_-28px_color-mix(in_srgb,var(--card-accent)_30%,transparent)] max-[1024px]:min-w-[260px] max-[1024px]:flex-[0_0_calc((100%_-_1rem)/2)] max-[720px]:min-w-[240px] max-[720px]:flex-[0_0_85%]"
+                style={{ "--card-accent": TYPE_COLOR[item.itemType] ?? TYPE_COLOR.skill }}
+                onClick={() => props.onSelectItem(item.id)}
+              >
+                <div class="relative flex h-[7.5rem] items-center justify-center overflow-hidden border-b border-[color:color-mix(in_srgb,var(--native-border)_8%,transparent)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--card-accent)_12%,var(--native-panel))_0%,color-mix(in_srgb,var(--card-accent)_4%,var(--native-panel))_60%,var(--native-panel)_100%)] max-[720px]:h-20">
+                  <Icon
+                    name={TYPE_ICON[item.itemType] ?? "sparkles"}
+                    class="h-12 w-12 text-[var(--card-accent)] opacity-35"
+                  />
+                  <span class="pointer-events-none absolute right-4 bottom-1 text-[4rem] leading-none font-black text-[var(--card-accent)] opacity-[0.06] select-none">
+                    {TYPE_LABEL[item.itemType] ?? "\u2726"}
+                  </span>
+                </div>
+
+                <div class="flex flex-1 flex-col gap-1.5 px-[1.125rem] pt-[0.875rem] pb-4">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="inline-flex items-center gap-1 rounded-[0.625rem] bg-[color-mix(in_srgb,var(--card-accent)_12%,transparent)] px-2 py-0.5 text-[12px] whitespace-nowrap text-[var(--card-accent)]">
+                      {TYPE_LABEL[item.itemType] ?? "\u2726"}{" "}
+                      {language.t(typeKey(item.itemType))}
                     </span>
-                  </div>
-
-                  {/* Card body */}
-                  <div class="bp-card-body">
-                    <div class="bp-card-badges">
-                      <span class="bp-card-type-badge">
-                        {TYPE_LABEL[item.itemType] ?? "\u2726"}{" "}
-                        {language.t(typeKey(item.itemType))}
+                    {/* <Show when={item.category?.trim()}>
+                      <span class="inline-flex items-center rounded-[0.625rem] bg-[color-mix(in_srgb,var(--native-muted)_8%,transparent)] px-2 py-0.5 text-[12px] whitespace-nowrap text-[var(--native-muted)]">
+                        {language.t(categoryKey(item.category))}
                       </span>
-                      {/* <Show when={item.category?.trim()}>
-                        <span class="bp-card-category-badge">
-                          {language.t(categoryKey(item.category))}
-                        </span>
-                      </Show> */}
-                      <Show when={item.securityStatus}>
-                        <SecurityTag status={item.securityStatus} />
-                      </Show>
+                    </Show> */}
+                    <Show when={item.securityStatus}>
+                      <SecurityTag status={item.securityStatus} />
+                    </Show>
+                  </div>
+
+                  <h3 class="m-0 truncate text-[1rem] leading-[1.4] font-bold text-[var(--color-native-foreground)]">{item.name}</h3>
+                  <p class="line-clamp-2 min-h-[2.5em] flex-1 text-[0.8125rem] leading-[1.55] text-[var(--native-muted)]">{item.description}</p>
+
+                  <div class="mt-1 flex items-center justify-between">
+                    <div class="flex gap-2.5 text-[12px] text-[var(--native-muted)]">
+                      <span class="inline-flex items-center gap-[0.1875rem]" title={language.t("store.home.table.favoriteCount")}>
+                        <LocalIcon name="star" size="small" class="h-3 w-3 opacity-65" />
+                        {favCount(item.id).toLocaleString()}
+                      </span>
+                      <span class="inline-flex items-center gap-[0.1875rem]" title={language.t("store.home.table.installCount")}>
+                        <LocalIcon name="download" size="small" class="h-3 w-3 opacity-65" />
+                        {(item.installCount ?? 0).toLocaleString()}
+                      </span>
+                      <span class="inline-flex items-center gap-[0.1875rem]" title={language.t("store.home.table.previewCount")}>
+                        <LocalIcon name="view" size="small" class="h-3 w-3 opacity-65" />
+                        {(item.previewCount ?? 0).toLocaleString()}
+                      </span>
                     </div>
 
-                    <h3 class="bp-card-name">{item.name}</h3>
-                    <p class="bp-card-description">{item.description}</p>
-
-                    <div class="bp-card-footer">
-                      <div class="bp-card-stats">
-                        <span class="bp-card-stat" title={language.t("store.home.table.favoriteCount")}>
-                          <LocalIcon name="star" size="small" class="bp-card-stat-icon" />
-                          {favCount(item.id).toLocaleString()}
-                        </span>
-                        <span class="bp-card-stat" title={language.t("store.home.table.installCount")}>
-                          <LocalIcon name="download" size="small" class="bp-card-stat-icon" />
-                          {(item.installCount ?? 0).toLocaleString()}
-                        </span>
-                        <span class="bp-card-stat" title={language.t("store.home.table.previewCount")}>
-                          <LocalIcon name="view" size="small" class="bp-card-stat-icon" />
-                          {(item.previewCount ?? 0).toLocaleString()}
-                        </span>
-                      </div>
-
-                      <div class="bp-card-actions">
-                        <button
-                          class="bp-card-action-btn"
-                          onClick={(e) => copyInstall(item, e)}
-                          title={language.t("store.home.table.copyInstall")}
-                        >
-                          <Icon name={copiedId() === item.id ? "check-small" : "copy"} size="small" />
-                        </button>
-                        <button
-                          class={`bp-card-action-btn ${isFavorited(item.id) ? "bp-card-action-btn-active" : ""}`}
-                          onClick={(e) => toggleFavorite(item, e)}
-                          title={isFavorited(item.id) ? language.t("store.detail.unfavorite") : language.t("store.detail.favorite")}
-                          disabled={favPending() === item.id}
-                        >
-                          <LocalIcon name={isFavorited(item.id) ? "star-filled" : "star"} size="small" class="bp-card-fav-icon" />
-                        </button>
-                      </div>
+                    <div class="flex gap-1">
+                      <button
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-[var(--native-muted)] transition-[background-color,color] hover:bg-[color-mix(in_srgb,var(--native-surface)_60%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
+                        onClick={(e) => copyInstall(item, e)}
+                        title={language.t("store.home.table.copyInstall")}
+                      >
+                        <Icon name={copiedId() === item.id ? "check-small" : "copy"} size="small" />
+                      </button>
+                      <button
+                        class={[
+                          isFavorited(item.id)
+                            ? "inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-[rgb(234,179,8)] transition-[background-color,color] hover:bg-[color-mix(in_srgb,var(--native-surface)_60%,transparent)] hover:text-[rgb(234,179,8)] [&_[data-component=icon]]:text-[rgb(234,179,8)] [&_[data-slot=icon-svg]]:text-[rgb(234,179,8)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
+                            : "inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-[var(--native-muted)] transition-[background-color,color] hover:bg-[color-mix(in_srgb,var(--native-surface)_60%,transparent)] hover:text-[var(--native-foreground)] [&_[data-component=icon]]:text-[var(--native-muted)] [&_[data-slot=icon-svg]]:text-[var(--native-muted)] hover:[&_[data-component=icon]]:text-[var(--native-foreground)] hover:[&_[data-slot=icon-svg]]:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]",
+                        ].join(" ")}
+                        onClick={(e) => toggleFavorite(item, e)}
+                        title={isFavorited(item.id) ? language.t("store.detail.unfavorite") : language.t("store.detail.favorite")}
+                        disabled={favPending() === item.id}
+                      >
+                        <LocalIcon name={isFavorited(item.id) ? "star-filled" : "star"} size="small" class="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
-                </article>
-              )}
-            </For>
-          </div>
-        </Show>
+                </div>
+              </article>
+            )}
+          </For>
+        </div>
+      </Show>
     </section>
   )
 }

@@ -78,13 +78,13 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
         {/* Capability info */}
         <div class="modal-section">
           <div class="modal-info-card">
-            <label style={{ display: "block", "font-size": "12px", color: "var(--st-text-secondary)", "margin-bottom": "0.5rem" }}>
+            <label style={{ display: "block", "font-size": "12px", color: "var(--native-muted)", "margin-bottom": "0.5rem" }}>
               {language.t("store.capabilityDialog.move.currentCapability")}
             </label>
-            <div style={{ display: "flex", "align-items": "center", gap: "0.5rem", "font-size": "0.8125rem", color: "var(--st-text)" }}>
+            <div style={{ display: "flex", "align-items": "center", gap: "0.5rem", "font-size": "0.8125rem", color: "var(--native-foreground)" }}>
               <span>{props.item.name}</span>
-              <span style={{ color: "var(--st-text-secondary)" }}>/</span>
-              <span style={{ "font-family": "'SF Mono', 'Fira Code', monospace", color: "var(--st-text-secondary)" }}>{props.item.slug}</span>
+              <span style={{ color: "var(--native-muted)" }}>/</span>
+              <span style={{ "font-family": "'SF Mono', 'Fira Code', monospace", color: "var(--native-muted)" }}>{props.item.slug}</span>
             </div>
           </div>
         </div>
@@ -94,22 +94,22 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
           <div style={{ display: "grid", "grid-template-columns": "1fr auto 1fr", "align-items": "stretch", gap: "1rem" }}>
             {/* Current repository */}
             <div class="modal-info-card" style={{ display: "flex", "flex-direction": "column" }}>
-              <label style={{ display: "block", "font-size": "12px", color: "var(--st-text-secondary)", "margin-bottom": "0.5rem" }}>
+              <label style={{ display: "block", "font-size": "12px", color: "var(--native-muted)", "margin-bottom": "0.5rem" }}>
                 {language.t("store.capabilityDialog.move.currentRepository")}
               </label>
-              <div style={{ display: "flex", flex: "1", "align-items": "center", "font-size": "0.8125rem", color: "var(--st-text)" }}>
+              <div style={{ display: "flex", flex: "1", "align-items": "center", "font-size": "0.8125rem", color: "var(--native-foreground)" }}>
                 {current()}
               </div>
             </div>
 
             {/* Arrow */}
-            <div style={{ display: "flex", "align-items": "center", color: "var(--st-text-secondary)" }}>
+            <div style={{ display: "flex", "align-items": "center", color: "var(--native-muted)" }}>
               <Icon name="chevron-right" size="small" />
             </div>
 
             {/* Target repository */}
             <div class="modal-info-card" style={{ display: "flex", "flex-direction": "column" }}>
-              <label style={{ display: "block", "font-size": "12px", color: "var(--st-text-secondary)", "margin-bottom": "0.5rem" }}>
+              <label style={{ display: "block", "font-size": "12px", color: "var(--native-muted)", "margin-bottom": "0.5rem" }}>
                 {language.t("store.capabilityDialog.move.targetRepository")}
               </label>
               <div style={{ display: "flex", flex: "1", "align-items": "center" }}>
@@ -134,7 +134,7 @@ export function MoveCapabilityDialog(props: MoveCapabilityDialogProps) {
           </div>
 
           <Show when={selected() || store.repoId === "__public__"}>
-            <p class="modal-hint" style={{ "margin-top": "0.75rem", padding: "0.625rem 0.875rem", "border-radius": "var(--st-radius-sm, 0.5rem)", border: "1px solid color-mix(in srgb, var(--st-border-subtle) 12%, transparent)", background: "var(--st-surface-lowest)" }}>
+            <p class="modal-hint" style={{ "margin-top": "0.75rem", padding: "0.625rem 0.875rem", "border-radius": "var(--native-radius-sm)", border: "1px solid color-mix(in srgb, var(--native-border) 12%, transparent)", background: "var(--native-panel)" }}>
               {language.t("store.capabilityDialog.move.transferHint", {
                 name: props.item.name,
                 repo:

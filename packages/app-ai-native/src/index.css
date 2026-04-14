@@ -1,3 +1,2 @@
 @import "@opencode-ai/ui/styles/tailwind";
-@import "./styles/solid-ui.css";
-@import "./pages/store/store-tokens.css";
+@import "./styles/native-theme.css";

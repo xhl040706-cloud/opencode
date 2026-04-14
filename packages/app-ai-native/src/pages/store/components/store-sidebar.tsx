@@ -5,7 +5,6 @@ import { LocalIcon, type LocalIconName } from "@/components/local-icon"
 import { useLanguage } from "@/context/language"
 import { appPath } from "@/lib/router"
 import { itemApi } from "../lib/api"
-import "./store-sidebar.css"
 
 const BROWSE_NAV = [
   { href: "/store", labelKey: "store.sidebar.nav.home", localIcon: "home" as LocalIconName, color: "#2E6CC4", exact: true },
@@ -53,34 +52,41 @@ export default function StoreSidebar() {
   }
 
   return (
-    <aside class="store-sidebar">
-      <div class="store-sidebar-head">
-        <div class="store-sidebar-brand">
-          <span class="store-sidebar-brand-text">{language.t("store.sidebar.storeName")}</span>
+    <aside class="flex w-[15.5rem] shrink-0 flex-col overflow-hidden border-r border-[color:color-mix(in_srgb,var(--native-border)_20%,transparent)] bg-[var(--native-panel)]">
+      <div class="border-b border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] px-4 pt-3.5 pb-2.5">
+        <div class="flex items-center gap-2">
+          <span class="text-sm tracking-[-0.01em] text-[var(--native-foreground)]">{language.t("store.sidebar.storeName")}</span>
         </div>
       </div>
 
-      <nav class="store-sidebar-nav">
+      <nav class="custom-scrollbar flex flex-1 flex-col gap-5 overflow-y-auto px-2 py-2.5">
         <div>
-          <div class="store-sidebar-nav-label">{language.t("store.sidebar.browse")}</div>
-          <div class="store-sidebar-nav-group">
+          <div class="mb-0.5 px-2 text-[12px] uppercase tracking-[0.07em] text-[var(--native-dim)]">{language.t("store.sidebar.browse")}</div>
+          <div class="flex flex-col gap-px">
             <For each={BROWSE_NAV}>
               {(item) => {
                 const active = () => isActive(item.href, "exact" in item ? item.exact : false)
                 return (
                   <A
                     href={item.href}
-                    class={`store-sidebar-nav-item ${active() ? "store-sidebar-nav-item-active" : ""}`}
-                    style={{ "--_nav-color": item.color }}
+                    class={[
+                      "relative flex w-full items-center gap-2.5 rounded-[var(--native-radius-sm)] px-2 py-[0.4375rem] text-left text-[0.8125rem] transition-all",
+                      active()
+                        ? "bg-[color-mix(in_srgb,var(--native-primary)_8%,transparent)] text-[var(--native-primary)] before:absolute before:top-[0.3rem] before:bottom-[0.3rem] before:left-[-0.5rem] before:w-[3px] before:rounded-r-[3px] before:bg-[var(--native-primary)] before:content-['']"
+                        : "bg-transparent text-[var(--native-muted)] hover:bg-[var(--native-hover)] hover:text-[var(--native-foreground)]",
+                    ].join(" ")}
                   >
-                    <span class="store-sidebar-nav-icon">
+                    <span class={[
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] transition-all [&_[data-component=icon]]:h-[15px] [&_[data-component=icon]]:w-[15px] [&_[data-slot=icon-svg]]:h-[15px] [&_[data-slot=icon-svg]]:w-[15px]",
+                      active() ? "text-[var(--native-primary)]" : "text-[var(--native-muted)]",
+                    ].join(" ")}>
                       {"localIcon" in item
                         ? <LocalIcon name={item.localIcon} size="small" />
                         : <Icon name={item.icon} size="small" />}
                     </span>
                     {language.t(item.labelKey)}
                     <Show when={"statKey" in item && stats()?.[item.statKey!]}>
-                      {(count) => <span class="store-sidebar-nav-badge">{count()}</span>}
+                      {(count) => <span class="ml-auto rounded-[var(--native-radius-full)] bg-[color-mix(in_srgb,var(--native-primary)_8%,transparent)] px-[0.4375rem] text-[12px] leading-[1.625] text-[var(--native-primary)]">{count()}</span>}
                     </Show>
                   </A>
                 )

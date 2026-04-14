@@ -1,0 +1,423 @@
+@import "tw-animate-css";
+
+:root,
+[data-color-scheme="light"] {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --info: 204 94% 94%;
+  --info-foreground: 199 89% 48%;
+  --success: 149 80% 90%;
+  --success-foreground: 160 84% 39%;
+  --warning: 48 96% 89%;
+  --warning-foreground: 25 95% 53%;
+  --error: 0 93% 94%;
+  --error-foreground: 0 84% 60%;
+  --ring: 240 5.9% 10%;
+  --radius: 0.5rem;
+
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 240 4.8% 95.9%;
+  --sidebar-accent-foreground: 240 5.9% 10%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+
+  --native-bg: #f7f9fc;
+  --native-bg-subtle: #f2f4f7;
+  --native-surface: #eceef1;
+  --native-surface-strong: #e6e8eb;
+  --native-panel: #ffffff;
+  --native-panel-soft: color-mix(in srgb, var(--native-panel) 96%, var(--native-bg-subtle));
+  --native-foreground: #191c1e;
+  --native-muted: #424752;
+  --native-dim: #727783;
+  --native-border: #c2c6d4;
+  --native-border-strong: #727783;
+  --native-input: #ffffff;
+  --native-primary: #2e6cc4;
+  --native-primary-hover: #245bad;
+  --native-primary-soft: #d0e4fe;
+  --native-primary-muted: #35485d;
+  --native-primary-foreground: #ffffff;
+  --native-secondary: #d0e4fe;
+  --native-secondary-foreground: #35485d;
+  --native-success: #10b981;
+  --native-success-soft: #d1fae5;
+  --native-success-foreground: #064e3b;
+  --native-warning: #f59e0b;
+  --native-warning-soft: #fef3c7;
+  --native-warning-foreground: #78350f;
+  --native-error: #dc2626;
+  --native-error-soft: #ffdad6;
+  --native-error-foreground: #410002;
+  --native-info: #3b82f6;
+  --native-info-soft: #dbeafe;
+  --native-info-foreground: #1e3a5f;
+  --native-ring: var(--native-primary);
+  --native-hover: rgba(0, 0, 0, 0.04);
+  --native-active: rgba(0, 0, 0, 0.08);
+  --native-overlay: rgba(25, 28, 30, 0.18);
+  --native-disabled-opacity: 0.45;
+  --native-radius-sm: 0.5rem;
+  --native-radius-md: 0.75rem;
+  --native-radius-lg: 1rem;
+  --native-radius-xl: 1.25rem;
+  --native-radius-full: 9999px;
+  --native-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --native-shadow-md: 0 4px 16px -4px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --native-shadow-lg: 0 12px 40px -12px rgba(46, 108, 196, 0.18), 0 4px 12px rgba(0, 0, 0, 0.06);
+  --native-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --native-transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark,
+[data-kb-theme="dark"],
+[data-color-scheme="dark"] {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --info: 204 94% 94%;
+  --info-foreground: 199 89% 48%;
+  --success: 149 80% 90%;
+  --success-foreground: 160 84% 39%;
+  --warning: 48 96% 89%;
+  --warning-foreground: 25 95% 53%;
+  --error: 0 93% 94%;
+  --error-foreground: 0 84% 60%;
+  --ring: 240 4.9% 83.9%;
+
+  --sidebar-background: 240 5.9% 10%;
+  --sidebar-foreground: 240 4.8% 95.9%;
+  --sidebar-primary: 224.3 76.3% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 3.7% 15.9%;
+  --sidebar-accent-foreground: 240 4.8% 95.9%;
+  --sidebar-border: 240 3.7% 15.9%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+
+  --native-bg: #141618;
+  --native-bg-subtle: #1a1d20;
+  --native-surface: #1f2225;
+  --native-surface-strong: #262a2d;
+  --native-panel: #111315;
+  --native-panel-soft: color-mix(in srgb, var(--native-panel) 92%, var(--native-bg-subtle));
+  --native-foreground: #e0e3e6;
+  --native-muted: #9da2ad;
+  --native-dim: #727783;
+  --native-border: #3a3f4a;
+  --native-border-strong: #727783;
+  --native-input: #111315;
+  --native-primary: #8bb8ff;
+  --native-primary-hover: #a3c7ff;
+  --native-primary-soft: #1a3a5c;
+  --native-primary-muted: #b4c8e1;
+  --native-primary-foreground: #111315;
+  --native-secondary: #1a3a5c;
+  --native-secondary-foreground: #b4c8e1;
+  --native-success: #6ee7b7;
+  --native-success-soft: #064e3b;
+  --native-success-foreground: #d1fae5;
+  --native-warning: #fcd34d;
+  --native-warning-soft: #78350f;
+  --native-warning-foreground: #fef3c7;
+  --native-error: #ffb4ab;
+  --native-error-soft: #690005;
+  --native-error-foreground: #ffdad6;
+  --native-info: #93bbfd;
+  --native-info-soft: #1e3a5f;
+  --native-info-foreground: #dbeafe;
+  --native-ring: var(--native-primary);
+  --native-hover: rgba(255, 255, 255, 0.06);
+  --native-active: rgba(255, 255, 255, 0.1);
+  --native-overlay: rgba(0, 0, 0, 0.4);
+  --native-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --native-shadow-md: 0 4px 16px -4px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --native-shadow-lg: 0 12px 40px -12px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+@theme inline {
+  --color-background: var(--native-bg);
+  --color-foreground: var(--native-foreground);
+  --color-muted: var(--native-bg-subtle);
+  --color-muted-foreground: var(--native-muted);
+  --color-popover: var(--native-panel);
+  --color-popover-foreground: var(--native-foreground);
+  --color-card: var(--native-panel);
+  --color-card-foreground: var(--native-foreground);
+  --color-border: color-mix(in srgb, var(--native-border) 42%, var(--native-panel));
+  --color-input: color-mix(in srgb, var(--native-border) 72%, var(--native-panel));
+  --color-ring: var(--native-ring);
+  --color-primary: var(--native-primary);
+  --color-primary-foreground: var(--native-primary-foreground);
+  --color-secondary: var(--native-secondary);
+  --color-secondary-foreground: var(--native-secondary-foreground);
+  --color-accent: var(--native-surface);
+  --color-accent-foreground: var(--native-foreground);
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-error: hsl(var(--error));
+  --color-error-foreground: hsl(var(--error-foreground));
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --color-native-bg: var(--native-bg);
+  --color-native-bg-subtle: var(--native-bg-subtle);
+  --color-native-surface: var(--native-surface);
+  --color-native-surface-strong: var(--native-surface-strong);
+  --color-native-panel: var(--native-panel);
+  --color-native-panel-soft: var(--native-panel-soft);
+  --color-native-foreground: var(--native-foreground);
+  --color-native-muted: var(--native-muted);
+  --color-native-dim: var(--native-dim);
+  --color-native-border: var(--native-border);
+  --color-native-border-strong: var(--native-border-strong);
+  --color-native-primary: var(--native-primary);
+  --color-native-primary-hover: var(--native-primary-hover);
+  --color-native-primary-soft: var(--native-primary-soft);
+  --color-native-primary-muted: var(--native-primary-muted);
+  --color-native-primary-foreground: var(--native-primary-foreground);
+  --color-native-secondary: var(--native-secondary);
+  --color-native-secondary-foreground: var(--native-secondary-foreground);
+  --color-native-success: var(--native-success);
+  --color-native-success-soft: var(--native-success-soft);
+  --color-native-success-foreground: var(--native-success-foreground);
+  --color-native-warning: var(--native-warning);
+  --color-native-warning-soft: var(--native-warning-soft);
+  --color-native-warning-foreground: var(--native-warning-foreground);
+  --color-native-error: var(--native-error);
+  --color-native-error-soft: var(--native-error-soft);
+  --color-native-error-foreground: var(--native-error-foreground);
+  --color-native-info: var(--native-info);
+  --color-native-info-soft: var(--native-info-soft);
+  --color-native-info-foreground: var(--native-info-foreground);
+  --color-native-ring: var(--native-ring);
+  --color-native-hover: var(--native-hover);
+  --color-native-active: var(--native-active);
+  --color-native-overlay: var(--native-overlay);
+
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-native-sm: var(--native-radius-sm);
+  --radius-native-md: var(--native-radius-md);
+  --radius-native-lg: var(--native-radius-lg);
+  --radius-native-xl: var(--native-radius-xl);
+  --radius-native-full: var(--native-radius-full);
+
+  --shadow-native-sm: var(--native-shadow-sm);
+  --shadow-native-md: var(--native-shadow-md);
+  --shadow-native-lg: var(--native-shadow-lg);
+
+  --opacity-native-disabled: var(--native-disabled-opacity);
+  --transition-native-fast: var(--native-transition-fast);
+  --transition-native-normal: var(--native-transition-normal);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-content-show: content-show 0.2s ease-out;
+  --animate-content-hide: content-hide 0.15s ease-in;
+  --animate-native-fade-in: native-fade-in 150ms ease-out;
+  --animate-native-scale-in: native-scale-in 150ms ease-out;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+@utility custom-scrollbar {
+  & {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  &:hover {
+    scrollbar-color: rgba(156, 163, 175, 0.35) transparent;
+  }
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.35);
+  }
+
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+}
+
+@utility native-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.875rem;
+}
+
+@utility native-toolbar-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--native-foreground);
+}
+
+@utility native-toolbar-sub {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--native-muted);
+}
+
+@utility native-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+@utility native-icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--native-radius-sm);
+  background: transparent;
+  color: var(--native-muted);
+  transition: background-color var(--native-transition-fast), color var(--native-transition-fast);
+
+  &:hover {
+    background: var(--native-surface);
+    color: var(--native-foreground);
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+
+  to {
+    height: var(--kb-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--kb-accordion-content-height);
+  }
+
+  to {
+    height: 0;
+  }
+}
+
+@keyframes content-show {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes content-hide {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes native-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes native-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

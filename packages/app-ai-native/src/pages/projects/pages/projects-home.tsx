@@ -12,6 +12,8 @@ import { createStore } from "solid-js/store"
 import { projectsApi } from "../lib/project-api"
 import CreateProjectDialog from "../components/create-project-dialog"
 import type { Project, ProjectBasicInfo, ProjectInvitation } from "../lib/project-types"
+import { cn } from "@/lib/utils"
+import { sx } from "@/pages/store/lib/styles"
 
 function formatDate(iso?: string) {
   if (!iso) return "—"
@@ -136,8 +138,8 @@ export default function ProjectsHome() {
     <div class="projects-page">
       <header class="projects-page-header">
         <div>
-          <h1 class="store-page-title">{language.t("projects.home.hero.title")}</h1>
-          <p class="store-page-description">{language.t("projects.home.hero.description")}</p>
+          <h1 class="m-0 text-[1.625rem] leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t("projects.home.hero.title")}</h1>
+          <p class="mt-2 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t("projects.home.hero.description")}</p>
         </div>
       </header>
 
@@ -146,11 +148,11 @@ export default function ProjectsHome() {
           <div class="projects-pinned-shell">
             <div class="projects-panel-header">
               <div>
-                <h2 class="store-section-title">{language.t("projects.home.pinned.title")}</h2>
-                <p class="store-section-subtitle">{language.t("projects.home.pinned.description")}</p>
+                <h2 class="m-0 text-[1rem] font-bold text-[var(--native-foreground)]">{language.t("projects.home.pinned.title")}</h2>
+                <p class="mt-0.5 text-[0.8125rem] text-[var(--native-muted)]">{language.t("projects.home.pinned.description")}</p>
               </div>
             </div>
-            <Show when={pinnedProjectsAll().length > 0} fallback={<div class="store-table-state">{language.t("projects.home.pinned.empty")}</div>}>
+            <Show when={pinnedProjectsAll().length > 0} fallback={<div class={cn(sx.state, "flex min-h-[10.5rem] items-center justify-center")}>{language.t("projects.home.pinned.empty")}</div>}>
               <div class="projects-pinned-list">
                 <For each={pinnedProjectsAll()}>
                   {(project) => (
@@ -177,11 +179,11 @@ export default function ProjectsHome() {
           <div class="projects-invitations-shell">
             <div class="projects-panel-header">
               <div>
-                <h2 class="store-section-title">{language.t("projects.invitationPanel.title")}</h2>
-                <p class="store-section-subtitle">{language.t("projects.invitationPanel.description")}</p>
+                <h2 class="m-0 text-[1rem] font-bold text-[var(--native-foreground)]">{language.t("projects.invitationPanel.title")}</h2>
+                <p class="mt-0.5 text-[0.8125rem] text-[var(--native-muted)]">{language.t("projects.invitationPanel.description")}</p>
               </div>
             </div>
-            <Show when={pendingInvitations().length > 0} fallback={<div class="store-table-state">{language.t("projects.invitationPanel.empty")}</div>}>
+            <Show when={pendingInvitations().length > 0} fallback={<div class={sx.state}>{language.t("projects.invitationPanel.empty")}</div>}>
               <div class="projects-invitation-list">
                 <For each={pendingInvitations()}>
                   {(invitation) => (
@@ -223,14 +225,14 @@ export default function ProjectsHome() {
           </div>
         </section>
 
-        <section class="projects-list-shell store-content-shell">
-          <div class="store-section-heading">
+        <section class="projects-list-shell min-w-0 overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+          <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
             <div>
-              <h2 class="store-section-title">{language.t("projects.nav.title")}</h2>
-              <p class="store-section-subtitle">{language.t("projects.home.hero.description")}</p>
+              <h2 class="m-0 text-[1rem] font-bold text-[var(--native-foreground)]">{language.t("projects.nav.title")}</h2>
+              <p class="mt-0.5 text-[0.8125rem] text-[var(--native-muted)]">{language.t("projects.home.hero.description")}</p>
             </div>
-            <div class="flex items-center gap-2">
-              <TextField class="projects-search-field">
+            <div class="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+              <TextField class="projects-search-field w-full sm:w-60">
                 <TextFieldInput
                   type="search"
                   value={state.search}
@@ -239,23 +241,23 @@ export default function ProjectsHome() {
                   class="h-8 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </TextField>
-              <Button class="h-8" onClick={openCreateProject}>
+              <Button class="h-8 w-full sm:w-auto" onClick={openCreateProject}>
                 {language.t("projects.home.createButton")}
               </Button>
             </div>
           </div>
 
-          <div class="store-table-shell projects-table-shell">
-            <Show when={!projects.loading} fallback={<div class="store-table-state">{language.t("store.loading")}</div>}>
-              <Table class="store-data-table">
-                <TableHeader>
-                    <TableRow class="store-data-table-head-row">
-                      <TableHead>{language.t("projects.home.table.name")}</TableHead>
-                      <TableHead>{language.t("projects.home.table.description")}</TableHead>
-                      <TableHead>{language.t("projects.editDialog.field.enabledAt")}</TableHead>
-                      <TableHead>{language.t("projects.detail.archivedAtLabel")}</TableHead>
-                      <TableHead class="store-col-updated">{language.t("projects.home.table.created")}</TableHead>
-                      <TableHead class="store-col-action text-right">{language.t("projects.home.table.action")}</TableHead>
+          <div class={cn(sx.tableShell, "projects-table-shell")}>
+            <Show when={!projects.loading} fallback={<div class={sx.state}>{language.t("store.loading")}</div>}>
+              <Table class="text-[0.8125rem]">
+                <TableHeader class={sx.thead}>
+                    <TableRow>
+                      <TableHead class={sx.th}>{language.t("projects.home.table.name")}</TableHead>
+                      <TableHead class={sx.th}>{language.t("projects.home.table.description")}</TableHead>
+                      <TableHead class={sx.th}>{language.t("projects.editDialog.field.enabledAt")}</TableHead>
+                      <TableHead class={sx.th}>{language.t("projects.detail.archivedAtLabel")}</TableHead>
+                      <TableHead class={cn(sx.th, sx.colUpdated)}>{language.t("projects.home.table.created")}</TableHead>
+                      <TableHead class={cn(sx.th, sx.colAction, "text-right")}>{language.t("projects.home.table.action")}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -270,15 +272,15 @@ export default function ProjectsHome() {
                   >
                     <For each={rows()}>
                       {(project) => (
-                        <TableRow class="store-data-table-row cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
-                          <TableCell>
-                            <span class="store-item-name">{project.name}</span>
+                        <TableRow class={sx.row} onClick={() => navigate(`/projects/${project.id}`)}>
+                          <TableCell class={sx.td}>
+                            <span class={sx.item}>{project.name}</span>
                           </TableCell>
-                          <TableCell class="store-data-table-muted">{project.description || "—"}</TableCell>
-                          <TableCell class="store-data-table-muted">{formatDate(project.enabledAt)}</TableCell>
-                          <TableCell class="store-data-table-muted">{formatDate(project.archivedAt)}</TableCell>
-                          <TableCell class="store-col-updated store-data-table-muted">{formatDate(project.createdAt)}</TableCell>
-                          <TableCell class="store-col-action text-right" onClick={(e: MouseEvent) => e.stopPropagation()}>
+                          <TableCell class={cn(sx.td, sx.mut)}>{project.description || "—"}</TableCell>
+                          <TableCell class={cn(sx.td, sx.mut)}>{formatDate(project.enabledAt)}</TableCell>
+                          <TableCell class={cn(sx.td, sx.mut)}>{formatDate(project.archivedAt)}</TableCell>
+                          <TableCell class={cn(sx.td, sx.colUpdated, sx.mut)}>{formatDate(project.createdAt)}</TableCell>
+                          <TableCell class={cn(sx.td, sx.colAction, "text-right")} onClick={(e: MouseEvent) => e.stopPropagation()}>
                             <div class="flex items-center justify-end gap-1">
                               <Button variant="ghost" size="sm" onClick={() => void togglePin(project)}>
                                 {project.isPinned ? language.t("projects.home.table.unpin") : language.t("projects.home.table.pin")}
@@ -300,7 +302,7 @@ export default function ProjectsHome() {
       </div>
 
       <Sheet open={!!selectedInvitation()} onOpenChange={(open) => !open && setState("selectedInvitationId", "")} modal={false}>
-        <SheetContent position="right" class="store-detail-sheet w-[min(32rem,92vw)] sm:max-w-none">
+        <SheetContent position="right" class={cn(sx.sheet, "w-[min(32rem,92vw)] sm:max-w-none")} style={{ "background-color": "var(--st-surface-lowest, #ffffff)" }}>
           <SheetHeader class="sr-only">
             <SheetTitle>{language.t("projects.invitationPanel.sheet.title")}</SheetTitle>
             <SheetDescription>{language.t("projects.invitationPanel.sheet.description")}</SheetDescription>
@@ -310,9 +312,9 @@ export default function ProjectsHome() {
               return (
                 <div class="flex h-full flex-col gap-4 p-6">
                   <div>
-                    <p class="store-page-kicker">{language.t("projects.invitationPanel.title")}</p>
-                    <h2 class="store-page-title text-2xl">{projectForInvitation(invitation())?.name || invitation().projectId}</h2>
-                    <p class="store-page-description">{projectForInvitation(invitation())?.description || invitation().message || "—"}</p>
+                    <p class="mb-3 inline-flex items-center gap-[0.3rem] rounded-[var(--native-radius-full)] bg-[color-mix(in_srgb,var(--native-primary)_8%,transparent)] px-2.5 py-[0.1875rem] text-[12px] uppercase tracking-[0.08em] text-[var(--native-primary)]">{language.t("projects.invitationPanel.title")}</p>
+                    <h2 class="m-0 text-2xl leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{projectForInvitation(invitation())?.name || invitation().projectId}</h2>
+                    <p class="mt-2 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{projectForInvitation(invitation())?.description || invitation().message || "—"}</p>
                   </div>
                   <div class="rounded-xl border border-border/60 p-4 text-sm text-muted-foreground">
                     <div>{language.t("projects.invitationPanel.invitedBy")} {userName(invitation().inviterId)}</div>
@@ -347,8 +349,8 @@ export default function ProjectsHome() {
 function TableEmptyState(props: { colSpan: number; message: string }) {
   return (
     <TableRow>
-      <TableCell colSpan={props.colSpan}>
-        <div class="store-table-state">{props.message}</div>
+      <TableCell class="border-b-0 p-0" colSpan={props.colSpan}>
+        <div class={sx.state}>{props.message}</div>
       </TableCell>
     </TableRow>
   )

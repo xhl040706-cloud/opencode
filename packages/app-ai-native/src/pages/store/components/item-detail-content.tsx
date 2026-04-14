@@ -296,7 +296,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                           : language.t("store.detail.favoriteSignIn")
                       }
                     >
-                      <span class="inline-flex items-center" style={{ width: "14px", height: "14px" }}><LocalIcon name={props.favorited ? "star-filled" : "star"} size="small" style={{ color: props.favorited ? (TYPE_META[item()?.itemType ?? ""]?.accent ?? "var(--st-accent)") : undefined, width: "14px", height: "14px" }} /></span>
+                      <span class="inline-flex items-center" style={{ width: "14px", height: "14px" }}><LocalIcon name={props.favorited ? "star-filled" : "star"} size="small" style={{ color: props.favorited ? (TYPE_META[item()?.itemType ?? ""]?.accent ?? "var(--native-primary)") : undefined, width: "14px", height: "14px" }} /></span>
                       <span>
                         {props.isAuthenticated
                           ? props.favorited
@@ -335,7 +335,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                 <Show when={data().description}>
                   <p class="mb-3 text-12-regular leading-relaxed text-text-weak">{data().description}</p>
                 </Show>
-                <div class="flex items-center gap-2 rounded-lg px-4 py-2.5" style="background-color: var(--st-surface-high)">
+                <div class="flex items-center gap-2 rounded-lg px-4 py-2.5" style="background-color: var(--native-surface-strong)">
                   <div class="thin-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto">
                     <code class="select-all whitespace-nowrap text-12-mono text-text-weak">{getInstallCommand(data())}</code>
                   </div>

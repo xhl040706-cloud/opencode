@@ -138,7 +138,7 @@ export default function EditProjectDialog(props: Props) {
 
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange} modal={false}>
-      <SheetContent position="right" class="store-detail-sheet w-[min(42rem,92vw)] sm:max-w-none p-0">
+      <SheetContent position="right" class="w-[min(42rem,92vw)] !p-0 sm:max-w-none" style={{ "background-color": "var(--st-surface-lowest, #ffffff)" }}>
         <SheetHeader class="sr-only">
           <SheetTitle>{language.t("projects.editDialog.title")}</SheetTitle>
           <SheetDescription>{language.t("projects.editDialog.infoDescription")}</SheetDescription>
@@ -147,9 +147,9 @@ export default function EditProjectDialog(props: Props) {
         <form onSubmit={handleSubmit} class="flex h-full min-h-0 flex-col">
           <div class="flex-1 overflow-y-auto px-6 pb-6 pt-6">
             <div class="mb-6">
-              <p class="store-page-kicker">{language.t("projects.actions.projectSettings")}</p>
-              <h2 class="store-page-title text-2xl">{props.project.name}</h2>
-              <p class="store-page-description">{language.t("projects.editDialog.infoDescription")}</p>
+              <p class="mb-3 inline-flex items-center gap-[0.3rem] rounded-[var(--native-radius-full)] bg-[color-mix(in_srgb,var(--native-primary)_8%,transparent)] px-2.5 py-[0.1875rem] text-[12px] uppercase tracking-[0.08em] text-[var(--native-primary)]">{language.t("projects.actions.projectSettings")}</p>
+              <h2 class="m-0 text-2xl leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{props.project.name}</h2>
+              <p class="mt-2 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t("projects.editDialog.infoDescription")}</p>
             </div>
 
             <div class="rounded-xl border border-border-weak-base bg-surface-raised-base">

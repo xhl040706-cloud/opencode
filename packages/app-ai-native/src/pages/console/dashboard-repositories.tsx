@@ -12,6 +12,8 @@ import { CreateRepoDialog } from "@/pages/store/components/create-repo-dialog"
 import { EditRepoDialog } from "@/pages/store/components/edit-repo-dialog"
 import { InviteDialog } from "@/pages/store/components/invite-dialog"
 import { RepoSyncTab } from "@/pages/store/components/repo-sync-tab"
+import { cn } from "@/lib/utils"
+import { sx, st } from "@/pages/store/lib/styles"
 
 export default function DashboardRepositories() {
   const dialog = useDialog()
@@ -144,7 +146,7 @@ export default function DashboardRepositories() {
   const visColor = (vis?: string | null) => {
     if (vis === "public") return { bg: "color-mix(in srgb, #22c55e 12%, transparent)", c: "#22c55e" }
     if (vis === "private") return { bg: "color-mix(in srgb, #f59e0b 12%, transparent)", c: "#f59e0b" }
-    return { bg: "rgba(156,163,175,0.12)", c: "var(--st-text-secondary)" }
+    return { bg: "rgba(156,163,175,0.12)", c: "var(--native-muted)" }
   }
 
   const syncStatusLabel = (status?: string) => {
@@ -156,27 +158,27 @@ export default function DashboardRepositories() {
   }
 
   const syncStatusColor = (status?: string) => {
-    if (!status || status === "idle") return "var(--st-text-secondary)"
+    if (!status || status === "idle") return "var(--native-muted)"
     if (status === "running" || status === "pending") return "#3b82f6"
     if (status === "success") return "#22c55e"
     if (status === "failed") return "#ef4444"
-    return "var(--st-text-secondary)"
+    return "var(--native-muted)"
   }
 
   return (
     <Show
       when={!loading()}
-      fallback={<div class="store-dash-empty">{language.t("store.loading")}</div>}
+      fallback={<div class={sx.empty}>{language.t("store.loading")}</div>}
     >
       <Show
         when={user()}
         fallback={
-          <div class="store-dash-empty" style={{ "min-height": "40vh", display: "flex", "align-items": "center", "justify-content": "center" }}>
+          <div class={cn(sx.empty, "flex min-h-[40vh] items-center justify-center")}>
             <div style={{ "text-align": "center" }}>
-              <h1 class="store-tbar-title">{language.t("store.console")}</h1>
-              <p class="store-tbar-sub" style={{ "margin-bottom": "0.75rem" }}>{language.t("store.console.authDescription")}</p>
+              <h1 class={sx.toolbarTitle}>{language.t("store.console")}</h1>
+              <p class={cn(sx.toolbarSub, "mb-3")}>{language.t("store.console.authDescription")}</p>
               <button
-                class="store-fbtn store-fbtn-primary"
+                class={cn(sx.btn, sx.btnPrimary)}
                 onClick={() => { window.location.href = getLoginUrl("/store/dashboard/repositories") }}
               >
                 {language.t("store.console.login")}
@@ -185,13 +187,13 @@ export default function DashboardRepositories() {
           </div>
         }
       >
-        <section class="store-cshell">
-          <div class="store-tbar">
+        <section class={sx.cshell}>
+          <div class={sx.toolbar}>
             <div>
-              <h2 class="store-tbar-title">{language.t("store.dashboard.nav.repositories")}</h2>
-              <p class="store-tbar-sub">{language.t("store.console.repositories.description")}</p>
+              <h2 class={sx.toolbarTitle}>{language.t("store.dashboard.nav.repositories")}</h2>
+              <p class={sx.toolbarSub}>{language.t("store.console.repositories.description")}</p>
             </div>
-            <button class="store-fbtn store-fbtn-primary" onClick={openCreateRepo}>
+            <button class={cn(sx.btn, sx.btnPrimary)} onClick={openCreateRepo}>
               <Icon name="plus" size="small" />
               {language.t("store.console.repositories.create")}
             </button>
@@ -199,35 +201,35 @@ export default function DashboardRepositories() {
 
           <Show
             when={!state.loadingRepos}
-            fallback={<div class="store-dash-empty">{language.t("store.console.repositories.loading")}</div>}
+            fallback={<div class={sx.empty}>{language.t("store.console.repositories.loading")}</div>}
           >
             <Show
               when={state.repos.length > 0}
               fallback={
-                <div class="store-dash-empty">
+                <div class={sx.empty}>
                   {language.t("store.console.repositories.empty")}
                 </div>
               }
             >
-              <div class="store-dash-grid">
+              <div class={sx.dashGrid}>
                 <For each={state.repos}>
                   {(repo) => {
                     const vc = () => visColor(repo.visibility)
                     return (
-                      <div class="store-dash-card">
-                        <div class="store-dash-card-head">
-                          <span class="store-dash-card-name" title={repo.displayName || repo.name}>
+                      <div class={sx.dashCard}>
+                        <div class={sx.dashHead}>
+                          <span class={sx.dashName} title={repo.displayName || repo.name}>
                             {repo.displayName || repo.name}
                           </span>
                           <span
-                            class="store-dash-pill"
+                            class={sx.pill}
                             style={{ background: vc().bg, color: vc().c }}
                           >
                             {visibilityLabel(repo.visibility)}
                           </span>
                         </div>
-                        <div class="store-dash-card-slug">{repo.name}</div>
-                        <p class="store-dash-card-desc">{repo.description || ""}</p>
+                        <div class={sx.dashSlug}>{repo.name}</div>
+                        <p class={sx.dashDesc}>{repo.description || ""}</p>
 
                         <Show when={repo.repoType === "sync"}>
                           {(() => {
@@ -236,16 +238,16 @@ export default function DashboardRepositories() {
                             const isRunning = status === "running" || status === "pending"
                             return (
                               <div
-                                class="store-dash-card-status"
+                                class={sx.dashStatus}
                                 style={{ color: syncStatusColor(status) }}
                               >
                                 <span
-                                  class={`store-dash-card-status-dot${isRunning ? " store-dash-card-status-dot-pulse" : ""}`}
+                                  class={st.dot(isRunning)}
                                   style={{ background: syncStatusColor(status) }}
                                 />
                                 {syncStatusLabel(status)}
                                 <Show when={s?.lastSyncedAt}>
-                                  <span style={{ color: "var(--st-text-secondary)", "margin-left": "0.25rem" }}>
+                                  <span style={{ color: "var(--native-muted)", "margin-left": "0.25rem" }}>
                                     · {new Date(s!.lastSyncedAt!).toLocaleString()}
                                   </span>
                                 </Show>
@@ -254,10 +256,10 @@ export default function DashboardRepositories() {
                           })()}
                         </Show>
 
-                        <div class="store-dash-card-foot">
+                        <div class={sx.dashFoot}>
                           <Show when={repo.repoType === "sync"}>
                             <button
-                              class="store-abtn"
+                              class={sx.action}
                               title={language.t("store.sync.syncNow")}
                               disabled={state.syncingRepoId === repo.id}
                               onClick={() => void syncNow(repo.id)}
@@ -265,7 +267,7 @@ export default function DashboardRepositories() {
                               <Icon name="reset" size="small" />
                             </button>
                             <button
-                              class="store-abtn"
+                              class={sx.action}
                               title={
                                 state.expandedSyncRepo === repo.id
                                   ? language.t("store.console.repositories.hideSync")
@@ -279,21 +281,21 @@ export default function DashboardRepositories() {
                             </button>
                           </Show>
                           <button
-                            class="store-abtn"
+                            class={sx.action}
                             title={language.t("store.console.repositories.invite")}
                             onClick={() => openInvite(repo)}
                           >
                             <Icon name="plus-small" size="small" />
                           </button>
                           <button
-                            class="store-abtn"
+                            class={sx.action}
                             title={language.t("store.console.repositories.edit")}
                             onClick={() => openEditRepo(repo)}
                           >
                             <Icon name="edit" size="small" />
                           </button>
                           <button
-                            class="store-abtn"
+                            class={sx.action}
                             title={language.t("store.console.repositories.delete")}
                             onClick={() => handleDeleteRepo(repo.id)}
                           >
@@ -302,7 +304,7 @@ export default function DashboardRepositories() {
                         </div>
 
                         <Show when={repo.repoType === "sync" && state.expandedSyncRepo === repo.id}>
-                          <div style={{ "margin-top": "0.75rem", "border-top": "1px solid color-mix(in srgb, var(--st-border-subtle) 8%, transparent)", "padding-top": "0.75rem" }}>
+                          <div style={{ "margin-top": "0.75rem", "border-top": "1px solid color-mix(in srgb, var(--native-border) 8%, transparent)", "padding-top": "0.75rem" }}>
                             <RepoSyncTab repoId={repo.id} />
                           </div>
                         </Show>

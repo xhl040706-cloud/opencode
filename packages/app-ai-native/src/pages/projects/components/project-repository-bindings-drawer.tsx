@@ -172,7 +172,7 @@ export default function ProjectRepositoryBindingsDrawer(props: Props) {
       }}
       modal={false}
     >
-      <SheetContent position="right" class="store-detail-sheet w-[min(42rem,92vw)] sm:max-w-none p-0">
+      <SheetContent position="right" class="w-[min(42rem,92vw)] !p-0 sm:max-w-none" style={{ "background-color": "var(--st-surface-lowest, #ffffff)" }}>
         <SheetHeader class="sr-only">
           <SheetTitle>{language.t("projects.bindingsDrawer.title")}</SheetTitle>
           <SheetDescription>{language.t("projects.bindingsDrawer.description")}</SheetDescription>
@@ -181,19 +181,23 @@ export default function ProjectRepositoryBindingsDrawer(props: Props) {
         <div class="flex h-full min-h-0 flex-col">
           <div class="flex-1 overflow-y-auto px-6 pb-6 pt-6">
             <div class="mb-6">
-              <p class="store-page-kicker">{language.t("projects.actions.manageRepositoryBindings")}</p>
-              <h2 class="store-page-title text-2xl">{language.t("projects.bindingsDrawer.title")}</h2>
-              <p class="store-page-description">{language.t("projects.bindingsDrawer.description")}</p>
+              <p class="mb-3 inline-flex items-center gap-[0.3rem] rounded-[var(--native-radius-full)] bg-[color-mix(in_srgb,var(--native-primary)_8%,transparent)] px-2.5 py-[0.1875rem] text-[12px] uppercase tracking-[0.08em] text-[var(--native-primary)]">{language.t("projects.actions.manageRepositoryBindings")}</p>
+              <h2 class="m-0 text-2xl leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t("projects.bindingsDrawer.title")}</h2>
+              <p class="mt-2 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t("projects.bindingsDrawer.description")}</p>
             </div>
 
-            <div class="store-type-tabs mb-4" role="tablist" aria-label={language.t("projects.bindingsDrawer.title")}>
+            <div class="mb-4 inline-flex items-center gap-1 rounded-[var(--native-radius-full)] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[color-mix(in_srgb,var(--native-surface)_70%,transparent)] p-[0.1875rem]" role="tablist" aria-label={language.t("projects.bindingsDrawer.title")}>
               <For each={["bound", "available"] as const}>
                 {(tab) => (
                   <button
                     type="button"
                     role="tab"
                     aria-selected={store.tab === tab}
-                    class={`store-type-tab ${store.tab === tab ? "store-type-tab-active" : ""}`}
+                    class={[
+                      store.tab === tab
+                        ? "inline-flex items-center whitespace-nowrap rounded-[var(--native-radius-full)] border-none bg-[var(--native-primary)] px-3 py-[0.3125rem] text-[0.8125rem] text-[var(--native-primary-foreground)] shadow-[0_1px_4px_color-mix(in_srgb,var(--native-primary)_25%,transparent)] transition-all hover:bg-[color-mix(in_srgb,var(--native-primary)_85%,white)] hover:text-[var(--native-primary-foreground)]"
+                        : "inline-flex items-center whitespace-nowrap rounded-[var(--native-radius-full)] border-none bg-transparent px-3 py-[0.3125rem] text-[0.8125rem] text-[var(--native-muted)] transition-all hover:bg-[color-mix(in_srgb,var(--native-panel)_70%,transparent)] hover:text-[var(--native-primary)]",
+                    ].join(" ")}
                     onClick={() => setStore("tab", tab)}
                   >
                     {language.t(`projects.bindingsDrawer.tab.${tab}`)}
@@ -205,7 +209,7 @@ export default function ProjectRepositoryBindingsDrawer(props: Props) {
             <Show when={store.tab === "bound"}>
               <div class="rounded-xl border border-border-weak-base bg-surface-raised-base p-4 min-h-[20rem] flex flex-col">
                 <div class="mb-4">
-                  <h3 class="text-base font-semibold text-foreground">{language.t("projects.bindingsDrawer.listTitle")}</h3>
+                  <h3 class="text-[1rem] font-semibold text-foreground">{language.t("projects.bindingsDrawer.listTitle")}</h3>
                 </div>
 
                 <Show
@@ -213,7 +217,7 @@ export default function ProjectRepositoryBindingsDrawer(props: Props) {
                   fallback={
                     <div class="flex flex-1 items-center justify-center">
                       <div class="max-w-sm text-center">
-                        <div class="text-base font-semibold text-foreground">
+                        <div class="text-[1rem] font-semibold text-foreground">
                           {language.t("projects.bindingsDrawer.empty.title")}
                         </div>
                         <p class="mt-2 text-sm text-muted-foreground">
@@ -297,7 +301,7 @@ export default function ProjectRepositoryBindingsDrawer(props: Props) {
 
                 <div class="rounded-xl border border-border-weak-base bg-surface-raised-base p-4">
                   <div class="mb-4">
-                    <h3 class="text-base font-semibold text-foreground">{language.t("projects.bindingsDrawer.candidatesTitle")}</h3>
+                    <h3 class="text-[1rem] font-semibold text-foreground">{language.t("projects.bindingsDrawer.candidatesTitle")}</h3>
                     <p class="mt-1 text-sm text-muted-foreground">{language.t("projects.bindingsDrawer.candidatesDescription")}</p>
                   </div>
 
@@ -308,8 +312,8 @@ export default function ProjectRepositoryBindingsDrawer(props: Props) {
                     class={`${inputClass} mb-4`}
                   />
 
-                  <Show when={!store.candidateLoading} fallback={<div class="store-table-state">{language.t("store.loading")}</div>}>
-                    <Show when={filteredCandidates().length > 0} fallback={<div class="store-table-state">{language.t("projects.bindingsDrawer.preview.empty")}</div>}>
+                  <Show when={!store.candidateLoading} fallback={<div class="px-4 py-12 text-center text-[var(--native-muted)]">{language.t("store.loading")}</div>}>
+                    <Show when={filteredCandidates().length > 0} fallback={<div class="px-4 py-12 text-center text-[var(--native-muted)]">{language.t("projects.bindingsDrawer.preview.empty")}</div>}>
                       <div class="flex flex-col gap-3">
                         <For each={filteredCandidates()}>
                           {(repo) => (

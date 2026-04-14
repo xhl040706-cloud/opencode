@@ -9,6 +9,8 @@ import { EditWecomChannelDialog } from "./edit-wecom-channel-dialog"
 import { WecomChannelCard } from "./wecom-channel-card"
 import { notificationChannelService } from "../lib/notification-channel-service"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
+import { cn } from "@/lib/utils"
+import { sx } from "@/pages/store/lib/styles"
 
 type NotificationChannelsSectionProps = {
   channels?: () => WecomChannel[] | undefined
@@ -141,13 +143,13 @@ export function NotificationChannelsSection(props: NotificationChannelsSectionPr
   }
 
   return (
-    <section class="store-cshell">
-      <div class="store-tbar">
+    <section class={sx.cshell}>
+      <div class={sx.toolbar}>
         <div>
-          <h2 class="store-tbar-title">{language.t("store.notificationChannels.title")}</h2>
-          <p class="store-tbar-sub">{language.t("store.notificationChannels.description")}</p>
+          <h2 class={sx.toolbarTitle}>{language.t("store.notificationChannels.title")}</h2>
+          <p class={sx.toolbarSub}>{language.t("store.notificationChannels.description")}</p>
         </div>
-        <button class="store-fbtn store-fbtn-primary" onClick={openAddDialog}>
+        <button class={cn(sx.btn, sx.btnPrimary)} onClick={openAddDialog}>
           <Icon name="plus" size="small" />
           {language.t("store.notificationChannels.add")}
         </button>
@@ -155,17 +157,17 @@ export function NotificationChannelsSection(props: NotificationChannelsSectionPr
 
       <Show
         when={!loading()}
-        fallback={<div class="store-dash-empty">{language.t("store.notificationChannels.loading")}</div>}
+        fallback={<div class={sx.empty}>{language.t("store.notificationChannels.loading")}</div>}
       >
         <Show
           when={wecomChannels().length > 0}
           fallback={
-            <div class="store-dash-empty">
+            <div class={sx.empty}>
               {language.t("store.notificationChannels.empty")}
             </div>
           }
         >
-          <div class="store-dash-grid store-dash-grid-2">
+          <div class={sx.dashGrid2}>
             <For each={wecomChannels()}>
               {(channel) => (
                 <WecomChannelCard
