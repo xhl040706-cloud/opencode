@@ -1188,7 +1188,7 @@ export namespace Config {
   export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Config") {}
 
   function globalConfigFile() {
-    const candidates = ["opencode.jsonc", "opencode.json", "config.json"].map((file) =>
+    const candidates = ["costrict.jsonc", "costrict.json", "opencode.jsonc", "opencode.json", "config.json"].map((file) =>
       path.join(Global.Path.config, file),
     )
     for (const file of candidates) {
@@ -1339,6 +1339,8 @@ export namespace Config {
             mergeDeep(yield* loadFile(path.join(Global.Path.config, "config.json"))),
             mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.json"))),
             mergeDeep(yield* loadFile(path.join(Global.Path.config, "opencode.jsonc"))),
+            mergeDeep(yield* loadFile(path.join(Global.Path.config, "costrict.json"))),
+            mergeDeep(yield* loadFile(path.join(Global.Path.config, "costrict.jsonc"))),
           )
 
           const legacy = path.join(Global.Path.config, "config")
@@ -1411,6 +1413,11 @@ export namespace Config {
           if (!Flag.OPENCODE_DISABLE_PROJECT_CONFIG) {
             for (const file of yield* Effect.promise(() =>
               ConfigPaths.projectFiles("opencode", ctx.directory, ctx.worktree),
+            )) {
+              result = mergeConfigConcatArrays(result, yield* loadFile(file))
+            }
+            for (const file of yield* Effect.promise(() =>
+              ConfigPaths.projectFiles("costrict", ctx.directory, ctx.worktree),
             )) {
               result = mergeConfigConcatArrays(result, yield* loadFile(file))
             }

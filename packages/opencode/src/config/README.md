@@ -357,3 +357,103 @@ export const opencodeGlobal = lazy(async () => {
 - ✅ 支持 `~/.config/opencode/` 目录
 - ✅ 支持 `~/.opencode/` 和 `opencode/` 目录扫描
 - ✅ 实现配置合并和覆盖规则
+
+## 代码实际行为（当前实现）
+
+本节以 `src/config/config.ts`、`src/config/paths.ts`、`src/skill/index.ts`、`src/command/index.ts` 当前代码为准。
+
+### 主配置文件读取顺序（低优先级 -> 高优先级）
+
+1. 远端 `/.well-known/opencode`（若账号启用 wellknown auth）
+2. 全局目录 `~/.config/costrict` 下：
+   - `config.json`
+   - `opencode.json`
+   - `opencode.jsonc`
+   - `costrict.json`
+   - `costrict.jsonc`
+3. `OPENCODE_CONFIG` 指定文件
+4. 从当前目录向上到 worktree 根，查找：
+   - `opencode.jsonc`、`opencode.json`
+   - `costrict.jsonc`、`costrict.json`
+5. 遍历配置目录集合（见下文“目录扫描顺序”），并在 `.opencode`/`OPENCODE_CONFIG_DIR` 目录额外读取：
+   - `opencode.jsonc`
+   - `opencode.json`
+6. `OPENCODE_CONFIG_CONTENT`（内联 JSON）
+7. 远端账户配置 `/api/config`（若已登录组织）
+8. managed 配置目录（企业托管）中的：
+   - `opencode.jsonc`
+   - `opencode.json`
+
+### 目录扫描顺序（用于 command/agent/skill/plugin）
+
+按 `ConfigPaths.directories()` 顺序：
+
+1. `~/.config/costrict`
+2. 项目向上查找 `.opencode`
+3. 项目向上查找 `.costrict`
+4. `~/.opencode`
+5. `~/.costrict`
+6. `OPENCODE_CONFIG_DIR`（若设置）
+7. `COSTRICT_CONFIG_DIR`（若设置）
+
+后扫描的目录优先级更高（同名键会覆盖先前结果）。
+
+### mcp 如何读取与覆盖
+
+- 来源：主配置对象 `mcp` 字段（不来自 markdown 扫描）。
+- 合并：按主配置读取顺序做深度合并；同名 server（同 key）以后者为准。
+- 生效条件：
+  - 条目需要带 `type`（`local` 或 `remote`）才会被 MCP runtime 连接。
+  - `enabled: false` 会标记为 disabled，不连接。
+  - 仅 `{ "enabled": false }` 这种简写可用于禁用已有项，但它本身不是可连接配置。
+
+### agent 如何读取与覆盖
+
+- 来源一：配置文件中的 `agent` 字段（对象）。
+- 来源二：目录扫描 `agent/**/*.md` 或 `agents/**/*.md`（frontmatter + markdown body）。
+- 来源三：`mode/*.md`/`modes/*.md` 会转成 `agent` 下的 primary agent。
+- 覆盖规则：
+  - 先载入基础配置，再按目录扫描顺序 `mergeDeep` 覆盖。
+  - 同名 agent 后者覆盖前者（未提供的字段会保留）。
+
+### command 如何读取与覆盖
+
+- 来源一：配置文件中的 `command` 字段（对象）。
+- 来源二：目录扫描 `command/**/*.md` 或 `commands/**/*.md`。
+- 运行时命令总表合并顺序（低 -> 高）：
+  - 内置命令（init/review/...）
+  - learning/tdd 内置扩展命令
+  - `cfg.command`
+  - MCP prompts 映射命令
+  - Skills 映射命令（仅在同名命令不存在时补充）
+- 因此同名时：`cfg.command` 可覆盖内置；MCP prompt 可覆盖同名配置命令；skill 命令不会覆盖已有命令。
+
+### skill 如何读取与覆盖
+
+- 来源一：外部技能目录（若未禁用）：
+  - `~/.costrict/skills/**/SKILL.md`
+  - `~/.claude/skills/**/SKILL.md`
+  - `~/.agents/skills/**/SKILL.md`
+  - 项目向上查找到的 `.costrict`、`.claude`、`.agents` 下 `skills/**/SKILL.md`
+- 来源二：配置目录集合中的 `skill/**/SKILL.md` 或 `skills/**/SKILL.md`
+- 来源三：内置 CoStrict skills
+- 来源四：`skills.paths` 指定目录下 `**/SKILL.md`
+- 来源五：`skills.urls` 远程拉取后缓存目录下 `**/SKILL.md`
+- 覆盖规则：
+  - 以 skill `name` 作为唯一键；
+  - 后加载的同名 skill 覆盖先加载的同名 skill（会记录 duplicate 警告）。
+
+### 合并细则
+
+- 普通对象字段：`mergeDeep`，后者覆盖前者同名字段。
+- 数组字段：
+  - `plugin` 和 `instructions`：拼接后去重。
+  - 其他数组：按 `mergeDeep` 默认行为（通常后者替换）。
+
+### 动态热更新
+
+文件变更会触发配置失效重载（`Config.invalidate(true)`）：
+
+- `(.costrict|.opencode)/(agent|agents|command|commands)/**/*.md`
+- `(.costrict|.claude|.agents)/skills/**/SKILL.md`
+- `(.opencode)/(skill|skills)/**/SKILL.md`

@@ -224,6 +224,52 @@ test("returns empty array when no skills exist", async () => {
   })
 })
 
+test("prefers .costrict skill over .opencode skill when names are duplicated", async () => {
+  await using tmp = await tmpdir({
+    git: true,
+    init: async (dir) => {
+      const opencodeSkillDir = path.join(dir, ".opencode", "skills", "shared-skill")
+      await Bun.write(
+        path.join(opencodeSkillDir, "SKILL.md"),
+        `---
+name: shared-skill
+description: from-opencode
+---
+
+# Shared Skill
+
+opencode version
+`,
+      )
+
+      const costrictSkillDir = path.join(dir, ".costrict", "skills", "shared-skill")
+      await Bun.write(
+        path.join(costrictSkillDir, "SKILL.md"),
+        `---
+name: shared-skill
+description: from-costrict
+---
+
+# Shared Skill
+
+costrict version
+`,
+      )
+    },
+  })
+
+  await Instance.provide({
+    directory: tmp.path,
+    fn: async () => {
+      const skills = await Skill.all()
+      const shared = skills.filter((s) => s.name === "shared-skill")
+      expect(shared.length).toBe(1)
+      expect(shared[0].description).toBe("from-costrict")
+      expect(shared[0].location).toContain(path.join(".costrict", "skills", "shared-skill", "SKILL.md"))
+    },
+  })
+})
+
 test("discovers skills from .agents/skills/ directory", async () => {
   await using tmp = await tmpdir({
     git: true,
