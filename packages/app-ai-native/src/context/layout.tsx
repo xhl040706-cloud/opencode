@@ -131,7 +131,7 @@ const normalizeStoredSessionTabs = (key: string, tabs: SessionTabs) => {
   }
 }
 
-export const { use: useLayout, provider: LayoutProvider } = createSimpleContext({
+export const { use: useLayout, provider: LayoutProvider, context: LayoutContext } = createSimpleContext({
   name: "Layout",
   init: () => {
     const globalSdk = useGlobalSDK()
