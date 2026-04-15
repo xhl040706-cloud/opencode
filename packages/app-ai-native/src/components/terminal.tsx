@@ -1,4 +1,4 @@
-import { type HexColor, resolveThemeVariant, useTheme, withAlpha } from "@opencode-ai/ui/theme"
+import { useTheme } from "@opencode-ai/ui/theme"
 import { showToast } from "@opencode-ai/ui/toast"
 import type { FitAddon, Ghostty, Terminal as Term } from "ghostty-web"
 import { type ComponentProps, createEffect, createMemo, onCleanup, onMount, splitProps } from "solid-js"
@@ -12,6 +12,7 @@ import type { LocalPTY } from "@/context/device-terminal"
 import { disposeIfDisposable, getHoveredLinkText, setOptionIfSupported } from "@/utils/runtime-adapters"
 import { terminalWriter } from "@/utils/terminal-writer"
 import { CloudTerminalApi } from "@/lib/cloud-terminal-api"
+import "@/styles/terminal-fonts.css"
 
 const TOGGLE_TERMINAL_ID = "terminal.toggle"
 const DEFAULT_TOGGLE_TERMINAL_KEYBIND = "ctrl+`"
@@ -40,21 +41,75 @@ type TerminalColors = {
   background: string
   foreground: string
   cursor: string
+  cursorAccent: string
   selectionBackground: string
+  selectionForeground: string
+  black: string
+  red: string
+  green: string
+  yellow: string
+  blue: string
+  magenta: string
+  cyan: string
+  white: string
+  brightBlack: string
+  brightRed: string
+  brightGreen: string
+  brightYellow: string
+  brightBlue: string
+  brightMagenta: string
+  brightCyan: string
+  brightWhite: string
 }
 
 const DEFAULT_TERMINAL_COLORS: Record<"light" | "dark", TerminalColors> = {
   light: {
-    background: "#fcfcfc",
-    foreground: "#211e1e",
-    cursor: "#211e1e",
-    selectionBackground: withAlpha("#211e1e", 0.2),
+    background: "#ffffff",
+    foreground: "#383a42",
+    cursor: "#526fff",
+    cursorAccent: "#ffffff",
+    selectionBackground: "#add6ff",
+    selectionForeground: "#383a42",
+    black: "#383a42",
+    red: "#e45649",
+    green: "#50a14f",
+    yellow: "#c18401",
+    blue: "#4078f2",
+    magenta: "#a626a4",
+    cyan: "#0184bc",
+    white: "#a0a1a7",
+    brightBlack: "#4f525e",
+    brightRed: "#e06c75",
+    brightGreen: "#98c379",
+    brightYellow: "#e5c07b",
+    brightBlue: "#61afef",
+    brightMagenta: "#c678dd",
+    brightCyan: "#56b6c2",
+    brightWhite: "#ffffff",
   },
   dark: {
-    background: "#191515",
-    foreground: "#d4d4d4",
-    cursor: "#d4d4d4",
-    selectionBackground: withAlpha("#d4d4d4", 0.25),
+    background: "#1e1e2e",
+    foreground: "#cdd6f4",
+    cursor: "#f5e0dc",
+    cursorAccent: "#1e1e2e",
+    selectionBackground: "#585b70",
+    selectionForeground: "#cdd6f4",
+    black: "#45475a",
+    red: "#f38ba8",
+    green: "#a6e3a1",
+    yellow: "#f9e2af",
+    blue: "#89b4fa",
+    magenta: "#f5c2e7",
+    cyan: "#94e2d5",
+    white: "#bac2de",
+    brightBlack: "#585b70",
+    brightRed: "#f38ba8",
+    brightGreen: "#a6e3a1",
+    brightYellow: "#f9e2af",
+    brightBlue: "#89b4fa",
+    brightMagenta: "#f5c2e7",
+    brightCyan: "#94e2d5",
+    brightWhite: "#a6adc8",
   },
 }
 
@@ -196,18 +251,7 @@ export const Terminal = (props: TerminalProps) => {
 
   const getTerminalColors = (): TerminalColors => {
     const mode = theme.mode() === "dark" ? "dark" : "light"
-    const fallback = DEFAULT_TERMINAL_COLORS[mode]
-    const currentTheme = theme.themes()[theme.themeId()]
-    if (!currentTheme) return fallback
-    const variant = mode === "dark" ? currentTheme.dark : currentTheme.light
-    if (!variant?.seeds) return fallback
-    const resolved = resolveThemeVariant(variant, mode === "dark")
-    const text = resolved["text-stronger"] ?? fallback.foreground
-    const background = resolved["background-stronger"] ?? fallback.background
-    const alpha = mode === "dark" ? 0.25 : 0.2
-    const base = text.startsWith("#") ? (text as HexColor) : (fallback.foreground as HexColor)
-    const selectionBackground = withAlpha(base, alpha)
-    return { background, foreground: text, cursor: text, selectionBackground }
+    return DEFAULT_TERMINAL_COLORS[mode]
   }
 
   const terminalColors = createMemo(getTerminalColors)
@@ -300,6 +344,13 @@ export const Terminal = (props: TerminalProps) => {
       const loaded = await loadGhostty()
       if (disposed) return
 
+      // Wait for terminal font to load before measuring metrics
+      if (typeof document !== "undefined" && document.fonts) {
+        try {
+          await document.fonts.load('14px "FiraCode Nerd Font Mono"')
+        } catch {}
+      }
+
       const mod = loaded.mod
       const g = loaded.ghostty
 
@@ -317,13 +368,13 @@ export const Terminal = (props: TerminalProps) => {
         cols: restoreSize?.cols,
         rows: restoreSize?.rows,
         fontSize: 14,
-        fontFamily: monoFontFamily(settings.appearance.font()),
+        fontFamily: '"FiraCode Nerd Font Mono", "JetBrainsMonoNL Nerd Font", "Cascadia Code PL", "Fira Code", "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", "Courier New", monospace',
         allowTransparency: false,
         convertEol: false,
         theme: terminalColors(),
         scrollback: 10_000,
         ghostty: g,
-      })
+      } as any)
       cleanups.push(() => t.dispose())
       if (disposed) {
         cleanup()
@@ -355,6 +406,37 @@ export const Terminal = (props: TerminalProps) => {
       t.open(container)
       useTerminalUiBindings({ container, term: t, cleanups, handlePointerDown, handleLinkClick })
       focusTerminal()
+
+      // IME support: ghostty-web doesn't handle compositionend natively
+      const textarea = container.querySelector("textarea") as HTMLTextAreaElement | null
+      if (textarea) {
+        let composing = false
+        const onCompositionStart = () => { composing = true }
+        const onCompositionEnd = (e: CompositionEvent) => {
+          composing = false
+          const data = e.data
+          if (data) {
+            cloudApi?.sendInput(id, data).catch((err) => {
+              debugTerminal("failed to send IME input", err)
+            })
+          }
+          textarea.value = ""
+        }
+        const onInput = (e: InputEvent) => {
+          if (composing) return
+          if (e.isComposing) return
+          if (e.inputType === "insertCompositionText") return
+          // For non-IME input, let ghostty-web's keydown handler deal with it
+        }
+        textarea.addEventListener("compositionstart", onCompositionStart)
+        textarea.addEventListener("compositionend", onCompositionEnd as EventListener)
+        textarea.addEventListener("input", onInput as EventListener)
+        cleanups.push(() => {
+          textarea.removeEventListener("compositionstart", onCompositionStart)
+          textarea.removeEventListener("compositionend", onCompositionEnd as EventListener)
+          textarea.removeEventListener("input", onInput as EventListener)
+        })
+      }
 
       if (typeof document !== "undefined" && document.fonts) {
         document.fonts.ready.then(scheduleFit)
@@ -419,7 +501,9 @@ export const Terminal = (props: TerminalProps) => {
           if (disposed) return
           if (event.type === "data" && event.data) {
             try {
-              const decoded = atob(event.data)
+              const bin = atob(event.data)
+              const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0))
+              const decoded = new TextDecoder().decode(bytes)
               output?.push(decoded)
               cursor += decoded.length
             } catch (err) {
@@ -485,7 +569,7 @@ export const Terminal = (props: TerminalProps) => {
       classList={{
         ...(local.classList ?? {}),
         "select-text": true,
-        "size-full px-6 py-3 font-mono relative overflow-hidden": true,
+        "size-full p-2 font-mono relative overflow-hidden": true,
         [local.class ?? ""]: !!local.class,
       }}
       {...others}

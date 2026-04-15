@@ -74,12 +74,12 @@ function createDeviceTerminalSession(deviceId: string, directory: string, server
         setStore("all", [])
       })
     },
-    new() {
+    new(): Promise<string | undefined> {
       const nextNumber = pickNextTerminalNumber()
       const api = cloudApi()
-      if (!api) return
+      if (!api) return Promise.resolve(undefined)
 
-      api.create(directory, 24, 80)
+      return api.create(directory, 24, 80)
         .then((session) => {
           const id = session.sessionId
           setStore("all", store.all.length, {
@@ -87,10 +87,11 @@ function createDeviceTerminalSession(deviceId: string, directory: string, server
             title: `Terminal ${nextNumber}`,
             titleNumber: nextNumber,
           })
-          setStore("active", id)
+          return id
         })
         .catch((error: unknown) => {
           console.error("Failed to create cloud terminal", error)
+          return undefined
         })
     },
     update(pty: Partial<LocalPTY> & { id: string }) {
@@ -207,7 +208,23 @@ export function clearDeviceTerminals(deviceId: string, directory: string, sessio
   removePersisted(target, platform)
 }
 
-const DeviceTerminalContext = createContext<ReturnType<typeof createDeviceTerminalSession>>()
+type DeviceTerminalValue = {
+  ready: () => boolean
+  all: () => LocalPTY[]
+  active: () => string | undefined
+  get: (id: string) => LocalPTY | undefined
+  clear: () => void
+  "new": () => Promise<string | undefined>
+  update: (pty: Partial<LocalPTY> & { id: string }) => void
+  clone: (id: string) => Promise<void>
+  open: (id: string) => void
+  close: (id: string) => Promise<void>
+  move: (id: string, to: number) => void
+  next: () => void
+  previous: () => void
+}
+
+const DeviceTerminalContext = createContext<DeviceTerminalValue>()
 
 export function DeviceTerminalProvider(props: ParentProps) {
   const server = useServer()
@@ -269,8 +286,9 @@ export function DeviceTerminalProvider(props: ParentProps) {
     ready: () => terminal().ready(),
     all: () => terminal().all(),
     active: () => terminal().active(),
+    get: (id: string) => terminal().all().find((p) => p.id === id),
     clear: () => terminal().clear(),
-    new: () => terminal().new(),
+    "new": () => terminal().new() as Promise<string | undefined>,
     update: (pty: Partial<LocalPTY> & { id: string }) => terminal().update(pty),
     clone: (id: string) => terminal().clone(id),
     open: (id: string) => terminal().open(id),
