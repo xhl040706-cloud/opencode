@@ -1,11 +1,16 @@
 import type { ParentProps } from "solid-js"
 import { createMemo, createSignal, Show } from "solid-js"
+import type { ReviewDiffStyle } from "@/context/layout"
 import { useServer } from "@/context/server"
 import { usePlatform } from "@/context/platform"
 import { DeviceClientContext } from "@/context/device-client"
 import { DeviceSDKContext } from "@/context/device-sdk"
 import { DeviceInitGate } from "@/context/device-init"
 import { DeviceFileProvider } from "@/context/device-file"
+import { DeviceTerminalProvider } from "@/context/device-terminal"
+import { DeviceProjectProvider } from "@/context/device-project"
+import { DeviceWorkspaceProvider } from "@/context/device-workspace"
+import { DeviceLocalProvider } from "@/context/device-local"
 import { DirectoryContext } from "@/context/directory"
 import { LayoutContext } from "@/context/layout"
 import { createSdkForServer } from "@/utils/server"
@@ -18,6 +23,7 @@ export function useDeviceLayout() {
   const [fileTreeWidth, setFileTreeWidth] = createSignal(DEFAULT_PANEL_WIDTH)
   const [terminalOpened, setTerminalOpened] = createSignal(false)
   const [terminalWidth, setTerminalWidth] = createSignal(400)
+  const [diffStyle, setDiffStyle] = createSignal<ReviewDiffStyle>("split")
 
   return {
     fileTree: {
@@ -36,6 +42,8 @@ export function useDeviceLayout() {
       close() { setTerminalOpened(false) },
       resize(w: number) { setTerminalWidth(w) },
     },
+    diffStyle,
+    setDiffStyle,
   }
 }
 
@@ -44,6 +52,7 @@ function DeviceLayoutProvider(props: ParentProps<{ deviceLayout: ReturnType<type
 
   const value = {
     ready: () => true,
+    deviceMode: true as boolean,
     handoff: {
       tabs: () => undefined,
       setTabs() {},
@@ -74,8 +83,8 @@ function DeviceLayoutProvider(props: ParentProps<{ deviceLayout: ReturnType<type
       resize: dl.terminal.resize,
     },
     review: {
-      diffStyle: () => "split" as const,
-      setDiffStyle() {},
+      diffStyle: dl.diffStyle,
+      setDiffStyle: dl.setDiffStyle,
     },
     fileTree: {
       opened: dl.fileTree.opened,
@@ -223,9 +232,17 @@ export function DeviceInterface(props: ParentProps<{ directory: string; deviceLa
         <DeviceLayoutProvider deviceLayout={props.deviceLayout}>
           <DirectoryContext.Provider value={() => props.directory}>
             <DeviceSDKProvider directory={props.directory}>
-              <DeviceFileProvider>
-                {props.children}
-              </DeviceFileProvider>
+              <DeviceWorkspaceProvider>
+                <DeviceProjectProvider>
+                  <DeviceFileProvider>
+                    <DeviceTerminalProvider>
+                      <DeviceLocalProvider>
+                        {props.children}
+                      </DeviceLocalProvider>
+                    </DeviceTerminalProvider>
+                  </DeviceFileProvider>
+                </DeviceProjectProvider>
+              </DeviceWorkspaceProvider>
             </DeviceSDKProvider>
           </DirectoryContext.Provider>
         </DeviceLayoutProvider>

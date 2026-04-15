@@ -1,7 +1,7 @@
 import { createContext, useContext } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 
-type TabKind = "file" | "session"
+type TabKind = "file" | "session" | "terminal" | "diff"
 
 export type ContentTab = {
   id: string
@@ -26,8 +26,11 @@ export function createContentTabStore() {
     activeId: undefined,
   })
 
+  let _openPending: string | undefined
+
   const open = (tab: Omit<ContentTab, "id"> & { key: string }) => {
     const id = makeTabId(tab.kind, tab.key)
+    _openPending = id
     setStore(
       produce((draft) => {
         const exists = draft.tabs.some((t) => t.id === id)
@@ -37,6 +40,7 @@ export function createContentTabStore() {
         draft.activeId = id
       }),
     )
+    queueMicrotask(() => { _openPending = undefined })
   }
 
   const close = (id: string) => {
@@ -54,6 +58,7 @@ export function createContentTabStore() {
   }
 
   const activate = (id: string) => {
+    if (_openPending && id !== _openPending) return
     const exists = store.tabs.some((t) => t.id === id)
     if (exists) setStore("activeId", id)
   }
@@ -70,6 +75,40 @@ export function createContentTabStore() {
     )
   }
 
+  const replace = (oldId: string, tab: Omit<ContentTab, "id"> & { key: string }) => {
+    const newId = makeTabId(tab.kind, tab.key)
+    _openPending = newId
+    setStore(
+      produce((draft) => {
+        const idx = draft.tabs.findIndex((t) => t.id === oldId)
+        if (idx === -1) return
+        draft.tabs[idx] = { ...tab, id: newId }
+        if (draft.activeId === oldId) {
+          draft.activeId = newId
+        }
+      }),
+    )
+    queueMicrotask(() => { _openPending = undefined })
+  }
+
+  const updateMeta = (id: string, meta: Record<string, any>) => {
+    setStore(
+      produce((draft) => {
+        const tab = draft.tabs.find((t) => t.id === id)
+        if (tab) Object.assign(tab.meta, meta)
+      }),
+    )
+  }
+
+  const setTitle = (id: string, title: string) => {
+    setStore(
+      produce((draft) => {
+        const tab = draft.tabs.find((t) => t.id === id)
+        if (tab) tab.title = title
+      }),
+    )
+  }
+
   return {
     tabs: () => store.tabs,
     activeId: () => store.activeId,
@@ -78,6 +117,9 @@ export function createContentTabStore() {
     close,
     activate,
     reorder,
+    replace,
+    updateMeta,
+    setTitle,
     makeTabId,
   }
 }
