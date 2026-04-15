@@ -27,6 +27,7 @@ export function TerminalTab(props: { tab: ContentTab }) {
       {(p) => (
         <Terminal
           pty={p}
+          forceDark
           onCleanup={terminal.update}
           onConnectError={() => terminal.clone(p.id)}
         />

@@ -22,6 +22,7 @@ export interface TerminalProps extends ComponentProps<"div"> {
   onCleanup?: (pty: Partial<LocalPTY> & { id: string }) => void
   onConnect?: () => void
   onConnectError?: (error: unknown) => void
+  forceDark?: boolean
 }
 
 let shared: Promise<{ mod: typeof import("ghostty-web"); ghostty: Ghostty }> | undefined
@@ -199,7 +200,7 @@ export const Terminal = (props: TerminalProps) => {
   const language = useLanguage()
   const server = useServer()
   let container!: HTMLDivElement
-  const [local, others] = splitProps(props, ["pty", "class", "classList", "onConnect", "onConnectError"])
+  const [local, others] = splitProps(props, ["pty", "class", "classList", "onConnect", "onConnectError", "forceDark"])
   const id = local.pty.id
   const restore = typeof local.pty.buffer === "string" ? local.pty.buffer : ""
   const restoreSize =
@@ -250,7 +251,7 @@ export const Terminal = (props: TerminalProps) => {
   }
 
   const getTerminalColors = (): TerminalColors => {
-    const mode = theme.mode() === "dark" ? "dark" : "light"
+    const mode = local.forceDark || theme.mode() === "dark" ? "dark" : "light"
     return DEFAULT_TERMINAL_COLORS[mode]
   }
 
