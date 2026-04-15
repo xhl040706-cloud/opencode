@@ -47,6 +47,9 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
   const handleOpenWorkspace = (workspace: Workspace) => {
     if (!workspace.deviceUniqueId) return
     enableWorkspace(workspace.id)
+    const dir = getPrimaryDirectory(workspace)
+    const dirSlug = dir ? encodeDirectory(dir.path) : "default"
+    navigateToNewSession({ workspaceId: workspace.id, dir: dirSlug })
   }
 
   const handleCloseWorkspace = (workspace: Workspace) => {

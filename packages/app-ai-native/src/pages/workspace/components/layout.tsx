@@ -11,6 +11,7 @@ import { WorkspaceProvider, useWorkspace, type WorkspaceContextValue } from "../
 import { ServerConnection, ServerProvider, useServer } from "@/context/server"
 import { useAuth } from "@/context/auth"
 import { AppInterface } from "@/app-interface"
+import { WorkspaceContentLayout } from "./workspace-content-layout"
 import { getProxyUrl } from "../lib/url"
 import { ActiveWorkspaceProvider, useActiveWorkspace } from "../active-workspace"
 import { useLanguage } from "@/context/language"
@@ -349,26 +350,18 @@ function WorkspaceContent(props: ParentProps) {
   const server = useServer()
   const ready = createMemo(() => !!params.workspaceID && !!server.key)
   return (
-    <Show
-      when={ready()}
-      fallback={
-        <Show when={!params.workspaceID} fallback={<div class="size-full" />}>
-          <div class="md:hidden h-10 shrink-0 flex items-center pl-2">
-            <IconButton
-              icon="menu"
-              variant="ghost"
-              class="titlebar-icon rounded-md"
-              onClick={drawer.toggle}
-              aria-label={language.t("workspace.page.title")}
-              aria-expanded={drawer.opened()}
-            />
-          </div>
-          {props.children}
-          <Toast.Region />
-        </Show>
-      }
-    >
-      <AppInterface>{props.children}</AppInterface>
-    </Show>
+    <div class="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
+      <Show
+        when={ready()}
+        fallback={
+          <Show when={!params.workspaceID} fallback={<div class="size-full" />}>
+            {props.children}
+            <Toast.Region />
+          </Show>
+        }
+      >
+        <WorkspaceContentLayout />
+      </Show>
+    </div>
   )
 }

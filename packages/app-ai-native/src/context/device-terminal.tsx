@@ -1,11 +1,9 @@
+import { createContext, useContext, type ParentProps } from "solid-js"
 import { createStore, produce } from "solid-js/store"
-import { createSimpleContext } from "@opencode-ai/ui/context"
-import { batch, createEffect, createMemo, createRoot, onCleanup } from "solid-js"
-import { useParams } from "@solidjs/router"
-import type { Platform } from "./platform"
+import { createMemo, createRoot, onCleanup, batch } from "solid-js"
+import { useServer } from "@/context/server"
+import { useDeviceSDK } from "@/context/device-sdk"
 import { Persist, persisted, removePersisted } from "@/utils/persist"
-import { useActiveWorkspace } from "@/pages/workspace/active-workspace"
-import { useServer } from "./server"
 import { CloudTerminalApi } from "@/lib/cloud-terminal-api"
 
 export type LocalPTY = {
@@ -19,64 +17,18 @@ export type LocalPTY = {
   cursor?: number
 }
 
-const WORKSPACE_KEY = "__workspace__"
 const MAX_TERMINAL_SESSIONS = 20
 
-export function getWorkspaceTerminalCacheKey(dir: string) {
-  return `${dir}:${WORKSPACE_KEY}`
+const numberFromTitle = (title: string) => {
+  const match = title.match(/^Terminal (\d+)$/)
+  if (!match) return
+  const value = Number(match[1])
+  if (!Number.isFinite(value) || value <= 0) return
+  return value
 }
 
-export function getLegacyTerminalStorageKeys(dir: string, legacySessionID?: string) {
-  if (!legacySessionID) return [`${dir}/terminal.v1`]
-  return [`${dir}/terminal/${legacySessionID}.v1`, `${dir}/terminal.v1`]
-}
-
-type TerminalSession = ReturnType<typeof createWorkspaceTerminalSession>
-
-type TerminalCacheEntry = {
-  value: TerminalSession
-  dispose: VoidFunction
-}
-
-const caches = new Set<Map<string, TerminalCacheEntry>>()
-
-export function clearWorkspaceTerminals(dir: string, sessionIDs?: string[], platform?: Platform, workspaceId?: string) {
-  const key = getWorkspaceTerminalCacheKey(dir)
-  for (const cache of caches) {
-    const entry = cache.get(key)
-    entry?.value.clear()
-  }
-
-  const target = workspaceId
-    ? Persist.device(workspaceId, `terminal:${dir}`)
-    : Persist.workspace(dir, "terminal")
-  removePersisted(target, platform)
-
-  const legacy = new Set(getLegacyTerminalStorageKeys(dir))
-  for (const id of sessionIDs ?? []) {
-    for (const key of getLegacyTerminalStorageKeys(dir, id)) {
-      legacy.add(key)
-    }
-  }
-  for (const key of legacy) {
-    removePersisted({ key }, platform)
-  }
-}
-
-function createWorkspaceTerminalSession(dir: string, workspaceId?: string, legacySessionID?: string, server?: ReturnType<typeof useServer>) {
-  const legacy = getLegacyTerminalStorageKeys(dir, legacySessionID)
-
-  const persistTarget = workspaceId
-    ? Persist.device(workspaceId, `terminal:${dir}`, legacy)
-    : Persist.workspace(dir, "terminal", legacy)
-
-  const numberFromTitle = (title: string) => {
-    const match = title.match(/^Terminal (\d+)$/)
-    if (!match) return
-    const value = Number(match[1])
-    if (!Number.isFinite(value) || value <= 0) return
-    return value
-  }
+function createDeviceTerminalSession(deviceId: string, directory: string, server: ReturnType<typeof useServer>) {
+  const persistTarget = Persist.device(deviceId, `terminal:${directory}`)
 
   const [store, setStore, _, ready] = persisted(
     persistTarget,
@@ -107,9 +59,9 @@ function createWorkspaceTerminalSession(dir: string, workspaceId?: string, legac
   }
 
   const cloudApi = (): CloudTerminalApi | null => {
-    const s = server?.current
-    if (!s || !workspaceId) return null
-    return new CloudTerminalApi({ server: s, deviceId: workspaceId })
+    const s = server.current
+    if (!s) return null
+    return new CloudTerminalApi({ server: s, deviceId })
   }
 
   return {
@@ -122,12 +74,12 @@ function createWorkspaceTerminalSession(dir: string, workspaceId?: string, legac
         setStore("all", [])
       })
     },
-    new() {
+    new(): Promise<string | undefined> {
       const nextNumber = pickNextTerminalNumber()
       const api = cloudApi()
-      if (!api) return
+      if (!api) return Promise.resolve(undefined)
 
-      api.create(dir, 24, 80)
+      return api.create(directory, 24, 80)
         .then((session) => {
           const id = session.sessionId
           setStore("all", store.all.length, {
@@ -135,10 +87,11 @@ function createWorkspaceTerminalSession(dir: string, workspaceId?: string, legac
             title: `Terminal ${nextNumber}`,
             titleNumber: nextNumber,
           })
-          setStore("active", id)
+          return id
         })
         .catch((error: unknown) => {
           console.error("Failed to create cloud terminal", error)
+          return undefined
         })
     },
     update(pty: Partial<LocalPTY> & { id: string }) {
@@ -160,7 +113,7 @@ function createWorkspaceTerminalSession(dir: string, workspaceId?: string, legac
       const api = cloudApi()
       if (!api) return
 
-      const session = await api.restart(id, dir).catch((error: unknown) => {
+      const session = await api.restart(id, directory).catch((error: unknown) => {
         console.error("Failed to clone cloud terminal", error)
         return null
       })
@@ -235,70 +188,125 @@ function createWorkspaceTerminalSession(dir: string, workspaceId?: string, legac
   }
 }
 
-export const { use: useTerminal, provider: TerminalProvider } = createSimpleContext({
-  name: "Terminal",
-  gate: false,
-  init: () => {
-    const params = useParams()
-    const active = useActiveWorkspace()
-    const server = useServer()
-    const cache = new Map<string, TerminalCacheEntry>()
+type TerminalSession = ReturnType<typeof createDeviceTerminalSession>
 
-    caches.add(cache)
-    onCleanup(() => caches.delete(cache))
+type TerminalCacheEntry = {
+  value: TerminalSession
+  dispose: VoidFunction
+}
 
-    const disposeAll = () => {
-      for (const entry of cache.values()) {
-        entry.dispose()
-      }
-      cache.clear()
+const caches = new Set<Map<string, TerminalCacheEntry>>()
+
+export function clearDeviceTerminals(deviceId: string, directory: string, sessionIDs?: string[], platform?: any) {
+  const key = `${deviceId}:${directory}`
+  for (const cache of caches) {
+    const entry = cache.get(key)
+    entry?.value.clear()
+  }
+
+  const target = Persist.device(deviceId, `terminal:${directory}`)
+  removePersisted(target, platform)
+}
+
+type DeviceTerminalValue = {
+  ready: () => boolean
+  all: () => LocalPTY[]
+  active: () => string | undefined
+  get: (id: string) => LocalPTY | undefined
+  clear: () => void
+  "new": () => Promise<string | undefined>
+  update: (pty: Partial<LocalPTY> & { id: string }) => void
+  clone: (id: string) => Promise<void>
+  open: (id: string) => void
+  close: (id: string) => Promise<void>
+  move: (id: string, to: number) => void
+  next: () => void
+  previous: () => void
+}
+
+const DeviceTerminalContext = createContext<DeviceTerminalValue>()
+
+export function DeviceTerminalProvider(props: ParentProps) {
+  const server = useServer()
+  const device = useDeviceSDK()
+
+  const cache = new Map<string, TerminalCacheEntry>()
+  caches.add(cache)
+  onCleanup(() => caches.delete(cache))
+
+  const disposeAll = () => {
+    for (const entry of cache.values()) {
+      entry.dispose()
+    }
+    cache.clear()
+  }
+
+  onCleanup(disposeAll)
+
+  const prune = () => {
+    while (cache.size > MAX_TERMINAL_SESSIONS) {
+      const first = cache.keys().next().value
+      if (!first) return
+      const entry = cache.get(first)
+      entry?.dispose()
+      cache.delete(first)
+    }
+  }
+
+  const deviceId = createMemo(() => {
+    const current = server.current
+    if (!current) return ""
+    const url = current.http.url
+    const match = url.match(/\/cloud\/device\/([^/]+)\/proxy/)
+    return match ? match[1] : ""
+  })
+
+  const loadSession = (dir: string) => {
+    const key = `${deviceId()}:${dir}`
+    const existing = cache.get(key)
+    if (existing) {
+      cache.delete(key)
+      cache.set(key, existing)
+      return existing.value
     }
 
-    onCleanup(disposeAll)
+    const entry = createRoot((dispose) => ({
+      value: createDeviceTerminalSession(deviceId(), dir, server),
+      dispose,
+    }))
 
-    const prune = () => {
-      while (cache.size > MAX_TERMINAL_SESSIONS) {
-        const first = cache.keys().next().value
-        if (!first) return
-        const entry = cache.get(first)
-        entry?.dispose()
-        cache.delete(first)
-      }
-    }
+    cache.set(key, entry)
+    prune()
+    return entry.value
+  }
 
-    const loadWorkspace = (dir: string, legacySessionID?: string) => {
-      const key = getWorkspaceTerminalCacheKey(dir)
-      const existing = cache.get(key)
-      if (existing) {
-        cache.delete(key)
-        cache.set(key, existing)
-        return existing.value
-      }
+  const terminal = createMemo(() => loadSession(device.directory))
 
-      const entry = createRoot((dispose) => ({
-        value: createWorkspaceTerminalSession(dir, active?.id, legacySessionID, server),
-        dispose,
-      }))
+  const value = {
+    ready: () => terminal().ready(),
+    all: () => terminal().all(),
+    active: () => terminal().active(),
+    get: (id: string) => terminal().all().find((p) => p.id === id),
+    clear: () => terminal().clear(),
+    "new": () => terminal().new() as Promise<string | undefined>,
+    update: (pty: Partial<LocalPTY> & { id: string }) => terminal().update(pty),
+    clone: (id: string) => terminal().clone(id),
+    open: (id: string) => terminal().open(id),
+    close: (id: string) => terminal().close(id),
+    move: (id: string, to: number) => terminal().move(id, to),
+    next: () => terminal().next(),
+    previous: () => terminal().previous(),
+  }
 
-      cache.set(key, entry)
-      prune()
-      return entry.value
-    }
+  return (
+    <DeviceTerminalContext.Provider value={value}>
+      {props.children}
+    </DeviceTerminalContext.Provider>
+  )
+}
 
-    const workspace = createMemo(() => loadWorkspace(params.dir!, params.id))
-
-    return {
-      ready: () => workspace().ready(),
-      all: () => workspace().all(),
-      active: () => workspace().active(),
-      new: () => workspace().new(),
-      update: (pty: Partial<LocalPTY> & { id: string }) => workspace().update(pty),
-      clone: (id: string) => workspace().clone(id),
-      open: (id: string) => workspace().open(id),
-      close: (id: string) => workspace().close(id),
-      move: (id: string, to: number) => workspace().move(id, to),
-      next: () => workspace().next(),
-      previous: () => workspace().previous(),
-    }
-  },
-})
+export function useDeviceTerminal() {
+  const ctx = useContext(DeviceTerminalContext)
+  if (!ctx) throw new Error("useDeviceTerminal must be used within DeviceTerminalProvider")
+  return ctx
+}

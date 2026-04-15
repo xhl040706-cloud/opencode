@@ -1,7 +1,8 @@
 import { createEffect, createMemo, Show, type ParentProps } from "solid-js"
 import { useNavigate, useParams } from "@solidjs/router"
-import { SDKProvider } from "@/context/sdk"
+import { SDKProvider, useSDK } from "@/context/sdk"
 import { SyncProvider, useSync } from "@/context/sync"
+import { ConversationAdapterContext, sdkAdapter } from "@/context/device-adapter"
 import { LocalProvider } from "@/context/local"
 import { DataProvider } from "@opencode-ai/ui/context"
 import { decode64 } from "@/utils/base64"
@@ -70,6 +71,12 @@ function legacyProvider(input: ReturnType<typeof useSync>["data"]["provider"]): 
   }
 }
 
+function AdapterBridge(props: ParentProps) {
+  const sdk = useSDK()
+  const adapter = createMemo(() => sdkAdapter(sdk.client))
+  return <ConversationAdapterContext.Provider value={adapter()}>{props.children}</ConversationAdapterContext.Provider>
+}
+
 function DirectoryDataProvider(props: ParentProps<{ directory: string; workspaceId: string; dirSlug: string }>) {
   const sync = useSync()
 
@@ -126,11 +133,13 @@ export default function Layout(props: ParentProps) {
     <Show when={directory()}>
       <DirectoryContext.Provider value={directory}>
         <SDKProvider directory={directory}>
+          <AdapterBridge>
           <SyncProvider>
             <DirectoryDataProvider directory={directory()!} workspaceId={params.workspaceID ?? ""} dirSlug={params.dir ?? ""}>
               {props.children}
             </DirectoryDataProvider>
           </SyncProvider>
+          </AdapterBridge>
         </SDKProvider>
       </DirectoryContext.Provider>
     </Show>

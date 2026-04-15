@@ -61,7 +61,7 @@
     "clsx": "2.1.1",
     "diff": "catalog:",
     "fuzzysort": "catalog:",
-    "ghostty-web": "github:anomalyco/ghostty-web#main",
+    "ghostty-web": "0.3.0",
     "luxon": "catalog:",
     "marked": "catalog:",
     "marked-shiki": "catalog:",
