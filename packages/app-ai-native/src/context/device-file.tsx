@@ -179,7 +179,7 @@ export function DeviceFileProvider(props: ParentProps) {
   }
 
   const search = (query: string, dirs: "true" | "false") =>
-    device.client.runtime.findFiles(query, dirs, device.directory).then(
+    device.client.runtime.findFiles(query, dirs).then(
       (x) => ((x as string[] | undefined) ?? []).map(path.normalize),
       () => [],
     )

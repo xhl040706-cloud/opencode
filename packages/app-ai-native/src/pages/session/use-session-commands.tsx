@@ -10,7 +10,7 @@ import { usePermission } from "@/context/permission"
 import { usePrompt } from "@/context/prompt"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
-import { workspaceAdapter } from "@/context/workspace-adapter"
+import { useConversationAdapter } from "@/context/device-adapter"
 import { useTerminal } from "@/context/terminal"
 import { DialogSelectFile } from "@/components/dialog-select-file"
 import { DialogSelectModel } from "@/components/dialog-select-model"
@@ -42,7 +42,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const permission = usePermission()
   const prompt = usePrompt()
   const sdk = useSDK()
-  const conversation = createMemo(() => workspaceAdapter(sdk.client))
+  const conversation = useConversationAdapter()
   const sync = useSync()
   const terminal = useTerminal()
   const layout = useLayout()
@@ -306,7 +306,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       onSelect: async () => {
         const sessionID = params.id
         if (!sessionID) return
-        await conversation().sessionCommand({
+        await conversation.sessionCommand({
           sessionID,
           command: "/compact",
         })

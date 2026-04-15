@@ -549,6 +549,7 @@ export const { use: useLayout, provider: LayoutProvider, context: LayoutContext 
 
     return {
       ready,
+      deviceMode: false as boolean,
       handoff: {
         tabs: createMemo(() => store.handoff?.tabs),
         setTabs(dir: string, id: string) {

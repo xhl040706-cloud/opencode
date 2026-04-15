@@ -209,6 +209,7 @@ export function ConfigureChannelDialog(props: Props) {
                     placeholder={field.placeholder ?? ""}
                     class="modal-input"
                     autocomplete="off"
+                    value={props.existing?.config?.[field.key] ?? ""}
                   />
                   <Show when={field.helpText}>
                     <span style={{ "font-size": "12px", color: "var(--st-text-secondary)" }}>

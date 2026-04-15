@@ -18,10 +18,11 @@ import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/
 import { SessionContextUsage } from "@/components/session-context-usage"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
+import { useLayout } from "@/context/layout"
 import { useSettings } from "@/context/settings"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
-import { workspaceAdapter } from "@/context/workspace-adapter"
+import { useConversationAdapter } from "@/context/device-adapter"
 import { parseCommentNote, readCommentMetadata } from "@/utils/comment-note"
 
 type MessageComment = {
@@ -213,15 +214,19 @@ export function MessageTimeline(props: {
   const params = useParams()
   const navigate = useNavigate()
   const sdk = useSDK()
-  const conversation = createMemo(() => workspaceAdapter(sdk.client))
+  const conversation = useConversationAdapter()
   const sync = useSync()
   const settings = useSettings()
+  const layout = useLayout()
   const dialog = useDialog()
   const language = useLanguage()
 
   const rendered = createMemo(() => props.renderedUserMessages.map((message) => message.id))
-  const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
-  const sessionID = createMemo(() => params.id)
+  const sessionKey = createMemo(() => {
+    const id = params.id || (sync as any).currentSessionID?.()
+    return `${params.dir}${id ? "/" + id : ""}`
+  })
+  const sessionID = createMemo(() => params.id || (sync as any).currentSessionID?.())
   const sessionMessages = createMemo(() => {
     const id = sessionID()
     if (!id) return emptyMessages
@@ -324,7 +329,7 @@ export function MessageTimeline(props: {
     }
 
     setTitle("saving", true)
-    await conversation()
+    await conversation
       .sessionUpdate({ sessionID: id, title: next })
       .then(() => {
         sync.set(
@@ -357,7 +362,7 @@ export function MessageTimeline(props: {
     const session = sync.session.get(sessionID)
     if (!session) return
 
-    await conversation()
+    await conversation
       .sessionUpdate({ sessionID, time: { archived: Date.now() } })
       .then(() => {
         sync.set(
@@ -380,7 +385,7 @@ export function MessageTimeline(props: {
     const session = sync.session.get(sessionID)
     if (!session) return false
 
-    const result = await conversation()
+    const result = await conversation
       .sessionDelete(sessionID)
       .then((x) => x.data)
       .catch((err) => {
@@ -435,6 +440,10 @@ export function MessageTimeline(props: {
   const navigateParent = () => {
     const id = parentID()
     if (!id) return
+    if (layout.deviceMode) {
+      const back = (sync as any).navigateBack
+      if (back) { back(); return }
+    }
     navigate(`/workspace/${params.workspaceID}/${params.dir}/session/${id}`)
   }
 
@@ -482,7 +491,7 @@ export function MessageTimeline(props: {
           }}
         >
           <button
-            class="pointer-events-auto size-8 flex items-center justify-center rounded-full bg-background-base border border-border-base shadow-sm text-text-base hover:bg-background-stronger transition-colors"
+            class="pointer-events-auto size-8 flex items-center justify-center rounded-full bg-background-base border shadow-sm text-text-base hover:bg-background-stronger transition-colors"
             onClick={props.onResumeScroll}
           >
             <Icon name="arrow-down-to-line" />
