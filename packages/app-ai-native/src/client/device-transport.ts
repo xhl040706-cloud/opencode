@@ -26,7 +26,10 @@ function query(path: string, input?: Query) {
 
 async function parse(res: Response) {
   if (res.status === 204 || res.status === 205) return undefined
-  return res.json().catch(() => undefined)
+  const body = await res.json().catch(() => undefined)
+  if (!body || typeof body !== "object") return body
+  if ("ok" in body && "data" in body) return (body as any).data
+  return body
 }
 
 export function createDeviceTransport(opts: TransportOpts) {
@@ -42,11 +45,13 @@ export function createDeviceTransport(opts: TransportOpts) {
         ...opts.headers,
       },
       signal: input?.signal ?? opts.signal,
-      body: input?.body === undefined ? undefined : JSON.stringify(input.body),
+      body: method !== "GET" && method !== "HEAD" ? JSON.stringify(input?.body ?? {}) : undefined,
     })
     const data = await parse(res)
     if (!res.ok) {
-      const message = data && typeof data === "object" && "error" in data ? String((data as any).error) : `Request failed: ${res.status}`
+      const message = data && typeof data === "object" && "error" in data
+        ? (typeof (data as any).error === "object" ? ((data as any).error?.message ?? String((data as any).error)) : String((data as any).error))
+        : `Request failed: ${res.status}`
       throw new Error(message)
     }
     return data as T
