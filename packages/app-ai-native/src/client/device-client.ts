@@ -217,6 +217,7 @@ export function createDeviceClient(opts: ClientOpts): DeviceClient {
               credentials: "include",
               headers: {
                 Accept: "text/event-stream",
+                ...(opts.directory ? { "X-Workspace-Directory": opts.directory } : {}),
                 ...(opts.headers ?? {}),
               },
               signal: controller.signal,
