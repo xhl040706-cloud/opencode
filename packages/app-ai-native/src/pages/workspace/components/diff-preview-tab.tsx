@@ -94,7 +94,7 @@ export function DiffPreviewTab(props: { tab: ContentTab }) {
   return (
     <div class="h-full flex flex-col">
       <Show when={path()}>
-        <div class="shrink-0 h-7 flex items-center px-3 border-b bg-background-base text-12-regular text-text-weak truncate">
+        <div class="shrink-0 h-8 flex items-center gap-0.5 px-3 border-b bg-background-base z-10 text-12-medium text-text-weak truncate">
           {path()}
         </div>
       </Show>

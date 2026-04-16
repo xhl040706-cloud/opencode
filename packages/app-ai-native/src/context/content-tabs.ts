@@ -109,12 +109,22 @@ export function createContentTabStore() {
     )
   }
 
+  const closeAll = () => {
+    setStore(
+      produce((draft) => {
+        draft.tabs = []
+        draft.activeId = undefined
+      }),
+    )
+  }
+
   return {
     tabs: () => store.tabs,
     activeId: () => store.activeId,
     active: () => store.tabs.find((t) => t.id === store.activeId),
     open,
     close,
+    closeAll,
     activate,
     reorder,
     replace,

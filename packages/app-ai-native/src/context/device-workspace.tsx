@@ -95,7 +95,7 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
       const [agentsRes, commandsRes, sessionsRes, vcsRes, providersRes] = await Promise.all([
         device.client.agent.sessionModes().catch(() => undefined),
         device.client.agent.commands().catch(() => undefined),
-        device.client.conversation.list({ roots: "true", limit: 50 }).catch(() => undefined),
+        device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory }).catch(() => undefined),
         device.client.runtime.vcs().catch(() => undefined),
         device.client.agent.models().catch(() => undefined),
       ])
@@ -151,7 +151,7 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
   const fetchSessions = async (count = 10) => {
     if (!store.agentAvailable) return
     try {
-      const result = await device.client.conversation.list({ roots: "true", limit: 50 })
+      const result = await device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory })
       const sessions = (result as Session[]) ?? []
       batch(() => {
         setStore("session", reconcile(sessions.filter((s) => !!s?.id).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)), { key: "id" }))

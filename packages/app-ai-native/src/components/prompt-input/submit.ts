@@ -58,7 +58,7 @@ type CommentItem = {
 export function createPromptSubmit(input: PromptSubmitInput) {
   const navigate = useNavigate()
   const params = useParams()
-  const { navigateToSession, encodeDirectory } = useWorkspaceNavigate()
+  const { navigateToSession } = useWorkspaceNavigate()
   const sdk = useSDK()
   const sync = useSync()
   const globalSync = useGlobalSync()
@@ -214,11 +214,10 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           })
           return undefined
         })) as Session | undefined
-      if (session) {
+        if (session) {
         if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
-        layout.handoff.setTabs(encodeDirectory(sessionDirectory), session.id)
         if (!layout.deviceMode) {
-          navigateToSession(session.id, { dir: encodeDirectory(sessionDirectory) })
+          navigateToSession(session.id, {})
         }
       }
     }
