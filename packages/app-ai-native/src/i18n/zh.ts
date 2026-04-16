@@ -1292,6 +1292,10 @@ export const dict = {
   "workspace.loadingSessions": "加载会话...",
   "workspace.emptySessions": "暂无会话，点击上方按钮新建",
   "workspace.session.new": "新会话",
+  "workspace.session.group.today": "今天",
+  "workspace.session.group.thisWeek": "近7天",
+  "workspace.session.group.older": "更早",
+  "workspace.content.closeAll": "关闭全部",
 
 
   "workspace.device.list": "设备列表",
@@ -1328,6 +1332,8 @@ export const dict = {
   "workspace.content.section.changes": "更改",
   "workspace.content.newSession": "新建会话",
   "workspace.content.comingSoon": "即将推出",
+  "workspace.content.viewPreview": "预览",
+  "workspace.content.viewSource": "源码",
 
   "workspace.home.title": "欢迎使用 CoStrict Cloud",
   "workspace.home.subtitle": "AI 驱动的云端编程工作空间。连接你的设备并开始编码。",

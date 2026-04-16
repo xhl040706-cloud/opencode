@@ -1519,6 +1519,10 @@ export const dict = {
   "workspace.loadingSessions": "Loading sessions...",
   "workspace.emptySessions": "No sessions yet, click above to create one",
   "workspace.session.new": "New session",
+  "workspace.session.group.today": "Today",
+  "workspace.session.group.thisWeek": "Last 7 Days",
+  "workspace.session.group.older": "Older",
+  "workspace.content.closeAll": "Close All",
 
 
   "workspace.device.list": "Device List",
@@ -1557,6 +1561,8 @@ export const dict = {
   "workspace.content.section.changes": "Changes",
   "workspace.content.newSession": "New session",
   "workspace.content.comingSoon": "Coming soon",
+  "workspace.content.viewPreview": "Preview",
+  "workspace.content.viewSource": "Source",
 
   "workspace.home.title": "Welcome to CoStrict Cloud",
   "workspace.home.subtitle": "AI-powered cloud workspace. Connect to your devices and start coding.",

@@ -25,6 +25,14 @@ export type DiffData = {
   diff?: string
 }
 
+export type RuntimeConfig = {
+  allow_absolute_paths: boolean
+  max_list_depth: number
+  allowed_operations: string[]
+  blacklist_count: number
+  whitelist_enabled: boolean
+}
+
 export type DeviceClient = {
   baseUrl: string
   transport: ReturnType<typeof createDeviceTransport>
@@ -37,6 +45,7 @@ export type DeviceClient = {
   }
   runtime: {
     health: () => Promise<{ healthy: boolean; version?: string }>
+    config: () => Promise<RuntimeConfig>
     path: () => Promise<unknown>
     vcs: () => Promise<unknown>
     fileList: (path: string) => Promise<Array<{ name: string; path: string; absolute: string; type: "directory" | "file"; ignored: boolean }>>
@@ -126,6 +135,7 @@ export function createDeviceClient(opts: ClientOpts): DeviceClient {
     },
     runtime: {
       health: () => http.get<{ status?: string; version?: string }>("/api/v1/runtime/health").then((res) => ({ healthy: !!res && (res as any).status === "ok", version: (res as any)?.version })),
+      config: () => http.get<RuntimeConfig>("/api/v1/runtime/config"),
       path: () => http.get("/api/v1/runtime/path"),
       vcs: () => http.get("/api/v1/runtime/vcs"),
       fileList: (path: string) => http.get<{ path?: string; entries?: Array<{ name: string; type: string }> }>("/api/v1/runtime/files", { path }).then((res) => {

@@ -1,10 +1,16 @@
-import { Show, createMemo, createSignal, createEffect, on, onCleanup, batch } from "solid-js"
+import { Show, For, createMemo, createSignal, createEffect, on, onCleanup, batch } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { createAutoScroll } from "@opencode-ai/ui/hooks"
 import { DataProvider } from "@opencode-ai/ui/context"
 import { FileComponentProvider } from "@opencode-ai/ui/context/file"
 import { File } from "@opencode-ai/ui/file"
 import { Icon } from "@opencode-ai/ui/icon"
+import { IconButton } from "@opencode-ai/ui/icon-button"
+import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
+import { Dialog } from "@opencode-ai/ui/dialog"
+import { Button } from "@opencode-ai/ui/button"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { useDeviceSession } from "@/context/device-session"
@@ -104,14 +110,32 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const language = useLanguage()
   const file = useFile()
   const tabStore = useContentTabs()
+  const dialog = useDialog()
 
   const [createdSessionID, setCreatedSessionID] = createSignal<string | undefined>()
-  const [viewingStack, setViewingStack] = createSignal<string[]>([])
+  const [viewingStack, setViewingStack] = createSignal<{ id: string; name: string }[]>([])
   const [loadedMessages, setLoadedMessages] = createStore<Record<string, Message[]>>({})
   const [loadedParts, setLoadedParts] = createStore<Record<string, Part[]>>({})
   const [loadedStatus, setLoadedStatus] = createSignal<SessionStatus | undefined>()
   const [loadedDiffs, setLoadedDiffs] = createStore<FileDiff[]>([])
   const [loadedTodos, setLoadedTodos] = createStore<Todo[]>([])
+
+  createEffect((prev: string[]) => {
+    const stack = viewingStack()
+    const currentIds = stack.map((e) => e.id)
+    if (prev.length > currentIds.length) {
+      const removed = prev.filter((id) => !currentIds.includes(id))
+      batch(() => {
+        for (const id of removed) {
+          setLoadedMessages(id, reconcile([] as Message[]))
+        }
+        setLoadedDiffs(reconcile([] as FileDiff[], { key: "file" }))
+        setLoadedTodos(reconcile([] as Todo[], { key: "id" }))
+        setLoadedStatus(undefined)
+      })
+    }
+    return currentIds
+  }, [] as string[])
 
   const containerRef = (el: HTMLDivElement) => {
     el.addEventListener("click", (e) => {
@@ -123,7 +147,8 @@ export function DeviceSessionTab(props: { tabId: string }) {
       e.preventDefault()
       e.stopPropagation()
       const id = href.slice("#subagent-".length)
-      setViewingStack((prev) => [...prev, id])
+      const name = anchor.textContent?.trim() || id.slice(0, 8)
+      setViewingStack((prev) => [...prev, { id, name }])
     }, true)
   }
 
@@ -132,9 +157,18 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const rootSessionID = createMemo(() => createdSessionID() ?? session.sessionID())
   const viewingSessionID = createMemo(() => {
     const stack = viewingStack()
-    return stack.length > 0 ? stack[stack.length - 1] : undefined
+    return stack.length > 0 ? stack[stack.length - 1].id : undefined
   })
   const currentSessionID = createMemo(() => viewingSessionID() ?? rootSessionID())
+
+  createEffect(() => {
+    if (isNew()) return
+    const msgs = effectiveMessages()
+    const last = [...msgs].reverse().find((m) => m.role === "user")
+    if (!last) return
+    if (last.agent) local.agent.set(last.agent)
+    if (last.model) local.model.set(last.model)
+  })
 
   const adapter = createMemo(() => deviceAdapter(device.client))
 
@@ -148,36 +182,27 @@ export function DeviceSessionTab(props: { tabId: string }) {
 
   const effectiveStatus = createMemo(() => {
     if (viewingSessionID()) return loadedStatus() ?? { type: "idle" } as SessionStatus
-    if (createdSessionID()) return loadedStatus() ?? session.data.status
     return session.data.status
   })
 
   const effectiveParts = createMemo(() => {
-    const merged: Record<string, Part[]> = {}
-    for (const [k, v] of Object.entries(session.data.parts)) {
-      if (v && v.length > 0) merged[k] = v
-    }
-    for (const [k, v] of Object.entries(loadedParts)) {
-      if (v && v.length > 0) merged[k] = v
-      else delete merged[k]
-    }
-    return merged
+    if (viewingSessionID()) return loadedParts as Record<string, Part[]>
+    return session.data.parts
   })
 
   const effectiveDiffs = createMemo(() => {
-    if (viewingSessionID() || createdSessionID()) return loadedDiffs as unknown as FileDiff[]
+    if (viewingSessionID()) return loadedDiffs as unknown as FileDiff[]
     return session.data.diffs
   })
 
   const effectiveTodos = createMemo(() => {
-    if (viewingSessionID() || createdSessionID()) return loadedTodos as unknown as Todo[]
+    if (viewingSessionID()) return loadedTodos as unknown as Todo[]
     return session.data.todos
   })
 
   createEffect(on(currentSessionID, async (id) => {
     if (!id) return
     if (id === rootSessionID() && !viewingSessionID()) return
-    if (loadedMessages[id]?.length) return
     try {
       const [sessionRes, messagesRes] = await Promise.all([
         device.client.conversation.get(id).catch(() => undefined),
@@ -208,6 +233,16 @@ export function DeviceSessionTab(props: { tabId: string }) {
         if (info.title) tabStore.setTitle(props.tabId, info.title)
       }
     }
+
+    if (payload.type === "session.updated") {
+      const info = (payload.properties as { info?: Session })?.info ?? payload.properties as Session
+      const cid = currentSessionID()
+      if (info?.id === cid && info.title) {
+        tabStore.setTitle(props.tabId, info.title)
+      }
+    }
+
+    if (!viewingSessionID()) return
 
     const cid = currentSessionID()
     if (!cid) return
@@ -273,13 +308,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
           if (props.todos) setLoadedTodos(reconcile(props.todos, { key: "id" }))
           break
         }
-        case "session.updated": {
-          const info = (payload.properties as { info?: Session })?.info ?? payload.properties as Session
-          if (info?.id === cid && info.title) {
-            tabStore.setTitle(props.tabId, info.title)
-          }
-          break
-        }
       }
     })
   })
@@ -327,6 +355,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
   }))
 
   const syncSet = (...args: any[]) => {
+    if (!viewingSessionID()) return
     if (args[0] === "session_status" && args[1]) {
       setLoadedStatus(args[2] as SessionStatus)
     }
@@ -353,6 +382,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
       optimistic: {
         add(input: { directory?: string; sessionID: string; message: Message; parts: Part[] }) {
           session.optimistic.add({ message: input.message, parts: input.parts })
+          if (!viewingSessionID()) return
           const cid = currentSessionID()
           if (cid) {
             setLoadedMessages(cid, produce((draft: Message[]) => {
@@ -371,6 +401,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
         },
         remove(input: { directory?: string; sessionID: string; messageID: string }) {
           session.optimistic.remove({ messageID: input.messageID })
+          if (!viewingSessionID()) return
           const cid = currentSessionID()
           if (cid) {
             setLoadedMessages(cid, produce((draft: Message[]) => {
@@ -382,6 +413,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
       },
       addOptimisticMessage(input: { sessionID: string; messageID: string; parts: Part[]; agent: string; model: { providerID: string; modelID: string } }) {
         session.addOptimisticMessage(input)
+        if (!viewingSessionID()) return
         const cid = currentSessionID()
         if (cid) {
           const message: Message = {
@@ -604,26 +636,100 @@ export function DeviceSessionTab(props: { tabId: string }) {
                 <SettingsContext.Provider value={settingsValue as any}>
                   <DataProvider data={dataProps()} directory={device.directory}
                     onNavigateToSession={(id: string) => {
-                      setViewingStack((prev) => [...prev, id])
+                      const s = workspace.data.session.find((s) => s.id === id)
+                      const name = s?.title ?? id.slice(0, 8)
+                      setViewingStack((prev) => [...prev, { id, name }])
                     }}
                     onSessionHref={(id: string) => `#subagent-${id}`}
                   >
                     <FileComponentProvider component={File}>
                   <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
-                    <Show when={viewingSessionID()}>
-                      <div class="shrink-0 flex items-center gap-1 px-3 h-8 border-b border-border-base bg-background-base z-10">
+                    <div class="shrink-0 flex items-center gap-0.5 px-3 h-8 border-b bg-background-base z-10">
+                      <div class="flex items-center gap-0.5 min-w-0 flex-1 overflow-hidden">
                         <button
-                          class="text-12-medium text-text-weak hover:text-text-base flex items-center gap-1"
-                          onClick={() => setViewingStack((prev) => prev.slice(0, -1))}
+                          class="text-12-medium flex items-center min-w-0 truncate"
+                          classList={{
+                            "text-text-base": viewingStack().length === 0,
+                            "text-text-weak hover:text-text-base": viewingStack().length > 0,
+                          }}
+                          onClick={() => setViewingStack([])}
                         >
-                          <Icon name="arrow-left" class="size-3" />
-                          {language.t("common.goBack")}
+                          {tabStore.tabs().find((t) => t.id === props.tabId)?.title ?? language.t("command.session.new")}
                         </button>
-                        <span class="text-12-regular text-text-weak truncate ml-1">
-                          {syncValue.session.get(viewingSessionID()!)?.title ?? viewingSessionID()}
-                        </span>
+                        <For each={viewingStack()}>
+                          {(entry, idx) => (
+                            <>
+                              <Icon name="chevron-right" class="size-3 shrink-0 text-text-weak" />
+                              <button
+                                class="text-12-medium min-w-0 truncate"
+                                classList={{
+                                  "text-text-base": idx() === viewingStack().length - 1,
+                                  "text-text-weak hover:text-text-base": idx() !== viewingStack().length - 1,
+                                }}
+                                onClick={() => setViewingStack((prev) => prev.slice(0, idx() + 1))}
+                              >
+                                {entry.name}
+                              </button>
+                            </>
+                          )}
+                        </For>
                       </div>
-                    </Show>
+                      <Show when={!isNew() && !viewingSessionID()}>
+                        <div class="shrink-0 flex items-center gap-0.5 ml-1">
+                          <DropdownMenu gutter={4} placement="bottom-end">
+                            <DropdownMenu.Trigger
+                              as={IconButton}
+                              icon="dot-grid"
+                              variant="ghost"
+                              iconSize="small"
+                              class="size-6 rounded-md"
+                              aria-label={language.t("common.moreOptions")}
+                            />
+                            <DropdownMenu.Portal>
+                              <DropdownMenu.Content style={{ "min-width": "104px" }}>
+                                <DropdownMenu.Item onSelect={() => {
+                                  const sid = rootSessionID()
+                                  if (sid) void workspace.session.archive(sid)
+                                }}>
+                                  <DropdownMenu.ItemLabel>{language.t("common.archive")}</DropdownMenu.ItemLabel>
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Separator />
+                                <DropdownMenu.Item onSelect={() => {
+                                  const sid = rootSessionID()
+                                  if (!sid) return
+                                  const name = workspace.data.session.find((s) => s.id === sid)?.title ?? language.t("command.session.new")
+                                  dialog.show(() => (
+                                    <Dialog title={language.t("session.delete.title")} fit>
+                                      <div class="flex flex-col gap-4 pl-6 pr-2.5 pb-3">
+                                        <div class="flex flex-col gap-1">
+                                          <span class="text-14-regular text-text-strong">
+                                            {language.t("session.delete.confirm", { name })}
+                                          </span>
+                                        </div>
+                                        <div class="flex justify-end gap-2">
+                                          <Button variant="ghost" size="large" onClick={() => dialog.close()}>
+                                            {language.t("common.cancel")}
+                                          </Button>
+                                          <Button variant="primary" size="large" onClick={async () => {
+                                            await device.client.conversation.delete(sid).catch(() => {})
+                                            tabStore.close(props.tabId)
+                                            dialog.close()
+                                          }}>
+                                            {language.t("session.delete.button")}
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </Dialog>
+                                  ))
+                                }}>
+                                  <DropdownMenu.ItemLabel>{language.t("common.delete")}</DropdownMenu.ItemLabel>
+                                </DropdownMenu.Item>
+                              </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                          </DropdownMenu>
+                        </div>
+                      </Show>
+                    </div>
                     <div ref={containerRef} class="flex-1 min-h-0 flex flex-col">
                       <div class="@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1">
                         <div class="flex-1 min-h-0 overflow-hidden">
@@ -637,6 +743,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
                             }
                           >
                             <MessageTimeline
+                              hideHeader
                               mobileChanges={false}
                               mobileFallback={<div />}
                               scroll={{ overflow: false, bottom: true }}

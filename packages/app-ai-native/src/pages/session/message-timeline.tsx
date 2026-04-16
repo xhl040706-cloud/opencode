@@ -208,6 +208,7 @@ export function MessageTimeline(props: {
   anchor: (id: string) => string
   onRegisterMessage: (el: HTMLDivElement, id: string) => void
   onUnregisterMessage: (id: string) => void
+  hideHeader?: boolean
 }) {
   let touchGesture: number | undefined
 
@@ -268,7 +269,7 @@ export function MessageTimeline(props: {
   })
   const titleValue = createMemo(() => info()?.title)
   const parentID = createMemo(() => info()?.parentID)
-  const showHeader = createMemo(() => !!(titleValue() || parentID()))
+  const showHeader = createMemo(() => !props.hideHeader && !!(titleValue() || parentID()))
   const stageCfg = { init: 1, batch: 3 }
   const staging = createTimelineStaging({
     sessionKey,
@@ -352,10 +353,11 @@ export function MessageTimeline(props: {
   const navigateAfterSessionRemoval = (sessionID: string, parentID?: string) => {
     if (params.id !== sessionID) return
     if (parentID) {
-      navigate(`/workspace/${params.workspaceID}/${params.dir}/session/${parentID}`)
+      navigate(`/workspace/${params.workspaceID}/${parentID}`)
       return
     }
-    navigate(`/workspace/${params.workspaceID}/${params.dir}/session`)
+
+    navigate(`/workspace/${params.workspaceID}`)
   }
 
   const archiveSession = async (sessionID: string) => {
@@ -444,7 +446,7 @@ export function MessageTimeline(props: {
       const back = (sync as any).navigateBack
       if (back) { back(); return }
     }
-    navigate(`/workspace/${params.workspaceID}/${params.dir}/session/${id}`)
+    navigate(`/workspace/${params.workspaceID}/${id}`)
   }
 
   function DialogDeleteSession(props: { sessionID: string }) {
@@ -666,7 +668,7 @@ export function MessageTimeline(props: {
 
             <div
               role="log"
-              class="flex flex-col gap-12 items-start justify-start pb-16 transition-[margin]"
+              class="flex flex-col gap-12 items-start justify-start pt-4 pb-16 transition-[margin]"
               classList={{
                 "w-full": true,
                 "md:max-w-200 md:mx-auto 2xl:max-w-[1000px]": props.centered,

@@ -1,5 +1,5 @@
 import { createContext, useContext, type ParentProps } from "solid-js"
-import { batch, createMemo, onCleanup } from "solid-js"
+import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
 import { useDeviceWorkspace } from "./device-workspace"
@@ -88,6 +88,10 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
   }
 
   const sid = createMemo(() => props.sessionID)
+
+  createEffect(() => {
+    if (sid()) void syncSession()
+  })
 
   const loadMessages = async (limit: number) => {
     const id = sid()

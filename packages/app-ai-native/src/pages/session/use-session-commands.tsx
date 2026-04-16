@@ -105,7 +105,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
       title: language.t("command.session.new"),
       keybind: "mod+shift+s",
       slash: "new",
-      onSelect: () => navigate(`/workspace/${params.workspaceID}/${params.dir}/session`),
+      onSelect: () => navigate(`/workspace/${params.workspaceID}`),
     }),
   ])
 
