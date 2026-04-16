@@ -1,8 +1,12 @@
 import { spawn } from "child_process"
+import { createHash } from "node:crypto"
+import { createWriteStream, promises as fsp } from "node:fs"
 import fs from "fs"
+import os from "os"
 import path from "path"
+import { pipeline } from "node:stream/promises"
 import { cmd } from "./cmd"
-import { Global } from "../../global"
+import { getCloudBaseUrl } from "../../costrict/device/client"
 import {
   downloadFavoriteItem,
   loadFavoriteItem,
@@ -15,26 +19,127 @@ import {
 
 function csCloudBin(): string {
   const ext = process.platform === "win32" ? ".exe" : ""
-  return path.join(Global.Path.bin, `cs-cloud${ext}`)
+  const binDir = path.join(os.homedir(), ".costrict", "bin")
+  return path.join(binDir, `cs-cloud${ext}`)
 }
 
-function runCsCloud(args: string[]): void {
-  const bin = csCloudBin()
-  if (!fs.existsSync(bin)) {
-    console.error(`cs-cloud binary not found: ${bin}`)
-    process.exit(1)
+function getReleasePlatform(): string {
+  const os = process.platform === "win32" ? "windows" : process.platform
+  const arch = process.arch === "x64" ? "amd64" : process.arch === "arm64" ? "arm64" : "amd64"
+  return `${os}-${arch}`
+}
+
+interface UpdateCheckResponse {
+  can_update: boolean
+  version: string
+  changelog?: string
+  download_url?: string
+  sha256?: string
+  force?: boolean
+  min_client_version?: string
+  release_date?: string
+  size?: number
+}
+
+async function fetchUpdateInfo(): Promise<UpdateCheckResponse> {
+  const base = getCloudBaseUrl()
+  const platform = getReleasePlatform()
+  const url = `${base}/api/updates/check?platform=${encodeURIComponent(platform)}&version=0.0.0`
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error(`update check failed: ${res.status} ${await res.text().catch(() => "")}`)
   }
+  return (await res.json()) as UpdateCheckResponse
+}
+
+async function downloadFile(url: string, dest: string, expectedSha256?: string, totalSize?: number): Promise<void> {
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error(`download failed: ${res.status}`)
+  }
+  const tmp = dest + ".tmp"
+  try {
+    const body = res.body
+    if (!body) throw new Error("empty response body")
+    const fileStream = createWriteStream(tmp, { mode: 0o755 })
+    const hash = expectedSha256 ? createHash("sha256") : null
+    const reader = body.getReader()
+    let downloaded = 0
+    let lastLog = 0
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        hash?.update(value)
+        fileStream.write(value)
+        downloaded += value.length
+        const now = Date.now()
+        if (totalSize && now - lastLog > 500) {
+          const pct = Math.min(Math.round((downloaded / totalSize) * 100), 100)
+          const mb = (downloaded / 1048576).toFixed(1)
+          const total = (totalSize / 1048576).toFixed(1)
+          process.stdout.write(`\rdownloading... ${pct}% (${mb}/${total} MB)`)
+          lastLog = now
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+    if (totalSize) process.stdout.write("\r")
+    fileStream.end()
+    await new Promise<void>((resolve, reject) => {
+      fileStream.on("finish", resolve)
+      fileStream.on("error", reject)
+    })
+    if (hash && expectedSha256) {
+      const actual = hash.digest("hex")
+      if (actual !== expectedSha256) {
+        throw new Error(`sha256 mismatch: expected ${expectedSha256}, got ${actual}`)
+      }
+    }
+    await fsp.rename(tmp, dest)
+  } catch (err) {
+    await fsp.unlink(tmp).catch(() => {})
+    throw err
+  }
+}
+
+async function ensureCsCloud(): Promise<string> {
+  const bin = csCloudBin()
+  if (fs.existsSync(bin)) return bin
+
+  console.log("cs-cloud not found, downloading...")
+  const info = await fetchUpdateInfo()
+  if (!info.can_update || !info.download_url) {
+    throw new Error("no cs-cloud release available for your platform")
+  }
+
+  await fsp.mkdir(path.dirname(bin), { recursive: true })
+  await downloadFile(info.download_url, bin, info.sha256, info.size)
+
+  if (process.platform !== "win32") {
+    await fsp.chmod(bin, 0o755)
+  }
+
+  console.log(`cs-cloud ${info.version} installed`)
+  return bin
+}
+
+async function runCsCloud(args: string[]): Promise<void> {
+  const bin = await ensureCsCloud()
   const child = spawn(bin, args, {
     stdio: "inherit",
-    windowsHide: true,
+    windowsHide: false,
+    env: { ...process.env },
   })
-  child.on("error", (err) => {
-    console.error(`failed to run cs-cloud: ${err.message}`)
-    process.exit(1)
+  const code = await new Promise<number | null>((resolve) => {
+    child.on("error", (err) => {
+      console.error(`failed to run cs-cloud: ${err.message}`)
+      resolve(1)
+    })
+    child.on("exit", resolve)
   })
-  child.on("exit", (code) => {
-    process.exit(code !== null ? code : 1)
-  })
+  process.exit(code ?? 1)
 }
 
 function pad(value: string, width: number) {
@@ -156,14 +261,14 @@ export const CloudCommand = cmd({
   describe: "manage cloud daemon (register device and connect via WebSocket tunnel)",
   builder: (yargs) =>
     yargs
-      .command("start", "start cloud daemon", {}, () => {
-        runCsCloud(["start"])
+      .command("start", "start cloud daemon", {}, async () => {
+        await runCsCloud(["start"])
       })
-      .command("stop", "stop cloud daemon", {}, () => {
-        runCsCloud(["stop"])
+      .command("stop", "stop cloud daemon", {}, async () => {
+        await runCsCloud(["stop"])
       })
-      .command("status", "show cloud daemon status", {}, () => {
-        runCsCloud(["status"])
+      .command("status", "show cloud daemon status", {}, async () => {
+        await runCsCloud(["status"])
       })
       .command(
         "logs",
@@ -172,15 +277,23 @@ export const CloudCommand = cmd({
           y
             .option("lines", { alias: "n", type: "number", default: 100, describe: "number of lines to show" })
             .option("follow", { alias: "f", type: "boolean", default: false, describe: "follow log output" }),
-        (args) => {
+        async (args) => {
           const pass = ["logs"]
           if (args.lines) pass.push("-n", String(args.lines))
           if (args.follow) pass.push("-f")
-          runCsCloud(pass)
+          await runCsCloud(pass)
         },
       )
-      .command("restart", "restart cloud daemon", {}, () => {
-        runCsCloud(["restart"])
+      .command("restart", "restart cloud daemon", {}, async () => {
+        await runCsCloud(["restart"])
+      })
+      .command("upgrade", "check and apply cs-cloud upgrade", {}, async () => {
+        const bin = csCloudBin()
+        if (fs.existsSync(bin)) {
+          await runCsCloud(["upgrade"])
+          return
+        }
+        await ensureCsCloud()
       })
       .command(
         "favorite <command> [id]",
@@ -236,7 +349,7 @@ export const CloudCommand = cmd({
         },
       ),
   handler: async () => {
-    console.error("specify a subcommand: start, stop, restart, status, logs, favorite")
+    console.error("specify a subcommand: start, stop, restart, status, logs, upgrade, favorite")
     process.exit(1)
   },
 })

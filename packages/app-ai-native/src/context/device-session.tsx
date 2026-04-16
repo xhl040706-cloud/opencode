@@ -3,7 +3,7 @@ import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
 import { useDeviceWorkspace } from "./device-workspace"
-import type { Message, Part, Session, SessionStatus, FileDiff, Todo, PermissionRequest } from "@opencode-ai/sdk/v2/client"
+import type { Message, Part, Session, SessionStatus, FileDiff, Todo, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 
 type SessionData = {
   session: Session | undefined
@@ -12,6 +12,8 @@ type SessionData = {
   status: SessionStatus | undefined
   diffs: FileDiff[]
   todos: Todo[]
+  permissions: Record<string, PermissionRequest[]>
+  questions: Record<string, QuestionRequest[]>
 }
 
 type DeviceSessionValue = {
@@ -69,6 +71,8 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     status: undefined,
     diffs: [],
     todos: [],
+    permissions: {},
+    questions: {},
   })
 
   const [permissionStore, setPermissionStore] = createStore<{
@@ -248,12 +252,61 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         }
         case "permission.asked": {
           const perm = payload.properties as PermissionRequest
-          if (perm?.id && permissionStore.autoAccept) {
-            device.client.permission.respond(perm.id, {
-              sessionID: perm.sessionID,
-              permissionID: perm.id,
-              response: "once",
-            }).catch(() => {})
+          if (perm?.id) {
+            const sid = perm.sessionID
+            setStore("permissions", produce((draft: Record<string, PermissionRequest[]>) => {
+              const list = draft[sid] ?? []
+              if (!list.some((p) => p.id === perm.id)) {
+                draft[sid] = [...list, perm]
+              }
+            }))
+            if (permissionStore.autoAccept) {
+              device.client.permission.respond(perm.id, {
+                decision: "once",
+              }).catch(() => {})
+            }
+          }
+          break
+        }
+        case "permission.replied": {
+          const props = payload.properties as { sessionID?: string; requestID?: string }
+          const sid = props?.sessionID
+          const rid = props?.requestID
+          if (sid && rid) {
+            setStore("permissions", produce((draft: Record<string, PermissionRequest[]>) => {
+              const list = draft[sid]
+              if (list) {
+                draft[sid] = list.filter((p) => p.id !== rid)
+              }
+            }))
+          }
+          break
+        }
+        case "question.asked": {
+          const q = payload.properties as QuestionRequest
+          if (q?.id) {
+            const sid = q.sessionID
+            setStore("questions", produce((draft: Record<string, QuestionRequest[]>) => {
+              const list = draft[sid] ?? []
+              if (!list.some((r) => r.id === q.id)) {
+                draft[sid] = [...list, q]
+              }
+            }))
+          }
+          break
+        }
+        case "question.replied":
+        case "question.rejected": {
+          const props = payload.properties as { sessionID?: string; requestID?: string }
+          const sid = props?.sessionID
+          const rid = props?.requestID
+          if (sid && rid) {
+            setStore("questions", produce((draft: Record<string, QuestionRequest[]>) => {
+              const list = draft[sid]
+              if (list) {
+                draft[sid] = list.filter((r) => r.id !== rid)
+              }
+            }))
           }
           break
         }
@@ -264,11 +317,8 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
 
   const permissionRespond = (input: { permissionID: string; response: "once" | "always" | "reject" }) => {
     if (!workspace.agentAvailable()) return
-    const id = sid()
     device.client.permission.respond(input.permissionID, {
-      sessionID: id ?? "",
-      permissionID: input.permissionID,
-      response: input.response,
+      decision: input.response,
     }).catch(() => {})
   }
 
