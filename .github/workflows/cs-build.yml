@@ -81,6 +81,10 @@ jobs:
         if: steps.check.outputs.skip == 'false'
         run: bun run --cwd packages/opencode build:builtin-agents
 
+      - name: Generate builtin skills
+        if: steps.check.outputs.skip == 'false'
+        run: bun run --cwd packages/opencode build:builtin-skills
+
       - name: Install platform-specific dependencies
         if: steps.check.outputs.skip == 'false'
         run: |
