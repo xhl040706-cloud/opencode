@@ -979,9 +979,6 @@ export namespace Config {
         .describe(
           "Default agent to use when none is specified. Must be a primary agent. Falls back to 'build' if not set or if the specified agent is invalid.",
         ),
-      promptLanguage: PromptLanguage.optional().describe(
-        "Language for built-in prompts and agents (zh-CN or en). Defaults to zh-CN.",
-      ),
       username: z
         .string()
         .optional()
