@@ -859,6 +859,7 @@ export namespace Config {
     ref: "LayoutConfig",
   })
   export type Layout = z.infer<typeof Layout>
+  const PromptLanguage = z.enum(["zh-CN", "en"])
 
   export const Provider = ModelsDev.Provider.partial()
     .extend({
@@ -978,6 +979,9 @@ export namespace Config {
         .describe(
           "Default agent to use when none is specified. Must be a primary agent. Falls back to 'build' if not set or if the specified agent is invalid.",
         ),
+      promptLanguage: PromptLanguage.optional().describe(
+        "Language for built-in prompts and agents (zh-CN or en). Defaults to zh-CN.",
+      ),
       username: z
         .string()
         .optional()
@@ -1146,7 +1150,10 @@ export namespace Config {
           autoPromote: z
             .object({
               recurrenceThreshold: z.number().default(3).describe("Recurrence count threshold for auto-promotion"),
-              priorityThreshold: z.enum(["low", "medium", "high", "critical"]).default("high").describe("Priority threshold for auto-promotion"),
+              priorityThreshold: z
+                .enum(["low", "medium", "high", "critical"])
+                .default("high")
+                .describe("Priority threshold for auto-promotion"),
             })
             .optional()
             .describe("Auto-promotion settings for learnings"),
@@ -1161,7 +1168,10 @@ export namespace Config {
         .describe("Usage reporting configuration"),
       raw_dump: z
         .object({
-          enabled: z.boolean().optional().describe("Enable raw task/conversation/commit dumping to CoStrict statistics"),
+          enabled: z
+            .boolean()
+            .optional()
+            .describe("Enable raw task/conversation/commit dumping to CoStrict statistics"),
         })
         .optional()
         .describe("Raw dump reporting configuration"),
@@ -1192,8 +1202,8 @@ export namespace Config {
   export class Service extends ServiceMap.Service<Service, Interface>()("@opencode/Config") {}
 
   function globalConfigFile() {
-    const candidates = ["costrict.jsonc", "costrict.json", "opencode.jsonc", "opencode.json", "config.json"].map((file) =>
-      path.join(Global.Path.config, file),
+    const candidates = ["costrict.jsonc", "costrict.json", "opencode.jsonc", "opencode.json", "config.json"].map(
+      (file) => path.join(Global.Path.config, file),
     )
     for (const file of candidates) {
       if (existsSync(file)) return file
@@ -1460,7 +1470,7 @@ export namespace Config {
             deps.push(dep)
 
             result.command = mergeDeep(result.command ?? {}, yield* Effect.promise(() => loadCommand(dir)))
-            result.agent = mergeDeep(result.agent, yield* Effect.promise(() => loadAgent(dir)))
+            result.agent = mergeDeep(result.agent, yield* Effect.promise(() => loadAgent(dir, result.promptLanguage)))
             result.agent = mergeDeep(result.agent, yield* Effect.promise(() => loadMode(dir)))
             result.plugin.push(...(yield* Effect.promise(() => loadPlugin(dir))))
           }
