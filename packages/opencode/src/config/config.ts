@@ -859,8 +859,6 @@ export namespace Config {
     ref: "LayoutConfig",
   })
   export type Layout = z.infer<typeof Layout>
-  const PromptLanguage = z.enum(["zh-CN", "en"])
-
   export const Provider = ModelsDev.Provider.partial()
     .extend({
       whitelist: z.array(z.string()).optional(),
@@ -926,6 +924,10 @@ export namespace Config {
     .object({
       $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
       logLevel: Log.Level.optional().describe("Log level"),
+      promptLanguage: z
+        .enum(["zh-CN", "en"])
+        .optional()
+        .describe("Language for AI interactions and system prompts. Defaults to 'zh-CN'"),
       server: Server.optional().describe("Server configuration for opencode serve and web commands"),
       command: z
         .record(z.string(), Command)
@@ -975,9 +977,6 @@ export namespace Config {
         .describe(
           "Default agent to use when none is specified. Must be a primary agent. Falls back to 'build' if not set or if the specified agent is invalid.",
         ),
-      promptLanguage: PromptLanguage.optional().describe(
-        "Language for built-in prompts and agents (zh-CN or en). Defaults to zh-CN.",
-      ),
       username: z
         .string()
         .optional()
