@@ -859,8 +859,6 @@ export namespace Config {
     ref: "LayoutConfig",
   })
   export type Layout = z.infer<typeof Layout>
-  const PromptLanguage = z.enum(["zh-CN", "en"])
-
   export const Provider = ModelsDev.Provider.partial()
     .extend({
       whitelist: z.array(z.string()).optional(),
