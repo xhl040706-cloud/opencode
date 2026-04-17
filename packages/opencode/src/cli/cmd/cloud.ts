@@ -121,6 +121,16 @@ async function ensureCsCloud(): Promise<string> {
     await fsp.chmod(bin, 0o755)
   }
 
+  if (process.platform === "darwin") {
+    const { execFile } = await import("node:child_process")
+    await new Promise<void>((resolve, reject) => {
+      execFile("xattr", ["-d", "com.apple.quarantine", bin], (err) => {
+        if (err && !(err as NodeJS.ErrnoException).code?.includes("ENOATTR")) reject(err)
+        else resolve()
+      })
+    })
+  }
+
   console.log(`cs-cloud ${info.version} installed`)
   return bin
 }
