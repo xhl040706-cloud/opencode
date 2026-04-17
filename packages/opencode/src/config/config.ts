@@ -925,6 +925,10 @@ export namespace Config {
     .object({
       $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
       logLevel: Log.Level.optional().describe("Log level"),
+      promptLanguage: z
+        .enum(["zh-CN", "en"])
+        .optional()
+        .describe("Language for AI interactions and system prompts. Defaults to 'zh-CN'"),
       server: Server.optional().describe("Server configuration for opencode serve and web commands"),
       command: z
         .record(z.string(), Command)
