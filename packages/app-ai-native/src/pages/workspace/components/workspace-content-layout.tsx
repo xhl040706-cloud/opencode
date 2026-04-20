@@ -28,6 +28,7 @@ import type { DiffFileEntry } from "@/client/device-client"
 import type { Session } from "@opencode-ai/sdk/v2/client"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
 import { useWorkspace } from "../context"
+import { filePreviewConfig } from "../lib/file-preview-config"
 
 let newSessionCounter = 0
 
@@ -160,7 +161,7 @@ function FileTreeWithTabs(props: { path: string }) {
       icon: "file-tree",
       meta: { path },
     })
-    void file.load(path)
+    void file.load(path, { limit: filePreviewConfig.initialPreviewLines })
   }
 
   return <FileTree path={props.path} onFileClick={handleFileClick} />

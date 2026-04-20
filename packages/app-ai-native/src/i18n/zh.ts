@@ -1338,6 +1338,10 @@ export const dict = {
   "workspace.content.comingSoon": "即将推出",
   "workspace.content.viewPreview": "预览",
   "workspace.content.viewSource": "源码",
+  "workspace.content.preview.loadedLines": "已加载 {{loaded}} / {{total}} 行",
+  "workspace.content.preview.markdownPreviewDisabled": "大文件或部分内容不支持 Markdown 预览",
+  "workspace.content.preview.autoLoadPaused": "自动加载已在 {{count}} 行后暂停",
+  "workspace.content.preview.loadingMore": "正在加载更多...",
 
   "workspace.home.title": "欢迎使用 CoStrict Cloud",
   "workspace.home.subtitle": "AI 驱动的云端编程工作空间。连接你的设备并开始编码。",

@@ -1567,6 +1567,10 @@ export const dict = {
   "workspace.content.comingSoon": "Coming soon",
   "workspace.content.viewPreview": "Preview",
   "workspace.content.viewSource": "Source",
+  "workspace.content.preview.loadedLines": "{{loaded}} / {{total}} lines loaded",
+  "workspace.content.preview.markdownPreviewDisabled": "Markdown preview unavailable for partial or large files",
+  "workspace.content.preview.autoLoadPaused": "Auto-load paused after {{count}} lines",
+  "workspace.content.preview.loadingMore": "Loading more...",
 
   "workspace.home.title": "Welcome to CoStrict Cloud",
   "workspace.home.subtitle": "AI-powered cloud workspace. Connect to your devices and start coding.",

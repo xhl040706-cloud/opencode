@@ -39,6 +39,21 @@ export type RuntimeConfig = {
   whitelist_enabled: boolean
 }
 
+export type FileMetaData = {
+  path: string
+  size: number
+  modified?: string
+  type: "file" | "directory"
+}
+
+export type FileReadData = {
+  type: "text"
+  content: string
+  offset: number
+  lines: number
+  totalLines: number
+}
+
 export type DeviceClient = {
   baseUrl: string
   transport: ReturnType<typeof createDeviceTransport>
@@ -55,7 +70,8 @@ export type DeviceClient = {
     path: () => Promise<unknown>
     vcs: () => Promise<unknown>
     fileList: (path: string) => Promise<Array<{ name: string; path: string; absolute: string; type: "directory" | "file"; ignored: boolean }>>
-    fileRead: (path: string) => Promise<{ type: "text"; content: string }>
+    fileMeta: (path: string) => Promise<FileMetaData>
+    fileRead: (path: string, input?: { offset?: number; limit?: number }) => Promise<FileReadData>
     findFiles: (query: string, dirs: "true" | "false") => Promise<unknown>
     diff: (input?: { staged?: boolean; stat?: boolean; path?: string }) => Promise<DiffData | undefined>
     diffContent: (input?: { staged?: boolean; path?: string }) => Promise<DiffContentData | undefined>
@@ -156,11 +172,17 @@ export function createDeviceClient(opts: ClientOpts): DeviceClient {
           ignored: false,
         }))
       }),
-      fileRead: (path: string) => http.get<{ content?: string; lines?: number; diff?: string; patch?: { oldStart: number; oldLines: number; newStart: number; newLines: number; lines: string[] }[] }>("/api/v1/runtime/files/content", { path }).then((res) => ({
+      fileMeta: (path: string) => http.get<FileMetaData>("/api/v1/runtime/files/meta", { path }),
+      fileRead: (path: string, input?: { offset?: number; limit?: number }) => http.get<{ content?: string; lines?: number; offset?: number; total_lines?: number }>("/api/v1/runtime/files/content", {
+        path,
+        ...(input?.offset ? { offset: input.offset } : {}),
+        ...(input?.limit ? { limit: input.limit } : {}),
+      }).then((res) => ({
         type: "text" as const,
         content: res?.content ?? "",
-        diff: res?.diff,
-        patch: res?.patch,
+        offset: res?.offset ?? input?.offset ?? 1,
+        lines: res?.lines ?? 0,
+        totalLines: res?.total_lines ?? 0,
       })),
       findFiles: (query: string, dirs: "true" | "false") =>
         http.get("/api/v1/runtime/find/file", { query, dirs }),
