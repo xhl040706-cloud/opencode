@@ -1330,6 +1330,8 @@ export const dict = {
   "workspace.content.section.sessions": "会话",
   "workspace.content.section.files": "文件",
   "workspace.content.section.changes": "更改",
+  "workspace.content.diff.staged": "已暂存",
+  "workspace.content.diff.unstaged": "未暂存",
   "workspace.content.newSession": "新建会话",
   "workspace.sidebar.expand": "展开侧边栏",
   "workspace.sidebar.collapse": "收起侧边栏",

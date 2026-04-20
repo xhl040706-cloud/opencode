@@ -1559,6 +1559,8 @@ export const dict = {
   "workspace.content.section.sessions": "Sessions",
   "workspace.content.section.files": "Files",
   "workspace.content.section.changes": "Changes",
+  "workspace.content.diff.staged": "Staged",
+  "workspace.content.diff.unstaged": "Unstaged",
   "workspace.content.newSession": "New session",
   "workspace.sidebar.expand": "Expand sidebar",
   "workspace.sidebar.collapse": "Collapse sidebar",

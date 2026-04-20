@@ -21,8 +21,14 @@ export type DiffFileEntry = {
 export type DiffData = {
   directory: string
   branch: string
-  files: DiffFileEntry[]
-  diff?: string
+  stagedFiles: DiffFileEntry[]
+  unstagedFiles: DiffFileEntry[]
+}
+
+export type DiffContentData = {
+  diff: string
+  before?: string
+  after?: string
 }
 
 export type RuntimeConfig = {
@@ -52,6 +58,7 @@ export type DeviceClient = {
     fileRead: (path: string) => Promise<{ type: "text"; content: string }>
     findFiles: (query: string, dirs: "true" | "false") => Promise<unknown>
     diff: (input?: { staged?: boolean; stat?: boolean; path?: string }) => Promise<DiffData | undefined>
+    diffContent: (input?: { staged?: boolean; path?: string }) => Promise<DiffContentData | undefined>
     dispose: () => Promise<unknown>
   }
   agent: {
@@ -157,8 +164,10 @@ export function createDeviceClient(opts: ClientOpts): DeviceClient {
       })),
       findFiles: (query: string, dirs: "true" | "false") =>
         http.get("/api/v1/runtime/find/file", { query, dirs }),
-      diff: (input?: { staged?: boolean; stat?: boolean; path?: string }) =>
-        http.get<DiffData>("/api/v1/runtime/diff", input as Record<string, string | number | boolean | undefined>),
+    diff: (input?: { staged?: boolean; stat?: boolean; path?: string }) =>
+      http.get<DiffData>("/api/v1/runtime/diff", input as Record<string, string | number | boolean | undefined>),
+    diffContent: (input?: { staged?: boolean; path?: string }) =>
+      http.get<DiffContentData>("/api/v1/runtime/diff/content", input as Record<string, string | number | boolean | undefined>),
       dispose: () => http.post("/api/v1/runtime/dispose"),
     },
     agent: {
