@@ -39,6 +39,7 @@
     "vite-plugin-solid": "catalog:"
   },
   "dependencies": {
+    "@ark-ui/solid": "catalog:",
     "@corvu/drawer": "0.2.4",
     "@kobalte/core": "catalog:",
     "@opencode-ai/sdk": "workspace:*",

@@ -1,0 +1,404 @@
+import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { createMemo, createResource, For, Show } from "solid-js"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { showToast } from "@opencode-ai/ui/toast"
+import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DateRangePicker } from "../components/filters/date-range-picker"
+import { AddRepoToProjectDialog } from "../components/dialogs/add-repo-to-project-dialog"
+import { getRepoDetail } from "../lib/api"
+import { defaultWideRange } from "../lib/date-range"
+import { formatDuration, formatLocalTime, shortId } from "../lib/formatters"
+import type { DateRangeValue, RepoCommitRow, RepoTaskRow } from "../lib/types"
+
+function parseQueryRange(startDate?: string, endDate?: string) {
+  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
+    return [
+      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
+      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
+    ] as [string, string]
+  }
+  return defaultWideRange()
+}
+
+function rangeQuery(value: [string, string]) {
+  return {
+    startDate: value[0].replace(/-/g, ""),
+    endDate: value[1].replace(/-/g, ""),
+  }
+}
+
+function formatDay(value?: string | null) {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function commitEffRatio(row: RepoCommitRow) {
+  const ancient = row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes
+  const real = row.commit_real_minutes_manual ?? row.commit_real_minutes
+  if (!ancient || !real || ancient <= 0 || real <= 0) return 0
+  return (ancient / real) * 100
+}
+
+function taskEffRatio(row: RepoTaskRow) {
+  const ancient = row.task_ancient_minutes_manual ?? row.task_ancient_minutes
+  const real = row.task_real_minutes_manual ?? row.task_real_minutes
+  if (!ancient || !real || ancient <= 0 || real <= 0) return 0
+  return (ancient / real) * 100
+}
+
+function ratioTone(value?: number | null) {
+  if (value == null) return "border-border bg-muted/40 text-muted-foreground"
+  if (value >= 300) return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+  if (value >= 150) return "border-sky-500/30 bg-sky-500/12 text-sky-700 dark:text-sky-300"
+  return "border-border bg-muted/50 text-muted-foreground"
+}
+
+function RatioPill(props: { value?: number | null; digits?: number }) {
+  const label = () => props.value == null || props.value <= 0 ? "-" : `${props.value.toFixed(props.digits ?? 1)}%`
+  return (
+    <span class={`inline-flex min-w-[4.5rem] items-center justify-center rounded-full border px-2 py-1 text-xs font-medium ${ratioTone(props.value)}`}>
+      {label()}
+    </span>
+  )
+}
+
+function ReasonTip(props: { value?: string }) {
+  return (
+    <Show when={props.value?.trim()}>
+      <Tooltip value={props.value} placement="top">
+        <span class="ml-1 inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-border text-[10px] text-[var(--native-muted)]">?</span>
+      </Tooltip>
+    </Show>
+  )
+}
+
+function MetricCard(props: { label: string; value: string; hint?: string; accent?: string }) {
+  return (
+    <article
+      class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-4 shadow-[var(--native-shadow-sm)]"
+      style={{ "--metric-accent": props.accent ?? "var(--native-primary)" }}
+    >
+      <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:color-mix(in_oklab,var(--metric-accent)_72%,var(--native-dim))]">{props.label}</p>
+      <p class="mt-2 text-[1.4rem] leading-none font-semibold tracking-[-0.04em] text-[var(--native-foreground)]">{props.value}</p>
+      <Show when={props.hint}>
+        <p class="mt-2 text-[0.8125rem] text-[var(--native-muted)]">{props.hint}</p>
+      </Show>
+    </article>
+  )
+}
+
+export default function KanbanRepoDetail() {
+  const params = useParams()
+  const navigate = useNavigate()
+  const dialog = useDialog()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; mock?: string }>()
+
+  const repoAddr = createMemo(() => decodeURIComponent(params.repoAddr ?? "").trim())
+  const repoBranch = createMemo(() => decodeURIComponent(params.repoBranch ?? "").trim())
+  const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
+  const listHref = createMemo(() => {
+    const q = new URLSearchParams()
+    if (search.startDate?.trim()) q.set("startDate", search.startDate.trim())
+    if (search.endDate?.trim()) q.set("endDate", search.endDate.trim())
+    if (search.mock?.trim()) q.set("mock", search.mock.trim())
+    const txt = q.toString()
+    return txt ? `/kanban/repo?${txt}` : "/kanban/repo"
+  })
+
+  const detailHref = (branch?: string) => {
+    const q = new URLSearchParams()
+    const next = rangeQuery(dateRange())
+    q.set("startDate", next.startDate)
+    q.set("endDate", next.endDate)
+    if (search.mock?.trim()) q.set("mock", search.mock.trim())
+    const txt = q.toString()
+    return branch
+      ? `/kanban/repo/${encodeURIComponent(repoAddr())}/${encodeURIComponent(branch)}?${txt}`
+      : `/kanban/repo/${encodeURIComponent(repoAddr())}?${txt}`
+  }
+
+  const [detail, { refetch }] = createResource(
+    () => ({
+      repoAddr: repoAddr(),
+      repoBranch: repoBranch(),
+      start: dateRange()[0],
+      end: dateRange()[1],
+    }),
+    async (input) => {
+      if (!input.repoAddr) return null
+      try {
+        return await getRepoDetail({
+          repoAddr: input.repoAddr,
+          repoBranch: input.repoBranch,
+          dateRange: [input.start, input.end],
+        })
+      } catch (err) {
+        showToast({
+          variant: "error",
+          title: "仓库详情加载失败",
+          description: err instanceof Error ? err.message : String(err),
+        })
+        return null
+      }
+    },
+  )
+
+  const commits = createMemo(() => detail()?.commits ?? [])
+  const tasks = createMemo(() => detail()?.tasks ?? [])
+  const branches = createMemo(() => detail()?.branches ?? [])
+  const efficiency = createMemo(() => detail()?.efficiency ?? {})
+  const efficiencyRatio = createMemo(() => efficiency().efficiency_ratio ?? null)
+
+  const totalDiffLines = createMemo(() => commits().reduce((sum, item) => sum + (item.diff_lines ?? 0), 0))
+  const totalTokens = createMemo(() => tasks().reduce((sum, item) => sum + (item.upstream_tokens ?? 0) + (item.downstream_tokens ?? 0), 0))
+  const totalCost = createMemo(() => tasks().reduce((sum, item) => sum + (item.cost ?? 0), 0))
+  const contributorCount = createMemo(() => {
+    const names = new Set<string>()
+    for (const item of commits()) {
+      if (item.git_user_name?.trim()) names.add(item.git_user_name.trim())
+    }
+    for (const item of tasks()) {
+      if (item.user_name?.trim()) names.add(item.user_name.trim())
+    }
+    return names.size
+  })
+
+  const activityRange = createMemo(() => {
+    const points = commits()
+      .map((item) => item.commit_time)
+      .filter((item): item is string => !!item)
+      .map((item) => new Date(item).getTime())
+      .filter((item) => Number.isFinite(item))
+    if (!points.length) return "-"
+    return `${formatDay(new Date(Math.min(...points)).toISOString())} ~ ${formatDay(new Date(Math.max(...points)).toISOString())}`
+  })
+
+  const openAddDialog = () => {
+    if (!repoAddr()) return
+    dialog.show(() => (
+      <AddRepoToProjectDialog
+        repoAddr={repoAddr()}
+        repoBranch={repoBranch()}
+        commits={commits()}
+        dateRange={dateRange()}
+        onAdded={() => void refetch()}
+      />
+    ))
+  }
+
+  return (
+    <div class="flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
+      <header class="mx-auto flex w-full max-w-[1320px] flex-col gap-3">
+        <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
+          <span>←</span>
+          <span>返回仓库列表</span>
+        </A>
+        <div>
+          <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / Repo Detail</p>
+          <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">仓库详情</h1>
+          <p class="mt-3 max-w-[74ch] text-[0.9375rem] leading-[1.7] text-[var(--native-muted)]">
+            页面结构按旧版 repo detail 迁移：顶部控制分支和时间范围，中段给基础信息与度量，底部拆 Commits 和 Tasks 两张表，并保留添加到 Project 的业务闭环。
+          </p>
+        </div>
+      </header>
+
+      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+        <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+          <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => navigate(listHref())}>
+                返回
+              </Button>
+              <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">仓库详情</div>
+            </div>
+
+            <div class="flex flex-col gap-3 md:flex-row md:items-center">
+              <select
+                class="flex h-10 min-w-[12rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={repoBranch()}
+                onChange={(e) => {
+                  const next = e.currentTarget.value.trim()
+                  navigate(detailHref(next || undefined))
+                }}
+              >
+                <option value="">全部分支</option>
+                <For each={branches()}>
+                  {(item) => <option value={item}>{item}</option>}
+                </For>
+              </select>
+
+              <DateRangePicker
+                value={dateRange()}
+                onChange={(value) => {
+                  const next = value ?? defaultWideRange()
+                  setSearch(rangeQuery(next))
+                }}
+                placeholder="选择日期范围"
+              />
+
+              <Button size="sm" onClick={openAddDialog} disabled={!detail()}>
+                添加到 Project
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <Show when={!detail.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">仓库详情加载中...</div>}>
+          <Show when={detail()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">没有查询到仓库详情</div>}>
+            {(item) => (
+              <>
+                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">基础信息</div>
+                  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <MetricCard label="仓库地址" value={item().repo_addr || "-"} hint="当前查看的 repo_addr" />
+                    <MetricCard label="分支" value={repoBranch() || item().repo_branch || "全部分支"} hint="当前详情分支上下文" accent="var(--native-info, var(--native-primary))" />
+                    <MetricCard label="活跃时间" value={activityRange()} hint="基于 commits 时间范围" accent="var(--native-success)" />
+                    <MetricCard label="提交数" value={String(item().summary.commit_count ?? commits().length)} accent="var(--native-warning)" />
+                    <MetricCard label="任务数" value={String(item().summary.task_count ?? tasks().length)} accent="var(--native-primary)" />
+                    <MetricCard label="总 Tokens" value={totalTokens().toLocaleString()} accent="var(--native-success)" />
+                  </div>
+                </section>
+
+                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">度量信息（基于 Commits 汇总）</div>
+                  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <MetricCard
+                      label="传统开发时长预估"
+                      value={formatDuration(efficiency().repo_ancient_minutes)}
+                      hint={efficiency().repo_ancient_minutes_reason || "-"}
+                      accent="var(--native-warning)"
+                    />
+                    <MetricCard
+                      label="实际耗时"
+                      value={formatDuration(efficiency().repo_real_minutes)}
+                      hint={efficiency().repo_real_minutes_reason || "-"}
+                      accent="var(--native-primary)"
+                    />
+                    <MetricCard
+                      label="提效比"
+                      value={efficiencyRatio() == null ? "-" : `${Math.round(efficiencyRatio()!)}%`}
+                      accent={efficiencyRatio() != null && efficiencyRatio()! >= 300 ? "var(--native-success)" : "var(--native-primary)"}
+                    />
+                    <MetricCard label="代码行数" value={`${totalDiffLines().toLocaleString()} 行`} accent="var(--native-info, var(--native-primary))" />
+                    <MetricCard label="总费用（Tasks）" value={totalCost() > 0 ? `${totalCost().toFixed(2)} 元` : "-"} accent="var(--native-warning)" />
+                    <MetricCard label="贡献者" value={`${contributorCount()} 人`} accent="var(--native-success)" />
+                  </div>
+
+                  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+                    <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-4 text-sm text-[var(--native-muted)]">
+                      <div class="flex items-center text-[var(--native-foreground)]">
+                        <span class="font-medium">传统开发时长预估原因</span>
+                        <ReasonTip value={efficiency().repo_ancient_minutes_reason} />
+                      </div>
+                      <p class="mt-2 leading-6">{efficiency().repo_ancient_minutes_reason || "-"}</p>
+                    </div>
+                    <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-4 text-sm text-[var(--native-muted)]">
+                      <div class="flex items-center text-[var(--native-foreground)]">
+                        <span class="font-medium">实际耗时原因</span>
+                        <ReasonTip value={efficiency().repo_real_minutes_reason} />
+                      </div>
+                      <p class="mt-2 leading-6">{efficiency().repo_real_minutes_reason || "-"}</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
+                  <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
+                    Commits ({commits().length})
+                  </div>
+                  <div class="overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead class="min-w-[100px]">Commit ID</TableHead>
+                          <TableHead class="min-w-[150px]">时间</TableHead>
+                          <TableHead class="min-w-[90px]">用户</TableHead>
+                          <TableHead class="min-w-[220px]">说明</TableHead>
+                          <TableHead class="min-w-[90px] text-right">代码行数</TableHead>
+                          <TableHead class="min-w-[100px] text-right">实际耗时</TableHead>
+                          <TableHead class="min-w-[140px] text-right">传统开发时长预估</TableHead>
+                          <TableHead class="min-w-[90px] text-center">硅含量</TableHead>
+                          <TableHead class="min-w-[90px] text-center">提效比</TableHead>
+                          <TableHead class="min-w-[110px] text-right">Tokens消耗</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <For each={commits()}>
+                          {(row) => (
+                            <TableRow>
+                              <TableCell>{shortId(row.commit_id)}</TableCell>
+                              <TableCell>{formatLocalTime(row.commit_time)}</TableCell>
+                              <TableCell>{row.git_user_name || "-"}</TableCell>
+                              <TableCell>{row.comment || "-"}</TableCell>
+                              <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
+                              <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes)}</TableCell>
+                              <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes)}</TableCell>
+                              <TableCell class="text-center"><RatioPill value={row.silica} digits={1} /></TableCell>
+                              <TableCell class="text-center"><RatioPill value={commitEffRatio(row)} digits={1} /></TableCell>
+                              <TableCell class="text-right tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>
+                            </TableRow>
+                          )}
+                        </For>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </section>
+
+                <Show when={tasks().length > 0}>
+                  <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
+                    <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
+                      Tasks ({tasks().length})
+                    </div>
+                    <div class="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead class="min-w-[100px]">Task ID</TableHead>
+                            <TableHead class="min-w-[150px]">时间</TableHead>
+                            <TableHead class="min-w-[90px]">用户</TableHead>
+                            <TableHead class="min-w-[220px]">说明</TableHead>
+                            <TableHead class="min-w-[90px] text-right">代码行数</TableHead>
+                            <TableHead class="min-w-[100px] text-right">实际耗时</TableHead>
+                            <TableHead class="min-w-[140px] text-right">传统开发时长预估</TableHead>
+                            <TableHead class="min-w-[90px] text-center">提效比</TableHead>
+                            <TableHead class="min-w-[80px] text-right">费用</TableHead>
+                            <TableHead class="min-w-[110px] text-right">Tokens消耗</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <For each={tasks()}>
+                            {(row) => (
+                              <TableRow>
+                                <TableCell>{shortId(row.task_id)}</TableCell>
+                                <TableCell>{formatLocalTime(row.start_time)}</TableCell>
+                                <TableCell>{row.user_name || "-"}</TableCell>
+                                <TableCell>{row.title || "-"}</TableCell>
+                                <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
+                                <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes)}</TableCell>
+                                <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes)}</TableCell>
+                                <TableCell class="text-center"><RatioPill value={taskEffRatio(row)} digits={1} /></TableCell>
+                                <TableCell class="text-right tabular-nums">{row.cost != null && row.cost > 0 ? row.cost.toFixed(2) : "-"}</TableCell>
+                                <TableCell class="text-right tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>
+                              </TableRow>
+                            )}
+                          </For>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </section>
+                </Show>
+              </>
+            )}
+          </Show>
+        </Show>
+      </div>
+    </div>
+  )
+}
