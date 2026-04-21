@@ -11,6 +11,10 @@ const StoreHome = lazy(() => import("@/pages/store").then((m) => ({ default: m.S
 const ProjectsLayout = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectsLayout })))
 const ProjectsHome = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectsHome })))
 const ProjectDetail = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectDetail })))
+const KanbanLayout = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanLayout })))
+const KanbanHome = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanHome })))
+const KanbanRepoList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanRepoList })))
+const KanbanRepoDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanRepoDetail })))
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
 const CapabilityEditorLayout = lazy(() => import("@/pages/capability-editor-layout"))
@@ -96,6 +100,17 @@ export const routeConfig: RouteConfig[] = [
     children: [
       { path: "/new", component: CapabilityEditorPage },
       { path: "/:itemId/edit", component: CapabilityEditorPage },
+    ],
+  },
+  {
+    path: "/kanban",
+    component: KanbanLayout,
+    auth: true,
+    children: [
+      { path: "/", component: KanbanHome },
+      { path: "/repo", component: KanbanRepoList },
+      { path: "/repo/:repoAddr", component: KanbanRepoDetail },
+      { path: "/repo/:repoAddr/:repoBranch", component: KanbanRepoDetail },
     ],
   },
   {
