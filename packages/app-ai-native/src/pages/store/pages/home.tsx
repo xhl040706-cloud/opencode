@@ -36,7 +36,6 @@ type ListData = Awaited<ReturnType<typeof itemApi.list>>
 const PAGE_SIZE = 10
 const SORTS = [
   ["favoriteCount", "store.home.table.favoriteCount"],
-  ["installCount", "store.home.table.installCount"],
   ["previewCount", "store.home.table.previewCount"],
 ] as const satisfies readonly [ItemSort, string][]
 
@@ -333,7 +332,7 @@ export default function Home() {
                       <button
                         type="button"
                         class={cn(
-                          "group flex shrink-0 items-center gap-1.5 rounded-[0.375rem] border border-transparent bg-transparent px-3 py-1 text-left cursor-pointer transition-[background-color,border-color,color,transform,box-shadow]",
+                          "group flex shrink-0 items-center gap-1.5 rounded-[0.375rem] border border-transparent bg-transparent px-3 py-0.5 text-left cursor-pointer transition-[background-color,border-color,color,transform,box-shadow]",
                           entry.value === activeType() && "border-transparent bg-[var(--stat-accent)] text-white",
                           hoveredType() === entry.value && entry.value !== activeType() && "bg-[color:color-mix(in_oklab,var(--stat-accent)_70%,white)] text-white",
                         )}
@@ -343,7 +342,7 @@ export default function Home() {
                         onMouseLeave={() => setHoveredType((current) => (current === entry.value ? null : current))}
                         aria-pressed={entry.value === activeType()}
                       >
-                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-transparent">
+                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-none bg-transparent">
                           <Icon
                             name={entry.icon}
                             class={cn(
@@ -355,7 +354,7 @@ export default function Home() {
                         </div>
                         <div class="min-w-0">
                           <div class={cn(
-                            "type-label text-[13px] uppercase tracking-[0.05em] text-[var(--native-foreground)]",
+                            "type-label text-[12px] uppercase tracking-[0.05em] text-[var(--native-foreground)]",
                             entry.value === activeType() ? "font-bold !text-white" : "font-medium",
                           )}
                           style={entry.value === activeType() || hoveredType() === entry.value ? { color: "#ffffff", "font-weight": entry.value === activeType() ? 700 : 500 } : undefined}
@@ -546,7 +545,7 @@ export default function Home() {
             type="button"
             class="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[color:color-mix(in_oklab,var(--native-primary)_70%,white)] text-white shadow-[var(--native-shadow-sm)] transition-[background-color,filter,transform] hover:cursor-pointer hover:bg-[var(--native-primary)]"
             aria-label="Add"
-            onClick={() => navigate("/console/capabilities")}
+            onClick={() => navigate("/capabilities/new")}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -606,10 +605,11 @@ export default function Home() {
                   <div class={sx.spinner} />
                 </div>
               </Show>
-              <Table class="text-[0.8125rem]">
+              <Table class="table-fixed text-[0.8125rem]">
                 <TableHeader class={sx.thead}>
                   <TableRow>
-                    <TableHead class={sx.th}>{language.t("store.console.capabilities.name")}</TableHead>
+                    <TableHead class={cn(sx.th, sx.colTitle)}>{language.t("store.home.table.title")}</TableHead>
+                    <TableHead class={cn(sx.th, sx.colDescription)}>{language.t("store.home.table.description")}</TableHead>
                     <For each={SORTS}>
                       {([by, label]) => (
                         <TableHead class={sx.th} aria-sort={sortState(by)}>
@@ -638,19 +638,23 @@ export default function Home() {
                 <TableBody>
                   <Show
                     when={rows().length > 0}
-                    fallback={<TableEmptyState colSpan={8} message={language.t("store.home.emptyCategory")} />}
+                      fallback={<TableEmptyState colSpan={8} message={language.t("store.home.emptyCategory")} />}
                   >
                     <For each={rows()}>
                       {(item) => (
                         <TableRow class={sx.row} onClick={() => setSelectedItemId(item.id)}>
-                          <TableCell class={sx.td}>
-                            <span class={sx.item}>{item.name}</span>
+                          <TableCell class={cn(sx.td, sx.colTitle)}>
+                            <span class={cn(sx.item, "block truncate")} title={item.name}>
+                              {item.name}
+                            </span>
+                          </TableCell>
+                          <TableCell class={cn(sx.td, sx.colDescription, sx.mut)}>
+                            <span class="block truncate" title={item.description || "—"}>
+                              {item.description || "—"}
+                            </span>
                           </TableCell>
                           <TableCell class={cn(sx.td, sx.mut)}>
                             {item.favoriteCount?.toLocaleString() ?? "0"}
-                          </TableCell>
-                          <TableCell class={cn(sx.td, sx.mut)}>
-                            {item.installCount?.toLocaleString() ?? "0"}
                           </TableCell>
                           <TableCell class={cn(sx.td, sx.mut)}>
                             {item.previewCount?.toLocaleString() ?? "0"}
