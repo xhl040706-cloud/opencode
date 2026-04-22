@@ -1,0 +1,315 @@
+import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { createMemo, createResource, For } from "solid-js"
+import { showToast } from "@opencode-ai/ui/toast"
+import type { EChartsOption } from "echarts"
+import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ChartCard } from "../components/charts/chart-card"
+import { DateRangePicker } from "../components/filters/date-range-picker"
+import { OrgCascadeSelect } from "../components/filters/org-cascade-select"
+import { MetricCard } from "../components/metric-card"
+import { RatioPill } from "../components/ratio-pill"
+import { defaultWideRange } from "../lib/date-range"
+import { formatDuration } from "../lib/formatters"
+import { getOrgDetail } from "../lib/api"
+import type { Granularity, OrgCascadeValue } from "../lib/types"
+
+function parseQueryRange(startDate?: string, endDate?: string) {
+  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
+    return [
+      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
+      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
+    ] as [string, string]
+  }
+  return defaultWideRange()
+}
+
+function rangeQuery(value: [string, string]) {
+  return {
+    startDate: value[0].replace(/-/g, ""),
+    endDate: value[1].replace(/-/g, ""),
+  }
+}
+
+function parseGranularity(value?: string): Granularity {
+  if (value === "week" || value === "month" || value === "year") return value
+  return "day"
+}
+
+function parsePath(path: string) {
+  const txt = decodeURIComponent(path).trim()
+  if (!txt || txt === "all") return {} as OrgCascadeValue
+  const parts = txt.split("/").filter(Boolean)
+  return {
+    org1: parts[0],
+    org2: parts[1],
+    org3: parts[2],
+    org4: parts[3],
+  } satisfies OrgCascadeValue
+}
+
+function orgPath(value: OrgCascadeValue) {
+  const parts = [value.org1, value.org2, value.org3, value.org4].filter(Boolean)
+  return parts.length ? parts.join("/") : "all"
+}
+
+function parentOrg(value: OrgCascadeValue) {
+  if (value.org4) return { org1: value.org1, org2: value.org2, org3: value.org3 } satisfies OrgCascadeValue
+  if (value.org3) return { org1: value.org1, org2: value.org2 } satisfies OrgCascadeValue
+  if (value.org2) return { org1: value.org1 } satisfies OrgCascadeValue
+  return {} as OrgCascadeValue
+}
+
+function fmtCost(value?: number | null) {
+  if (value == null || value === 0) return "-"
+  return `¥${value.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+}
+
+function fmtTokens(up?: number, down?: number) {
+  const total = (up ?? 0) + (down ?? 0)
+  if (!total) return "-"
+  if (total >= 1000000) return `${(total / 1000000).toFixed(1)}M`
+  if (total >= 1000) return `${(total / 1000).toFixed(1)}K`
+  return String(total)
+}
+
+function line(title: string, periods: string[], list: Array<{ name: string; data: number[] }>, format?: (value: number) => string): EChartsOption {
+  return {
+    title: { text: title, left: "center", textStyle: { fontSize: 13, fontWeight: "bold" } },
+    tooltip: format ? {
+      trigger: "axis",
+      formatter(items) {
+        const rows = Array.isArray(items) ? items : [items]
+        return rows.reduce((txt, item, index) => `${txt}${index === 0 ? `${item.axisValue}<br/>` : ""}${item.marker}${item.seriesName}: ${format(Number(item.value ?? 0))}<br/>`, "")
+      },
+    } : { trigger: "axis" },
+    legend: { data: list.map((item) => item.name), top: "8%", type: "scroll" },
+    grid: { left: "5%", right: "5%", top: "22%", bottom: "10%", containLabel: true },
+    xAxis: { type: "category", data: periods, axisLabel: { rotate: 45, fontSize: 11 } },
+    yAxis: title.includes("提效比") ? { type: "value", axisLabel: { formatter: "{value}%" } } : { type: "value" },
+    series: list.map((item) => ({ name: item.name, type: "line", smooth: true, data: item.data })),
+  }
+}
+
+export default function KanbanOrgDetail() {
+  const params = useParams()
+  const navigate = useNavigate()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string; mock?: string }>()
+
+  const org = createMemo(() => parsePath(params.orgPath ?? ""))
+  const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
+  const granularity = createMemo(() => parseGranularity(search.granularity))
+  const listHref = createMemo(() => {
+    const q = new URLSearchParams()
+    const next = rangeQuery(dateRange())
+    const scope = parentOrg(org())
+    q.set("startDate", next.startDate)
+    q.set("endDate", next.endDate)
+    q.set("granularity", granularity())
+    if (scope.org1) q.set("org1", scope.org1)
+    if (scope.org2) q.set("org2", scope.org2)
+    if (scope.org3) q.set("org3", scope.org3)
+    if (search.mock?.trim()) q.set("mock", search.mock.trim())
+    return `/kanban/org?${q.toString()}`
+  })
+
+  const [data, { refetch }] = createResource(
+    () => ({ org: org(), dateRange: dateRange(), granularity: granularity() }),
+    async (input) => {
+      try {
+        return await getOrgDetail(input)
+      } catch (err) {
+        showToast({ variant: "error", title: "组织详情加载失败", description: err instanceof Error ? err.message : String(err) })
+        return null
+      }
+    },
+  )
+
+  const summary = createMemo(() => data()?.summary ?? {})
+  const members = createMemo(() => data()?.members ?? [])
+  const commits = createMemo(() => data()?.commits ?? [])
+  const tasks = createMemo(() => data()?.tasks ?? [])
+  const taskRatio = createMemo(() => summary().task_efficiency_ratio)
+  const commitRatio = createMemo(() => summary().commit_efficiency_ratio)
+  const periods = createMemo(() => {
+    const source = tasks().length ? tasks() : commits()
+    return source.map((item) => item.period_label || item.period_key || "-")
+  })
+  const taskValues = <T extends keyof (typeof tasks extends () => infer U ? U extends Array<infer R> ? R : never : never)>(field: T) => tasks().map((item) => Number(item[field] ?? 0))
+  const commitValues = <T extends keyof (typeof commits extends () => infer U ? U extends Array<infer R> ? R : never : never)>(field: T) => commits().map((item) => Number(item[field] ?? 0))
+  const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("Task / Commit 数", periods(), [{ name: "Task", data: taskValues("task_count") }, { name: "Commit", data: commitValues("commit_count") }]) : undefined)
+  const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("代码量", periods(), [{ name: "Task", data: taskValues("task_diff_lines") }, { name: "Commit", data: commitValues("commit_diff_lines") }]) : undefined)
+  const timeOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("实际耗时", periods(), [{ name: "Task", data: taskValues("task_real_minutes") }, { name: "Commit", data: commitValues("commit_real_minutes") }], (value) => formatDuration(value)) : undefined)
+  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("提效比", periods(), [{ name: "Task", data: taskValues("task_efficiency_ratio") }, { name: "Commit", data: commitValues("commit_efficiency_ratio") }], (value) => `${value.toFixed(1)}%`) : undefined)
+  const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("Tokens 消耗", periods(), [{ name: "Tokens", data: tasks().map((item) => (item.upstream_tokens ?? 0) + (item.downstream_tokens ?? 0)) }], (value) => value.toLocaleString()) : undefined)
+  const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("费用", periods(), [{ name: "成本", data: tasks().map((item) => Number(item.cost ?? 0)) }], (value) => fmtCost(value)) : undefined)
+
+  return (
+    <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
+      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+        <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"><span>←</span><span>返回组织视图</span></A>
+
+        <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+          <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / Org Detail</p>
+              <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">组织详情</h1>
+            </div>
+
+            <div class="flex flex-col gap-3 md:flex-row md:items-end">
+              <label class="flex min-w-0 flex-col gap-2">
+                <span class="text-[0.75rem] text-[var(--native-muted)]">日期范围</span>
+                <DateRangePicker
+                  value={dateRange()}
+                  onChange={(value) => {
+                    const next = value ?? defaultWideRange()
+                    const query = rangeQuery(next)
+                    if (search.mock?.trim()) setSearch({ ...query, granularity: granularity(), mock: search.mock.trim() })
+                    else setSearch({ ...query, granularity: granularity() })
+                  }}
+                  clearable={false}
+                  placeholder="选择日期范围"
+                />
+              </label>
+
+              <label class="flex min-w-0 flex-col gap-2">
+                <span class="text-[0.75rem] text-[var(--native-muted)]">聚合粒度</span>
+                <select
+                  class="flex h-10 min-w-[8rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={granularity()}
+                  onChange={(e) => {
+                    const next = e.currentTarget.value as Granularity
+                    const query = rangeQuery(dateRange())
+                    if (search.mock?.trim()) setSearch({ ...query, granularity: next, mock: search.mock.trim() })
+                    else setSearch({ ...query, granularity: next })
+                  }}
+                >
+                  <option value="day">天</option>
+                  <option value="week">周</option>
+                  <option value="month">月</option>
+                  <option value="year">年</option>
+                </select>
+              </label>
+
+              <div class="flex items-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>刷新</Button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <OrgCascadeSelect
+              value={org()}
+              dateRange={dateRange()}
+              onChange={(value) => {
+                const query = new URLSearchParams()
+                const next = rangeQuery(dateRange())
+                query.set("startDate", next.startDate)
+                query.set("endDate", next.endDate)
+                query.set("granularity", granularity())
+                if (search.mock?.trim()) query.set("mock", search.mock.trim())
+                navigate(`/kanban/org/${encodeURIComponent(orgPath(value))}?${query.toString()}`)
+              }}
+            />
+          </div>
+        </section>
+
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <MetricCard label="成员数" value={String(summary().user_count ?? 0)} accent="var(--native-success)" />
+          <MetricCard label="Task代码量" value={String(summary().task_diff_lines ?? 0)} accent="var(--native-warning)" />
+          <MetricCard label="Commit代码量" value={String(summary().commit_diff_lines ?? 0)} accent="var(--native-primary)" />
+          <MetricCard label="Task提效比" value={taskRatio() == null ? "-" : `${taskRatio()!.toFixed(1)}%`} accent="var(--native-success)" />
+          <MetricCard label="Commit提效比" value={commitRatio() == null ? "-" : `${commitRatio()!.toFixed(1)}%`} accent="var(--native-primary)" />
+          <MetricCard label="总费用" value={fmtCost(summary().cost)} accent="var(--native-warning)" />
+        </section>
+
+        <section class="overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
+          <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">用户列表</div>
+          <div class="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead class="min-w-[140px]">用户名</TableHead>
+                  <TableHead class="min-w-[120px] text-right">Commit代码量</TableHead>
+                  <TableHead class="min-w-[130px] text-right">Commit实际耗时</TableHead>
+                  <TableHead class="min-w-[120px] text-center">Commit提效比</TableHead>
+                  <TableHead class="min-w-[110px] text-right">Task代码量</TableHead>
+                  <TableHead class="min-w-[120px] text-right">Task实际耗时</TableHead>
+                  <TableHead class="min-w-[110px] text-center">Task提效比</TableHead>
+                  <TableHead class="min-w-[120px] text-right">Tokens消耗</TableHead>
+                  <TableHead class="min-w-[100px] text-right">费用</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <For each={members()}>
+                  {(row) => (
+                    <TableRow class="cursor-pointer" onClick={() => {
+                      const txt = row.user_id?.trim()
+                      if (!txt) return
+                      const query = new URLSearchParams()
+                      const next = rangeQuery(dateRange())
+                      query.set("startDate", next.startDate)
+                      query.set("endDate", next.endDate)
+                      query.set("granularity", granularity())
+                      if (search.mock?.trim()) query.set("mock", search.mock.trim())
+                      navigate(`/kanban/user/${encodeURIComponent(txt)}?${query.toString()}`)
+                    }}>
+                      <TableCell>{row.user_name || row.user_id || "-"}</TableCell>
+                      <TableCell class="text-right tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
+                      <TableCell class="text-right">{formatDuration(row.commit_real_minutes)}</TableCell>
+                      <TableCell class="text-center"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
+                      <TableCell class="text-right tabular-nums">{row.task_diff_lines ?? 0}</TableCell>
+                      <TableCell class="text-right">{formatDuration(row.task_real_minutes)}</TableCell>
+                      <TableCell class="text-center"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
+                      <TableCell class="text-right tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell>
+                      <TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell>
+                    </TableRow>
+                  )}
+                </For>
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+
+        <section class="grid gap-4 lg:grid-cols-2">
+          <section class="overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
+            <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">Commits 列表</div>
+            <div class="overflow-auto">
+              <Table>
+                <TableHeader><TableRow><TableHead class="min-w-[140px]">时间</TableHead><TableHead class="min-w-[80px] text-right">Task数</TableHead><TableHead class="min-w-[90px] text-right">代码量</TableHead><TableHead class="min-w-[110px] text-right">实际耗时</TableHead><TableHead class="min-w-[150px] text-right">传统开发时长预估</TableHead><TableHead class="min-w-[100px] text-center">提效比</TableHead><TableHead class="min-w-[120px] text-right">Tokens消耗</TableHead><TableHead class="min-w-[100px] text-right">费用</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  <For each={commits()}>
+                    {(row) => <TableRow><TableCell>{row.period_label || row.period_key || "-"}</TableCell><TableCell class="text-right tabular-nums">{row.task_count ?? 0}</TableCell><TableCell class="text-right tabular-nums">{row.commit_diff_lines ?? 0}</TableCell><TableCell class="text-right">{formatDuration(row.commit_real_minutes)}</TableCell><TableCell class="text-right">{formatDuration(row.commit_ancient_minutes)}</TableCell><TableCell class="text-center"><RatioPill value={row.commit_efficiency_ratio} /></TableCell><TableCell class="text-right tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell><TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell></TableRow>}
+                  </For>
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+
+          <section class="overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
+            <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">Tasks 列表</div>
+            <div class="overflow-auto">
+              <Table>
+                <TableHeader><TableRow><TableHead class="min-w-[140px]">时间</TableHead><TableHead class="min-w-[90px] text-right">Commit数</TableHead><TableHead class="min-w-[90px] text-right">代码量</TableHead><TableHead class="min-w-[110px] text-right">实际耗时</TableHead><TableHead class="min-w-[150px] text-right">传统开发时长预估</TableHead><TableHead class="min-w-[100px] text-center">提效比</TableHead><TableHead class="min-w-[120px] text-right">Tokens消耗</TableHead><TableHead class="min-w-[100px] text-right">费用</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  <For each={tasks()}>
+                    {(row) => <TableRow><TableCell>{row.period_label || row.period_key || "-"}</TableCell><TableCell class="text-right tabular-nums">{row.commit_count ?? 0}</TableCell><TableCell class="text-right tabular-nums">{row.task_diff_lines ?? 0}</TableCell><TableCell class="text-right">{formatDuration(row.task_real_minutes)}</TableCell><TableCell class="text-right">{formatDuration(row.task_ancient_minutes)}</TableCell><TableCell class="text-center"><RatioPill value={row.task_efficiency_ratio} /></TableCell><TableCell class="text-right tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell><TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell></TableRow>}
+                  </For>
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+        </section>
+
+        <section class="grid gap-4 xl:grid-cols-2">
+          <ChartCard option={countOption()} empty="暂无数量图表数据" />
+          <ChartCard option={codeOption()} empty="暂无代码量图表数据" />
+          <ChartCard option={timeOption()} empty="暂无耗时图表数据" />
+          <ChartCard option={ratioOption()} empty="暂无提效比图表数据" />
+          <ChartCard option={tokenOption()} empty="暂无 Token 图表数据" />
+          <ChartCard option={costOption()} empty="暂无费用图表数据" />
+        </section>
+      </div>
+    </div>
+  )
+}

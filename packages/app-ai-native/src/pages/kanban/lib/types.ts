@@ -106,6 +106,20 @@ export type EfficiencySummary = {
   analysis_file?: string
 }
 
+export type DashboardSummary = {
+  total_tasks: number
+  total_users: number
+  total_repos: number
+  total_commits: number
+  total_work_dirs: number
+  total_cost: number
+  total_tokens: number
+  total_diff_lines: number
+  total_task_ancient_minutes: number
+  total_real_minutes: number
+  avg_efficiency_ratio: number | null
+}
+
 export type EfficiencyQuery = {
   dimension: EfficiencyDimension
   dimensionId: string
@@ -119,6 +133,10 @@ export type EfficiencyQueryResult = {
   rows: EfficiencyRow[]
   total: number
   summary?: EfficiencySummary
+}
+
+export type DashboardSummaryQuery = {
+  dateRange?: DateRangeValue
 }
 
 export type RepoAggregateRow = EfficiencyRow & {
@@ -144,6 +162,364 @@ export type RepoListResult = {
   total: number
   page: number
   pageSize: number
+}
+
+export type Granularity = "day" | "week" | "month" | "year"
+
+export type UserAggregateRow = EfficiencyRow & {
+  org1?: string
+  org2?: string
+  org3?: string
+  org4?: string
+  org_display?: string
+  task_count?: number
+  commit_count?: number
+  task_diff_lines?: number
+  commit_diff_lines?: number
+  task_real_minutes?: number | null
+  commit_real_minutes?: number | null
+  task_ancient_minutes?: number | null
+  commit_ancient_minutes?: number | null
+  task_efficiency_ratio?: number | null
+  commit_efficiency_ratio?: number | null
+  upstream_tokens?: number
+  downstream_tokens?: number
+  cost?: number | null
+}
+
+export type UserSeriesPoint = {
+  period_key?: string
+  period_label?: string
+  task_count?: number
+  commit_count?: number
+  task_diff_lines?: number
+  commit_diff_lines?: number
+  task_real_minutes?: number | null
+  commit_real_minutes?: number | null
+  task_ancient_minutes?: number | null
+  commit_ancient_minutes?: number | null
+  task_efficiency_ratio?: number | null
+  commit_efficiency_ratio?: number | null
+  total_tokens?: number
+  total_cost?: number | null
+}
+
+export type UserSeries = {
+  user_id?: string
+  user_name?: string
+  points: UserSeriesPoint[]
+}
+
+export type UserListQuery = {
+  dateRange: DateRangeValue
+  page?: number
+  pageSize?: number
+  granularity?: Granularity
+  org?: OrgCascadeValue
+}
+
+export type UserListResult = {
+  rows: UserAggregateRow[]
+  total: number
+  page: number
+  pageSize: number
+  periods: string[]
+  series: UserSeries[]
+}
+
+export type UserDetailSummary = {
+  user_id?: string
+  user_name?: string
+  day_count?: number
+  task_count?: number
+  commit_count?: number
+  task_efficiency_ratio?: number | null
+  commit_efficiency_ratio?: number | null
+  cost?: number | null
+}
+
+export type UserDetailPeriodRow = {
+  period_key?: string
+  period_label?: string
+  task_count?: number
+  commit_count?: number
+  task_diff_lines?: number
+  commit_diff_lines?: number
+  task_real_minutes?: number | null
+  commit_real_minutes?: number | null
+  task_ancient_minutes?: number | null
+  commit_ancient_minutes?: number | null
+  task_efficiency_ratio?: number | null
+  commit_efficiency_ratio?: number | null
+  upstream_tokens?: number
+  downstream_tokens?: number
+  cost?: number | null
+}
+
+export type UserDetailQuery = {
+  userId: string
+  dateRange: DateRangeValue
+  granularity?: Granularity
+}
+
+export type UserDetailResult = {
+  summary: UserDetailSummary
+  daily: UserDetailPeriodRow[]
+  commits: UserDetailPeriodRow[]
+  tasks: UserDetailPeriodRow[]
+}
+
+export type UserOption = {
+  user_id: string
+  user_name?: string
+}
+
+export type UserGroupInfo = {
+  id?: string
+  name?: string
+}
+
+export type UserGroupMemberRow = UserAggregateRow & {
+  day_count?: number
+}
+
+export type UserGroupSummary = {
+  task_count?: number
+  commit_count?: number
+  task_efficiency_ratio?: number | null
+  commit_efficiency_ratio?: number | null
+  cost?: number | null
+}
+
+export type UserGroupDetailResult = {
+  group: UserGroupInfo
+  summary: UserGroupSummary
+  members: UserGroupMemberRow[]
+}
+
+export type TaskRow = EfficiencyRow & {
+  task_id?: string
+  client_id?: string
+  client_ide?: string
+  client_version?: string
+  client_os?: string
+  client_os_version?: string
+  caller?: string
+  org1?: string
+  org2?: string
+  org3?: string
+  org4?: string
+  org_display?: string
+  repo_addr?: string
+  repo_branch?: string
+  work_dir?: string
+  work_dir_id?: string
+  title?: string
+  diff_lines?: number
+  task_real_minutes?: number | null
+  task_real_minutes_manual?: number | null
+  task_real_minutes_reason?: string | null
+  task_real_minutes_reason_manual?: string | null
+  task_ancient_minutes?: number | null
+  task_ancient_minutes_manual?: number | null
+  task_ancient_minutes_reason?: string | null
+  task_ancient_minutes_reason_manual?: string | null
+  efficiency_ratio?: number | null
+  upstream_tokens?: number
+  downstream_tokens?: number
+  cost?: number | null
+}
+
+export type TaskConversation = {
+  start_time?: string
+  end_time?: string
+  process_time?: number | null
+  process_ttft?: number | null
+  prompt_mode?: string
+  mode?: string
+  model?: string
+  error_code?: string
+  error_reason?: string
+  upstream_tokens?: number
+  downstream_tokens?: number
+  cost?: number | null
+  diff_lines?: number
+  user_input?: string
+  output?: string
+}
+
+export type TimeSegment = {
+  start?: string
+  end?: string
+  conv_count?: number
+}
+
+export type TaskDetailResult = {
+  task: TaskRow
+  conversations: TaskConversation[]
+  time_segments: TimeSegment[]
+  efficiency_ratio?: number | null
+}
+
+export type TaskManualPayload = {
+  task_real_minutes_manual?: number | null
+  task_real_minutes_reason_manual?: string
+  task_ancient_minutes_manual?: number | null
+  task_ancient_minutes_reason_manual?: string
+}
+
+export type TaskListQuery = {
+  dateRange: DateRangeValue
+  page?: number
+  pageSize?: number
+  userName?: string
+  org?: OrgCascadeValue
+}
+
+export type TaskListResult = {
+  rows: TaskRow[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export type CommitRow = EfficiencyRow & {
+  commit_id?: string
+  commit_time?: string
+  git_user_name?: string
+  git_user_email?: string
+  org1?: string
+  org2?: string
+  org3?: string
+  org4?: string
+  org_display?: string
+  comment?: string
+  repo_addr?: string
+  repo_branch?: string
+  diff_lines?: number
+  commit_real_minutes?: number | null
+  commit_real_minutes_manual?: number | null
+  commit_real_minutes_reason?: string | null
+  commit_real_minutes_reason_manual?: string | null
+  commit_real_ai_minutes?: number | null
+  commit_real_ancient_minutes?: number | null
+  commit_ancient_minutes?: number | null
+  commit_ancient_minutes_manual?: number | null
+  commit_ancient_minutes_reason?: string | null
+  commit_ancient_minutes_reason_manual?: string | null
+  efficiency_ratio?: number | null
+  upstream_tokens?: number
+  downstream_tokens?: number
+  cost?: number | null
+  silica?: number | null
+}
+
+export type CommitRelatedTask = {
+  task_id?: string
+  user_name?: string
+  start_time?: string
+  task_real_minutes?: number | null
+  silica?: number | null
+  cost?: number | null
+  diff_lines?: number
+}
+
+export type CommitDetailResult = {
+  commit: CommitRow
+  related_tasks: CommitRelatedTask[]
+  efficiency_ratio?: number | null
+  silica?: number | null
+  total_cost?: number | null
+  upstream_tokens?: number
+  downstream_tokens?: number
+}
+
+export type CommitManualPayload = {
+  commit_ancient_minutes_manual?: number | null
+  commit_ancient_minutes_reason_manual?: string
+  commit_real_minutes_manual?: number | null
+  commit_real_minutes_reason_manual?: string
+}
+
+export type CommitListQuery = {
+  dateRange: DateRangeValue
+  page?: number
+  pageSize?: number
+  userName?: string
+  org?: OrgCascadeValue
+}
+
+export type CommitListResult = {
+  rows: CommitRow[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export type OrgDetailQuery = {
+  dateRange: DateRangeValue
+  granularity?: Granularity
+  org: OrgCascadeValue
+}
+
+export type OrgAggregateRow = {
+  org_name?: string
+  user_count?: number
+  task_count?: number
+  commit_count?: number
+  task_diff_lines?: number
+  commit_diff_lines?: number
+  task_efficiency_ratio?: number | null
+  commit_efficiency_ratio?: number | null
+  total_tokens?: number
+  total_cost?: number | null
+}
+
+export type OrgAggregatePoint = {
+  period_key?: string
+  period_label?: string
+  user_count?: number
+  task_count?: number
+  commit_count?: number
+  task_diff_lines?: number
+  commit_diff_lines?: number
+  task_efficiency_ratio?: number | null
+  commit_efficiency_ratio?: number | null
+  total_tokens?: number
+  total_cost?: number | null
+}
+
+export type OrgAggregateSeries = {
+  org_name?: string
+  points: OrgAggregatePoint[]
+}
+
+export type OrgAggregateQuery = {
+  dateRange: DateRangeValue
+  granularity?: Granularity
+  org?: OrgCascadeValue
+}
+
+export type OrgAggregateResult = {
+  rows: OrgAggregateRow[]
+  periods: string[]
+  series: OrgAggregateSeries[]
+}
+
+export type OrgSummary = {
+  user_count?: number
+  task_diff_lines?: number
+  commit_diff_lines?: number
+  task_efficiency_ratio?: number | null
+  commit_efficiency_ratio?: number | null
+  cost?: number | null
+}
+
+export type OrgDetailResult = {
+  summary: OrgSummary
+  members: UserGroupMemberRow[]
+  commits: UserDetailPeriodRow[]
+  tasks: UserDetailPeriodRow[]
 }
 
 export type RepoCommitRow = EfficiencyRow & {
@@ -225,6 +601,11 @@ export type RepoBindingPayload = {
   end_time?: string | null
   exclude_commits?: string[]
   include_only_commits?: string[]
+}
+
+export type TaskProjectBindingPayload = {
+  task_ids: string[]
+  task_ids_silica: number[]
 }
 
 export type CorrectionPayload = {

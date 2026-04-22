@@ -33,6 +33,7 @@ type Props = {
   clearable?: boolean
   placeholder?: string
   size?: "sm" | "default" | "lg"
+  fullWidth?: boolean
 }
 
 const sizeClass = {
@@ -92,7 +93,8 @@ export function DateRangePicker(props: Props) {
   return (
     <div
       class={cn(
-        "flex w-full items-center gap-2 rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_34%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] px-3 text-left shadow-[var(--native-shadow-sm)] transition-colors hover:border-[color:color-mix(in_oklab,var(--native-primary)_24%,var(--native-border))]",
+        "flex items-center gap-2 rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_34%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] px-3 text-left shadow-[var(--native-shadow-sm)] transition-colors hover:border-[color:color-mix(in_oklab,var(--native-primary)_24%,var(--native-border))]",
+        props.fullWidth === false ? "w-auto max-w-full" : "w-full",
         open() && "border-[color:color-mix(in_oklab,var(--native-primary)_40%,var(--native-border))]",
         sizeClass[props.size ?? "default"],
       )}
