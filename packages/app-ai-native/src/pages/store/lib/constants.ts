@@ -35,7 +35,7 @@ export const TYPE_CONTENT_PLACEHOLDER: Record<string, string> = {
   skill: "# SKILL\n\nDescribe what this skill does...",
   subagent: "# Subagent\n\nDescribe the subagent behavior...",
   command: "# Command\n\nDescribe the command behavior...",
-  mcp: "# MCP Server\n\nDescribe the MCP server...",
+  mcp: "{\n  \"mcpServers\": {\n      \n  }\n}",
 }
 
 // "developer-tools" → "developerTools"

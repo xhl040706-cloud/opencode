@@ -16,7 +16,7 @@ import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { showToast } from "@opencode-ai/ui/toast"
 import { createEffect, createMemo, createResource, For, onCleanup, onMount, Show, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
-import { CATEGORIES, TYPE_COLORS, TYPE_CONTENT_PLACEHOLDER, TYPE_PREFIX, categoryKey, typeKey } from "@/pages/store/lib/constants"
+import { CATEGORIES, TYPE_COLORS, TYPE_CONTENT_PLACEHOLDER, categoryKey, typeKey } from "@/pages/store/lib/constants"
 import { itemApi, registryApi2, repoApi, type CapabilityItem, type CapabilityItemAsset, type Repository } from "@/pages/store/lib/api"
 import { getInstallCommand } from "@/pages/store/components/item-detail-content"
 
@@ -71,9 +71,36 @@ function createDefaultTree(itemType: ItemType, slug: string): VirtualTreeNode[] 
     ]
   }
 
-  const root = slug || `${TYPE_PREFIX[itemType] ?? ""}untitled`
+  if (itemType === "mcp") {
+    return [
+      {
+        id: ".mcp.json",
+        name: ".mcp.json",
+        kind: "file",
+        path: ".mcp.json",
+        iconPath: ".mcp.json",
+      },
+    ]
+  }
+
+  const root = slug || "untitled"
   const fileName = `${root}.md`
-  const filePath = `${root}/${fileName}`
+  const filePath = itemType === "subagent" || itemType === "command"
+    ? fileName
+    : `${root}/${fileName}`
+
+  if (itemType === "subagent" || itemType === "command") {
+    return [
+      {
+        id: filePath,
+        name: fileName,
+        kind: "file",
+        path: filePath,
+        iconPath: fileName,
+      },
+    ]
+  }
+
   return [
     {
       id: root,
@@ -98,16 +125,23 @@ function createDefaultFileContents(itemType: ItemType, slug: string): FileConten
     return { "SKILL.md": TYPE_CONTENT_PLACEHOLDER.skill }
   }
 
-  const root = slug || `${TYPE_PREFIX[itemType] ?? ""}untitled`
+  if (itemType === "mcp") {
+    return { ".mcp.json": TYPE_CONTENT_PLACEHOLDER.mcp }
+  }
+
+  const root = slug || "untitled"
   const fileName = `${root}.md`
-  const filePath = `${root}/${fileName}`
+  const filePath = itemType === "subagent" || itemType === "command"
+    ? fileName
+    : `${root}/${fileName}`
   return { [filePath]: TYPE_CONTENT_PLACEHOLDER[itemType] ?? "" }
 }
 
 function defaultSourcePathForItemType(itemType: ItemType, slug: string) {
   if (itemType === "skill") return "SKILL.md"
   if (itemType === "mcp") return ".mcp.json"
-  const root = slug || `${TYPE_PREFIX[itemType] ?? ""}untitled`
+  const root = slug || "untitled"
+  if (itemType === "subagent" || itemType === "command") return `${root}.md`
   return `${root}/${root}.md`
 }
 
@@ -995,7 +1029,6 @@ export default function CapabilityEditorPage() {
   )
 
   const typeLabel = createMemo(() => language.t(typeKey(form.itemType)))
-  const slugPrefix = createMemo(() => TYPE_PREFIX[form.itemType] ?? "")
   const accent = createMemo(() => TYPE_COLORS[form.itemType] ?? TYPE_COLORS.skill)
 
   const namespaceOptions = createMemo<NamespaceOption[]>(() => {
@@ -1047,12 +1080,12 @@ export default function CapabilityEditorPage() {
         : "public"
       : (selectedNamespace()?.label ?? "public")
 
-    return `${ns}/${form.slug || `${slugPrefix()}my-${form.itemType}`}`
+    return `${ns}/${form.slug || `my-${form.itemType}`}`
   })
 
   const installCommand = createMemo(() => getInstallCommand({
     itemType: form.itemType,
-    slug: form.slug || `${slugPrefix()}my-${form.itemType}`,
+    slug: form.slug || `my-${form.itemType}`,
     registry: { name: selectedNamespace()?.label?.replace(/^@/, "") || "public" },
   } as CapabilityItem))
 
@@ -1096,6 +1129,13 @@ export default function CapabilityEditorPage() {
   })
 
   const currentFilePath = createMemo(() => fileTree().root ? `${fileTree().root}/${fileTree().filename}` : fileTree().filename)
+  const statusBarFilePath = createMemo(() => {
+    if (form.itemType === "mcp") return ".mcp.json"
+    if (form.itemType === "subagent" || form.itemType === "command") {
+      return defaultSourcePathForItemType(form.itemType, form.slug || "")
+    }
+    return currentFilePath()
+  })
 
   createEffect(() => {
     const data = currentItem()
@@ -1191,7 +1231,7 @@ export default function CapabilityEditorPage() {
     setForm("itemType", value)
     setForm("treeNodes", createDefaultTree(value, form.slug || ""))
     setForm("fileContents", createDefaultFileContents(value, form.slug || ""))
-    setForm("selectedTreePath", value === "skill" ? "SKILL.md" : `${form.slug || `${TYPE_PREFIX[value] ?? ""}untitled`}/${form.slug || `${TYPE_PREFIX[value] ?? ""}untitled`}.md`)
+    setForm("selectedTreePath", defaultSourcePathForItemType(value, form.slug || ""))
     setForm("pendingTreeAction", null)
     setForm("pendingTreeActionLocked", false)
   }
@@ -1677,7 +1717,7 @@ export default function CapabilityEditorPage() {
                         value={form.name}
                         onInput={(e) => setForm("name", e.currentTarget.value)}
                         disabled={isViewingHistoricalVersion()}
-                        placeholder="My Skill"
+                        placeholder={language.t("store.capabilityDialog.field.displayNamePlaceholder", { type: typeLabel() })}
                         class="h-8 min-w-0 flex-1 rounded-[6px] border bg-background-base px-2.5 text-xs text-[var(--native-foreground)] outline-none disabled:cursor-not-allowed disabled:opacity-60"
                         style={{ border: `1px solid color-mix(in srgb, ${accent()} 18%, var(--native-border))` }}
                       />
@@ -1688,11 +1728,12 @@ export default function CapabilityEditorPage() {
                       <input
                         value={form.slug}
                         onInput={(e) => {
-                          setForm("slug", sanitizeIdentifier(e.currentTarget.value))
+                          const nextSlug = sanitizeIdentifier(e.currentTarget.value)
+                          setForm("slug", nextSlug)
                           setForm("slugManual", true)
                         }}
                         disabled={isViewingHistoricalVersion()}
-                        placeholder="my-skill"
+                        placeholder={`my-${form.itemType}`}
                         pattern="[A-Za-z0-9_-]*"
                         class="h-8 min-w-0 flex-1 rounded-[6px] border bg-background-base px-2.5 font-mono text-xs text-[var(--native-foreground)] outline-none disabled:cursor-not-allowed disabled:opacity-60"
                         style={{ border: `1px solid color-mix(in srgb, ${accent()} 18%, var(--native-border))` }}
@@ -1899,7 +1940,7 @@ export default function CapabilityEditorPage() {
             </div>
 
             <div class="flex items-center justify-between border-t border-[color:color-mix(in_srgb,var(--native-border)_18%,transparent)] bg-[color:color-mix(in_srgb,var(--native-panel)_80%,var(--native-surface))] px-4 py-2 text-xs text-[var(--native-muted)]">
-              <div class="min-w-0 truncate font-mono">{currentFilePath()}</div>
+              <div class="min-w-0 truncate font-mono">{statusBarFilePath()}</div>
               <div class="flex items-center gap-4">
                 <span>Ln {form.cursorLine}, Col {form.cursorColumn}</span>
                 <span>{wordCount()} words</span>
