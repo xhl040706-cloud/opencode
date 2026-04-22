@@ -15,6 +15,15 @@ const KanbanLayout = lazy(() => import("@/pages/kanban").then((m) => ({ default:
 const KanbanHome = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanHome })))
 const KanbanRepoList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanRepoList })))
 const KanbanRepoDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanRepoDetail })))
+const KanbanUserList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanUserList })))
+const KanbanUserDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanUserDetail })))
+const KanbanUserGroupDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanUserGroupDetail })))
+const KanbanOrgList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanOrgList })))
+const KanbanOrgDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanOrgDetail })))
+const KanbanTaskList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanTaskList })))
+const KanbanTaskDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanTaskDetail })))
+const KanbanCommitList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanCommitList })))
+const KanbanCommitDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanCommitDetail })))
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
 const CapabilityEditorLayout = lazy(() => import("@/pages/capability-editor-layout"))
@@ -111,6 +120,15 @@ export const routeConfig: RouteConfig[] = [
       { path: "/repo", component: KanbanRepoList },
       { path: "/repo/:repoAddr", component: KanbanRepoDetail },
       { path: "/repo/:repoAddr/:repoBranch", component: KanbanRepoDetail },
+      { path: "/user", component: KanbanUserList },
+      { path: "/user/group/:groupId", component: KanbanUserGroupDetail },
+      { path: "/user/:userId", component: KanbanUserDetail },
+      { path: "/org", component: KanbanOrgList },
+      { path: "/org/:orgPath", component: KanbanOrgDetail },
+      { path: "/task", component: KanbanTaskList },
+      { path: "/task/:taskId", component: KanbanTaskDetail },
+      { path: "/commit", component: KanbanCommitList },
+      { path: "/commit/:commitId", component: KanbanCommitDetail },
     ],
   },
   {

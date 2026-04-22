@@ -111,6 +111,7 @@
         "clsx": "2.1.1",
         "codemirror": "6.0.2",
         "diff": "catalog:",
+        "echarts": "6.0.0",
         "fuzzysort": "catalog:",
         "ghostty-web": "0.3.0",
         "luxon": "catalog:",
@@ -3116,7 +3117,13 @@
 
     "ecdsa-sig-formatter": ["ecdsa-sig-formatter@1.0.11", "", { "dependencies": { "safe-buffer": "^5.0.1" } }, "sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ=="],
 
+<<<<<<< HEAD
     "editorconfig": ["editorconfig@1.0.7", "", { "dependencies": { "@one-ini/wasm": "0.1.1", "commander": "^10.0.0", "minimatch": "^9.0.1", "semver": "^7.5.3" }, "bin": { "editorconfig": "bin/editorconfig" } }, "sha512-e0GOtq/aTQhVdNyDU9e02+wz9oDDM+SIOQxWME2QRjzRX5yyLAuHDE+0aE8vHb9XRC8XD37eO2u57+F09JqFhw=="],
+=======
+    "echarts": ["echarts@6.0.0", "", { "dependencies": { "tslib": "2.3.0", "zrender": "6.0.0" } }, "sha512-Tte/grDQRiETQP4xz3iZWSvoHrkCQtwqd6hs+mifXcjrCuo2iKWbajFObuLJVBlDIJlOzgQPd1hsaKt/3+OMkQ=="],
+
+    "editorconfig": ["editorconfig@1.0.7", "https://registry.npmmirror.com/editorconfig/-/editorconfig-1.0.7.tgz", { "dependencies": { "@one-ini/wasm": "0.1.1", "commander": "^10.0.0", "minimatch": "^9.0.1", "semver": "^7.5.3" }, "bin": { "editorconfig": "bin/editorconfig" } }, "sha512-e0GOtq/aTQhVdNyDU9e02+wz9oDDM+SIOQxWME2QRjzRX5yyLAuHDE+0aE8vHb9XRC8XD37eO2u57+F09JqFhw=="],
+>>>>>>> f18cf8695 (feat: add kanban analytics views)
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
@@ -5138,7 +5145,13 @@
 
     "zod-to-ts": ["zod-to-ts@1.2.0", "", { "peerDependencies": { "typescript": "^4.9.4 || ^5.0.2", "zod": "^3" } }, "sha512-x30XE43V+InwGpvTySRNz9kB7qFU8DlyEy7BsSTCHPH1R0QasMmHWZDCzYm6bVXtj/9NNJAZF3jW8rzFvH5OFA=="],
 
+<<<<<<< HEAD
     "zwitch": ["zwitch@2.0.4", "", {}, "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="],
+=======
+    "zrender": ["zrender@6.0.0", "", { "dependencies": { "tslib": "2.3.0" } }, "sha512-41dFXEEXuJpNecuUQq6JlbybmnHaqqpGlbH1yxnA5V9MMP4SbohSVZsJIwz+zdjQXSSlR1Vc34EgH1zxyTDvhg=="],
+
+    "zwitch": ["zwitch@2.0.4", "https://registry.npmmirror.com/zwitch/-/zwitch-2.0.4.tgz", {}, "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="],
+>>>>>>> f18cf8695 (feat: add kanban analytics views)
 
     "@actions/artifact/@actions/core": ["@actions/core@2.0.3", "", { "dependencies": { "@actions/exec": "^2.0.0", "@actions/http-client": "^3.0.2" } }, "sha512-Od9Thc3T1mQJYddvVPM4QGiLUewdh+3txmDYHHxoNdkqysR1MbCT+rFOtNUxYAz+7+6RIsqipVahY2GJqGPyxA=="],
 
@@ -5748,7 +5761,13 @@
 
     "dot-prop/type-fest": ["type-fest@3.13.1", "", {}, "sha512-tLq3bSNx+xSpwvAJnzrK0Ep5CLNWjvFTOp71URMaAEWBfRb9nnJiBoUe0tF8bI4ZFO3omgBR6NvnbzVUT3Ly4g=="],
 
+<<<<<<< HEAD
     "editorconfig/commander": ["commander@10.0.1", "", {}, "sha512-y4Mg2tXshplEbSGzx7amzPwKKOCGuoSRP/CjEdwwk0FOGlUbq6lKuoyDZTNZkmxHdJtp54hdfY/JUrdL7Xfdug=="],
+=======
+    "echarts/tslib": ["tslib@2.3.0", "", {}, "sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg=="],
+
+    "editorconfig/commander": ["commander@10.0.1", "https://registry.npmmirror.com/commander/-/commander-10.0.1.tgz", {}, "sha512-y4Mg2tXshplEbSGzx7amzPwKKOCGuoSRP/CjEdwwk0FOGlUbq6lKuoyDZTNZkmxHdJtp54hdfY/JUrdL7Xfdug=="],
+>>>>>>> f18cf8695 (feat: add kanban analytics views)
 
     "editorconfig/minimatch": ["minimatch@9.0.9", "", { "dependencies": { "brace-expansion": "^2.0.2" } }, "sha512-OBwBN9AL4dqmETlpS2zasx+vTeWclWzkblfZk7KTA5j3jeOONz/tRCnZomUyvNg83wL5Zv9Ss6HMJXAgL8R2Yg=="],
 
@@ -6022,7 +6041,13 @@
 
     "@actions/artifact/@actions/core/@actions/exec": ["@actions/exec@2.0.0", "", { "dependencies": { "@actions/io": "^2.0.0" } }, "sha512-k8ngrX2voJ/RIN6r9xB82NVqKpnMRtxDoiO+g3olkIUpQNqjArXrCQceduQZCQj3P3xm32pChRLqRrtXTlqhIw=="],
 
+<<<<<<< HEAD
     "@ai-sdk/deepgram/@ai-sdk/provider-utils/@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
+=======
+    "zrender/tslib": ["tslib@2.3.0", "", {}, "sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg=="],
+
+    "@actions/artifact/@actions/core/@actions/exec": ["@actions/exec@2.0.0", "https://registry.npmmirror.com/@actions/exec/-/exec-2.0.0.tgz", { "dependencies": { "@actions/io": "^2.0.0" } }, "sha512-k8ngrX2voJ/RIN6r9xB82NVqKpnMRtxDoiO+g3olkIUpQNqjArXrCQceduQZCQj3P3xm32pChRLqRrtXTlqhIw=="],
+>>>>>>> f18cf8695 (feat: add kanban analytics views)
 
     "@ai-sdk/deepseek/@ai-sdk/provider-utils/@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 

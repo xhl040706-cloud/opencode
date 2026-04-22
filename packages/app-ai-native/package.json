@@ -69,6 +69,7 @@
     "clsx": "2.1.1",
     "codemirror": "6.0.2",
     "diff": "catalog:",
+    "echarts": "6.0.0",
     "fuzzysort": "catalog:",
     "ghostty-web": "0.3.0",
     "luxon": "catalog:",

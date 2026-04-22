@@ -1,4 +1,5 @@
 import { env } from "@/lib/env"
+import { dashboardMock, queryDashboardSummaryMock } from "../mock/dashboard"
 import {
   addRepoToProjectMock,
   checkProjectConflictsMock,
@@ -12,6 +13,13 @@ import {
 import type {
   CorrectionHistoryItem,
   CorrectionPayload,
+  CommitDetailResult,
+  CommitListQuery,
+  CommitListResult,
+  CommitManualPayload,
+  CommitRow,
+  DashboardSummary,
+  DashboardSummaryQuery,
   Data,
   DateRangeValue,
   DateValue,
@@ -21,6 +29,12 @@ import type {
   EfficiencyRow,
   EfficiencySummary,
   FetchOpts,
+  Granularity,
+  OrgAggregatePoint,
+  OrgAggregateQuery,
+  OrgAggregateResult,
+  OrgDetailQuery,
+  OrgDetailResult,
   OrgListQuery,
   ProjectConflict,
   ProjectOption,
@@ -33,6 +47,26 @@ import type {
   RepoListResult,
   RepoTaskRow,
   Shape,
+  TaskConversation,
+  TaskDetailResult,
+  TaskListQuery,
+  TaskListResult,
+  TaskManualPayload,
+  TaskProjectBindingPayload,
+  TaskRow,
+  TimeSegment,
+  UserAggregateRow,
+  UserDetailQuery,
+  UserDetailResult,
+  UserDetailSummary,
+  UserGroupDetailResult,
+  UserGroupMemberRow,
+  UserGroupSummary,
+  UserListQuery,
+  UserListResult,
+  UserOption,
+  UserSeries,
+  UserSeriesPoint,
 } from "./types"
 
 const PREFIX = env.API_PREFIX
@@ -128,6 +162,46 @@ function range(range?: DateRangeValue) {
   }
 }
 
+function org(value?: Record<string, string | undefined>) {
+  if (!value) return {}
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([k, v]) => [k, v?.trim() || undefined] as const)
+      .filter(([, v]) => !!v),
+  )
+}
+
+function orgPath(value?: Record<string, string | undefined>) {
+  const current = org(value)
+  return [current.org1, current.org2, current.org3, current.org4].filter(Boolean).join("/")
+}
+
+function orgScope(value?: Record<string, string | undefined>) {
+  const current = org(value)
+  if (current.org3 || current.org4) {
+    return {
+      level: "org4",
+      parent: [current.org1, current.org2, current.org3].filter(Boolean).join("/"),
+    } as const
+  }
+  if (current.org2) {
+    return {
+      level: "org3",
+      parent: [current.org1, current.org2].filter(Boolean).join("/"),
+    } as const
+  }
+  if (current.org1) {
+    return {
+      level: "org2",
+      parent: current.org1,
+    } as const
+  }
+  return {
+    level: "org1",
+    parent: "",
+  } as const
+}
+
 function toNumber(v: unknown) {
   if (typeof v === "number") return Number.isFinite(v) ? v : 0
   if (typeof v === "string") {
@@ -149,6 +223,78 @@ function toRows(raw: unknown) {
 function toObjects<T extends Record<string, unknown>>(raw: unknown) {
   if (!Array.isArray(raw)) return [] as T[]
   return raw.filter(plain).map((item) => ({ ...item } as T))
+}
+
+function toGranularity(v: unknown): Granularity {
+  if (v === "week" || v === "month" || v === "year") return v
+  return "day"
+}
+
+function unwrap(raw: unknown) {
+  return plain(raw) && plain(raw.data) ? raw.data : raw
+}
+
+function userSummary(raw: unknown): UserDetailSummary {
+  if (!plain(raw)) return {}
+  return {
+    user_id: toText(raw.user_id),
+    user_name: toText(raw.user_name),
+    day_count: toNumber(raw.day_count),
+    task_count: toNumber(raw.task_count),
+    commit_count: toNumber(raw.commit_count),
+    task_efficiency_ratio: raw.task_efficiency_ratio == null ? null : toNumber(raw.task_efficiency_ratio),
+    commit_efficiency_ratio: raw.commit_efficiency_ratio == null ? null : toNumber(raw.commit_efficiency_ratio),
+    cost: raw.cost == null ? null : toNumber(raw.cost),
+  }
+}
+
+function userRows(raw: unknown) {
+  return toObjects<UserAggregateRow>(raw)
+}
+
+function userPeriods(raw: unknown) {
+  if (!Array.isArray(raw)) return [] as string[]
+  return raw.filter((item): item is string => typeof item === "string")
+}
+
+function userPoints(raw: unknown) {
+  return toObjects<UserSeriesPoint>(raw)
+}
+
+function userSeries(raw: unknown) {
+  if (!Array.isArray(raw)) return [] as UserSeries[]
+  return raw.filter(plain).map((item) => ({
+    user_id: toText(item.user_id),
+    user_name: toText(item.user_name),
+    points: userPoints(item.points),
+  }))
+}
+
+function groupSummary(raw: unknown): UserGroupSummary {
+  if (!plain(raw)) return {}
+  return {
+    task_count: toNumber(raw.task_count),
+    commit_count: toNumber(raw.commit_count),
+    task_efficiency_ratio: raw.task_efficiency_ratio == null ? null : toNumber(raw.task_efficiency_ratio),
+    commit_efficiency_ratio: raw.commit_efficiency_ratio == null ? null : toNumber(raw.commit_efficiency_ratio),
+    cost: raw.cost == null ? null : toNumber(raw.cost),
+  }
+}
+
+function groupMembers(raw: unknown) {
+  return toObjects<UserGroupMemberRow>(raw)
+}
+
+function pageResult(raw: unknown) {
+  const data = unwrap(raw)
+  const rows = takeArray(data, ["data", "items"]) ?? []
+  const meta = plain(data) ? data : {}
+  return {
+    rows,
+    total: toNumber(meta.total),
+    page: toNumber(meta.page),
+    pageSize: toNumber(meta.pageSize),
+  }
 }
 
 function summary(raw: unknown): EfficiencySummary {
@@ -191,6 +337,25 @@ function summary(raw: unknown): EfficiencySummary {
       roi: toNumber(cost.roi),
     },
     analysis_file: toText(raw.analysis_file),
+  }
+}
+
+function dashboard(raw: unknown): DashboardSummary {
+  const data = plain(raw) && plain(raw.data) ? raw.data : raw
+  if (!plain(data)) fail("Invalid dashboard response", raw)
+
+  return {
+    total_tasks: toNumber(data.total_tasks),
+    total_users: toNumber(data.total_users),
+    total_repos: toNumber(data.total_repos),
+    total_commits: toNumber(data.total_commits),
+    total_work_dirs: toNumber(data.total_work_dirs),
+    total_cost: toNumber(data.total_cost),
+    total_tokens: toNumber(data.total_tokens),
+    total_diff_lines: toNumber(data.total_diff_lines),
+    total_task_ancient_minutes: toNumber(data.total_task_ancient_minutes),
+    total_real_minutes: toNumber(data.total_real_minutes),
+    avg_efficiency_ratio: data.avg_efficiency_ratio == null ? null : toNumber(data.avg_efficiency_ratio),
   }
 }
 
@@ -302,6 +467,16 @@ export async function queryEfficiencyRows(input: EfficiencyQuery): Promise<Effic
   }
 }
 
+export async function queryDashboardSummary(input: DashboardSummaryQuery = {}): Promise<DashboardSummary> {
+  if (dashboardMock()) return queryDashboardSummaryMock(input)
+
+  const raw = await get<unknown>(`${API}/v2/dashboard/summary`, {
+    ...range(input.dateRange),
+  }, LONG)
+
+  return dashboard(raw)
+}
+
 export async function queryRepoRows(input: RepoListQuery): Promise<RepoListResult> {
   if (repoMock()) return queryRepoRowsMock(input)
 
@@ -321,6 +496,318 @@ export async function queryRepoRows(input: RepoListQuery): Promise<RepoListResul
     total: toNumber(meta.total) || rows.length,
     page: toNumber(meta.page) || currentPage,
     pageSize: toNumber(meta.pageSize) || currentSize,
+  }
+}
+
+export async function queryUserRows(input: UserListQuery): Promise<UserListResult> {
+  const currentPage = input.page ?? 1
+  const currentSize = input.pageSize ?? 250
+  const raw = await get<unknown>(`${API}/v2/users`, {
+    ...range(input.dateRange),
+    page: currentPage,
+    pageSize: currentSize,
+    granularity: toGranularity(input.granularity),
+    ...org(input.org),
+  }, LONG)
+
+  const data = unwrap(raw)
+  const rows = userRows(takeArray(data, ["data", "items"]) ?? [])
+  const meta = plain(data) ? data : {}
+
+  return {
+    rows,
+    total: toNumber(meta.total) || rows.length,
+    page: toNumber(meta.page) || currentPage,
+    pageSize: toNumber(meta.pageSize) || currentSize,
+    periods: userPeriods(plain(data) ? data.periods : undefined),
+    series: userSeries(plain(data) ? data.series : undefined),
+  }
+}
+
+export async function listUsers(input: { pageSize?: number } = {}) {
+  const raw = await get<unknown>(`${API}/v2/users`, {
+    page: 1,
+    pageSize: input.pageSize ?? 1000,
+  }, LONG)
+
+  return userRows(takeArray(unwrap(raw), ["data", "items"]) ?? [])
+    .map((item) => ({
+      user_id: item.user_id?.trim() || "",
+      user_name: item.user_name?.trim() || undefined,
+    } satisfies UserOption))
+    .filter((item) => item.user_id)
+}
+
+export async function getUserDetail(input: UserDetailQuery): Promise<UserDetailResult> {
+  const txt = input.userId.trim()
+  if (!txt) fail("userId is required")
+
+  const raw = await get<unknown>(`${API}/v2/users/${encodeURIComponent(txt)}`, {
+    ...range(input.dateRange),
+    granularity: toGranularity(input.granularity),
+  }, LONG)
+
+  const data = unwrap(raw)
+  if (!plain(data)) {
+    return {
+      summary: {},
+      daily: [],
+      commits: [],
+      tasks: [],
+    }
+  }
+
+  return {
+    summary: userSummary(data.summary),
+    daily: toObjects(data.daily),
+    commits: toObjects(data.commits),
+    tasks: toObjects(data.tasks),
+  }
+}
+
+export async function getUserGroupDetail(input: { groupId: string; dateRange: DateRangeValue }): Promise<UserGroupDetailResult> {
+  const txt = input.groupId.trim()
+  if (!txt) fail("groupId is required")
+
+  const raw = await get<unknown>(`${API}/v2/user-groups/${encodeURIComponent(txt)}`, {
+    ...range(input.dateRange),
+  }, LONG)
+
+  const data = unwrap(raw)
+  if (!plain(data)) {
+    return {
+      group: {},
+      summary: {},
+      members: [],
+    }
+  }
+
+  return {
+    group: plain(data.group) ? {
+      id: toText(data.group.id),
+      name: toText(data.group.name),
+    } : {},
+    summary: groupSummary(data.summary),
+    members: groupMembers(data.members),
+  }
+}
+
+export async function deleteUserGroup(groupId: string) {
+  const txt = groupId.trim()
+  if (!txt) fail("groupId is required")
+  return del<unknown>(`${API}/v2/user-groups/${encodeURIComponent(txt)}`, undefined, undefined, LONG)
+}
+
+export async function queryTaskRows(input: TaskListQuery): Promise<TaskListResult> {
+  const currentPage = input.page ?? 1
+  const currentSize = input.pageSize ?? 250
+  const raw = await get<unknown>(`${API}/v2/tasks`, {
+    ...range(input.dateRange),
+    page: currentPage,
+    pageSize: currentSize,
+    userName: input.userName?.trim() || undefined,
+    ...org(input.org),
+  }, LONG)
+
+  const result = pageResult(raw)
+  const rows = toObjects<TaskRow>(result.rows)
+
+  return {
+    rows,
+    total: result.total || rows.length,
+    page: result.page || currentPage,
+    pageSize: result.pageSize || currentSize,
+  }
+}
+
+export async function getTaskDetail(taskId: string): Promise<TaskDetailResult> {
+  const txt = taskId.trim()
+  if (!txt) fail("taskId is required")
+
+  const raw = await get<unknown>(`${API}/v2/tasks/${encodeURIComponent(txt)}`, undefined, LONG)
+  const data = unwrap(raw)
+  if (!plain(data)) {
+    return {
+      task: {},
+      conversations: [],
+      time_segments: [],
+      efficiency_ratio: null,
+    }
+  }
+
+  const task = plain(data.task) ? { ...(data.task as TaskRow) } : ({} as TaskRow)
+  if (data.efficiency_ratio != null) task.efficiency_ratio = toNumber(data.efficiency_ratio)
+
+  return {
+    task,
+    conversations: toObjects<TaskConversation>(data.conversations),
+    time_segments: toObjects<TimeSegment>(data.time_segments),
+    efficiency_ratio: data.efficiency_ratio == null ? null : toNumber(data.efficiency_ratio),
+  }
+}
+
+export async function updateTaskManual(taskId: string, input: TaskManualPayload) {
+  const txt = taskId.trim()
+  if (!txt) fail("taskId is required")
+
+  return put<unknown>(`${API}/v2/tasks/${encodeURIComponent(txt)}/manual`, {
+    task_real_minutes_manual: input.task_real_minutes_manual ?? null,
+    task_real_minutes_reason_manual: input.task_real_minutes_reason_manual?.trim() || "",
+    task_ancient_minutes_manual: input.task_ancient_minutes_manual ?? null,
+    task_ancient_minutes_reason_manual: input.task_ancient_minutes_reason_manual?.trim() || "",
+  }, undefined, LONG)
+}
+
+export async function estimateTaskAncient() {
+  return post<unknown>(`${API}/v2/tasks/estimate-ancient`, undefined, undefined, LONG)
+}
+
+export async function addTasksToProject(projectId: string, payload: TaskProjectBindingPayload) {
+  const id = projectId.trim()
+  if (!id) fail("projectId is required")
+
+  return post<unknown>(`${API}/v2/projects/${encodeURIComponent(id)}/tasks`, {
+    task_ids: payload.task_ids.map((item) => item.trim()).filter(Boolean),
+    task_ids_silica: payload.task_ids_silica.map((item) => Number(item) || 0),
+  }, undefined, LONG)
+}
+
+export async function queryCommitRows(input: CommitListQuery): Promise<CommitListResult> {
+  const currentPage = input.page ?? 1
+  const currentSize = input.pageSize ?? 250
+  const raw = await get<unknown>(`${API}/v2/commits`, {
+    ...range(input.dateRange),
+    page: currentPage,
+    pageSize: currentSize,
+    userName: input.userName?.trim() || undefined,
+    ...org(input.org),
+  }, LONG)
+
+  const result = pageResult(raw)
+  const rows = toObjects<CommitRow>(result.rows)
+
+  return {
+    rows,
+    total: result.total || rows.length,
+    page: result.page || currentPage,
+    pageSize: result.pageSize || currentSize,
+  }
+}
+
+export async function getCommitDetail(commitId: string): Promise<CommitDetailResult> {
+  const txt = commitId.trim()
+  if (!txt) fail("commitId is required")
+
+  const raw = await get<unknown>(`${API}/v2/commits/${encodeURIComponent(txt)}`, undefined, LONG)
+  const data = unwrap(raw)
+  if (!plain(data)) {
+    return {
+      commit: {},
+      related_tasks: [],
+      efficiency_ratio: null,
+      silica: null,
+      total_cost: null,
+      upstream_tokens: 0,
+      downstream_tokens: 0,
+    }
+  }
+
+  const commit = plain(data.commit) ? { ...(data.commit as CommitRow) } : ({} as CommitRow)
+  if (data.efficiency_ratio != null) commit.efficiency_ratio = toNumber(data.efficiency_ratio)
+  if (data.silica != null) commit.silica = toNumber(data.silica)
+
+  return {
+    commit,
+    related_tasks: toObjects(data.related_tasks),
+    efficiency_ratio: data.efficiency_ratio == null ? null : toNumber(data.efficiency_ratio),
+    silica: data.silica == null ? null : toNumber(data.silica),
+    total_cost: data.total_cost == null ? null : toNumber(data.total_cost),
+    upstream_tokens: toNumber(data.upstream_tokens),
+    downstream_tokens: toNumber(data.downstream_tokens),
+  }
+}
+
+export async function updateCommitManual(commitId: string, input: CommitManualPayload) {
+  const txt = commitId.trim()
+  if (!txt) fail("commitId is required")
+
+  return put<unknown>(`${API}/v2/commits/${encodeURIComponent(txt)}/manual`, {
+    commit_ancient_minutes_manual: input.commit_ancient_minutes_manual ?? null,
+    commit_ancient_minutes_reason_manual: input.commit_ancient_minutes_reason_manual?.trim() || "",
+    commit_real_minutes_manual: input.commit_real_minutes_manual ?? null,
+    commit_real_minutes_reason_manual: input.commit_real_minutes_reason_manual?.trim() || "",
+  }, undefined, LONG)
+}
+
+export async function queryOrgRows(input: OrgAggregateQuery): Promise<OrgAggregateResult> {
+  const scope = orgScope(input.org)
+  const raw = await get<unknown>(`${API}/v2/orgs`, {
+    level: scope.level,
+    parent: scope.parent,
+    ...range(input.dateRange),
+    granularity: toGranularity(input.granularity),
+  }, LONG)
+
+  const data = unwrap(raw)
+  if (!plain(data)) {
+    return {
+      rows: [],
+      periods: [],
+      series: [],
+    }
+  }
+
+  return {
+    rows: toObjects(takeArray(data, ["data", "items"]) ?? []),
+    periods: userPeriods(data.periods),
+    series: Array.isArray(data.series)
+      ? data.series.filter(plain).map((item) => ({
+          org_name: toText(item.org_name),
+          points: toObjects<OrgAggregatePoint>(item.points),
+        }))
+      : [],
+  }
+}
+
+export async function getOrgDetail(input: OrgDetailQuery): Promise<OrgDetailResult> {
+  const path = orgPath(input.org)
+  if (!path) {
+    return {
+      summary: {},
+      members: [],
+      commits: [],
+      tasks: [],
+    }
+  }
+
+  const raw = await get<unknown>(`${API}/v2/orgs/detail`, {
+    ...range(input.dateRange),
+    granularity: toGranularity(input.granularity),
+    org_path: path,
+  }, LONG)
+
+  const data = unwrap(raw)
+  if (!plain(data)) {
+    return {
+      summary: {},
+      members: [],
+      commits: [],
+      tasks: [],
+    }
+  }
+
+  return {
+    summary: {
+      user_count: toNumber(plain(data.summary) ? data.summary.user_count : undefined),
+      task_diff_lines: toNumber(plain(data.summary) ? data.summary.task_diff_lines : undefined),
+      commit_diff_lines: toNumber(plain(data.summary) ? data.summary.commit_diff_lines : undefined),
+      task_efficiency_ratio: plain(data.summary) && data.summary.task_efficiency_ratio != null ? toNumber(data.summary.task_efficiency_ratio) : null,
+      commit_efficiency_ratio: plain(data.summary) && data.summary.commit_efficiency_ratio != null ? toNumber(data.summary.commit_efficiency_ratio) : null,
+      cost: plain(data.summary) && data.summary.cost != null ? toNumber(data.summary.cost) : null,
+    },
+    members: groupMembers(data.members),
+    commits: toObjects(data.commits),
+    tasks: toObjects(data.tasks),
   }
 }
 
@@ -485,6 +972,21 @@ export const kanbanApi = {
   listOrgs,
   loadDimensionKeys,
   queryEfficiencyRows,
+  queryUserRows,
+  listUsers,
+  getUserDetail,
+  getUserGroupDetail,
+  deleteUserGroup,
+  queryTaskRows,
+  getTaskDetail,
+  updateTaskManual,
+  estimateTaskAncient,
+  addTasksToProject,
+  queryCommitRows,
+  getCommitDetail,
+  updateCommitManual,
+  queryOrgRows,
+  getOrgDetail,
   queryRepoRows,
   getRepoDetail,
   listRepoBranches,
