@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * Downloads builtin review skills & agents from their source repository and generates
+ * Downloads builtin review skills & agents from costrict-review repo and generates
  * src/costrict/review/skill/builtin.ts and src/costrict/review/agent/builtin.ts
  *
  * Uses git SSH transport (git ls-remote + git clone).
@@ -23,8 +23,6 @@ const builtinSkillsFile = path.resolve(__dirname, "../src/costrict/review/skill/
 const builtinAgentsFile = path.resolve(__dirname, "../src/costrict/review/agent/builtin.ts")
 
 type ResourceConfig = {
-  repo: string
-  branch: string
   subdir: string
   type: "skill" | "agent"
   outputFile?: string
@@ -33,36 +31,32 @@ type ResourceConfig = {
 
 const BUILTIN_RESOURCES: Record<string, ResourceConfig> = {
   "security-review": {
-    repo: "zgsm-ai/costrict-review",
-    branch: "main",
     subdir: "skills/security-review",
     type: "skill",
     displayName: "Security Review Skill",
   },
   "review": {
-    repo: "zgsm-ai/costrict-review",
-    branch: "main",
     subdir: "skills/review",
     type: "skill",
     displayName: "Review Skill",
   },
   "costrict-reviewer": {
-    repo: "zgsm-ai/costrict-review",
-    branch: "main",
     subdir: "agents/CostrictReviewer",
     type: "agent",
     outputFile: "CostrictReviewer.md",
     displayName: "Costrict Reviewer Agent",
   },
   "costrict-validator": {
-    repo: "zgsm-ai/costrict-review",
-    branch: "main",
     subdir: "agents/CostrictValidator",
     type: "agent",
     outputFile: "CostrictValidator.md",
     displayName: "Costrict Validator Agent",
   },
 }
+
+const REPO = "zgsm-ai/costrict-review"
+const BRANCH = "main"
+const CLONE_URL = `git@github.com:${REPO}.git`
 
 function git(...args: string[]): { ok: boolean; stdout: string; stderr: string } {
   const result = spawnSync("git", args, { encoding: "utf-8" })
@@ -73,13 +67,9 @@ function git(...args: string[]): { ok: boolean; stdout: string; stderr: string }
   }
 }
 
-function getCloneUrl(repo: string): string {
-  return `git@github.com:${repo}.git`
-}
-
-function lsRemoteSha(repo: string, branch: string): string | null {
-  const ref = `refs/heads/${branch}`
-  const result = git("ls-remote", "--heads", getCloneUrl(repo), ref)
+function lsRemoteSha(): string | null {
+  const ref = `refs/heads/${BRANCH}`
+  const result = git("ls-remote", "--heads", CLONE_URL, ref)
   if (!result.ok || !result.stdout) return null
   const sha = result.stdout.split("\t")[0] ?? ""
   return sha.length >= 40 ? sha : null
@@ -114,64 +104,43 @@ async function walk(dir: string, base = ""): Promise<string[]> {
   }
 }
 
-async function downloadResource(
-  name: string,
-  config: ResourceConfig,
-): Promise<{ name: string; commitSha: string | null } | null> {
-  const { repo, branch, subdir, outputFile } = config
-  const cloneUrl = getCloneUrl(repo)
-  const displayName = config.displayName || name
+type DownloadResult = { name: string; commitSha: string | null }
 
-  console.log(`\n📦 ${config.type === "skill" ? "Skill" : "Agent"}: ${displayName}`)
-  console.log(`   From: ${cloneUrl}`)
-  console.log(`   Branch: ${branch}`)
-
-  const remoteSha = lsRemoteSha(repo, branch)
-  if (!remoteSha) {
-    throw new Error(`git ls-remote failed for ${cloneUrl} (branch: ${branch})`)
-  }
-  console.log(`   Remote commit: ${remoteSha.slice(0, 7)}`)
-
-  const targetFile = config.type === "skill" ? builtinSkillsFile : builtinAgentsFile
-  const cachedSha = await readCachedSha(name, targetFile)
-  const outputDir = path.join(bundledReviewDir, name)
-  const hasCachedFiles = (await walk(outputDir)).length > 0
-  if (cachedSha === remoteSha && hasCachedFiles) {
-    console.log(`   ✓ Cached version matches remote, skipping download`)
-    return { name, commitSha: remoteSha }
-  }
-  if (cachedSha) {
-    console.log(`   Cached: ${cachedSha.slice(0, 7)} → Remote: ${remoteSha.slice(0, 7)}, updating...`)
-  }
-
-  const cloneDir = path.join(bundledReviewDir, `.clone-${name}`)
-  console.log(`   git clone --depth 1 ${cloneUrl}`)
-
+async function cloneAndCopy(
+  cloneDir: string,
+): Promise<void> {
+  console.log(`   git clone --depth 1 ${CLONE_URL}`)
   await fs.rm(cloneDir, { recursive: true, force: true })
-  const cloneResult = git("clone", "--depth", "1", "--branch", branch, cloneUrl, cloneDir)
+  const cloneResult = git("clone", "--depth", "1", "--branch", BRANCH, CLONE_URL, cloneDir)
   if (!cloneResult.ok) {
     throw new Error(`git clone failed: ${cloneResult.stderr}`)
   }
 
-  const srcDir = subdir ? path.join(cloneDir, subdir) : cloneDir
-  await fs.rm(outputDir, { recursive: true, force: true })
-  await fs.cp(srcDir, outputDir, { recursive: true })
+  for (const [name, config] of Object.entries(BUILTIN_RESOURCES)) {
+    const outputDir = path.join(bundledReviewDir, name)
+    const srcDir = path.join(cloneDir, config.subdir)
 
-  const requiredFile = outputFile ? path.join(outputDir, outputFile) : path.join(outputDir, "SKILL.md")
-  try {
-    await fs.access(requiredFile)
-  } catch {
-    throw new Error(`${config.type === "skill" ? "Skill" : "Agent"} "${name}" missing ${outputFile || "SKILL.md"}`)
+    await fs.rm(outputDir, { recursive: true, force: true })
+    await fs.cp(srcDir, outputDir, { recursive: true })
+
+    const requiredFile = config.outputFile
+      ? path.join(outputDir, config.outputFile)
+      : path.join(outputDir, "SKILL.md")
+    try {
+      await fs.access(requiredFile)
+    } catch {
+      throw new Error(`${config.type === "skill" ? "Skill" : "Agent"} "${name}" missing ${config.outputFile || "SKILL.md"}`)
+    }
+
+    const fileCount = (await walk(outputDir)).length
+    console.log(`   ✓ ${config.displayName || name}: ${fileCount} files`)
   }
 
   await fs.rm(cloneDir, { recursive: true, force: true })
-  const fileCount = (await walk(outputDir)).length
-  console.log(`   ✓ ${fileCount} files copied`)
-  return { name, commitSha: remoteSha }
 }
 
 async function generateBuiltinSkills(
-  downloadedResources: Array<{ name: string; commitSha: string | null }>,
+  downloadedResources: DownloadResult[],
 ): Promise<void> {
   const skillNames = Object.entries(BUILTIN_RESOURCES)
     .filter(([_, config]) => config.type === "skill")
@@ -292,7 +261,7 @@ function parseFrontmatter(content: string): { frontmatter: Record<string, unknow
 }
 
 async function generateBuiltinAgents(
-  downloadedResources: Array<{ name: string; commitSha: string | null }>,
+  downloadedResources: DownloadResult[],
 ): Promise<void> {
   const outLines: string[] = [
     "// This file is auto-generated by script/generate-review-builtin.ts",
@@ -358,33 +327,62 @@ async function generateBuiltinReview() {
 
   await fs.mkdir(bundledReviewDir, { recursive: true })
 
-  const downloadedResources: Array<{ name: string; commitSha: string | null }> = []
-  let skipped = 0
+  const remoteSha = lsRemoteSha()
+  if (!remoteSha) {
+    throw new Error(`git ls-remote failed for ${CLONE_URL} (branch: ${BRANCH})`)
+  }
+  console.log(`Remote commit: ${remoteSha.slice(0, 7)}`)
 
+  // Check if any resource needs updating
+  let needsUpdate = false
   for (const [name, config] of Object.entries(BUILTIN_RESOURCES)) {
-    try {
-      const result = await downloadResource(name, config)
-      if (result) {
-        downloadedResources.push(result)
+    const targetFile = config.type === "skill" ? builtinSkillsFile : builtinAgentsFile
+    const cachedSha = await readCachedSha(name, targetFile)
+    const outputDir = path.join(bundledReviewDir, name)
+    const hasCachedFiles = (await walk(outputDir)).length > 0
+
+    if (cachedSha !== remoteSha || !hasCachedFiles) {
+      if (cachedSha) {
+        console.log(`${config.displayName || name}: cached ${cachedSha.slice(0, 7)} → remote ${remoteSha.slice(0, 7)}, updating`)
       }
-    } catch (err) {
-      const outputDir = path.join(bundledReviewDir, name)
-      const cached = await walk(outputDir)
-      if (cached.length > 0) {
-        console.warn(`  ⚠ Download failed, using cache for "${config.displayName || name}": ${err}`)
-        const cachedSha = await readCachedSha(name, config.type === "skill" ? builtinSkillsFile : builtinAgentsFile)
-        downloadedResources.push({ name, commitSha: cachedSha })
-        skipped++
-      } else {
-        console.error(`  ✗ Download failed, no cache for "${config.displayName || name}": ${err}`)
-      }
+      needsUpdate = true
     }
   }
 
-  const total = Object.keys(BUILTIN_RESOURCES).length
-  console.log(`\n✓ Downloaded ${total - skipped}/${total} resources${skipped > 0 ? ` (${skipped} skipped, using cache)` : ""}`)
+  const downloadedResources: DownloadResult[] = []
+
+  if (needsUpdate) {
+    const cloneDir = path.join(bundledReviewDir, ".clone")
+    try {
+      await cloneAndCopy(cloneDir)
+      for (const name of Object.keys(BUILTIN_RESOURCES)) {
+        downloadedResources.push({ name, commitSha: remoteSha })
+      }
+      console.log(`\n✓ All resources updated (commit ${remoteSha.slice(0, 7)})`)
+    } catch (err) {
+      console.error(`  ✗ Download failed: ${err}`)
+      // Check which resources have usable cache
+      for (const [name, config] of Object.entries(BUILTIN_RESOURCES)) {
+        const outputDir = path.join(bundledReviewDir, name)
+        const cached = await walk(outputDir)
+        if (cached.length > 0) {
+          console.warn(`  ⚠ Using cache for "${config.displayName || name}"`)
+          const targetFile = config.type === "skill" ? builtinSkillsFile : builtinAgentsFile
+          const cachedSha = await readCachedSha(name, targetFile)
+          downloadedResources.push({ name, commitSha: cachedSha })
+        } else {
+          console.error(`  ✗ No cache for "${config.displayName || name}", skipping`)
+        }
+      }
+    }
+  } else {
+    console.log("✓ All resources up to date, skipping download")
+    for (const name of Object.keys(BUILTIN_RESOURCES)) {
+      downloadedResources.push({ name, commitSha: remoteSha })
+    }
+  }
+
   console.log(`✓ Bundled review directory: ${bundledReviewDir}`)
-  console.log("\n💡 Run 'bun run build' to compile the extension\n")
 
   await generateBuiltinSkills(downloadedResources)
 
@@ -394,6 +392,8 @@ async function generateBuiltinReview() {
   } else {
     console.warn("⚠ No agents downloaded, agent builtin.ts not updated.")
   }
+
+  console.log("\n💡 Run 'bun run build' to compile the extension\n")
 }
 
 generateBuiltinReview().catch(console.error)
