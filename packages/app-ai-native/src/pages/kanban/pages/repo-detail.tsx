@@ -8,26 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { AddRepoToProjectDialog } from "../components/dialogs/add-repo-to-project-dialog"
 import { getRepoDetail } from "../lib/api"
-import { defaultWideRange } from "../lib/date-range"
+import { defaultWideRange, parseQueryRange, rangeQuery, searchQuery } from "../lib/date-range"
 import { formatDuration, formatLocalTime, shortId } from "../lib/formatters"
 import type { DateRangeValue, RepoCommitRow, RepoTaskRow } from "../lib/types"
-
-function parseQueryRange(startDate?: string, endDate?: string) {
-  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
-    return [
-      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
-      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
-    ] as [string, string]
-  }
-  return defaultWideRange()
-}
-
-function rangeQuery(value: [string, string]) {
-  return {
-    startDate: value[0].replace(/-/g, ""),
-    endDate: value[1].replace(/-/g, ""),
-  }
-}
 
 function formatDay(value?: string | null) {
   if (!value) return "-"
@@ -104,20 +87,22 @@ export default function KanbanRepoDetail() {
   const repoBranch = createMemo(() => decodeURIComponent(params.repoBranch ?? "").trim())
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
   const listHref = createMemo(() => {
-    const q = new URLSearchParams()
-    if (search.startDate?.trim()) q.set("startDate", search.startDate.trim())
-    if (search.endDate?.trim()) q.set("endDate", search.endDate.trim())
-    if (search.mock?.trim()) q.set("mock", search.mock.trim())
+    const q = searchQuery([
+      ["startDate", search.startDate],
+      ["endDate", search.endDate],
+      ["mock", search.mock],
+    ])
     const txt = q.toString()
     return txt ? `/kanban/repo?${txt}` : "/kanban/repo"
   })
 
   const detailHref = (branch?: string) => {
-    const q = new URLSearchParams()
     const next = rangeQuery(dateRange())
-    q.set("startDate", next.startDate)
-    q.set("endDate", next.endDate)
-    if (search.mock?.trim()) q.set("mock", search.mock.trim())
+    const q = searchQuery([
+      ["startDate", next.startDate],
+      ["endDate", next.endDate],
+      ["mock", search.mock],
+    ])
     const txt = q.toString()
     return branch
       ? `/kanban/repo/${encodeURIComponent(repoAddr())}/${encodeURIComponent(branch)}?${txt}`
@@ -238,7 +223,11 @@ export default function KanbanRepoDetail() {
                 value={dateRange()}
                 onChange={(value) => {
                   const next = value ?? defaultWideRange()
-                  setSearch(rangeQuery(next))
+                  setSearch(Object.fromEntries(searchQuery([
+                    ["startDate", rangeQuery(next).startDate],
+                    ["endDate", rangeQuery(next).endDate],
+                    ["mock", search.mock],
+                  ]).entries()))
                 }}
                 placeholder="选择日期范围"
               />

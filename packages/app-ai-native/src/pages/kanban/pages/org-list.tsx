@@ -1,41 +1,20 @@
 import { useNavigate, useSearchParams } from "@solidjs/router"
-import { createEffect, createMemo, createResource } from "solid-js"
+import { createEffect, createMemo, createResource, on, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
 import type { EChartsOption } from "echarts"
 import { Button } from "@/components/ui/button"
+import Back from "../components/back"
 import { FilterBar } from "../components/filters/filter-bar"
 import { ChartCard } from "../components/charts/chart-card"
 import { RatioPill } from "../components/ratio-pill"
 import { FilterTable } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
 import { queryOrgRows } from "../lib/api"
-import { defaultWideRange, normalizeDateRange } from "../lib/date-range"
+import { chart } from "../lib/chart-options"
+import { defaultWideRange, normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
 import { applyClientFilters } from "../lib/filter-utils"
 import type { Granularity, KanbanColumn, OrgAggregateQuery, OrgAggregateRow, OrgAggregateSeries, OrgCascadeValue } from "../lib/types"
-
-function parseQueryRange(startDate?: string, endDate?: string) {
-  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
-    return [
-      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
-      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
-    ] as [string, string]
-  }
-  return defaultWideRange()
-}
-
-function rangeQuery(value: [string, string]) {
-  return {
-    startDate: value[0].replace(/-/g, ""),
-    endDate: value[1].replace(/-/g, ""),
-  }
-}
-
-function sameRange(a: [string, string] | null | undefined, b: [string, string] | null | undefined) {
-  if (!a && !b) return true
-  if (!a || !b) return false
-  return a[0] === b[0] && a[1] === b[1]
-}
 
 function parseGranularity(value?: string): Granularity {
   if (value === "week" || value === "month" || value === "year") return value
@@ -74,44 +53,21 @@ function orgPath(value: OrgCascadeValue) {
 }
 
 function queryOf(range: [string, string], granularity: Granularity, org: OrgCascadeValue, mock?: string) {
-  const next = new URLSearchParams()
   const dates = rangeQuery(range)
-  next.set("startDate", dates.startDate)
-  next.set("endDate", dates.endDate)
-  next.set("granularity", granularity)
-  if (org.org1) next.set("org1", org.org1)
-  if (org.org2) next.set("org2", org.org2)
-  if (org.org3) next.set("org3", org.org3)
-  if (org.org4) next.set("org4", org.org4)
-  if (mock?.trim()) next.set("mock", mock.trim())
-  return next.toString()
+  return searchQuery([
+    ["startDate", dates.startDate],
+    ["endDate", dates.endDate],
+    ["granularity", granularity],
+    ["org1", org.org1],
+    ["org2", org.org2],
+    ["org3", org.org3],
+    ["org4", org.org4],
+    ["mock", mock],
+  ]).toString()
 }
 
 function queryString(search: Record<string, string | undefined>) {
-  const next = new URLSearchParams()
-  for (const [key, value] of Object.entries(search)) {
-    const txt = value?.trim()
-    if (txt) next.set(key, txt)
-  }
-  return next.toString()
-}
-
-function line(title: string, periods: string[], list: Array<{ name: string; data: number[] }>, format?: (value: number) => string): EChartsOption {
-  return {
-    title: { text: title, left: "center", textStyle: { fontSize: 13, fontWeight: "bold" } },
-    tooltip: format ? {
-      trigger: "axis",
-      formatter(items) {
-        const rows = Array.isArray(items) ? items : [items]
-        return rows.reduce((txt, item, index) => `${txt}${index === 0 ? `${item.axisValue}<br/>` : ""}${item.marker}${item.seriesName}: ${format(Number(item.value ?? 0))}<br/>`, "")
-      },
-    } : { trigger: "axis" },
-    legend: { data: list.map((item) => item.name), top: "8%", type: "scroll" },
-    grid: { left: "5%", right: "5%", top: "22%", bottom: "10%", containLabel: true },
-    xAxis: { type: "category", data: periods, axisLabel: { rotate: 45, fontSize: 11 } },
-    yAxis: title.includes("提效比") ? { type: "value", axisLabel: { formatter: "{value}%" } } : { type: "value" },
-    series: list.map((item) => ({ name: item.name, type: "line", smooth: true, data: item.data })),
-  }
+  return searchQuery(Object.entries(search)).toString()
 }
 
 function values(series: OrgAggregateSeries, field: keyof OrgAggregateSeries["points"][number]) {
@@ -129,16 +85,19 @@ export default function KanbanOrgList() {
     granularity: parseGranularity(search.granularity),
   })
 
-  createEffect(() => {
-    const next = parseQueryRange(search.startDate, search.endDate)
-    if (!sameRange(state.dateRange, next)) setState("dateRange", next)
+  createEffect(on(
+    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.granularity],
+    () => {
+      const next = readQueryRange(search.startDate, search.endDate)
+      if (next && !sameRange(untrack(() => state.dateRange), next)) setState("dateRange", next)
 
-    const org = parseOrg(search)
-    if (!sameOrg(state.org, org)) setState("org", org)
+      const org = parseOrg(search)
+      if (!sameOrg(untrack(() => state.org), org)) setState("org", org)
 
-    const granularity = parseGranularity(search.granularity)
-    if (state.granularity !== granularity) setState("granularity", granularity)
-  })
+      const granularity = parseGranularity(search.granularity)
+      if (untrack(() => state.granularity) !== granularity) setState("granularity", granularity)
+    },
+  ))
 
   createEffect(() => {
     const next = normalizeDateRange(state.dateRange)
@@ -245,20 +204,19 @@ export default function KanbanOrgList() {
   const periods = createMemo(() => data()?.periods ?? [])
   const series = createMemo(() => data()?.series ?? [])
 
-  const memberOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("成员数", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "user_count") }))) : undefined)
-  const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("Task / Commit 数", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_count") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_count") }]))) : undefined)
-  const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("代码量", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_diff_lines") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_diff_lines") }]))) : undefined)
-  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("提效比", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_efficiency_ratio") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_efficiency_ratio") }])), (value) => `${value.toFixed(1)}%`) : undefined)
-  const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("Tokens 消耗", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_tokens") })), (value) => value.toLocaleString()) : undefined)
-  const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("总费用", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_cost") })), (value) => fmtCost(value)) : undefined)
+  const memberOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("成员数", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "user_count") })), { type: "line" }) : undefined)
+  const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Task / Commit 数", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_count") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_count") }])), { type: "line" }) : undefined)
+  const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("代码量", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_diff_lines") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_diff_lines") }])), { type: "line" }) : undefined)
+  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("提效比", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_efficiency_ratio") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_efficiency_ratio") }])), { type: "line", format: (value) => `${value.toFixed(1)}%` }) : undefined)
+  const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Tokens 消耗", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_tokens") })), { type: "line", format: (value) => value.toLocaleString() }) : undefined)
+  const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("总费用", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_cost") })), { type: "line", format: (value) => fmtCost(value) }) : undefined)
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <header>
-          <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / Org View</p>
-          <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">组织视图</h1>
-          <p class="mt-3 max-w-[76ch] text-[0.9375rem] leading-[1.7] text-[var(--native-muted)]">恢复旧版 org view 的组织聚合能力：层级筛选、组织总览表、跨用户/Task/Commit 跳转和时间序列图表。</p>
+      <div class="flex w-full flex-col gap-5">
+        <header class="flex w-full flex-col gap-3">
+          <Back />
+          <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">组织视图</h1>
         </header>
 
         <FilterBar
@@ -290,6 +248,7 @@ export default function KanbanOrgList() {
         />
 
         <FilterTable
+          class="rounded-none"
           columns={columns()}
           rows={paged()}
           rawRows={data()?.rows ?? []}

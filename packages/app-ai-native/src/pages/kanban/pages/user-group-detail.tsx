@@ -6,25 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
-import { defaultWideRange } from "../lib/date-range"
+import { defaultWideRange, parseQueryRange, rangeQuery, searchQuery } from "../lib/date-range"
 import { deleteUserGroup, getUserGroupDetail } from "../lib/api"
-
-function parseQueryRange(startDate?: string, endDate?: string) {
-  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
-    return [
-      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
-      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
-    ] as [string, string]
-  }
-  return defaultWideRange()
-}
-
-function rangeQuery(value: [string, string]) {
-  return {
-    startDate: value[0].replace(/-/g, ""),
-    endDate: value[1].replace(/-/g, ""),
-  }
-}
 
 function fmtCost(value?: number | null) {
   if (value == null || value === 0) return "-"
@@ -38,13 +21,25 @@ export default function KanbanUserGroupDetail() {
 
   const groupId = createMemo(() => decodeURIComponent(params.groupId ?? "").trim())
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
+  const routeQuery = createMemo(() => searchQuery([
+    ["startDate", search.startDate],
+    ["endDate", search.endDate],
+    ["mock", search.mock],
+  ]).toString())
 
   createEffect(() => {
     const next = rangeQuery(dateRange())
-    const current = new URLSearchParams(search as Record<string, string>)
-    if (current.get("startDate") === next.startDate && current.get("endDate") === next.endDate) return
-    if (search.mock?.trim()) setSearch({ ...next, mock: search.mock.trim() })
-    else setSearch(next)
+    const mirror = searchQuery([
+      ["startDate", next.startDate],
+      ["endDate", next.endDate],
+      ["mock", search.mock],
+    ])
+    const current = searchQuery([
+      ["startDate", search.startDate],
+      ["endDate", search.endDate],
+      ["mock", search.mock],
+    ])
+    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
   })
 
   const [data, { refetch }] = createResource(
@@ -111,7 +106,11 @@ export default function KanbanUserGroupDetail() {
                     value={dateRange()}
                     onChange={(value) => {
                       const next = value ?? defaultWideRange()
-                      setSearch(rangeQuery(next))
+                      setSearch(Object.fromEntries(searchQuery([
+                        ["startDate", rangeQuery(next).startDate],
+                        ["endDate", rangeQuery(next).endDate],
+                        ["mock", search.mock],
+                      ]).entries()))
                     }}
                     clearable={false}
                     placeholder="选择日期范围"
@@ -157,7 +156,7 @@ export default function KanbanUserGroupDetail() {
                     <TableRow class="cursor-pointer" onClick={() => {
                       const txt = row.user_id?.trim()
                       if (!txt) return
-                      navigate(`/kanban/user/${encodeURIComponent(txt)}?${new URLSearchParams(search as Record<string, string>).toString()}`)
+                      navigate(`/kanban/user/${encodeURIComponent(txt)}?${routeQuery()}`)
                     }}>
                       <TableCell>{row.user_name || row.user_id || "-"}</TableCell>
                       <TableCell class="text-right tabular-nums">{row.day_count ?? "-"}</TableCell>

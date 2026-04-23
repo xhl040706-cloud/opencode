@@ -176,17 +176,16 @@ export default function KanbanCommitDetail() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <header class="flex flex-col gap-3">
+      <div class="flex w-full flex-col gap-5">
+        <header class="flex w-full flex-col gap-3">
           <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
             <span>←</span>
             <span>返回 Commit 列表</span>
           </A>
-          <div class="flex flex-col gap-4 rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)] lg:flex-row lg:items-end lg:justify-between">
+
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / Commit Detail</p>
-              <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">Commit 详情</h1>
-              <p class="mt-3 max-w-[76ch] text-[0.9375rem] leading-[1.7] text-[var(--native-muted)]">补齐旧版 commit detail 的核心能力：基础信息、硅含量、关联 task 列表和人工调整。</p>
+              <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">Commit 详情</h1>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">

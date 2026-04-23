@@ -1,36 +1,13 @@
 import { A, useSearchParams } from "@solidjs/router"
-import { createEffect, createMemo, createResource, For } from "solid-js"
+import { createEffect, createMemo, createResource, For, on, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
 import { cn } from "@/lib/utils"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { queryDashboardSummary } from "../lib/api"
-import { defaultWideRange, normalizeDateRange } from "../lib/date-range"
+import { normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
 import { formatDuration } from "../lib/formatters"
-import type { DashboardSummary, DateRangeValue } from "../lib/types"
-
-function parseQueryRange(startDate?: string, endDate?: string) {
-  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
-    return [
-      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
-      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
-    ] as [string, string]
-  }
-  return defaultWideRange()
-}
-
-function rangeQuery(value: [string, string]) {
-  return {
-    startDate: value[0].replace(/-/g, ""),
-    endDate: value[1].replace(/-/g, ""),
-  }
-}
-
-function sameRange(a: DateRangeValue, b: DateRangeValue) {
-  if (!a && !b) return true
-  if (!a || !b) return false
-  return a[0] === b[0] && a[1] === b[1]
-}
+import type { DashboardSummary } from "../lib/types"
 
 function fmtInt(value?: number | null) {
   if (value == null) return "-"
@@ -160,16 +137,30 @@ export default function KanbanHome() {
     dateRange: parseQueryRange(search.startDate, search.endDate),
   })
 
+  createEffect(on(
+    () => [search.startDate, search.endDate],
+    () => {
+      const next = readQueryRange(search.startDate, search.endDate)
+      if (next && !sameRange(untrack(() => state.dateRange), next)) setState("dateRange", next)
+    },
+  ))
+
   createEffect(() => {
     const next = normalizeDateRange(state.dateRange)
     if (!next) return
 
-    const current = parseQueryRange(search.startDate, search.endDate)
-    if (sameRange(next, current)) return
-
     const query = rangeQuery(next)
-    const mock = search.mock?.trim()
-    setSearch(mock ? { ...query, mock } : query)
+    const mirror = searchQuery([
+      ["startDate", query.startDate],
+      ["endDate", query.endDate],
+      ["mock", search.mock],
+    ])
+    const current = searchQuery([
+      ["startDate", search.startDate],
+      ["endDate", search.endDate],
+      ["mock", search.mock],
+    ])
+    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
   })
 
   const [summary] = createResource(

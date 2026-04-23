@@ -1,33 +1,17 @@
-import { A, useNavigate, useSearchParams } from "@solidjs/router"
-import { createEffect, createMemo, createResource } from "solid-js"
+import { useNavigate, useSearchParams } from "@solidjs/router"
+import { createEffect, createMemo, createResource, on, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Button } from "@/components/ui/button"
+import Back from "../components/back"
 import { FilterBar } from "../components/filters/filter-bar"
 import { FilterTable } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
 import { queryCommitRows } from "../lib/api"
-import { defaultWideRange } from "../lib/date-range"
+import { defaultWideRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
 import { applyClientFilters } from "../lib/filter-utils"
 import { formatDuration, formatLocalTime, shortId } from "../lib/formatters"
 import type { CommitRow, KanbanColumn, OrgCascadeValue } from "../lib/types"
-
-function parseQueryRange(startDate?: string, endDate?: string) {
-  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
-    return [
-      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
-      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
-    ] as [string, string]
-  }
-  return defaultWideRange()
-}
-
-function rangeQuery(value: [string, string]) {
-  return {
-    startDate: value[0].replace(/-/g, ""),
-    endDate: value[1].replace(/-/g, ""),
-  }
-}
 
 function parseOrg(search: { org1?: string; org2?: string; org3?: string; org4?: string }) {
   return {
@@ -57,26 +41,49 @@ export default function KanbanCommitList() {
     org: parseOrg(search),
   })
 
-  createEffect(() => {
-    const next = parseQueryRange(search.startDate, search.endDate)
-    if (state.dateRange[0] !== next[0] || state.dateRange[1] !== next[1]) setState("dateRange", next)
-    const org = parseOrg(search)
-    if (!sameOrg(state.org, org)) setState("org", org)
-  })
+  const routeQuery = createMemo(() => searchQuery([
+    ["startDate", search.startDate],
+    ["endDate", search.endDate],
+    ["userName", search.userName],
+    ["org1", search.org1],
+    ["org2", search.org2],
+    ["org3", search.org3],
+    ["org4", search.org4],
+    ["mock", search.mock],
+  ]).toString())
+
+  createEffect(on(
+    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4],
+    () => {
+      const next = readQueryRange(search.startDate, search.endDate)
+      if (next && !sameRange(untrack(() => state.dateRange), next)) setState("dateRange", next)
+      const org = parseOrg(search)
+      if (!sameOrg(untrack(() => state.org), org)) setState("org", org)
+    },
+  ))
 
   createEffect(() => {
-    const query = new URLSearchParams()
     const next = rangeQuery(state.dateRange)
-    query.set("startDate", next.startDate)
-    query.set("endDate", next.endDate)
-    if (search.userName?.trim()) query.set("userName", search.userName.trim())
-    if (state.org.org1) query.set("org1", state.org.org1)
-    if (state.org.org2) query.set("org2", state.org.org2)
-    if (state.org.org3) query.set("org3", state.org.org3)
-    if (state.org.org4) query.set("org4", state.org.org4)
-    if (search.mock?.trim()) query.set("mock", search.mock.trim())
-
-    const current = new URLSearchParams(search as Record<string, string>)
+    const query = searchQuery([
+      ["startDate", next.startDate],
+      ["endDate", next.endDate],
+      ["userName", search.userName],
+      ["org1", state.org.org1],
+      ["org2", state.org.org2],
+      ["org3", state.org.org3],
+      ["org4", state.org.org4],
+      ["mock", search.mock],
+    ])
+    const current = searchQuery([
+      ["startDate", search.startDate],
+      ["endDate", search.endDate],
+      ["userName", search.userName],
+      ["org1", search.org1],
+      ["org2", search.org2],
+      ["org3", search.org3],
+      ["org4", search.org4],
+      ["mock", search.mock],
+    ])
     if (query.toString() !== current.toString()) setSearch(Object.fromEntries(query.entries()))
   })
 
@@ -87,7 +94,7 @@ export default function KanbanCommitList() {
       minWidth: 110,
       render: (row) => {
         const id = row.commit_id?.trim()
-        return id ? <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/commit/${encodeURIComponent(id)}?${new URLSearchParams(search as Record<string, string>).toString()}`)}>{shortId(id, 8)}</button> : <span>-</span>
+        return id ? <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/commit/${encodeURIComponent(id)}?${routeQuery()}`)}>{shortId(id, 8)}</button> : <span>-</span>
       },
     },
     { prop: "commit_time", label: "时间", minWidth: 170, display: (row) => formatLocalTime(row.commit_time), filter: { type: "date" } },
@@ -99,7 +106,7 @@ export default function KanbanCommitList() {
         ? <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => {
             const path = [row.org1, row.org2, row.org3, row.org4].filter(Boolean).join("/")
             if (!path) return
-            navigate(`/kanban/org/${encodeURIComponent(path)}?${new URLSearchParams(search as Record<string, string>).toString()}`)
+            navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}`)
           }}>{row.org_display}</button>
         : <span>-</span>,
     },
@@ -110,7 +117,7 @@ export default function KanbanCommitList() {
       render: (row) => <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => {
         const txt = row.user_id?.trim()
         if (!txt) return
-        navigate(`/kanban/user/${encodeURIComponent(txt)}?${new URLSearchParams(search as Record<string, string>).toString()}`)
+        navigate(`/kanban/user/${encodeURIComponent(txt)}?${routeQuery()}`)
       }}>{row.user_name || row.user_id || "-"}</button>,
       filter: { type: "multi-select" },
     },
@@ -149,8 +156,8 @@ export default function KanbanCommitList() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <A href="/kanban/user" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"><span>←</span><span>返回用户视图</span></A>
+      <div class="flex w-full flex-col gap-5">
+        <Back />
         <FilterBar
           dateRange={state.dateRange}
           orgValue={state.org}
@@ -167,6 +174,7 @@ export default function KanbanCommitList() {
         />
 
         <FilterTable
+          class="rounded-none"
           columns={columns()}
           rows={rows()}
           rawRows={data()?.rows ?? []}

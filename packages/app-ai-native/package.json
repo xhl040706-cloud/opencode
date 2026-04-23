@@ -65,6 +65,7 @@
     "echarts": "6.0.0",
     "fuzzysort": "catalog:",
     "ghostty-web": "0.3.0",
+    "lucide-solid": "1.8.0",
     "luxon": "catalog:",
     "marked": "catalog:",
     "marked-shiki": "catalog:",

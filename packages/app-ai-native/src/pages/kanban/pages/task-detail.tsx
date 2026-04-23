@@ -246,17 +246,15 @@ export default function KanbanTaskDetail() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+      <div class="flex w-full flex-col gap-5">
         <header class="flex flex-col gap-3">
           <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
             <span>←</span>
             <span>返回 Task 列表</span>
           </A>
-          <div class="flex flex-col gap-4 rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)] lg:flex-row lg:items-end lg:justify-between">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / Task Detail</p>
-              <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">Task 详情</h1>
-              <p class="mt-3 max-w-[76ch] text-[0.9375rem] leading-[1.7] text-[var(--native-muted)]">补齐旧版 task detail 的核心能力：基础信息、度量信息、时间片段、对话历史与人工调整。</p>
+              <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">Task 详情</h1>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">

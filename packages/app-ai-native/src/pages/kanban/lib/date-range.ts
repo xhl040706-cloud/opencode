@@ -29,6 +29,47 @@ export function formatDay(input: string | Date) {
   return txt
 }
 
+export function parseQueryDay(value?: string) {
+  const txt = value?.trim()
+  if (!txt) return undefined
+  if (/^\d{4}-\d{2}-\d{2}$/.test(txt)) return txt
+  if (/^\d{8}$/.test(txt)) return `${txt.slice(0, 4)}-${txt.slice(4, 6)}-${txt.slice(6, 8)}`
+  return undefined
+}
+
+export function readQueryRange(startDate?: string, endDate?: string) {
+  const start = parseQueryDay(startDate)
+  const end = parseQueryDay(endDate)
+  if (!start || !end) return null
+  return [start, end] as [string, string]
+}
+
+export function parseQueryRange(startDate?: string, endDate?: string) {
+  return readQueryRange(startDate, endDate) ?? defaultWideRange()
+}
+
+export function rangeQuery(value: [string, string]) {
+  return {
+    startDate: value[0].replace(/-/g, ""),
+    endDate: value[1].replace(/-/g, ""),
+  }
+}
+
+export function searchQuery(entries: Array<[string, string | undefined]>) {
+  const next = new URLSearchParams()
+  for (const [key, value] of entries) {
+    const txt = value?.trim()
+    if (txt) next.set(key, txt)
+  }
+  return next
+}
+
+export function sameRange(a: DateRangeValue, b: DateRangeValue) {
+  if (!a && !b) return true
+  if (!a || !b) return false
+  return a[0] === b[0] && a[1] === b[1]
+}
+
 export function normalizeDateRange(value?: DateRangeValue) {
   if (!value || value.length !== 2) return null
   const start = formatDay(value[0])

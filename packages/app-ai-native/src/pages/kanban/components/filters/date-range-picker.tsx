@@ -1,31 +1,11 @@
+import { DatePicker, parseDate, type DateValue } from "@ark-ui/solid/date-picker"
 import { createEffect, createMemo, createSignal, For, Index, Show } from "solid-js"
 import { Popover } from "@opencode-ai/ui/popover"
 import { Button } from "@/components/ui/button"
-import {
-  DatePicker,
-  DatePickerContent,
-  DatePickerContext,
-  DatePickerControl,
-  DatePickerInput,
-  DatePickerNextTrigger,
-  DatePickerPrevTrigger,
-  DatePickerRangeText,
-  DatePickerTable,
-  DatePickerTableBody,
-  DatePickerTableCell,
-  DatePickerTableCellTrigger,
-  DatePickerTableHead,
-  DatePickerTableHeader,
-  DatePickerTableRow,
-  DatePickerView,
-  DatePickerViewControl,
-  DatePickerViewTrigger,
-  parseDate,
-  type DateValue,
-} from "@/components/ui/date-picker"
 import { cn } from "@/lib/utils"
 import { dateShortcuts, detectShortcut, displayDateRange, formatDay, hasRange, normalizeDateRange, shortcutRange } from "../../lib/date-range"
 import type { DateRangeValue } from "../../lib/types"
+import "./date-range-calendar.css"
 
 type Props = {
   value?: DateRangeValue
@@ -42,6 +22,48 @@ const sizeClass = {
   lg: "h-11 min-w-[16rem] text-sm",
 } as const
 
+const nav = "inline-flex size-8 items-center justify-center rounded-md border border-input bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+const view = "inline-flex min-h-8 items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+const table = "kb-date-range__table w-full"
+const head = "h-8 w-10 text-center text-xs font-medium text-muted-foreground"
+const cell = "kb-date-range__cell"
+const day = "kb-date-range__day"
+const grid = "kb-date-range__grid"
+
+function left() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" class="size-4">
+      <path d="M12.5 5 7.5 10l5 5" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  )
+}
+
+function right() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" class="size-4">
+      <path d="m7.5 5 5 5-5 5" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  )
+}
+
+function monthViewLabel(value: { start: { year: number }; end: { year: number } }) {
+  return value.start.year === value.end.year ? String(value.start.year) : `${value.start.year} - ${value.end.year}`
+}
+
+function yearViewLabel(value: { start?: number; end?: number }) {
+  if (value.start == null || value.end == null) return "Select year"
+  return `${value.start} - ${value.end}`
+}
+
+function later(fn: () => void) {
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => fn())
+    return
+  }
+
+  setTimeout(fn, 0)
+}
+
 export function DateRangePicker(props: Props) {
   const [open, setOpen] = createSignal(false)
   const [start, setStart] = createSignal("")
@@ -50,9 +72,6 @@ export function DateRangePicker(props: Props) {
   const label = createMemo(() => displayDateRange(props.value, props.placeholder ?? "Select date range"))
   const filled = createMemo(() => hasRange(props.value))
   const active = createMemo(() => detectShortcut([start(), end()]))
-  const range = createMemo(() => normalizeDateRange([start(), end()]))
-  const valid = createMemo(() => !!range())
-
   const syncFromRange = (value?: DateRangeValue) => {
     const next = normalizeDateRange(value)
     setStart(next?.[0] ?? "")
@@ -60,11 +79,20 @@ export function DateRangePicker(props: Props) {
     setPick(next ? next.map((item) => parseDate(item)) : [])
   }
 
+  const commit = (value: DateRangeValue) => {
+    syncFromRange(value)
+    setOpen(false)
+    later(() => props.onChange(value))
+  }
+
   const syncDraft = (value: DateValue[]) => {
     const next = value.filter(Boolean)
     setPick(next)
     setStart(next[0]?.toString() ?? "")
     setEnd(next[1]?.toString() ?? "")
+
+    const range = normalizeDateRange(next.map((item) => item.toString()) as DateRangeValue)
+    if (range) commit(range)
   }
 
   const handleOpenChange = (next: boolean) => {
@@ -72,18 +100,10 @@ export function DateRangePicker(props: Props) {
     setOpen(next)
   }
 
-  const apply = () => {
-    const next = range()
-    if (!next) return
-    props.onChange(next)
-    syncFromRange(next)
-    setOpen(false)
-  }
-
   const clear = () => {
     syncFromRange(null)
-    props.onChange(null)
     setOpen(false)
+    later(() => props.onChange(null))
   }
 
   createEffect(() => {
@@ -150,209 +170,202 @@ export function DateRangePicker(props: Props) {
             </svg>
           }
         >
-          <DatePicker
+          <DatePicker.Root
             inline
             open
             closeOnSelect={false}
             selectionMode="range"
             numOfMonths={2}
             startOfWeek={1}
+            class="flex flex-col gap-3"
             value={pick()}
             onValueChange={(details) => syncDraft(details.value)}
             format={(item) => formatDay(item.toDate("UTC"))}
           >
-            <DatePickerContent class="w-[min(760px,calc(100vw-2rem))] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden rounded-[var(--native-radius-lg)] border-0 bg-[var(--native-panel)] p-0 shadow-none">
-            <div class="flex flex-col md:flex-row md:gap-3">
-              <div class="flex flex-wrap content-start gap-1 border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] p-3 md:w-[120px] md:flex-none md:flex-col md:flex-nowrap md:border-b-0 md:pr-0">
-                <For each={dateShortcuts}>
-                  {(item) => (
-                    <button
-                      type="button"
-                      class={cn(
-                        "inline-flex h-8 w-[120px] items-center px-3 text-left text-[13px] leading-none whitespace-nowrap transition-colors",
-                        active() === item.label
-                          ? "rounded-[var(--native-radius-sm)] bg-[var(--native-primary)] text-[var(--native-primary-foreground)]"
-                          : "rounded-none bg-transparent text-[var(--native-muted)] hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)]",
-                      )}
-                      onClick={() => {
-                        const next = shortcutRange(item.days)
-                        syncFromRange(next)
-                        props.onChange(next)
-                        handleOpenChange(false)
+            <div class="w-[min(760px,calc(100vw-2rem))] max-w-[min(760px,calc(100vw-2rem))] overflow-hidden rounded-[var(--native-radius-lg)] border-0 bg-[var(--native-panel)] p-0 shadow-none">
+              <div class="flex flex-col md:flex-row md:gap-3">
+                <div class="flex flex-wrap content-start gap-1 border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] p-3 md:w-[120px] md:flex-none md:flex-col md:flex-nowrap md:border-b-0 md:pr-0">
+                  <For each={dateShortcuts}>
+                    {(item) => (
+                      <button
+                        type="button"
+                        class={cn(
+                          "inline-flex h-8 w-[120px] items-center px-3 text-left text-[13px] leading-none whitespace-nowrap transition-colors",
+                          active() === item.label
+                            ? "rounded-[var(--native-radius-sm)] bg-[var(--native-primary)] text-[var(--native-primary-foreground)]"
+                            : "rounded-none bg-transparent text-[var(--native-muted)] hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)]",
+                        )}
+                        onClick={() => {
+                          const next = shortcutRange(item.days)
+                          syncFromRange(next)
+                          setOpen(false)
+                          later(() => props.onChange(next))
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    )}
+                  </For>
+                </div>
+
+                <div class="min-w-0 flex-1 bg-[color:color-mix(in_oklab,var(--native-panel)_86%,var(--native-bg-subtle))] p-3 md:my-3 md:mr-3 md:ml-0 md:rounded-[var(--native-radius-md)] md:p-4">
+                  <DatePicker.View view="day" class="kb-date-range__view flex flex-col gap-4">
+                    <DatePicker.Context>
+                      {(api) => {
+                        const offset = createMemo(() => api().getOffset({ months: 1 }))
+
+                        return (
+                          <>
+                            <DatePicker.ViewControl class="flex items-center justify-between gap-2">
+                              <DatePicker.PrevTrigger class={nav}>{left()}</DatePicker.PrevTrigger>
+                              <DatePicker.ViewTrigger class={view}>
+                                <DatePicker.RangeText class="text-sm font-medium text-foreground" />
+                              </DatePicker.ViewTrigger>
+                              <DatePicker.NextTrigger class={nav}>{right()}</DatePicker.NextTrigger>
+                            </DatePicker.ViewControl>
+
+                            <div class="grid gap-4 md:grid-cols-2">
+                              <DatePicker.Table class={cn(table, "mx-auto")}>
+                                <DatePicker.TableHead>
+                                  <DatePicker.TableRow>
+                                    <Index each={api().weekDays}>
+                                      {(item) => <DatePicker.TableHeader class={head}>{item().short}</DatePicker.TableHeader>}
+                                    </Index>
+                                  </DatePicker.TableRow>
+                                </DatePicker.TableHead>
+                                <DatePicker.TableBody>
+                                  <Index each={api().weeks}>
+                                    {(week) => (
+                                      <DatePicker.TableRow>
+                                        <Index each={week()}>
+                                          {(item) => (
+                                            <DatePicker.TableCell class={cell} value={item()}>
+                                              <DatePicker.TableCellTrigger class={day}>{item().day}</DatePicker.TableCellTrigger>
+                                            </DatePicker.TableCell>
+                                          )}
+                                        </Index>
+                                      </DatePicker.TableRow>
+                                    )}
+                                  </Index>
+                                </DatePicker.TableBody>
+                              </DatePicker.Table>
+
+                              <DatePicker.Table class={cn(table, "mx-auto")}>
+                                <DatePicker.TableHead>
+                                  <DatePicker.TableRow>
+                                    <Index each={api().weekDays}>
+                                      {(item) => <DatePicker.TableHeader class={head}>{item().short}</DatePicker.TableHeader>}
+                                    </Index>
+                                  </DatePicker.TableRow>
+                                </DatePicker.TableHead>
+                                <DatePicker.TableBody>
+                                  <Index each={offset().weeks}>
+                                    {(week) => (
+                                      <DatePicker.TableRow>
+                                        <Index each={week()}>
+                                          {(item) => (
+                                            <DatePicker.TableCell class={cell} value={item()} visibleRange={offset().visibleRange}>
+                                              <DatePicker.TableCellTrigger class={day}>{item().day}</DatePicker.TableCellTrigger>
+                                            </DatePicker.TableCell>
+                                          )}
+                                        </Index>
+                                      </DatePicker.TableRow>
+                                    )}
+                                  </Index>
+                                </DatePicker.TableBody>
+                              </DatePicker.Table>
+                            </div>
+                          </>
+                        )
                       }}
-                    >
-                      {item.label}
-                    </button>
-                  )}
-                </For>
-              </div>
+                    </DatePicker.Context>
+                  </DatePicker.View>
 
-              <div class="min-w-0 flex-1 bg-[color:color-mix(in_oklab,var(--native-panel)_86%,var(--native-bg-subtle))] p-3 md:my-3 md:mr-3 md:ml-0 md:rounded-[var(--native-radius-md)] md:p-4">
-                <DatePickerControl class="mb-4 sm:grid-cols-2">
-                  <DatePickerInput index={0} placeholder="Start" />
-                  <DatePickerInput index={1} placeholder="End" />
-                </DatePickerControl>
-
-                <DatePickerView view="day" class="gap-4">
-                  <DatePickerContext>
-                    {(api) => {
-                      const offset = createMemo(() => api().getOffset({ months: 1 }))
-
-                      return (
+                  <DatePicker.View view="month" class="kb-date-range__view flex flex-col gap-4">
+                    <DatePicker.Context>
+                      {(api) => (
                         <>
-                          <DatePickerViewControl>
-                            <DatePickerPrevTrigger />
-                            <DatePickerViewTrigger>
-                              <DatePickerRangeText />
-                            </DatePickerViewTrigger>
-                            <DatePickerNextTrigger />
-                          </DatePickerViewControl>
+                          <DatePicker.ViewControl class="flex items-center justify-between gap-2">
+                            <DatePicker.PrevTrigger class={nav}>{left()}</DatePicker.PrevTrigger>
+                            <DatePicker.ViewTrigger class={view}>{monthViewLabel(api().visibleRange)}</DatePicker.ViewTrigger>
+                            <DatePicker.NextTrigger class={nav}>{right()}</DatePicker.NextTrigger>
+                          </DatePicker.ViewControl>
 
-                          <div class="grid gap-4 md:grid-cols-2">
-                            <DatePickerTable class="mx-auto w-full">
-                              <DatePickerTableHead>
-                                <DatePickerTableRow>
-                                  <Index each={api().weekDays}>
-                                    {(day) => <DatePickerTableHeader>{day().short}</DatePickerTableHeader>}
-                                  </Index>
-                                </DatePickerTableRow>
-                              </DatePickerTableHead>
-                              <DatePickerTableBody>
-                                <Index each={api().weeks}>
-                                  {(week) => (
-                                    <DatePickerTableRow>
-                                      <Index each={week()}>
-                                        {(day) => (
-                                          <DatePickerTableCell value={day()}>
-                                            <DatePickerTableCellTrigger>{day().day}</DatePickerTableCellTrigger>
-                                          </DatePickerTableCell>
-                                        )}
-                                      </Index>
-                                    </DatePickerTableRow>
-                                  )}
-                                </Index>
-                              </DatePickerTableBody>
-                            </DatePickerTable>
-
-                            <DatePickerTable class="mx-auto w-full">
-                              <DatePickerTableHead>
-                                <DatePickerTableRow>
-                                  <Index each={api().weekDays}>
-                                    {(day) => <DatePickerTableHeader>{day().short}</DatePickerTableHeader>}
-                                  </Index>
-                                </DatePickerTableRow>
-                              </DatePickerTableHead>
-                              <DatePickerTableBody>
-                                <Index each={offset().weeks}>
-                                  {(week) => (
-                                    <DatePickerTableRow>
-                                      <Index each={week()}>
-                                        {(day) => (
-                                          <DatePickerTableCell value={day()} visibleRange={offset().visibleRange}>
-                                            <DatePickerTableCellTrigger>{day().day}</DatePickerTableCellTrigger>
-                                          </DatePickerTableCell>
-                                        )}
-                                      </Index>
-                                    </DatePickerTableRow>
-                                  )}
-                                </Index>
-                              </DatePickerTableBody>
-                            </DatePickerTable>
-                          </div>
+                          <DatePicker.Table class={cn(table, "mx-auto")}>
+                            <DatePicker.TableBody>
+                              <For each={api().getMonthsGrid({ columns: 4, format: "short" })}>
+                                {(row) => (
+                                  <DatePicker.TableRow>
+                                    <For each={row}>
+                                      {(item) => (
+                                        <DatePicker.TableCell class={cell} value={item.value}>
+                                          <DatePicker.TableCellTrigger class={grid}>{item.label}</DatePicker.TableCellTrigger>
+                                        </DatePicker.TableCell>
+                                      )}
+                                    </For>
+                                  </DatePicker.TableRow>
+                                )}
+                              </For>
+                            </DatePicker.TableBody>
+                          </DatePicker.Table>
                         </>
-                      )
-                    }}
-                  </DatePickerContext>
-                </DatePickerView>
+                      )}
+                    </DatePicker.Context>
+                  </DatePicker.View>
 
-                <DatePickerView view="month" class="gap-4">
-                  <DatePickerContext>
-                    {(api) => (
-                      <>
-                        <DatePickerViewControl>
-                          <DatePickerPrevTrigger />
-                          <DatePickerViewTrigger>Select month</DatePickerViewTrigger>
-                          <DatePickerNextTrigger />
-                        </DatePickerViewControl>
+                  <DatePicker.View view="year" class="kb-date-range__view flex flex-col gap-4">
+                    <DatePicker.Context>
+                      {(api) => (
+                        <>
+                          <DatePicker.ViewControl class="flex items-center justify-between gap-2">
+                            <DatePicker.PrevTrigger class={nav}>{left()}</DatePicker.PrevTrigger>
+                            <DatePicker.ViewTrigger class={view}>{yearViewLabel(api().getDecade())}</DatePicker.ViewTrigger>
+                            <DatePicker.NextTrigger class={nav}>{right()}</DatePicker.NextTrigger>
+                          </DatePicker.ViewControl>
 
-                        <DatePickerTable class="mx-auto w-full">
-                          <DatePickerTableBody>
-                            <For each={api().getMonthsGrid({ columns: 4, format: "short" })}>
-                              {(row) => (
-                                <DatePickerTableRow>
-                                  <For each={row}>
-                                    {(month) => (
-                                      <DatePickerTableCell value={month.value}>
-                                        <DatePickerTableCellTrigger>{month.label}</DatePickerTableCellTrigger>
-                                      </DatePickerTableCell>
-                                    )}
-                                  </For>
-                                </DatePickerTableRow>
-                              )}
-                            </For>
-                          </DatePickerTableBody>
-                        </DatePickerTable>
-                      </>
-                    )}
-                  </DatePickerContext>
-                </DatePickerView>
+                          <DatePicker.Table class={cn(table, "mx-auto")}>
+                            <DatePicker.TableBody>
+                              <For each={api().getYearsGrid({ columns: 4 })}>
+                                {(row) => (
+                                  <DatePicker.TableRow>
+                                    <For each={row}>
+                                      {(item) => (
+                                        <DatePicker.TableCell class={cell} value={item.value}>
+                                          <DatePicker.TableCellTrigger class={grid}>{item.label}</DatePicker.TableCellTrigger>
+                                        </DatePicker.TableCell>
+                                      )}
+                                    </For>
+                                  </DatePicker.TableRow>
+                                )}
+                              </For>
+                            </DatePicker.TableBody>
+                          </DatePicker.Table>
+                        </>
+                      )}
+                    </DatePicker.Context>
+                  </DatePicker.View>
+                </div>
+              </div>
 
-                <DatePickerView view="year" class="gap-4">
-                  <DatePickerContext>
-                    {(api) => (
-                      <>
-                        <DatePickerViewControl>
-                          <DatePickerPrevTrigger />
-                          <DatePickerViewTrigger>Select year</DatePickerViewTrigger>
-                          <DatePickerNextTrigger />
-                        </DatePickerViewControl>
-
-                        <DatePickerTable class="mx-auto w-full">
-                          <DatePickerTableBody>
-                            <For each={api().getYearsGrid({ columns: 4 })}>
-                              {(row) => (
-                                <DatePickerTableRow>
-                                  <For each={row}>
-                                    {(year) => (
-                                      <DatePickerTableCell value={year.value}>
-                                        <DatePickerTableCellTrigger>{year.label}</DatePickerTableCellTrigger>
-                                      </DatePickerTableCell>
-                                    )}
-                                  </For>
-                                </DatePickerTableRow>
-                              )}
-                            </For>
-                          </DatePickerTableBody>
-                        </DatePickerTable>
-                      </>
-                    )}
-                  </DatePickerContext>
-                </DatePickerView>
+              <div class="flex items-center justify-end gap-2 border-t border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3">
+                <Show when={props.clearable}>
+                  <Button variant="ghost" size="sm" onClick={clear}>
+                    Clear
+                  </Button>
+                </Show>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    syncFromRange(props.value)
+                    handleOpenChange(false)
+                  }}
+                >
+                  Close
+                </Button>
               </div>
             </div>
-
-            <div class="flex items-center justify-end gap-2 border-t border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3">
-              <Show when={props.clearable}>
-                <Button variant="ghost" size="sm" onClick={clear}>
-                  Clear
-                </Button>
-              </Show>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  syncFromRange(props.value)
-                  handleOpenChange(false)
-                }}
-              >
-                Close
-              </Button>
-              <Button size="sm" disabled={!valid()} onClick={apply}>
-                Apply
-              </Button>
-            </div>
-            </DatePickerContent>
-          </DatePicker>
+          </DatePicker.Root>
         </Popover>
       </div>
     </div>
