@@ -67,7 +67,7 @@ function lsRemoteSha(repo: string, branch: string): string | null {
 async function readCachedSha(name: string): Promise<string | null> {
   try {
     const content = await fs.readFile(builtinSkillsFile, "utf-8")
-    const match = content.match(new RegExp(`^\\s*"${JSON.stringify(name)}":\\s*"([a-f0-9]{40})"`, "m"))
+    const match = content.match(new RegExp(`^\\s*"${name}":\\s*"([a-f0-9]{40})",?`, "m"))
     return match ? match[1] : null
   } catch {
     return null
