@@ -6,7 +6,7 @@ import type { Device, ListDevicesResponse, UpdateDeviceRequest } from "@/pages/w
 const PREFIX = env.API_PREFIX
 const API_BASE = env.API_URL || PREFIX
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers =
     options?.body instanceof FormData ? options.headers : { "Content-Type": "application/json", ...options?.headers }
   const res = await fetch(`${API_BASE}${path}`, {
