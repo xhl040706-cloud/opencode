@@ -42,6 +42,3 @@ tsconfig.tsbuildinfo
 .bunfig.toml
 .cache
 skills
-# Generated builtin files (bundled agents and skills)
-src/costrict/agent/builtin.ts
-src/costrict/skill/builtin.ts
