@@ -307,7 +307,7 @@ export default function KanbanTaskDetail() {
                       </Show>
                     </div>
                   </div>
-                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">工作目录</div><div class="mt-1 break-all text-sm text-[var(--native-foreground)]">{text(task().work_dir || task().work_dir_id)}</div></div>
+                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">工作目录</div><div class="mt-1 break-all text-sm text-[var(--native-foreground)]"><Show when={task().work_dir_id?.trim()} fallback={text(task().work_dir)}><button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate("/kanban/workdir/" + encodeURIComponent(task().work_dir_id!.trim()) + "?fromTaskId=" + encodeURIComponent(task().task_id!.trim()))}>{task().work_dir || task().work_dir_id}</button></Show></div></div>
                   <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">开始时间</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{formatLocalTime(task().start_time)}</div></div>
                   <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">结束时间</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{formatLocalTime(task().end_time)}</div></div>
                   <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">系统</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text([task().client_os, task().client_os_version].filter(Boolean).join(" "))}</div></div>

@@ -24,6 +24,9 @@ const KanbanTaskList = lazy(() => import("@/pages/kanban").then((m) => ({ defaul
 const KanbanTaskDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanTaskDetail })))
 const KanbanCommitList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanCommitList })))
 const KanbanCommitDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanCommitDetail })))
+const KanbanWorkDirDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanWorkDirDetail })))
+const KanbanProjectDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanProjectDetail })))
+const KanbanProjectList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanProjectList })))
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
 const DirectoryLayout = lazy(() => import("@/pages/directory-layout"))
@@ -118,6 +121,9 @@ export const routeConfig: RouteConfig[] = [
       { path: "/task/:taskId", component: KanbanTaskDetail },
       { path: "/commit", component: KanbanCommitList },
       { path: "/commit/:commitId", component: KanbanCommitDetail },
+      { path: "/workdir/:workDirId", component: KanbanWorkDirDetail },
+      { path: "/project", component: KanbanProjectList },
+      { path: "/project/:projectId", component: KanbanProjectDetail },
     ],
   },
   {

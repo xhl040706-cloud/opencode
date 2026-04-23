@@ -267,6 +267,8 @@ export default function KanbanHome() {
     {
       title: "项目视图",
       tone: "var(--native-dim)",
+      href: "/kanban/project",
+      live: true,
     },
   ])
 

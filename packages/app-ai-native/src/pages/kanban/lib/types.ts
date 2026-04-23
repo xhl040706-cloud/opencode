@@ -645,6 +645,166 @@ export type DimensionKeysQuery = {
   dateRange?: DateRangeValue
 }
 
+export type WorkDirMatchedTask = {
+  task_id?: string
+  user_name?: string
+  silica?: number | null
+}
+
+export type WorkDirCommitRow = RepoCommitRow & {
+  silica_reason?: string
+  matched_tasks?: WorkDirMatchedTask[]
+}
+
+export type WorkDirSummary = RepoSummary & {
+  user_count?: number
+  total_cost?: number | null
+  task_ancient_minutes?: number | null
+}
+
+export type WorkDirSilicaEntry = {
+  task_id?: string
+  silica?: number | null
+}
+
+export type WorkDirParticipant = {
+  user_id: string
+  user_name: string
+  task_count: number
+  commit_count: number
+}
+
+export type WorkDirDetailResult = {
+  repo_addr?: string
+  repo_id?: string
+  repo_branch?: string
+  summary: WorkDirSummary
+  commits: WorkDirCommitRow[]
+  tasks: RepoTaskRow[]
+  silica_entries: WorkDirSilicaEntry[]
+}
+
+export type ProjectRow = {
+  project_id?: string
+  name?: string
+  description?: string
+  start_time?: string
+  start_time_manual?: string
+  end_time?: string
+  end_time_manual?: string
+  user_count?: number
+  repo_count?: number
+  task_count?: number
+  total_code_lines?: number
+  actual_lines_per_day?: number
+  cost?: number
+  project_real_lead_minutes?: number
+  project_real_lead_minutes_manual?: number
+  project_ancient_minutes?: number
+  project_ancient_minutes_manual?: number
+  project_real_process_minutes?: number
+  project_real_process_minutes_manual?: number
+  efficiency_ratio?: number | null
+}
+
+export type ProjectCreatePayload = {
+  name: string
+  description?: string
+}
+
+export type ProjectRepoRow = {
+  repo_addr?: string
+  repo_branch?: string
+  start_time?: string
+  end_time?: string
+  exclude_commits?: string[]
+  include_only_commits?: string[]
+}
+
+export type ProjectTaskRow = TaskRow & {
+  silica?: number | null
+}
+
+export type ProjectCommitRow = {
+  commit_id?: string
+  user_name?: string
+  commit_time?: string
+  comment?: string
+  diff_lines?: number
+  commit_ancient_minutes?: number | null
+  commit_ancient_minutes_manual?: number | null
+  commit_real_minutes?: number | null
+  commit_real_minutes_manual?: number | null
+  silica?: number | null
+  cost?: number | null
+}
+
+export type ProjectUserStat = {
+  user_name: string
+  task_count: number
+  commit_count: number
+  commit_diff_lines: number
+  task_ancient_minutes: number
+  task_real_minutes: number
+  commit_ancient_minutes: number
+  commit_real_minutes: number
+  cost: number
+  task_efficiency_ratio: number
+  commit_efficiency_ratio: number
+}
+
+export type ProjectDetailResult = {
+  project_id?: string
+  name?: string
+  description?: string
+  start_time?: string
+  start_time_manual?: string
+  end_time?: string
+  end_time_manual?: string
+  upstream_tokens?: number
+  downstream_tokens?: number
+  cost?: number | null
+  project_ancient_minutes?: number | null
+  project_ancient_minutes_manual?: number | null
+  project_ancient_minutes_reason?: string
+  project_ancient_minutes_reason_manual?: string
+  project_real_process_minutes?: number | null
+  project_real_process_minutes_manual?: number | null
+  project_real_process_minutes_reason?: string
+  project_real_process_minutes_reason_manual?: string
+  project_real_lead_minutes?: number | null
+  project_real_lead_minutes_manual?: number | null
+  project_real_lead_minutes_reason?: string
+  project_real_lead_minutes_reason_manual?: string
+  repos: ProjectRepoRow[]
+  tasks: ProjectTaskRow[]
+  commits: ProjectCommitRow[]
+  user_count: number
+}
+
+export type ProjectManualPayload = {
+  project_ancient_minutes_manual?: number | null
+  project_ancient_minutes_reason_manual?: string
+  project_real_process_minutes_manual?: number | null
+  project_real_process_minutes_reason_manual?: string
+  project_real_lead_minutes_manual?: number | null
+  project_real_lead_minutes_reason_manual?: string
+  start_time_manual?: string | null
+  end_time_manual?: string | null
+}
+
+export type ProjectUpdatePayload = {
+  name: string
+  description?: string
+  repos?: ProjectRepoRow[]
+  task_ids?: string[]
+  task_ids_silica?: number[]
+}
+
+export type GlobalConfig = {
+  traditional_dev_lines_per_day?: number
+}
+
 export type Verb = "GET" | "POST" | "PUT" | "DELETE"
 
 export type FetchOpts = {

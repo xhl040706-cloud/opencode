@@ -37,7 +37,9 @@ import type {
   OrgDetailResult,
   OrgListQuery,
   ProjectConflict,
+  ProjectCreatePayload,
   ProjectOption,
+  ProjectRow,
   RepoAggregateRow,
   RepoBindingPayload,
   RepoCommitRow,
@@ -67,6 +69,18 @@ import type {
   UserOption,
   UserSeries,
   UserSeriesPoint,
+  WorkDirDetailResult,
+  WorkDirCommitRow,
+  WorkDirMatchedTask,
+  WorkDirSilicaEntry,
+  WorkDirSummary,
+  ProjectDetailResult,
+  ProjectManualPayload,
+  ProjectUpdatePayload,
+  ProjectRepoRow,
+  ProjectCommitRow,
+  ProjectTaskRow,
+  GlobalConfig,
 } from "./types"
 
 const PREFIX = env.API_PREFIX
@@ -968,32 +982,203 @@ export async function loadCorrectionHistory(input: {
   }))
 }
 
-export const kanbanApi = {
-  listOrgs,
-  loadDimensionKeys,
-  queryEfficiencyRows,
-  queryUserRows,
-  listUsers,
-  getUserDetail,
-  getUserGroupDetail,
-  deleteUserGroup,
-  queryTaskRows,
-  getTaskDetail,
-  updateTaskManual,
-  estimateTaskAncient,
-  addTasksToProject,
-  queryCommitRows,
-  getCommitDetail,
-  updateCommitManual,
-  queryOrgRows,
-  getOrgDetail,
-  queryRepoRows,
-  getRepoDetail,
-  listRepoBranches,
-  loadProjectOptions,
-  createProjectOption,
-  checkProjectConflicts,
-  addRepoToProject,
-  submitCorrection,
-  loadCorrectionHistory,
+export async function getWorkDirDetail(workDirId: string): Promise<WorkDirDetailResult> {
+  const id = workDirId.trim()
+  if (!id) fail("workDirId is required")
+
+  const raw = await get<unknown>(`${API}/v2/repos/detail`, {
+    repoAddr: id,
+    repoBranch: "",
+  }, LONG)
+
+  const data = unwrap(raw)
+  if (!plain(data)) {
+    return {
+      summary: {},
+      commits: [],
+      tasks: [],
+      silica_entries: [],
+    }
+  }
+
+  const commits = toObjects<WorkDirCommitRow>(data.commits)
+  const tasks = toObjects<RepoTaskRow>(data.tasks)
+
+  const silicaEntries: WorkDirSilicaEntry[] = []
+  if (Array.isArray(data.silica_entries)) {
+    for (const entry of data.silica_entries) {
+      if (!plain(entry)) continue
+      silicaEntries.push({
+        task_id: toText(entry.task_id),
+        silica: entry.silica == null ? null : toNumber(entry.silica),
+      })
+    }
+  }
+
+  const summaryRaw = plain(data.summary) ? data.summary : {}
+  const summary: WorkDirSummary = {
+    commit_count: toNumber(summaryRaw.commit_count),
+    task_count: toNumber(summaryRaw.task_count),
+    user_count: toNumber(summaryRaw.user_count),
+    total_cost: summaryRaw.total_cost == null ? null : toNumber(summaryRaw.total_cost),
+    task_ancient_minutes: summaryRaw.task_ancient_minutes == null ? null : toNumber(summaryRaw.task_ancient_minutes),
+  }
+
+  return {
+    repo_addr: toText(data.repo_addr) ?? toText(data.repo_id) ?? id,
+    repo_id: toText(data.repo_id),
+    repo_branch: toText(data.repo_branch),
+    summary,
+    commits,
+    tasks,
+    silica_entries: silicaEntries,
+  }
 }
+
+export async function getProjects(): Promise<ProjectRow[]> {
+  const raw = await get<unknown>(`${API}/v2/projects`, undefined, LONG)
+  const list = takeArray(raw, ["data", "items"])
+  if (!list) return [] as ProjectRow[]
+  return list.filter(plain).map((item) => ({
+    project_id: toText(item.project_id) ?? toText(item.id) ?? "",
+    name: toText(item.name) ?? "",
+    description: toText(item.description),
+    start_time: toText(item.start_time),
+    start_time_manual: toText(item.start_time_manual),
+    end_time: toText(item.end_time),
+    end_time_manual: toText(item.end_time_manual),
+    user_count: toNumber(item.user_count),
+    repo_count: toNumber(item.repo_count),
+    task_count: toNumber(item.task_count),
+    total_code_lines: toNumber(item.total_code_lines),
+    actual_lines_per_day: item.actual_lines_per_day == null ? undefined : toNumber(item.actual_lines_per_day),
+    cost: item.cost == null ? undefined : toNumber(item.cost),
+    project_real_lead_minutes: item.project_real_lead_minutes == null ? undefined : toNumber(item.project_real_lead_minutes),
+    project_real_lead_minutes_manual: item.project_real_lead_minutes_manual == null ? undefined : toNumber(item.project_real_lead_minutes_manual),
+    project_ancient_minutes: item.project_ancient_minutes == null ? undefined : toNumber(item.project_ancient_minutes),
+    project_ancient_minutes_manual: item.project_ancient_minutes_manual == null ? undefined : toNumber(item.project_ancient_minutes_manual),
+    project_real_process_minutes: item.project_real_process_minutes == null ? undefined : toNumber(item.project_real_process_minutes),
+    project_real_process_minutes_manual: item.project_real_process_minutes_manual == null ? undefined : toNumber(item.project_real_process_minutes_manual),
+    efficiency_ratio: item.efficiency_ratio == null ? null : toNumber(item.efficiency_ratio),
+  })).filter((item) => item.project_id) as ProjectRow[]
+}
+
+export async function createProjectOptionV2(input: ProjectCreatePayload) {
+  const raw = await post<unknown>(`${API}/v2/projects`, {
+    name: input.name.trim(),
+    description: input.description?.trim() || undefined,
+  }, undefined, LONG)
+
+  if (!plain(raw)) fail("Invalid project create response", raw)
+
+  return {
+    project_id: toText(raw.project_id) ?? toText(raw.id) ?? "",
+    name: toText(raw.name) ?? input.name.trim(),
+    description: toText(raw.description),
+  } satisfies ProjectOption
+}
+
+export async function deleteProject(projectId: string) {
+  const id = projectId.trim()
+  if (!id) fail("projectId is required")
+  return del<unknown>(`${API}/v2/projects/${encodeURIComponent(id)}`, undefined, undefined, LONG)
+}
+
+export async function getProjectDetail(projectId: string): Promise<ProjectDetailResult> {
+  const id = projectId.trim()
+  if (!id) fail("projectId is required")
+
+  const raw = await get<unknown>(`${API}/v2/projects/${encodeURIComponent(id)}`, undefined, LONG)
+  const data = unwrap(raw)
+  if (!plain(data)) {
+    return { repos: [], tasks: [], commits: [], user_count: 0 }
+  }
+
+  return {
+    project_id: toText(data.project_id) ?? toText(data.id) ?? id,
+    name: toText(data.name),
+    description: toText(data.description),
+    start_time: toText(data.start_time),
+    start_time_manual: toText(data.start_time_manual),
+    end_time: toText(data.end_time),
+    end_time_manual: toText(data.end_time_manual),
+    upstream_tokens: toNumber(data.upstream_tokens),
+    downstream_tokens: toNumber(data.downstream_tokens),
+    cost: data.cost == null ? null : toNumber(data.cost),
+    project_ancient_minutes: data.project_ancient_minutes == null ? null : toNumber(data.project_ancient_minutes),
+    project_ancient_minutes_manual: data.project_ancient_minutes_manual == null ? null : toNumber(data.project_ancient_minutes_manual),
+    project_ancient_minutes_reason: toText(data.project_ancient_minutes_reason),
+    project_ancient_minutes_reason_manual: toText(data.project_ancient_minutes_reason_manual),
+    project_real_process_minutes: data.project_real_process_minutes == null ? null : toNumber(data.project_real_process_minutes),
+    project_real_process_minutes_manual: data.project_real_process_minutes_manual == null ? null : toNumber(data.project_real_process_minutes_manual),
+    project_real_process_minutes_reason: toText(data.project_real_process_minutes_reason),
+    project_real_process_minutes_reason_manual: toText(data.project_real_process_minutes_reason_manual),
+    project_real_lead_minutes: data.project_real_lead_minutes == null ? null : toNumber(data.project_real_lead_minutes),
+    project_real_lead_minutes_manual: data.project_real_lead_minutes_manual == null ? null : toNumber(data.project_real_lead_minutes_manual),
+    project_real_lead_minutes_reason: toText(data.project_real_lead_minutes_reason),
+    project_real_lead_minutes_reason_manual: toText(data.project_real_lead_minutes_reason_manual),
+    repos: toObjects<ProjectRepoRow>(data.repos),
+    tasks: toObjects<ProjectTaskRow>(data.tasks),
+    commits: toObjects<ProjectCommitRow>(data.commits),
+    user_count: toNumber(data.user_count),
+  }
+}
+
+export async function updateProjectManual(projectId: string, input: ProjectManualPayload) {
+  const id = projectId.trim()
+  if (!id) fail("projectId is required")
+  return put<unknown>(`${API}/v2/projects/${encodeURIComponent(id)}/manual`, {
+    project_ancient_minutes_manual: input.project_ancient_minutes_manual ?? null,
+    project_ancient_minutes_reason_manual: input.project_ancient_minutes_reason_manual?.trim() || "",
+    project_real_process_minutes_manual: input.project_real_process_minutes_manual ?? null,
+    project_real_process_minutes_reason_manual: input.project_real_process_minutes_reason_manual?.trim() || "",
+    project_real_lead_minutes_manual: input.project_real_lead_minutes_manual ?? null,
+    project_real_lead_minutes_reason_manual: input.project_real_lead_minutes_reason_manual?.trim() || "",
+    start_time_manual: input.start_time_manual || null,
+    end_time_manual: input.end_time_manual || null,
+  }, undefined, LONG)
+}
+
+export async function updateProjectV2(projectId: string, input: ProjectUpdatePayload) {
+  const id = projectId.trim()
+  if (!id) fail("projectId is required")
+  return put<unknown>(`${API}/v2/projects/${encodeURIComponent(id)}`, {
+    name: input.name.trim(),
+    description: input.description?.trim() || undefined,
+    repos: input.repos,
+    task_ids: input.task_ids,
+    task_ids_silica: input.task_ids_silica,
+  }, undefined, LONG)
+}
+
+export async function removeRepoFromProject(projectId: string, repoIndex: number) {
+  const id = projectId.trim()
+  if (!id) fail("projectId is required")
+  return del<unknown>(`${API}/v2/projects/${encodeURIComponent(id)}/repos/${repoIndex}`, undefined, undefined, LONG)
+}
+
+export async function removeTasksFromProject(projectId: string, taskIds: string[]) {
+  const id = projectId.trim()
+  if (!id) fail("projectId is required")
+  return del<unknown>(`${API}/v2/projects/${encodeURIComponent(id)}/tasks`, {
+    task_ids: taskIds.map((t) => t.trim()).filter(Boolean),
+  }, undefined, LONG)
+}
+
+export async function updateTaskSilicaInProject(projectId: string, data: { task_id: string; silica: number }) {
+  const id = projectId.trim()
+  if (!id) fail("projectId is required")
+  return put<unknown>(`${API}/v2/projects/${encodeURIComponent(id)}/tasks/silica`, {
+    task_id: data.task_id.trim(),
+    silica: data.silica,
+  }, undefined, LONG)
+}
+
+export async function getGlobalConfig(): Promise<GlobalConfig> {
+  const raw = await get<unknown>(`${API}/v2/config`, undefined, LONG)
+  if (!plain(raw)) return {}
+  return {
+    traditional_dev_lines_per_day: toNumber(raw.traditional_dev_lines_per_day) || undefined,
+  }
+}
+
