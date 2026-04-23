@@ -11,7 +11,7 @@ playground
 tmp
 dist
 ts-dist
-bundled-skills
+bundled-review
 .turbo
 **/.serena
 .serena/
@@ -42,3 +42,8 @@ tsconfig.tsbuildinfo
 .bunfig.toml
 .cache
 skills
+# Downloaded agents (build-time artifacts)
+src/costrict/agents/
+# Generated builtin files (bundled agents and skills)
+src/costrict/agent/builtin.ts
+src/costrict/skill/builtin.ts
