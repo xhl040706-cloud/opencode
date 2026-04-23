@@ -64,18 +64,17 @@ function UiI18nBridge(props: ParentProps) {
 }
 
 function FixedExperienceGuards(props: ParentProps) {
-  const language = useLanguage()
   const theme = useTheme()
 
   createEffect(() => {
-    // TODO: 后续支持设置页后，移除这里的强制覆盖，改回用户可配置。
-    if (language.locale() !== "zh") {
-      language.setLocale("zh")
-    }
-
     // TODO: 后续支持主题切换后，移除这里的强制覆盖，改回用户可配置。
     if (theme.themeId() !== "vercel") {
       theme.setTheme("vercel")
+    }
+
+    // TODO: 后续支持配色方案切换后，移除这里的强制覆盖，改回用户可配置。
+    if (theme.colorScheme() !== "light") {
+      theme.setColorScheme("light")
     }
   })
 

@@ -206,6 +206,14 @@ export interface CapabilityItemAsset {
   contentSha?: string
 }
 
+export interface ItemTag {
+  id: string
+  slug: string
+  tagClass: string
+  createdBy: string
+  createdAt: string
+}
+
 export type SecurityStatus =
   | "unscanned"
   | "pending"
@@ -249,9 +257,10 @@ export interface CapabilityItem {
   versions?: CapabilityVersion[]
   artifacts?: CapabilityArtifact[]
   assets?: CapabilityItemAsset[]
+  tags?: ItemTag[]
 }
 
-export type ItemSort = "favoriteCount" | "installCount" | "previewCount"
+export type ItemSort = "favoriteCount" | "installCount" | "previewCount" | "updatedAt"
 export type ItemOrder = "asc" | "desc"
 
 export interface RepoRegistryStatus {
@@ -583,6 +592,8 @@ export const repoApi = {
 // ---------------------------------------------------------------------------
 const _userNameCache = new Map<string, { name: string; expiresAt: number }>()
 const USER_NAME_CACHE_TTL = 10 * 60 * 1000 // 10 minutes
+const _userInfoCache = new Map<string, UserBasicInfo>()
+const _userInfoPending = new Map<string, Promise<UserBasicInfo>>()
 
 async function resolveUserNames(ids: string[]): Promise<Record<string, string>> {
   const now = Date.now()
@@ -618,9 +629,49 @@ async function resolveUserNames(ids: string[]): Promise<Record<string, string>> 
   return result
 }
 
+async function resolveUserInfo(userIds: string[]) {
+  const unique = Array.from(new Set(userIds.filter(Boolean)))
+  if (unique.length === 0) return {} as Record<string, UserBasicInfo>
+
+  const entries = await Promise.all(
+    unique.map(async (userId) => {
+      const cached = _userInfoCache.get(userId)
+      if (cached) return [userId, cached] as const
+
+      const pending = _userInfoPending.get(userId)
+      if (pending) return [userId, await pending] as const
+
+      const request = apiFetch<{ user: UserBasicInfo & { picture?: string } }>(`/api/users/info?id=${encodeURIComponent(userId)}`)
+        .then((res) => {
+          const raw = res.user ?? { id: userId, name: userId }
+          const user = {
+            id: raw.id ?? userId,
+            name: raw.name ?? userId,
+            avatarUrl: raw.avatarUrl ?? raw.picture,
+          } satisfies UserBasicInfo
+          _userInfoCache.set(userId, user)
+          _userInfoPending.delete(userId)
+          return user
+        })
+        .catch(() => {
+          const fallback = { id: userId, name: userId, avatarUrl: undefined } satisfies UserBasicInfo
+          _userInfoCache.set(userId, fallback)
+          _userInfoPending.delete(userId)
+          return fallback
+        })
+
+      _userInfoPending.set(userId, request)
+      return [userId, await request] as const
+    }),
+  )
+
+  return Object.fromEntries(entries)
+}
+
 export const userApi = {
   search: (q: string) => apiFetch<{ users: SearchedUser[] }>(`/api/users/search?q=${encodeURIComponent(q)}`),
   getNames: (ids: string[]) => resolveUserNames(ids),
+  getInfo: (ids: string[]) => resolveUserInfo(ids),
 }
 
 export const syncApi = {
@@ -695,6 +746,9 @@ export const itemApi = {
     type?: string
     search?: string
     category?: string
+    categories?: string[]
+    tags?: string[]
+    securityStatuses?: string[]
     registryId?: string
     page?: number
     pageSize?: number
@@ -706,7 +760,10 @@ export const itemApi = {
     const p = new URLSearchParams()
     if (params?.type) p.set("type", params.type)
     if (params?.search) p.set("search", params.search)
+    if (params?.categories?.length) p.set("categories", params.categories.join(","))
     if (params?.category) p.set("category", params.category)
+    if (params?.tags?.length) p.set("tags", params.tags.join(","))
+    if (params?.securityStatuses?.length) p.set("securityStatuses", params.securityStatuses.join(","))
     if (params?.registryId) p.set("registryId", params.registryId)
     if (params?.page) p.set("page", String(params.page))
     if (params?.pageSize) p.set("pageSize", String(params.pageSize))
@@ -722,6 +779,7 @@ export const itemApi = {
     name: string
     description?: string
     category?: string
+    tags?: string[]
     version?: string
     content?: string
     visibility?: string
@@ -795,6 +853,12 @@ export const itemApi = {
     apiFetch<CapabilityItem>(`/api/items/${id}/transfer`, {
       method: "PUT",
       body: JSON.stringify({ targetRepoId }),
+    }),
+
+  setTags: (id: string, tags: string[]) =>
+    apiFetch<{ tags: ItemTag[] }>(`/api/items/${id}/tags`, {
+      method: "POST",
+      body: JSON.stringify({ tags }),
     }),
 }
 
@@ -886,8 +950,47 @@ export interface Category {
   updatedAt: string
 }
 
+export interface FilterOption {
+  value: string
+  names: Record<string, string>
+}
+
+export interface UserBasicInfo {
+  id: string
+  name: string
+  avatarUrl?: string
+}
+
+export interface ItemFilterOptions {
+  categories: Category[]
+  securityStatuses: FilterOption[]
+}
+
+export interface TagListResponse {
+  tags: ItemTag[]
+  total: number
+  page: number
+  pageSize: number
+  hasMore: boolean
+}
+
 export const categoryApi = {
   list: () => apiFetch<{ categories: Category[] }>("/api/categories").then((res) => res.categories),
+}
+
+export const itemFilterApi = {
+  list: () => apiFetch<ItemFilterOptions>("/api/items/filter-options"),
+}
+
+export const tagApi = {
+  list: (params?: { query?: string; page?: number; pageSize?: number; tagClass?: string }, options?: RequestInit) => {
+    const p = new URLSearchParams()
+    if (params?.query) p.set("q", params.query)
+    if (params?.page) p.set("page", String(params.page))
+    if (params?.pageSize) p.set("pageSize", String(params.pageSize))
+    if (params?.tagClass) p.set("tagClass", params.tagClass)
+    return apiFetch<TagListResponse>(`/api/tags?${p.toString()}`, options)
+  },
 }
 
 export interface ChannelConfig {
