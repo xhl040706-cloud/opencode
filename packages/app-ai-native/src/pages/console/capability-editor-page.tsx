@@ -1846,8 +1846,7 @@ export default function CapabilityEditorPage() {
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Show when={!loading()} fallback={<div class="flex flex-1 items-center justify-center bg-background-base text-sm text-text-weak">{language.t("store.loading")}</div>}>
         <div
-          class="relative"
-          class="flex min-h-0 flex-1 overflow-hidden"
+          class="relative flex min-h-0 flex-1 overflow-hidden"
           style={{
             background: `color-mix(in srgb, ${accent()} 3%, var(--native-surface))`,
           }}
