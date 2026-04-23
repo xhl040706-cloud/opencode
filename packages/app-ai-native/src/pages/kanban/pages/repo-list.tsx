@@ -1,38 +1,16 @@
-import { A, useNavigate, useSearchParams } from "@solidjs/router"
-import { createEffect, createMemo, createResource } from "solid-js"
+import { useNavigate, useSearchParams } from "@solidjs/router"
+import { createEffect, createMemo, createResource, on } from "solid-js"
 import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Button } from "@/components/ui/button"
+import Back from "../components/back"
 import { FilterTable } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
 import { queryRepoRows } from "../lib/api"
-import { defaultWideRange, normalizeDateRange } from "../lib/date-range"
+import { normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
 import { applyClientFilters } from "../lib/filter-utils"
 import { formatDuration } from "../lib/formatters"
 import type { DateRangeValue, KanbanColumn, RepoAggregateRow } from "../lib/types"
-
-function parseQueryRange(startDate?: string, endDate?: string) {
-  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
-    return [
-      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
-      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
-    ] as [string, string]
-  }
-  return defaultWideRange()
-}
-
-function rangeQuery(value: [string, string]) {
-  return {
-    startDate: value[0].replace(/-/g, ""),
-    endDate: value[1].replace(/-/g, ""),
-  }
-}
-
-function sameRange(a: DateRangeValue, b: DateRangeValue) {
-  if (!a && !b) return true
-  if (!a || !b) return false
-  return a[0] === b[0] && a[1] === b[1]
-}
 
 function ratioTone(value?: number | null) {
   if (value == null) return "border-border bg-muted/40 text-muted-foreground"
@@ -59,12 +37,12 @@ export default function KanbanRepoList() {
   })
 
   const routeQuery = createMemo(() => {
-    const q = new URLSearchParams()
     const next = rangeQuery(state.serverRange)
-    q.set("startDate", next.startDate)
-    q.set("endDate", next.endDate)
-    if (search.mock?.trim()) q.set("mock", search.mock.trim())
-    return q.toString()
+    return searchQuery([
+      ["startDate", next.startDate],
+      ["endDate", next.endDate],
+      ["mock", search.mock],
+    ]).toString()
   })
 
   const columns = createMemo<KanbanColumn<RepoAggregateRow>[]>(() => [
@@ -146,6 +124,17 @@ export default function KanbanRepoList() {
     controller.setFilter("start_time", state.serverRange)
   })
 
+  createEffect(on(
+    () => [search.startDate, search.endDate],
+    () => {
+      const next = readQueryRange(search.startDate, search.endDate)
+      if (!next) return
+      const current = normalizeDateRange(controller.filters.start_time as DateRangeValue)
+      if (!sameRange(current, next)) controller.setFilter("start_time", next)
+      if (!sameRange(state.serverRange, next)) setState("serverRange", next)
+    },
+  ))
+
   createEffect(() => {
     const next = normalizeDateRange(controller.filters.start_time as DateRangeValue)
     if (!next) {
@@ -161,10 +150,17 @@ export default function KanbanRepoList() {
       setState("serverRange", next)
       setState("page", 1)
     }
-    if (search.startDate !== query.startDate || search.endDate !== query.endDate) {
-      const mock = search.mock?.trim()
-      setSearch(mock ? { ...query, mock } : query)
-    }
+    const mirror = searchQuery([
+      ["startDate", query.startDate],
+      ["endDate", query.endDate],
+      ["mock", search.mock],
+    ])
+    const current = searchQuery([
+      ["startDate", search.startDate],
+      ["endDate", search.endDate],
+      ["mock", search.mock],
+    ])
+    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
   })
 
   const [repoRows, { refetch }] = createResource(
@@ -202,10 +198,7 @@ export default function KanbanRepoList() {
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <header class="flex w-full flex-col gap-3">
-        <A href="/kanban" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-          <span>&lt;</span>
-          <span>返回看板</span>
-        </A>
+        <Back />
         <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">仓库视图</h1>
       </header>
 

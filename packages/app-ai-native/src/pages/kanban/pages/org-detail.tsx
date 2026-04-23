@@ -5,31 +5,14 @@ import type { EChartsOption } from "echarts"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChartCard } from "../components/charts/chart-card"
-import { DateRangePicker } from "../components/filters/date-range-picker"
-import { OrgCascadeSelect } from "../components/filters/org-cascade-select"
+import { FilterBar } from "../components/filters/filter-bar"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
-import { defaultWideRange } from "../lib/date-range"
+import { chart } from "../lib/chart-options"
+import { defaultWideRange, parseQueryRange, rangeQuery, searchQuery } from "../lib/date-range"
 import { formatDuration } from "../lib/formatters"
 import { getOrgDetail } from "../lib/api"
 import type { Granularity, OrgCascadeValue } from "../lib/types"
-
-function parseQueryRange(startDate?: string, endDate?: string) {
-  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
-    return [
-      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
-      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
-    ] as [string, string]
-  }
-  return defaultWideRange()
-}
-
-function rangeQuery(value: [string, string]) {
-  return {
-    startDate: value[0].replace(/-/g, ""),
-    endDate: value[1].replace(/-/g, ""),
-  }
-}
 
 function parseGranularity(value?: string): Granularity {
   if (value === "week" || value === "month" || value === "year") return value
@@ -73,22 +56,18 @@ function fmtTokens(up?: number, down?: number) {
   return String(total)
 }
 
-function line(title: string, periods: string[], list: Array<{ name: string; data: number[] }>, format?: (value: number) => string): EChartsOption {
-  return {
-    title: { text: title, left: "center", textStyle: { fontSize: 13, fontWeight: "bold" } },
-    tooltip: format ? {
-      trigger: "axis",
-      formatter(items) {
-        const rows = Array.isArray(items) ? items : [items]
-        return rows.reduce((txt, item, index) => `${txt}${index === 0 ? `${item.axisValue}<br/>` : ""}${item.marker}${item.seriesName}: ${format(Number(item.value ?? 0))}<br/>`, "")
-      },
-    } : { trigger: "axis" },
-    legend: { data: list.map((item) => item.name), top: "8%", type: "scroll" },
-    grid: { left: "5%", right: "5%", top: "22%", bottom: "10%", containLabel: true },
-    xAxis: { type: "category", data: periods, axisLabel: { rotate: 45, fontSize: 11 } },
-    yAxis: title.includes("提效比") ? { type: "value", axisLabel: { formatter: "{value}%" } } : { type: "value" },
-    series: list.map((item) => ({ name: item.name, type: "line", smooth: true, data: item.data })),
-  }
+function queryOf(range: [string, string], granularity: Granularity, org?: OrgCascadeValue, mock?: string) {
+  const next = rangeQuery(range)
+  return searchQuery([
+    ["startDate", next.startDate],
+    ["endDate", next.endDate],
+    ["granularity", granularity],
+    ["org1", org?.org1],
+    ["org2", org?.org2],
+    ["org3", org?.org3],
+    ["org4", org?.org4],
+    ["mock", mock],
+  ])
 }
 
 export default function KanbanOrgDetail() {
@@ -100,16 +79,8 @@ export default function KanbanOrgDetail() {
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
   const granularity = createMemo(() => parseGranularity(search.granularity))
   const listHref = createMemo(() => {
-    const q = new URLSearchParams()
-    const next = rangeQuery(dateRange())
     const scope = parentOrg(org())
-    q.set("startDate", next.startDate)
-    q.set("endDate", next.endDate)
-    q.set("granularity", granularity())
-    if (scope.org1) q.set("org1", scope.org1)
-    if (scope.org2) q.set("org2", scope.org2)
-    if (scope.org3) q.set("org3", scope.org3)
-    if (search.mock?.trim()) q.set("mock", search.mock.trim())
+    const q = queryOf(dateRange(), granularity(), scope, search.mock)
     return `/kanban/org?${q.toString()}`
   })
 
@@ -137,51 +108,42 @@ export default function KanbanOrgDetail() {
   })
   const taskValues = <T extends keyof (typeof tasks extends () => infer U ? U extends Array<infer R> ? R : never : never)>(field: T) => tasks().map((item) => Number(item[field] ?? 0))
   const commitValues = <T extends keyof (typeof commits extends () => infer U ? U extends Array<infer R> ? R : never : never)>(field: T) => commits().map((item) => Number(item[field] ?? 0))
-  const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("Task / Commit 数", periods(), [{ name: "Task", data: taskValues("task_count") }, { name: "Commit", data: commitValues("commit_count") }]) : undefined)
-  const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("代码量", periods(), [{ name: "Task", data: taskValues("task_diff_lines") }, { name: "Commit", data: commitValues("commit_diff_lines") }]) : undefined)
-  const timeOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("实际耗时", periods(), [{ name: "Task", data: taskValues("task_real_minutes") }, { name: "Commit", data: commitValues("commit_real_minutes") }], (value) => formatDuration(value)) : undefined)
-  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("提效比", periods(), [{ name: "Task", data: taskValues("task_efficiency_ratio") }, { name: "Commit", data: commitValues("commit_efficiency_ratio") }], (value) => `${value.toFixed(1)}%`) : undefined)
-  const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("Tokens 消耗", periods(), [{ name: "Tokens", data: tasks().map((item) => (item.upstream_tokens ?? 0) + (item.downstream_tokens ?? 0)) }], (value) => value.toLocaleString()) : undefined)
-  const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? line("费用", periods(), [{ name: "成本", data: tasks().map((item) => Number(item.cost ?? 0)) }], (value) => fmtCost(value)) : undefined)
+  const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Task / Commit 数", periods(), [{ name: "Task", data: taskValues("task_count") }, { name: "Commit", data: commitValues("commit_count") }], { type: "line" }) : undefined)
+  const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("代码量", periods(), [{ name: "Task", data: taskValues("task_diff_lines") }, { name: "Commit", data: commitValues("commit_diff_lines") }], { type: "line" }) : undefined)
+  const timeOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("实际耗时", periods(), [{ name: "Task", data: taskValues("task_real_minutes") }, { name: "Commit", data: commitValues("commit_real_minutes") }], { type: "line", format: (value) => formatDuration(value) }) : undefined)
+  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("提效比", periods(), [{ name: "Task", data: taskValues("task_efficiency_ratio") }, { name: "Commit", data: commitValues("commit_efficiency_ratio") }], { type: "line", format: (value) => `${value.toFixed(1)}%` }) : undefined)
+  const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Tokens 消耗", periods(), [{ name: "Tokens", data: tasks().map((item) => (item.upstream_tokens ?? 0) + (item.downstream_tokens ?? 0)) }], { type: "line", format: (value) => value.toLocaleString() }) : undefined)
+  const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("费用", periods(), [{ name: "成本", data: tasks().map((item) => Number(item.cost ?? 0)) }], { type: "line", format: (value) => fmtCost(value) }) : undefined)
 
   return (
-    <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"><span>←</span><span>返回组织视图</span></A>
+    <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
+      <div class="flex w-full flex-col gap-5">
+        <header class="flex w-full flex-col gap-3">
+          <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"><span>←</span><span>返回组织视图</span></A>
+          <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">组织详情</h1>
+        </header>
 
-        <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-          <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / Org Detail</p>
-              <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">组织详情</h1>
-            </div>
-
-            <div class="flex flex-col gap-3 md:flex-row md:items-end">
-              <label class="flex min-w-0 flex-col gap-2">
-                <span class="text-[0.75rem] text-[var(--native-muted)]">日期范围</span>
-                <DateRangePicker
-                  value={dateRange()}
-                  onChange={(value) => {
-                    const next = value ?? defaultWideRange()
-                    const query = rangeQuery(next)
-                    if (search.mock?.trim()) setSearch({ ...query, granularity: granularity(), mock: search.mock.trim() })
-                    else setSearch({ ...query, granularity: granularity() })
-                  }}
-                  clearable={false}
-                  placeholder="选择日期范围"
-                />
-              </label>
-
+        <FilterBar
+          dateRange={dateRange()}
+          orgValue={org()}
+          showOrg
+          onDateRangeChange={(value) => {
+            const next = value ?? defaultWideRange()
+            setSearch(Object.fromEntries(queryOf(next, granularity(), org(), search.mock).entries()))
+          }}
+          onOrgChange={(value) => {
+            navigate(`/kanban/org/${encodeURIComponent(orgPath(value))}?${queryOf(dateRange(), granularity(), value, search.mock).toString()}`)
+          }}
+          actions={
+            <>
               <label class="flex min-w-0 flex-col gap-2">
                 <span class="text-[0.75rem] text-[var(--native-muted)]">聚合粒度</span>
                 <select
-                  class="flex h-10 min-w-[8rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  class="flex h-9 min-w-[8rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   value={granularity()}
                   onChange={(e) => {
                     const next = e.currentTarget.value as Granularity
-                    const query = rangeQuery(dateRange())
-                    if (search.mock?.trim()) setSearch({ ...query, granularity: next, mock: search.mock.trim() })
-                    else setSearch({ ...query, granularity: next })
+                    setSearch(Object.fromEntries(queryOf(dateRange(), next, org(), search.mock).entries()))
                   }}
                 >
                   <option value="day">天</option>
@@ -190,29 +152,10 @@ export default function KanbanOrgDetail() {
                   <option value="year">年</option>
                 </select>
               </label>
-
-              <div class="flex items-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>刷新</Button>
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-4">
-            <OrgCascadeSelect
-              value={org()}
-              dateRange={dateRange()}
-              onChange={(value) => {
-                const query = new URLSearchParams()
-                const next = rangeQuery(dateRange())
-                query.set("startDate", next.startDate)
-                query.set("endDate", next.endDate)
-                query.set("granularity", granularity())
-                if (search.mock?.trim()) query.set("mock", search.mock.trim())
-                navigate(`/kanban/org/${encodeURIComponent(orgPath(value))}?${query.toString()}`)
-              }}
-            />
-          </div>
-        </section>
+              <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>{data.loading ? "刷新中..." : "刷新"}</Button>
+            </>
+          }
+        />
 
         <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <MetricCard label="成员数" value={String(summary().user_count ?? 0)} accent="var(--native-success)" />
@@ -246,13 +189,7 @@ export default function KanbanOrgDetail() {
                     <TableRow class="cursor-pointer" onClick={() => {
                       const txt = row.user_id?.trim()
                       if (!txt) return
-                      const query = new URLSearchParams()
-                      const next = rangeQuery(dateRange())
-                      query.set("startDate", next.startDate)
-                      query.set("endDate", next.endDate)
-                      query.set("granularity", granularity())
-                      if (search.mock?.trim()) query.set("mock", search.mock.trim())
-                      navigate(`/kanban/user/${encodeURIComponent(txt)}?${query.toString()}`)
+                      navigate(`/kanban/user/${encodeURIComponent(txt)}?${queryOf(dateRange(), granularity(), org(), search.mock).toString()}`)
                     }}>
                       <TableCell>{row.user_name || row.user_id || "-"}</TableCell>
                       <TableCell class="text-right tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>

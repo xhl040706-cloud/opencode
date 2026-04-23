@@ -8,27 +8,11 @@ import { DateRangePicker } from "../components/filters/date-range-picker"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
 import { getUserDetail, listUsers } from "../lib/api"
-import { defaultWideRange } from "../lib/date-range"
+import { defaultWideRange, parseQueryRange, rangeQuery, searchQuery } from "../lib/date-range"
 import { formatDuration } from "../lib/formatters"
 import type { Granularity, UserDetailPeriodRow, UserOption } from "../lib/types"
 import type { EChartsOption } from "echarts"
-
-function parseQueryRange(startDate?: string, endDate?: string) {
-  if (startDate && endDate && /^\d{8}$/.test(startDate) && /^\d{8}$/.test(endDate)) {
-    return [
-      `${startDate.slice(0, 4)}-${startDate.slice(4, 6)}-${startDate.slice(6, 8)}`,
-      `${endDate.slice(0, 4)}-${endDate.slice(4, 6)}-${endDate.slice(6, 8)}`,
-    ] as [string, string]
-  }
-  return defaultWideRange()
-}
-
-function rangeQuery(value: [string, string]) {
-  return {
-    startDate: value[0].replace(/-/g, ""),
-    endDate: value[1].replace(/-/g, ""),
-  }
-}
+import { chart } from "../lib/chart-options"
 
 function parseGranularity(value?: string): Granularity {
   if (value === "week" || value === "month" || value === "year") return value
@@ -75,25 +59,18 @@ function periodRange(row: UserDetailPeriodRow, granularity: Granularity) {
       end: `${year}${String(month).padStart(2, "0")}${String(last).padStart(2, "0")}`,
     }
   }
+
   return { start: `${key}0101`, end: `${key}1231` }
 }
 
-function bar(title: string, labels: string[], list: Array<{ name: string; type?: "bar" | "line"; data: number[] }>, format?: (value: number) => string): EChartsOption {
-  return {
-    title: { text: title, left: "center", textStyle: { fontSize: 14, fontWeight: "bold" } },
-    tooltip: format ? {
-      trigger: "axis",
-      formatter(items) {
-        const rows = Array.isArray(items) ? items : [items]
-        return rows.reduce((txt, item, index) => `${txt}${index === 0 ? `${item.axisValue}<br/>` : ""}${item.marker}${item.seriesName}: ${format(Number(item.value ?? 0))}<br/>`, "")
-      },
-    } : { trigger: "axis" },
-    legend: { data: list.map((item) => item.name), top: "8%", type: "scroll" },
-    grid: { left: "5%", right: "5%", top: list.length > 3 ? "25%" : "20%", bottom: "10%", containLabel: true },
-    xAxis: { type: "category", data: labels, axisLabel: { rotate: 45, fontSize: 11 } },
-    yAxis: title.includes("提效比") ? { type: "value", axisLabel: { formatter: "{value}%" } } : { type: "value" },
-    series: list.map((item) => ({ name: item.name, type: item.type ?? "bar", data: item.data, smooth: item.type === "line" })),
-  }
+function queryOf(range: [string, string], granularity: Granularity, mock?: string) {
+  const next = rangeQuery(range)
+  return searchQuery([
+    ["startDate", next.startDate],
+    ["endDate", next.endDate],
+    ["granularity", granularity],
+    ["mock", mock],
+  ])
 }
 
 export default function KanbanUserDetail() {
@@ -105,22 +82,12 @@ export default function KanbanUserDetail() {
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
   const granularity = createMemo(() => parseGranularity(search.granularity))
   const listHref = createMemo(() => {
-    const q = new URLSearchParams()
-    const next = rangeQuery(dateRange())
-    q.set("startDate", next.startDate)
-    q.set("endDate", next.endDate)
-    q.set("granularity", granularity())
-    if (search.mock?.trim()) q.set("mock", search.mock.trim())
+    const q = queryOf(dateRange(), granularity(), search.mock)
     return `/kanban/user?${q.toString()}`
   })
 
   const detailHref = (id: string) => {
-    const q = new URLSearchParams()
-    const next = rangeQuery(dateRange())
-    q.set("startDate", next.startDate)
-    q.set("endDate", next.endDate)
-    q.set("granularity", granularity())
-    if (search.mock?.trim()) q.set("mock", search.mock.trim())
+    const q = queryOf(dateRange(), granularity(), search.mock)
     return `/kanban/user/${encodeURIComponent(id)}?${q.toString()}`
   }
 
@@ -167,122 +134,110 @@ export default function KanbanUserDetail() {
 
   const chart1 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return bar("Task数 & Commit数", labels(), [
+    return chart("Task / Commit 数", labels(), [
       { name: "Task数", data: tasks().map((item) => Number(item.task_count ?? 0)) },
       { name: "Commit数", data: commits().map((item) => Number(item.commit_count ?? 0)) },
-    ])
+    ], { titleSize: 14 })
   })
 
   const chart2 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return bar("代码行数", labels(), [
+    return chart("代码行数", labels(), [
       { name: "Task代码行数", data: tasks().map((item) => Number(item.task_diff_lines ?? 0)) },
       { name: "Commit代码行数", data: commits().map((item) => Number(item.commit_diff_lines ?? 0)) },
-    ])
+    ], { titleSize: 14 })
   })
 
   const chart3 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return bar("耗时对比", labels(), [
+    return chart("耗时对比", labels(), [
       { name: "Task传统耗时", data: tasks().map((item) => Number(item.task_ancient_minutes ?? 0)) },
       { name: "Task实际耗时", data: tasks().map((item) => Number(item.task_real_minutes ?? 0)) },
       { name: "Commit传统耗时", data: commits().map((item) => Number(item.commit_ancient_minutes ?? 0)) },
       { name: "Commit实际耗时", data: commits().map((item) => Number(item.commit_real_minutes ?? 0)) },
-    ], (value) => formatDuration(value))
+    ], { titleSize: 14, format: (value) => formatDuration(value) })
   })
 
   const chart4 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return bar("费用", labels(), [
+    return chart("费用", labels(), [
       { name: "费用", data: commits().map((item) => Number(item.cost ?? 0)) },
-    ], (value) => `${value.toFixed(2)} 元`)
+    ], { titleSize: 14, format: (value) => `${value.toFixed(2)} 元` })
   })
 
   const chart5 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return bar("提效比趋势", labels(), [
+    return chart("提效比趋势", labels(), [
       { name: "Task提效比", type: "line", data: tasks().map((item) => Number(item.task_efficiency_ratio ?? 0)) },
       { name: "Commit提效比", type: "line", data: commits().map((item) => Number(item.commit_efficiency_ratio ?? 0)) },
-    ], (value) => `${value.toFixed(1)}%`)
+    ], { titleSize: 14, format: (value) => `${value.toFixed(1)}%` })
   })
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+      <div class="flex w-full flex-col gap-5">
         <header class="flex flex-col gap-3">
           <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
             <span>←</span>
             <span>返回用户列表</span>
           </A>
 
-          <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-            <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-              <div class="flex flex-col gap-2 md:flex-row md:items-end md:gap-4">
-                <div>
-                  <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / User Detail</p>
-                  <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">用户详情</h1>
-                </div>
+          <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">用户详情</h1>
+            </div>
 
-                <label class="flex min-w-0 flex-col gap-2 md:min-w-[14rem]">
-                  <span class="text-[0.75rem] text-[var(--native-muted)]">选择用户</span>
-                  <select
-                    class="flex h-10 min-w-[14rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    value={userId()}
-                    onChange={(e) => {
-                      const txt = e.currentTarget.value.trim()
-                      if (!txt || txt === userId()) return
-                      navigate(detailHref(txt))
-                    }}
-                  >
-                    <option value="">选择用户</option>
-                    <For each={users() ?? []}>
-                      {(item) => <option value={item.user_id}>{item.user_name || item.user_id}</option>}
-                    </For>
-                  </select>
-                </label>
-              </div>
+            <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:justify-end">
+              <label class="flex min-w-0 flex-col gap-2 md:min-w-[14rem]">
+                <select
+                  class="flex h-10 min-w-[14rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={userId()}
+                  onChange={(e) => {
+                    const txt = e.currentTarget.value.trim()
+                    if (!txt || txt === userId()) return
+                    navigate(detailHref(txt))
+                  }}
+                >
+                  <option value="">选择用户</option>
+                  <For each={users() ?? []}>
+                    {(item) => <option value={item.user_id}>{item.user_name || item.user_id}</option>}
+                  </For>
+                </select>
+              </label>
 
-              <div class="flex flex-col gap-3 md:flex-row md:items-end">
-                <label class="flex min-w-0 flex-col gap-2">
-                  <span class="text-[0.75rem] text-[var(--native-muted)]">日期范围</span>
-                  <DateRangePicker
-                    value={dateRange()}
-                    onChange={(value) => {
-                      const next = value ?? defaultWideRange()
-                      const query = rangeQuery(next)
-                      if (search.mock?.trim()) setSearch({ ...query, granularity: granularity(), mock: search.mock.trim() })
-                      else setSearch({ ...query, granularity: granularity() })
-                    }}
-                    clearable={false}
-                    placeholder="选择日期范围"
-                  />
-                </label>
+              <label class="flex min-w-0 flex-col gap-2">
+                <DateRangePicker
+                  value={dateRange()}
+                  onChange={(value) => {
+                    const next = value ?? defaultWideRange()
+                    setSearch(Object.fromEntries(queryOf(next, granularity(), search.mock).entries()))
+                  }}
+                  clearable={false}
+                  placeholder="选择日期范围"
+                />
+              </label>
 
-                <label class="flex min-w-0 flex-col gap-2">
-                  <span class="text-[0.75rem] text-[var(--native-muted)]">聚合粒度</span>
-                  <select
-                    class="flex h-10 min-w-[8rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    value={granularity()}
-                    onChange={(e) => {
-                      const next = e.currentTarget.value as Granularity
-                      const query = rangeQuery(dateRange())
-                      if (search.mock?.trim()) setSearch({ ...query, granularity: next, mock: search.mock.trim() })
-                      else setSearch({ ...query, granularity: next })
-                    }}
-                  >
-                    <option value="day">天</option>
-                    <option value="week">周</option>
-                    <option value="month">月</option>
-                    <option value="year">年</option>
-                  </select>
-                </label>
+              <label class="flex min-w-0 flex-col gap-2">
+                <select
+                  class="flex h-10 min-w-[8rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={granularity()}
+                  onChange={(e) => {
+                    const next = e.currentTarget.value as Granularity
+                    setSearch(Object.fromEntries(queryOf(dateRange(), next, search.mock).entries()))
+                  }}
+                >
+                  <option value="day">天</option>
+                  <option value="week">周</option>
+                  <option value="month">月</option>
+                  <option value="year">年</option>
+                </select>
+              </label>
 
-                <div class="flex items-end">
-                  <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={detail.loading}>刷新</Button>
-                </div>
+              <div class="flex items-end">
+                <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={detail.loading}>刷新</Button>
               </div>
             </div>
-          </section>
+          </div>
         </header>
 
         <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
