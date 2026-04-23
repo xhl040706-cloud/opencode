@@ -11,6 +11,22 @@ const StoreHome = lazy(() => import("@/pages/store").then((m) => ({ default: m.S
 const ProjectsLayout = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectsLayout })))
 const ProjectsHome = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectsHome })))
 const ProjectDetail = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectDetail })))
+const KanbanLayout = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanLayout })))
+const KanbanHome = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanHome })))
+const KanbanRepoList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanRepoList })))
+const KanbanRepoDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanRepoDetail })))
+const KanbanUserList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanUserList })))
+const KanbanUserDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanUserDetail })))
+const KanbanUserGroupDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanUserGroupDetail })))
+const KanbanOrgList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanOrgList })))
+const KanbanOrgDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanOrgDetail })))
+const KanbanTaskList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanTaskList })))
+const KanbanTaskDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanTaskDetail })))
+const KanbanCommitList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanCommitList })))
+const KanbanCommitDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanCommitDetail })))
+const KanbanWorkDirDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanWorkDirDetail })))
+const KanbanProjectDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanProjectDetail })))
+const KanbanProjectList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanProjectList })))
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
 const CapabilityEditorLayout = lazy(() => import("@/pages/capability-editor-layout"))
@@ -96,6 +112,29 @@ export const routeConfig: RouteConfig[] = [
     children: [
       { path: "/new", component: CapabilityEditorPage },
       { path: "/:itemId/edit", component: CapabilityEditorPage },
+    ],
+  },
+  {
+    path: "/kanban",
+    component: KanbanLayout,
+    auth: true,
+    children: [
+      { path: "/", component: KanbanHome },
+      { path: "/repo", component: KanbanRepoList },
+      { path: "/repo/:repoAddr", component: KanbanRepoDetail },
+      { path: "/repo/:repoAddr/:repoBranch", component: KanbanRepoDetail },
+      { path: "/user", component: KanbanUserList },
+      { path: "/user/group/:groupId", component: KanbanUserGroupDetail },
+      { path: "/user/:userId", component: KanbanUserDetail },
+      { path: "/org", component: KanbanOrgList },
+      { path: "/org/:orgPath", component: KanbanOrgDetail },
+      { path: "/task", component: KanbanTaskList },
+      { path: "/task/:taskId", component: KanbanTaskDetail },
+      { path: "/commit", component: KanbanCommitList },
+      { path: "/commit/:commitId", component: KanbanCommitDetail },
+      { path: "/workdir/:workDirId", component: KanbanWorkDirDetail },
+      { path: "/project", component: KanbanProjectList },
+      { path: "/project/:projectId", component: KanbanProjectDetail },
     ],
   },
   {
