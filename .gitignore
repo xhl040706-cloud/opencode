@@ -42,3 +42,6 @@ tsconfig.tsbuildinfo
 .bunfig.toml
 .cache
 skills
+# Generated builtin review files (run build:review-builtin to populate)
+src/costrict/review/agent/builtin.ts
+src/costrict/review/skill/builtin.ts
