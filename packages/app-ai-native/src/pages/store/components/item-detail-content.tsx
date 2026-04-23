@@ -2,20 +2,33 @@ import { createResource, createSignal, createEffect, Show, For } from "solid-js"
 import { createHighlighter } from "shiki"
 import { useTheme } from "@opencode-ai/ui/theme"
 import { Icon } from "@opencode-ai/ui/icon"
+import { Markdown } from "@opencode-ai/ui/markdown"
 import { LocalIcon } from "@/components/local-icon"
+import AvatarDisplay from "@/components/avatar-display"
 import { artifactApi, itemApi, scanApi, userApi, type CapabilityItem, type ScanResult } from "../lib/api"
 import { useLanguage } from "@/context/language"
 import { categoryKey, formatBytes } from "../lib/constants"
 import SecurityTag, { VerdictTag, type Verdict } from "./security-tag"
 
-const TYPE_META: Record<string, { accent: string; label: string }> = {
-  skill: { accent: "rgb(234,179,8)", label: "store.sidebar.nav.skills" },
-  subagent: { accent: "rgb(59,130,246)", label: "store.sidebar.nav.subagents" },
-  command: { accent: "rgb(34,197,94)", label: "store.sidebar.nav.commands" },
-  mcp: { accent: "rgb(168,85,247)", label: "store.sidebar.nav.mcpServers" },
+const TYPE_META: Record<string, { accent: string; bg: string; label: string; icon: "sparkles" | "brain" | "console" | "mcp" }> = {
+  skill: { accent: "#ffa000", bg: "#FEF3C7", label: "store.sidebar.nav.skills", icon: "sparkles" },
+  subagent: { accent: "#1670ff", bg: "#DBEAFE", label: "store.sidebar.nav.subagents", icon: "brain" },
+  command: { accent: "#09b179", bg: "#D1FAE5", label: "store.sidebar.nav.commands", icon: "console" },
+  mcp: { accent: "#7338f9", bg: "#EDE9FE", label: "store.sidebar.nav.mcpServers", icon: "mcp" },
 }
 
 const THEMES = { light: "github-light", dark: "github-dark" } as const
+
+const TAG_COLOR_BY_CLASS = {
+  system: {
+    color: "#e17a0c",
+    background: "#f9a02c1a",
+  },
+  custom: {
+    color: "#478be6",
+    background: "#4184e41a",
+  },
+} as const
 
 let highlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined
 
@@ -24,8 +37,13 @@ export function getInstallCommand(item: CapabilityItem) {
   return `cs plugin add ${item.itemType} ${registry}/${item.slug}`
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+function formatDate(iso: string, locale?: string) {
+  const normalizedLocale = locale?.startsWith("zh") ? "zh-CN" : "en-US"
+  return new Intl.DateTimeFormat(normalizedLocale, {
+    year: "numeric",
+    month: normalizedLocale === "zh-CN" ? "long" : "short",
+    day: "numeric",
+  }).format(new Date(iso))
 }
 
 function formatDuration(ms: number) {
@@ -38,6 +56,56 @@ function formatValue(value: unknown) {
   if (typeof value === "string") return value
   if (typeof value === "number" || typeof value === "boolean") return String(value)
   return JSON.stringify(value)
+}
+
+function formatCompactCount(value: number) {
+  if (value >= 1000000) {
+    const next = (value / 1000000).toFixed(value >= 10000000 ? 0 : 1)
+    return `${next.replace(/\.0$/, "")}M`
+  }
+  if (value >= 1000) {
+    const next = (value / 1000).toFixed(value >= 10000 ? 0 : 1)
+    return `${next.replace(/\.0$/, "")}k`
+  }
+  return String(value)
+}
+
+function compareTags(a: { tagClass?: string; slug: string }, b: { tagClass?: string; slug: string }) {
+  const aPriority = a.tagClass === "system" ? 0 : 1
+  const bPriority = b.tagClass === "system" ? 0 : 1
+  if (aPriority !== bPriority) return aPriority - bPriority
+  return a.slug.localeCompare(b.slug, undefined, { sensitivity: "base" })
+}
+
+function tagStyle(tagClass?: string) {
+  const accent = tagClass === "system" ? TAG_COLOR_BY_CLASS.system : TAG_COLOR_BY_CLASS.custom
+  return {
+    color: accent.color,
+    "background-color": accent.background,
+  }
+}
+
+function VisibilityIcon(props: { visibility?: string }) {
+  return (
+    <span class="inline-flex items-center text-text-weak" aria-hidden="true">
+      <Show
+        when={props.visibility === "private"}
+        fallback={(
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18" />
+            <path d="M12 3a15 15 0 0 1 0 18" />
+            <path d="M12 3a15 15 0 0 0 0 18" />
+          </svg>
+        )}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+          <rect x="5" y="11" width="14" height="10" rx="2" />
+          <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+        </svg>
+      </Show>
+    </span>
+  )
 }
 
 function tryJson(raw: string): string | null {
@@ -57,19 +125,6 @@ async function highlight(json: string, mode: "light" | "dark") {
   return highlighter.codeToHtml(json, { lang: "json", theme: THEMES[mode] })
 }
 
-function renderMd(content: string) {
-  return content.split("\n").map((line) => {
-    if (line.startsWith("# ")) return <h1 class="text-20-medium text-text-strong mt-5 mb-2">{line.slice(2)}</h1>
-    if (line.startsWith("## ")) return <h2 class="text-16-medium text-text-strong mt-4 mb-1.5">{line.slice(3)}</h2>
-    if (line.startsWith("### ")) return <h3 class="text-14-medium text-text-strong mt-3 mb-1.5">{line.slice(4)}</h3>
-    if (line.startsWith("- ")) return <li class="ml-5 list-disc mb-0.5 text-text-weak">{line.slice(2)}</li>
-    if (/^\d+\. /.test(line)) return <li class="ml-5 list-decimal mb-0.5 text-text-weak">{line.replace(/^\d+\. /, "")}</li>
-    if (line.startsWith("```")) return <div class="text-12-mono bg-bg-muted px-3 py-1.5 rounded my-2">{line}</div>
-    if (line.trim()) return <p class="mb-1.5 leading-relaxed text-text-weak">{line}</p>
-    return <br />
-  })
-}
-
 function ScanRow(props: { scan: ScanResult }) {
   const [open, setOpen] = createSignal(false)
   const language = useLanguage()
@@ -87,7 +142,7 @@ function ScanRow(props: { scan: ScanResult }) {
           </div>
           <p class="break-words text-12-regular text-text-strong">{props.scan.summary || "No summary available"}</p>
           <div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-text-weak">
-            <span>{formatDate(props.scan.createdAt)}</span>
+            <span>{formatDate(props.scan.createdAt, language.locale())}</span>
           </div>
         </div>
         <div class="shrink-0 text-text-weak">
@@ -118,7 +173,7 @@ function ScanRow(props: { scan: ScanResult }) {
                 </div>
                 <div>
                   <div class="mb-0.5 text-xs text-text-weak/70">Finished</div>
-                  <div class="text-text-strong">{formatDate(props.scan.finishedAt)}</div>
+                  <div class="text-text-strong">{formatDate(props.scan.finishedAt, language.locale())}</div>
                 </div>
               </div>
 
@@ -214,6 +269,14 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
     () => item()?.createdBy,
     (createdBy) => userApi.getNames([createdBy]).then((names) => names[createdBy] ?? createdBy),
   )
+  const [authorInfo] = createResource(
+    () => item()?.createdBy,
+    async (createdBy) => {
+      if (!createdBy) return null
+      const info = await userApi.getInfo([createdBy]).catch(() => ({}))
+      return info[createdBy] ?? null
+    },
+  )
   const [copied, setCopied] = createSignal(false)
   const [highlighted] = createResource(
     () => {
@@ -250,8 +313,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
       >
         {(data) => (
           <div class={`detail-panel flex h-full flex-col ${props.class ?? ""}`.trim()}>
-            {/* Sticky header */}
-            <div class="detail-panel-header sticky top-0 z-10 bg-inherit px-5 pb-4 pr-12 pt-5">
+            <div class="detail-panel-header border-b border-border-weak-base px-6 pb-5 pr-14 pt-6">
               <Show when={props.onBack && props.showBackButton}>
                 <button
                   onClick={props.onBack}
@@ -262,14 +324,27 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                 </button>
               </Show>
 
-              <div class="flex items-start justify-between gap-3">
-                <h1
-                  class="min-w-0 text-text-strong"
-                  style={{ "font-size": "20px", "letter-spacing": "-0.02em", "line-height": "1.3" }}
-                >
-                  {data().name}
-                </h1>
-                <div class="flex items-center gap-1.5 shrink-0">
+              <div class="flex items-start justify-between gap-6">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--native-radius-md)]"
+                      style={{ "background-color": meta().bg, color: meta().accent }}
+                    >
+                      <Icon name={meta().icon} />
+                    </div>
+                    <h1
+                      class="min-w-0 text-text-strong"
+                      style={{ "font-size": "24px", "letter-spacing": "-0.02em", "line-height": "1.25" }}
+                    >
+                      {data().name}
+                    </h1>
+                  </div>
+                  <Show when={data().description}>
+                    <p class="mt-3 max-w-[64rem] text-[13px] leading-6 text-text-weak">{data().description}</p>
+                  </Show>
+                </div>
+                <div class="flex shrink-0 items-center gap-1.5 self-start">
                   <Show when={data().sourceType === "archive"}>
                     <span
                       class="mt-0.5 inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-xs"
@@ -308,154 +383,208 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                   </Show>
                 </div>
               </div>
-
-              <div class="mt-2 flex flex-wrap items-center gap-1.5">
-                <span
-                  class="inline-flex items-center rounded-[10px] px-2.5 py-[2px] text-xs"
-                  style={{
-                    "background-color": `color-mix(in srgb, ${meta().accent} 12%, transparent)`,
-                    color: meta().accent,
-                  }}
-                >
-                  {language.t("store.capability.type." + (item()?.itemType ?? "skill"))}
-                </span>
-                <Show when={data().category}>
-                  <span class="inline-flex items-center rounded-[10px] bg-[rgba(156,163,175,0.12)] px-2.5 py-[2px] text-xs text-text-weak">
-                    {language.t(categoryKey(data().category))}
-                  </span>
-                </Show>
-                <SecurityTag status={data().securityStatus} />
-              </div>
             </div>
 
-            {/* Scrollable body */}
-            <div class="detail-panel-body flex-1 px-5">
-              {/* Description + Install command */}
-              <div>
-                <Show when={data().description}>
-                  <p class="mb-3 text-12-regular leading-relaxed text-text-weak">{data().description}</p>
-                </Show>
-                <div class="flex items-center gap-2 rounded-lg px-4 py-2.5" style="background-color: var(--native-surface-strong)">
-                  <div class="thin-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto">
-                    <code class="select-all whitespace-nowrap text-12-mono text-text-weak">{getInstallCommand(data())}</code>
+            <div class="detail-panel-body flex-1 overflow-auto px-6 py-5">
+              <div class="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(14rem,0.6fr)]">
+                <div class="min-w-0 space-y-5">
+                  <div class="flex items-center gap-2 rounded-lg px-4 py-2.5" style="background-color: var(--native-surface-strong)">
+                    <div class="thin-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto">
+                      <code class="select-all whitespace-nowrap text-12-mono text-text-weak">{getInstallCommand(data())}</code>
+                    </div>
+                    <button
+                      onClick={copy}
+                      class="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-text-weak transition-all duration-150 hover:bg-bg-muted hover:text-text-strong"
+                      title={language.t("store.itemCard.copyInstall")}
+                    >
+                      <Icon name={copied() ? "check-small" : "copy"} size="small" class={copied() ? "text-green-500" : ""} />
+                    </button>
                   </div>
-                  <button
-                    onClick={copy}
-                    class="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-text-weak transition-all duration-150 hover:bg-bg-muted hover:text-text-strong"
-                    title={language.t("store.itemCard.copyInstall")}
-                  >
-                    <Icon name={copied() ? "check-small" : "copy"} size="small" class={copied() ? "text-green-500" : ""} />
-                  </button>
-                </div>
-              </div>
 
-              {/* Content section */}
-              <Show when={data().content}>
-                <div class="pt-5">
-                  <h2 class="mb-2 text-14-medium text-text-strong">{language.t("store.capabilityDialog.field.content")}</h2>
-                  <Show
-                    when={highlighted()}
-                    fallback={
-                      <div class="thin-scrollbar max-h-[400px] overflow-y-auto rounded-lg border border-border-weak-base bg-bg-muted/50 p-4 text-14-regular leading-7">
-                        {renderMd(data().content)}
+                  <Show when={data().content}>
+                    <div>
+                      <Show
+                        when={highlighted()}
+                        fallback={
+                          <div class="thin-scrollbar min-h-[28rem] overflow-y-auto rounded-lg border border-border-weak-base bg-bg-muted/50 px-5 py-4">
+                            <Markdown text={data().content} class="text-14-regular" />
+                          </div>
+                        }
+                      >
+                        <div
+                          class="thin-scrollbar min-h-[28rem] overflow-x-auto overflow-y-auto rounded-lg border border-border-weak-base bg-bg-muted/50 p-4 text-12-mono leading-6 [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:!p-0"
+                          innerHTML={highlighted()}
+                        />
+                      </Show>
+                    </div>
+                  </Show>
+
+                  <Show when={(artifacts() ?? []).length > 0}>
+                    <div>
+                      <h2 class="mb-2 text-14-medium text-text-strong">{language.t("store.detail.artifacts")}</h2>
+                      <div class="overflow-hidden rounded-lg border border-border-weak-base">
+                        <For each={artifacts() ?? []}>
+                          {(artifact) => (
+                            <div class="flex items-center justify-between gap-3 border-b border-border-weak-base px-3 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-bg-muted/40">
+                              <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                  <span class="truncate text-12-regular text-text-strong">{artifact.filename}</span>
+                                  <Show when={artifact.isLatest}>
+                                    <span
+                                      class="inline-flex items-center rounded-[10px] px-2 py-[1px] text-xs"
+                                      style={{
+                                        "background-color": `color-mix(in srgb, ${meta().accent} 12%, transparent)`,
+                                        color: meta().accent,
+                                      }}
+                                    >
+                                      {language.t("store.detail.latest")}
+                                    </span>
+                                  </Show>
+                                </div>
+                                <div class="mt-0.5 text-xs text-text-weak">
+                                  {artifact.version ? `v${artifact.version} · ` : ""}
+                                  {formatBytes(artifact.fileSize)}
+                                </div>
+                              </div>
+                              <a
+                                href={artifactApi.downloadUrl(artifact.id)}
+                                download=""
+                                class="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1 text-12-regular text-text-weak transition-all duration-150 hover:bg-bg-muted hover:text-text-strong"
+                              >
+                                <Icon name="download" size="small" />
+                                {language.t("store.itemCard.download")}
+                              </a>
+                            </div>
+                          )}
+                        </For>
                       </div>
-                    }
-                  >
-                    <div
-                      class="thin-scrollbar max-h-[400px] overflow-x-auto overflow-y-auto rounded-lg border border-border-weak-base bg-bg-muted/50 p-4 text-12-mono leading-6 [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:!p-0"
-                      innerHTML={highlighted()}
-                    />
+                    </div>
+                  </Show>
+
+                  <Show when={(scans() ?? []).length > 0}>
+                    <div class="pb-4">
+                      <h2 class="mb-2 text-14-medium text-text-strong">{language.t("store.scanResults.securityScan")}</h2>
+                      <div class="space-y-2">
+                        <For each={scans() ?? []}>{(scan) => <ScanRow scan={scan} />}</For>
+                      </div>
+                    </div>
                   </Show>
                 </div>
-              </Show>
 
-              {/* Artifacts section */}
-              <Show when={(artifacts() ?? []).length > 0}>
-                <div class="pt-5">
-                  <h2 class="mb-2 text-14-medium text-text-strong">{language.t("store.detail.artifacts")}</h2>
-                  <div class="overflow-hidden rounded-lg border border-border-weak-base">
-                    <For each={artifacts() ?? []}>
-                      {(artifact) => (
-                        <div class="flex items-center justify-between gap-3 border-b border-border-weak-base px-3 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-bg-muted/40">
-                          <div class="min-w-0">
-                            <div class="flex items-center gap-2">
-                              <span class="truncate text-12-regular text-text-strong">{artifact.filename}</span>
-                              <Show when={artifact.isLatest}>
-                                <span
-                                  class="inline-flex items-center rounded-[10px] px-2 py-[1px] text-xs"
-                                  style={{
-                                    "background-color": `color-mix(in srgb, ${meta().accent} 12%, transparent)`,
-                                    color: meta().accent,
-                                  }}
-                                >
-                                  {language.t("store.detail.latest")}
-                                </span>
-                              </Show>
+                <aside class="min-w-0 space-y-5 xl:sticky xl:top-0 xl:self-start">
+                  <div class="p-1">
+                    <div class="space-y-3">
+                      <div>
+                        <div class="flex items-center gap-4 text-sm leading-5 text-text-strong">
+                          <span class="inline-flex items-center gap-1.5" title={language.t("store.capability.type." + (data().itemType ?? "skill"))}>
+                            <div
+                              class="flex h-5 w-5 shrink-0 items-center justify-center rounded-[0.375rem]"
+                              style={{ "background-color": meta().bg, color: meta().accent }}
+                            >
+                              <Icon name={meta().icon} size="small" />
                             </div>
-                            <div class="mt-0.5 text-xs text-text-weak">
-                              {artifact.version ? `v${artifact.version} · ` : ""}
-                              {formatBytes(artifact.fileSize)}
-                            </div>
-                          </div>
-                          <a
-                            href={artifactApi.downloadUrl(artifact.id)}
-                            download=""
-                            class="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1 text-12-regular text-text-weak transition-all duration-150 hover:bg-bg-muted hover:text-text-strong"
+                            <span>{language.t("store.capability.type." + (data().itemType ?? "skill"))}</span>
+                          </span>
+                          <span
+                            class="inline-flex items-center gap-1.5"
+                            title={`${language.t("store.detail.previewCount")}: ${(props.previewCount ?? data().previewCount ?? 0).toLocaleString()}`}
                           >
-                            <Icon name="download" size="small" />
-                            {language.t("store.itemCard.download")}
-                          </a>
+                            <LocalIcon name="view" size="small" />
+                            <span>{formatCompactCount(props.previewCount ?? data().previewCount ?? 0)}</span>
+                          </span>
+                          <span
+                            class="inline-flex items-center gap-1.5"
+                            title={`${language.t("store.detail.installCount")}: ${(props.installCount ?? data().installCount ?? 0).toLocaleString()}`}
+                          >
+                            <LocalIcon name="download" size="small" />
+                            <span>{formatCompactCount(props.installCount ?? data().installCount ?? 0)}</span>
+                          </span>
+                          <span
+                            class="inline-flex items-center gap-1.5"
+                            title={`${language.t("store.detail.favoriteCount")}: ${(props.favoriteCount ?? data().favoriteCount ?? 0).toLocaleString()}`}
+                          >
+                            <LocalIcon name="star" size="small" />
+                            <span>{formatCompactCount(props.favoriteCount ?? data().favoriteCount ?? 0)}</span>
+                          </span>
                         </div>
-                      )}
-                    </For>
-                  </div>
-                </div>
-              </Show>
+                      </div>
 
-              {/* Details section */}
-              <div class="pt-5">
-                <h2 class="mb-2 text-14-medium text-text-strong">{language.t("store.detail.details")}</h2>
-                <div class="overflow-hidden rounded-lg border border-border-weak-base">
-                  <dl>
-                    <For
-                      each={[
-                        [language.t("store.console.capabilities.type"), language.t("store.capability.type." + (data().itemType ?? "skill"))],
-                        [
-                          language.t("store.console.capabilities.visibility"),
-                          data().repoVisibility === "public"
-                            ? language.t("store.capability.visibility.public")
-                            : data().repoVisibility === "private"
-                              ? language.t("store.capability.visibility.private")
-                              : "-",
-                        ],
-                        ...(authorName() ? [[language.t("store.detail.author"), authorName()]] : []),
-                        [language.t("store.detail.created"), formatDate(data().createdAt)],
-                        [language.t("store.detail.updated"), formatDate(data().updatedAt)],
-                        [language.t("store.detail.previewCount"), String(props.previewCount ?? data().previewCount ?? 0)],
-                        [language.t("store.detail.installCount"), String(props.installCount ?? data().installCount ?? 0)],
-                        [language.t("store.detail.favoriteCount"), String(props.favoriteCount ?? data().favoriteCount ?? 0)],
-                      ] as [string, string][]}
-                    >
-                      {(row) => (
-                        <div class="flex items-center justify-between border-b border-border-weak-base px-4 py-2.5 last:border-b-0">
-                          <dt class="text-12-regular text-text-weak">{row[0]}</dt>
-                          <dd class="text-12-regular text-text-strong">{row[1]}</dd>
+                      <div>
+                        <div class="mb-1 text-xs" style={{ color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))", "font-weight": 700 }}>{language.t("store.console.capabilities.visibility")}</div>
+                        <div class="inline-flex items-center gap-1.5 text-sm leading-5 text-text-strong">
+                          <VisibilityIcon visibility={data().repoVisibility} />
+                          <span>
+                            {data().repoVisibility === "public"
+                              ? language.t("store.capability.visibility.public")
+                              : data().repoVisibility === "private"
+                                ? language.t("store.capability.visibility.private")
+                                : "-"}
+                          </span>
                         </div>
-                      )}
-                    </For>
-                  </dl>
-                </div>
+                      </div>
+
+                      <Show when={authorInfo() || authorName()}>
+                        <div>
+                          <div class="mb-1 text-xs" style={{ color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))", "font-weight": 700 }}>{language.t("store.detail.author")}</div>
+                          <div>
+                            <AvatarDisplay
+                              avatarUrl={authorInfo()?.avatarUrl}
+                              username={authorInfo()?.name ?? authorName() ?? data().createdBy}
+                              class="size-6 shrink-0"
+                              title={authorInfo()?.name ?? authorName() ?? data().createdBy}
+                            />
+                          </div>
+                        </div>
+                      </Show>
+
+                      <Show when={data().category}>
+                        <div>
+                          <div class="mb-1 text-xs" style={{ color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))", "font-weight": 700 }}>{language.t("store.console.capabilities.category")}</div>
+                          <div class="text-sm leading-5 text-text-strong">{language.t(categoryKey(data().category))}</div>
+                        </div>
+                      </Show>
+
+                      <div>
+                        <div class="mb-1 text-xs" style={{ color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))", "font-weight": 700 }}>{language.t("store.scanResults.securityScan")}</div>
+                        <div>
+                          <SecurityTag status={data().securityStatus} />
+                        </div>
+                      </div>
+
+                      <Show when={(data().tags ?? []).length > 0}>
+                        <div>
+                        <div class="mb-2 text-xs" style={{ color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))", "font-weight": 700 }}>{language.t("store.home.table.tag")}</div>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                          <For each={[...(data().tags ?? [])].sort(compareTags)}>
+                            {(tag) => (
+                              <span
+                                class="inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 text-[11px] leading-4 font-semibold"
+                                style={tagStyle(tag.tagClass)}
+                                title={tag.slug}
+                              >
+                                <span class="truncate">{tag.slug}</span>
+                              </span>
+                            )}
+                          </For>
+                        </div>
+                        </div>
+                      </Show>
+
+                      <div class="space-y-3">
+                        <div class="flex items-center justify-between gap-4">
+                          <div class="text-xs" style={{ color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))", "font-weight": 700 }}>{language.t("store.detail.created")}</div>
+                          <div class="text-right text-sm leading-5 text-text-strong">{formatDate(data().createdAt, language.locale())}</div>
+                        </div>
+                        <div class="flex items-center justify-between gap-4">
+                          <div class="text-xs" style={{ color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))", "font-weight": 700 }}>{language.t("store.detail.updated")}</div>
+                          <div class="text-right text-sm leading-5 text-text-strong">{formatDate(data().updatedAt, language.locale())}</div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </aside>
               </div>
-
-              {/* Security scans section */}
-              <Show when={(scans() ?? []).length > 0}>
-                <div class="pt-5 pb-4">
-                  <h2 class="mb-2 text-14-medium text-text-strong">{language.t("store.scanResults.securityScan")}</h2>
-                  <div class="space-y-2">
-                    <For each={scans() ?? []}>{(scan) => <ScanRow scan={scan} />}</For>
-                  </div>
-                </div>
-              </Show>
             </div>
           </div>
         )}

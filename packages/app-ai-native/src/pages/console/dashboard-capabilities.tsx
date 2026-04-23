@@ -536,7 +536,7 @@ export default function DashboardCapabilities() {
         </section>
 
         <Sheet open={detailOpen()} onOpenChange={(open) => !open && setSelectedItemId(null)} modal={false}>
-          <SheetContent position="right" class={cn(sx.sheet, "w-[min(48rem,92vw)] sm:max-w-none")} style={{ "background-color": "var(--st-surface-lowest, #ffffff)" }}>
+          <SheetContent position="right" class={cn(sx.sheet, "w-[min(68rem,94vw)] sm:max-w-none")} style={{ "background-color": "var(--st-surface-lowest, #ffffff)" }}>
             <SheetHeader class="sr-only">
               <SheetTitle>{language.t("store.home.detail.title")}</SheetTitle>
               <SheetDescription>{language.t("store.home.detail.description")}</SheetDescription>
