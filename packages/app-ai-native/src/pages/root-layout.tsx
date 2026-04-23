@@ -1,11 +1,12 @@
 import { type ParentProps, Show } from "solid-js"
 import { useLocation, useNavigate } from "@solidjs/router"
 import { Icon } from "@opencode-ai/ui/icon"
+import { RadioGroup } from "@opencode-ai/ui/radio-group"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import AvatarDisplay from "@/components/avatar-display"
 import { usePlatform } from "@/context/platform"
-import { useLanguage } from "@/context/language"
+import { type Locale, useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
 import { appPath } from "@/lib/router"
 import { getLoginUrl } from "@/pages/store/lib/auth"
@@ -44,6 +45,7 @@ function UserButton() {
   const language = useLanguage()
   const displayName = () => user()?.name || user()?.preferred_username || user()?.email || ""
   const username = () => user()?.preferred_username || user()?.email || user()?.name || ""
+  const languageOptions: Locale[] = ["zh", "en"]
 
   return (
     <Show
@@ -71,15 +73,30 @@ function UserButton() {
           <AvatarDisplay avatarUrl={user()?.picture} username={displayName()} class="size-6" />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content>
-            <div class="px-3 py-2 border-b border-border-weak-base">
-              <p class="text-13-medium text-text-strong">
+          <DropdownMenu.Content class="w-[280px]">
+            <div class="px-3 py-2 min-w-0">
+              <p class="text-13-medium text-text-strong truncate" title={displayName()}>
                 {displayName()}
               </p>
-              <p class="text-11-regular text-text-weak mt-0.5">
+              <p class="text-11-regular text-text-weak mt-0.5 truncate" title={`@${username()}`}>
                 @{username()}
               </p>
             </div>
+            <DropdownMenu.Separator class="my-0 mx-0" />
+            <div class="px-3 py-2 flex items-center justify-between gap-3">
+              <span class="text-12-medium leading-none text-text-strong">{language.t("sidebar.user.language")}</span>
+              <RadioGroup
+                options={languageOptions}
+                current={language.locale()}
+                size="small"
+                pad="none"
+                class="leading-none"
+                value={(locale) => locale}
+                label={(locale) => language.label(locale)}
+                onSelect={(locale) => locale && language.setLocale(locale as Locale)}
+              />
+            </div>
+            <DropdownMenu.Separator class="my-0 mx-0" />
             <DropdownMenu.Item onSelect={logout}>
               <DropdownMenu.ItemLabel>{language.t("sidebar.user.signOut")}</DropdownMenu.ItemLabel>
             </DropdownMenu.Item>
