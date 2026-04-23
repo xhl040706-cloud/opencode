@@ -97,7 +97,7 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
                             }}
                             placement="bottom-end"
                             gutter={8}
-                            class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-0 shadow-[var(--native-shadow-lg)]"
+                            class="max-w-none rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-0 shadow-[var(--native-shadow-lg)]"
                             triggerAs="button"
                             triggerProps={{
                               type: "button",

@@ -27,6 +27,11 @@ export function formatDuration(value?: number | null) {
   return `${(minutes / 480).toFixed(1)}人天`
 }
 
+export function formatPercent(value?: number | null, digits = 0) {
+  if (value == null) return "-"
+  return `${value.toFixed(digits)}%`
+}
+
 export function shortId(value?: string | null, size = 8) {
   if (!value) return "-"
   return value.slice(0, size)

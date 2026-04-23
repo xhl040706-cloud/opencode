@@ -1,15 +1,16 @@
-import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import Back from "../components/back"
 import { ChartCard } from "../components/charts/chart-card"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
 import { getUserDetail, listUsers } from "../lib/api"
 import { defaultWideRange, parseQueryRange, rangeQuery, searchQuery } from "../lib/date-range"
-import { formatDuration } from "../lib/formatters"
+import { formatDuration, formatPercent } from "../lib/formatters"
 import type { Granularity, UserDetailPeriodRow, UserOption } from "../lib/types"
 import type { EChartsOption } from "echarts"
 import { chart } from "../lib/chart-options"
@@ -170,17 +171,14 @@ export default function KanbanUserDetail() {
     return chart("提效比趋势", labels(), [
       { name: "Task提效比", type: "line", data: tasks().map((item) => Number(item.task_efficiency_ratio ?? 0)) },
       { name: "Commit提效比", type: "line", data: commits().map((item) => Number(item.commit_efficiency_ratio ?? 0)) },
-    ], { titleSize: 14, format: (value) => `${value.toFixed(1)}%` })
+    ], { titleSize: 14, format: (value) => formatPercent(value) })
   })
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex flex-col gap-3">
-          <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-            <span>←</span>
-            <span>返回用户列表</span>
-          </A>
+          <Back href={listHref()} label="返回用户列表" />
 
           <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
@@ -244,8 +242,8 @@ export default function KanbanUserDetail() {
           <MetricCard label="总活跃天数" value={String(summary().day_count ?? 0)} accent="var(--native-success)" />
           <MetricCard label="总Task数" value={String(summary().task_count ?? 0)} accent="var(--native-warning)" />
           <MetricCard label="总Commit数" value={String(summary().commit_count ?? 0)} accent="var(--native-primary)" />
-          <MetricCard label="Task提效比" value={taskRatio() == null ? "-" : `${taskRatio()!.toFixed(1)}%`} accent="var(--native-success)" />
-          <MetricCard label="Commit提效比" value={commitRatio() == null ? "-" : `${commitRatio()!.toFixed(1)}%`} accent="var(--native-primary)" />
+          <MetricCard label="Task提效比" value={formatPercent(taskRatio())} accent="var(--native-success)" />
+          <MetricCard label="Commit提效比" value={formatPercent(commitRatio())} accent="var(--native-primary)" />
           <MetricCard label="总费用" value={fmtCost(summary().cost)} accent="var(--native-warning)" />
         </section>
 

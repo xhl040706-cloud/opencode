@@ -13,7 +13,7 @@ import { queryUserRows } from "../lib/api"
 import { chart } from "../lib/chart-options"
 import { defaultWideRange, normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
 import { applyClientFilters } from "../lib/filter-utils"
-import { formatDuration } from "../lib/formatters"
+import { formatDuration, formatPercent } from "../lib/formatters"
 import type { DateRangeValue, Granularity, KanbanColumn, OrgCascadeValue, UserAggregateRow, UserSeries } from "../lib/types"
 import type { EChartsOption } from "echarts"
 
@@ -274,7 +274,7 @@ export default function KanbanUserList() {
       { name: `${item.user_name || item.user_id || "-"} Task提效比`, data: points(item, "task_efficiency_ratio") },
       { name: `${item.user_name || item.user_id || "-"} Commit提效比`, data: points(item, "commit_efficiency_ratio") },
     ])
-    return chart("Task提效比 & Commit提效比", periods(), list, { format: (value) => `${value.toFixed(1)}%` })
+    return chart("Task提效比 & Commit提效比", periods(), list, { format: (value) => formatPercent(value) })
   })
 
   const tokenOption = createMemo<EChartsOption | undefined>(() => {

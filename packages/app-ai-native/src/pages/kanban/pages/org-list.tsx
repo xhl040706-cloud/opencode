@@ -14,6 +14,7 @@ import { queryOrgRows } from "../lib/api"
 import { chart } from "../lib/chart-options"
 import { defaultWideRange, normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
 import { applyClientFilters } from "../lib/filter-utils"
+import { formatPercent } from "../lib/formatters"
 import type { Granularity, KanbanColumn, OrgAggregateQuery, OrgAggregateRow, OrgAggregateSeries, OrgCascadeValue } from "../lib/types"
 
 function parseGranularity(value?: string): Granularity {
@@ -207,7 +208,7 @@ export default function KanbanOrgList() {
   const memberOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("成员数", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "user_count") })), { type: "line" }) : undefined)
   const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Task / Commit 数", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_count") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_count") }])), { type: "line" }) : undefined)
   const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("代码量", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_diff_lines") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_diff_lines") }])), { type: "line" }) : undefined)
-  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("提效比", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_efficiency_ratio") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_efficiency_ratio") }])), { type: "line", format: (value) => `${value.toFixed(1)}%` }) : undefined)
+  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("提效比", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_efficiency_ratio") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_efficiency_ratio") }])), { type: "line", format: (value) => formatPercent(value) }) : undefined)
   const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Tokens 消耗", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_tokens") })), { type: "line", format: (value) => value.toLocaleString() }) : undefined)
   const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("总费用", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_cost") })), { type: "line", format: (value) => fmtCost(value) }) : undefined)
 

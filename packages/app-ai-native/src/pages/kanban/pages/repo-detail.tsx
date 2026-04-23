@@ -1,10 +1,12 @@
-import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import Back from "../components/back"
+import { RatioPill } from "../components/ratio-pill"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { AddRepoToProjectDialog } from "../components/dialogs/add-repo-to-project-dialog"
 import { getRepoDetail } from "../lib/api"
@@ -34,22 +36,6 @@ function taskEffRatio(row: RepoTaskRow) {
   const real = row.task_real_minutes_manual ?? row.task_real_minutes
   if (!ancient || !real || ancient <= 0 || real <= 0) return 0
   return (ancient / real) * 100
-}
-
-function ratioTone(value?: number | null) {
-  if (value == null) return "border-border bg-muted/40 text-muted-foreground"
-  if (value >= 300) return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-  if (value >= 150) return "border-sky-500/30 bg-sky-500/12 text-sky-700 dark:text-sky-300"
-  return "border-border bg-muted/50 text-muted-foreground"
-}
-
-function RatioPill(props: { value?: number | null; digits?: number }) {
-  const label = () => props.value == null || props.value <= 0 ? "-" : `${props.value.toFixed(props.digits ?? 1)}%`
-  return (
-    <span class={`inline-flex min-w-[4.5rem] items-center justify-center rounded-full border px-2 py-1 text-xs font-medium ${ratioTone(props.value)}`}>
-      {label()}
-    </span>
-  )
 }
 
 function ReasonTip(props: { value?: string }) {
@@ -180,65 +166,49 @@ export default function KanbanRepoDetail() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <header class="mx-auto flex w-full max-w-[1320px] flex-col gap-3">
-        <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-          <span>←</span>
-          <span>返回仓库列表</span>
-        </A>
+      <Back href={listHref()} label="返回仓库列表" />
+
+      <header class="flex w-full flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / Repo Detail</p>
           <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">仓库详情</h1>
-          <p class="mt-3 max-w-[74ch] text-[0.9375rem] leading-[1.7] text-[var(--native-muted)]">
-            页面结构按旧版 repo detail 迁移：顶部控制分支和时间范围，中段给基础信息与度量，底部拆 Commits 和 Tasks 两张表，并保留添加到 Project 的业务闭环。
-          </p>
+        </div>
+
+        <div class="flex min-w-0 flex-nowrap items-center justify-end gap-3 overflow-x-auto">
+          <select
+            class="flex h-10 min-w-[12rem] shrink-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={repoBranch()}
+            onChange={(e) => {
+              const next = e.currentTarget.value.trim()
+              navigate(detailHref(next || undefined))
+            }}
+          >
+            <option value="">全部分支</option>
+            <For each={branches()}>
+              {(item) => <option value={item}>{item}</option>}
+            </For>
+          </select>
+
+          <DateRangePicker
+            value={dateRange()}
+            fullWidth={false}
+            onChange={(value) => {
+              const next = value ?? defaultWideRange()
+              setSearch(Object.fromEntries(searchQuery([
+                ["startDate", rangeQuery(next).startDate],
+                ["endDate", rangeQuery(next).endDate],
+                ["mock", search.mock],
+              ]).entries()))
+            }}
+            placeholder="选择日期范围"
+          />
+
+          <Button size="sm" class="shrink-0" onClick={openAddDialog} disabled={!detail()}>
+            添加到 Project
+          </Button>
         </div>
       </header>
 
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-          <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div class="flex items-center gap-3">
-              <Button variant="outline" size="sm" onClick={() => navigate(listHref())}>
-                返回
-              </Button>
-              <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">仓库详情</div>
-            </div>
-
-            <div class="flex flex-col gap-3 md:flex-row md:items-center">
-              <select
-                class="flex h-10 min-w-[12rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={repoBranch()}
-                onChange={(e) => {
-                  const next = e.currentTarget.value.trim()
-                  navigate(detailHref(next || undefined))
-                }}
-              >
-                <option value="">全部分支</option>
-                <For each={branches()}>
-                  {(item) => <option value={item}>{item}</option>}
-                </For>
-              </select>
-
-              <DateRangePicker
-                value={dateRange()}
-                onChange={(value) => {
-                  const next = value ?? defaultWideRange()
-                  setSearch(Object.fromEntries(searchQuery([
-                    ["startDate", rangeQuery(next).startDate],
-                    ["endDate", rangeQuery(next).endDate],
-                    ["mock", search.mock],
-                  ]).entries()))
-                }}
-                placeholder="选择日期范围"
-              />
-
-              <Button size="sm" onClick={openAddDialog} disabled={!detail()}>
-                添加到 Project
-              </Button>
-            </div>
-          </div>
-        </section>
-
+      <div class="flex w-full flex-col gap-5">
         <Show when={!detail.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">仓库详情加载中...</div>}>
           <Show when={detail()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">没有查询到仓库详情</div>}>
             {(item) => (
@@ -330,7 +300,7 @@ export default function KanbanRepoDetail() {
                               <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes)}</TableCell>
                               <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes)}</TableCell>
                               <TableCell class="text-center"><RatioPill value={row.silica} digits={1} /></TableCell>
-                              <TableCell class="text-center"><RatioPill value={commitEffRatio(row)} digits={1} /></TableCell>
+                              <TableCell class="text-center"><RatioPill value={commitEffRatio(row)} /></TableCell>
                               <TableCell class="text-right tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>
                             </TableRow>
                           )}
@@ -372,7 +342,7 @@ export default function KanbanRepoDetail() {
                                 <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
                                 <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes)}</TableCell>
                                 <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes)}</TableCell>
-                                <TableCell class="text-center"><RatioPill value={taskEffRatio(row)} digits={1} /></TableCell>
+                                <TableCell class="text-center"><RatioPill value={taskEffRatio(row)} /></TableCell>
                                 <TableCell class="text-right tabular-nums">{row.cost != null && row.cost > 0 ? row.cost.toFixed(2) : "-"}</TableCell>
                                 <TableCell class="text-right tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>
                               </TableRow>

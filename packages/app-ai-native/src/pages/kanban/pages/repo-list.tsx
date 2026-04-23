@@ -4,6 +4,7 @@ import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
+import { RatioPill } from "../components/ratio-pill"
 import { FilterTable } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
 import { queryRepoRows } from "../lib/api"
@@ -11,21 +12,6 @@ import { normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, search
 import { applyClientFilters } from "../lib/filter-utils"
 import { formatDuration } from "../lib/formatters"
 import type { DateRangeValue, KanbanColumn, RepoAggregateRow } from "../lib/types"
-
-function ratioTone(value?: number | null) {
-  if (value == null) return "border-border bg-muted/40 text-muted-foreground"
-  if (value >= 300) return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-  if (value >= 150) return "border-sky-500/30 bg-sky-500/12 text-sky-700 dark:text-sky-300"
-  return "border-border bg-muted/50 text-muted-foreground"
-}
-
-function RatioPill(props: { value?: number | null }) {
-  return (
-    <span class={`inline-flex min-w-[4.5rem] items-center justify-center rounded-full border px-2 py-1 text-xs font-medium ${ratioTone(props.value)}`}>
-      {props.value == null ? "-" : `${props.value.toFixed(1)}%`}
-    </span>
-  )
-}
 
 export default function KanbanRepoList() {
   const navigate = useNavigate()

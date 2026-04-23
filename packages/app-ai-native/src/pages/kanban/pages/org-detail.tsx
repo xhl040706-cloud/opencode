@@ -1,16 +1,17 @@
-import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { createMemo, createResource, For } from "solid-js"
 import { showToast } from "@opencode-ai/ui/toast"
 import type { EChartsOption } from "echarts"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import Back from "../components/back"
 import { ChartCard } from "../components/charts/chart-card"
 import { FilterBar } from "../components/filters/filter-bar"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
 import { chart } from "../lib/chart-options"
 import { defaultWideRange, parseQueryRange, rangeQuery, searchQuery } from "../lib/date-range"
-import { formatDuration } from "../lib/formatters"
+import { formatDuration, formatPercent } from "../lib/formatters"
 import { getOrgDetail } from "../lib/api"
 import type { Granularity, OrgCascadeValue } from "../lib/types"
 
@@ -111,7 +112,7 @@ export default function KanbanOrgDetail() {
   const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Task / Commit 数", periods(), [{ name: "Task", data: taskValues("task_count") }, { name: "Commit", data: commitValues("commit_count") }], { type: "line" }) : undefined)
   const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("代码量", periods(), [{ name: "Task", data: taskValues("task_diff_lines") }, { name: "Commit", data: commitValues("commit_diff_lines") }], { type: "line" }) : undefined)
   const timeOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("实际耗时", periods(), [{ name: "Task", data: taskValues("task_real_minutes") }, { name: "Commit", data: commitValues("commit_real_minutes") }], { type: "line", format: (value) => formatDuration(value) }) : undefined)
-  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("提效比", periods(), [{ name: "Task", data: taskValues("task_efficiency_ratio") }, { name: "Commit", data: commitValues("commit_efficiency_ratio") }], { type: "line", format: (value) => `${value.toFixed(1)}%` }) : undefined)
+  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("提效比", periods(), [{ name: "Task", data: taskValues("task_efficiency_ratio") }, { name: "Commit", data: commitValues("commit_efficiency_ratio") }], { type: "line", format: (value) => formatPercent(value) }) : undefined)
   const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Tokens 消耗", periods(), [{ name: "Tokens", data: tasks().map((item) => (item.upstream_tokens ?? 0) + (item.downstream_tokens ?? 0)) }], { type: "line", format: (value) => value.toLocaleString() }) : undefined)
   const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("费用", periods(), [{ name: "成本", data: tasks().map((item) => Number(item.cost ?? 0)) }], { type: "line", format: (value) => fmtCost(value) }) : undefined)
 
@@ -119,7 +120,7 @@ export default function KanbanOrgDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex w-full flex-col gap-3">
-          <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"><span>←</span><span>返回组织视图</span></A>
+          <Back href={listHref()} label="返回组织视图" />
           <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">组织详情</h1>
         </header>
 
@@ -161,8 +162,8 @@ export default function KanbanOrgDetail() {
           <MetricCard label="成员数" value={String(summary().user_count ?? 0)} accent="var(--native-success)" />
           <MetricCard label="Task代码量" value={String(summary().task_diff_lines ?? 0)} accent="var(--native-warning)" />
           <MetricCard label="Commit代码量" value={String(summary().commit_diff_lines ?? 0)} accent="var(--native-primary)" />
-          <MetricCard label="Task提效比" value={taskRatio() == null ? "-" : `${taskRatio()!.toFixed(1)}%`} accent="var(--native-success)" />
-          <MetricCard label="Commit提效比" value={commitRatio() == null ? "-" : `${commitRatio()!.toFixed(1)}%`} accent="var(--native-primary)" />
+          <MetricCard label="Task提效比" value={formatPercent(taskRatio())} accent="var(--native-success)" />
+          <MetricCard label="Commit提效比" value={formatPercent(commitRatio())} accent="var(--native-primary)" />
           <MetricCard label="总费用" value={fmtCost(summary().cost)} accent="var(--native-warning)" />
         </section>
 

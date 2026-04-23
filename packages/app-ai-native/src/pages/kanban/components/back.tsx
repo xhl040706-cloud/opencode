@@ -1,10 +1,13 @@
 import { A } from "@solidjs/router"
 
-export default function Back() {
+export default function Back(props: { href?: string; label?: string }) {
+  const href = props.href?.trim() || "/kanban"
+  const label = props.label?.trim() || "返回看板"
+
   return (
-    <A href="/kanban" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
+    <A href={href} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
       <span>&lt;</span>
-      <span>返回看板</span>
+      <span>{label}</span>
     </A>
   )
 }
