@@ -923,6 +923,8 @@ export const dict = {
   "store.console.capabilities.showing": "显示 {{from}}-{{to}}，共 {{total}} 条",
   "store.console.capabilities.myCreated": "我创建的",
   "store.console.capabilities.myFavorited": "我收藏的",
+  "store.console.capabilities.backToHome": "回到首页",
+  "store.console.capabilities.searchPlaceholder": "搜索能力",
   "store.console.capabilities.favorited.loading": "正在加载收藏的能力...",
   "store.console.capabilities.favorited.empty": "还没有收藏的能力。",
   "store.console.filters.all": "全部",
@@ -1613,7 +1615,7 @@ export const dict = {
   "projects.activity.lastActive": "最近活跃",
   "projects.activity.last7Days": "近 7 天活跃度",
   "projects.activity.last30Days": "近 30 天活跃度",
-  
+
   // ── Kanban ──
   "kanban.back": "返回看板",
   "kanban.home.title": "AI Coding 指标看板",
@@ -2043,5 +2045,4 @@ export const dict = {
   "kanban.label.tasks": "Tasks",
 
   "kanban.misc.loading": "加载中...",
-} satisfies Partial<Record<Keys | "store.home.filters.searchTag" | "store.home.filters.tagLimitHint" | "store.home.table.toggleColumns", string>>
-
+} satisfies Partial<Record<Keys | "store.home.filters.searchTag" | "store.home.filters.tagLimitHint" | "store.home.table.toggleColumns" | "store.console.capabilities.backToHome" | "store.console.capabilities.searchPlaceholder" | "store.security.riskLevel", string>>

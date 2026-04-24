@@ -37,6 +37,7 @@ const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
 const StoreLayout = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreLayout })))
 const StoreHome = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreHome })))
+const StoreManager = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreManager })))
 const Loading = () => <div class="size-full" />
 
 const HomeRoute = () => <Navigate href="/store" />
@@ -44,6 +45,12 @@ const HomeRoute = () => <Navigate href="/store" />
 const StoreHomeRoute = () => (
   <Suspense fallback={<Loading />}>
     <StoreHome />
+  </Suspense>
+)
+
+const StoreManagerRoute = () => (
+  <Suspense fallback={<Loading />}>
+    <StoreManager />
   </Suspense>
 )
 
@@ -192,6 +199,7 @@ export function AppInterface(props: {
               <Route path="/" component={HomeRoute} />
               <Route path="/store" component={StoreLayout}>
                 <Route path="/" component={StoreHomeRoute} />
+                <Route path="manager" component={StoreManagerRoute} />
               </Route>
             </Dynamic>
           </GlobalSyncProvider>

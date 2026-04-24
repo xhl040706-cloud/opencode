@@ -5,6 +5,7 @@ import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useLanguage } from "@/context/language"
 import AvatarDisplay from "@/components/avatar-display"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { TextField, TextFieldInput } from "@/components/ui/text-field"
@@ -14,6 +15,7 @@ import { Persist, persisted } from "@/utils/persist"
 import { behaviorApi, itemApi, tagApi, userApi, type Category, type CapabilityItem, type ItemOrder, type ItemSort, type ItemTag, type SecurityRiskGroup } from "../lib/api"
 import { typeKey } from "../lib/constants"
 import ItemDetailContent, { getInstallCommand } from "../components/item-detail-content"
+import { ItemDetailLoadingSkeleton } from "../components/item-detail-loading-skeleton"
 import SecurityTag from "../components/security-tag"
 import { Icon, type IconProps } from "@opencode-ai/ui/icon"
 import { LocalIcon } from "@/components/local-icon"
@@ -173,6 +175,8 @@ export default function Home() {
   const [previewCount, setPreviewCount] = createSignal(0)
   const [installCount, setInstallCount] = createSignal(0)
   const [trackedItemId, setTrackedItemId] = createSignal<string | null>(null)
+  const [detailContentReady, setDetailContentReady] = createSignal(false)
+  let detailContentTimer: ReturnType<typeof setTimeout> | undefined
 
   const [columnPrefs, setColumnPrefs] = persisted(
     Persist.global("store.table.columns", ["store.table.columns.v1"]),
@@ -182,6 +186,7 @@ export default function Home() {
   onCleanup(() => {
     clearTimeout(searchTimer)
     clearTimeout(pendingBlurRefocusTimer)
+    clearTimeout(detailContentTimer)
   })
 
   const formatDate = (iso?: string) => {
@@ -443,8 +448,26 @@ export default function Home() {
   const showError = createMemo(() => !!listError() && rows().length === 0)
   const detailOpen = createMemo(() => !!selectedItemId())
 
+  const openItemDetail = (item: CapabilityItem) => {
+    setSelectedItemId(item.id)
+    queueMicrotask(() => setDetailItem(item))
+  }
+
   createEffect(() => {
     if (page() > totalPages()) setPage(totalPages())
+  })
+
+  createEffect(() => {
+    const itemId = selectedItemId()
+    clearTimeout(detailContentTimer)
+    if (!itemId) {
+      setDetailContentReady(false)
+      return
+    }
+    setDetailContentReady(false)
+    detailContentTimer = setTimeout(() => {
+      setDetailContentReady(true)
+    }, 180)
   })
 
   const statCards = createMemo(() => STORE_TYPES)
@@ -1077,7 +1100,7 @@ export default function Home() {
             <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3" style={{ "--tp-accent": typeMeta().color }}>
               <For each={popularItems()}>
                 {(item, idx) => (
-                  <article class="relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[var(--native-panel)] py-3.5 pr-4 pl-8 shadow-[var(--native-shadow-sm)] transition-all hover:-translate-y-px hover:border-[color:color-mix(in_srgb,var(--tp-accent)_20%,transparent)] hover:shadow-[var(--native-shadow-md)]" onClick={() => setSelectedItemId(item.id)}>
+                   <article class="relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[var(--native-panel)] py-3.5 pr-4 pl-8 shadow-[var(--native-shadow-sm)] transition-all hover:-translate-y-px hover:border-[color:color-mix(in_srgb,var(--tp-accent)_20%,transparent)] hover:shadow-[var(--native-shadow-md)]" onClick={() => openItemDetail(item)}>
                     <span class="absolute left-0 top-0 flex h-[1.375rem] w-[1.375rem] items-center justify-center rounded-br-[var(--native-radius-sm)] bg-[var(--tp-accent)] text-[12px] font-extrabold text-white">#{idx() + 1}</span>
                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--native-radius-md)] bg-[color-mix(in_srgb,var(--tp-accent)_8%,transparent)]">
                       <Icon name={typeMeta().icon} />
@@ -1106,27 +1129,32 @@ export default function Home() {
       </Show>
 
       <Sheet open={detailOpen()} onOpenChange={(open) => !open && setSelectedItemId(null)} modal={false}>
-        <SheetContent position="right" class={cn(sx.sheet, "w-[min(68rem,94vw)] sm:max-w-none")} style={{ "background-color": "var(--st-surface-lowest, #ffffff)" }}>
+          <SheetContent position="right" class={cn(sx.sheet, "w-[min(68rem,94vw)] sm:max-w-none")} style={{ "background-color": "var(--st-surface-lowest, #ffffff)" }}>
           <SheetHeader class="sr-only">
             <SheetTitle>{language.t("store.home.detail.title")}</SheetTitle>
             <SheetDescription>{language.t("store.home.detail.description")}</SheetDescription>
           </SheetHeader>
           <Show when={selectedItemId()}>
             {(itemId) => (
-              <Suspense fallback={<div class="flex justify-center py-16 text-muted-foreground">{language.t("store.loading")}</div>}>
-                <ItemDetailContent
-                  itemId={itemId()}
-                  class={cn(sx.sheetBody, "thin-scrollbar")}
-                  onItemLoaded={setDetailItem}
-                  favorited={favorited()}
-                  favoriteCount={favoriteCount()}
-                  previewCount={previewCount()}
-                  installCount={installCount()}
-                  onToggleFavorite={toggleFavorite}
-                  favoritePending={favoritePending()}
-                  isAuthenticated={!!auth.user() && !auth.loading()}
-                />
-              </Suspense>
+              <Show
+                when={detailContentReady()}
+                fallback={<ItemDetailLoadingSkeleton class={sx.sheetBody} />}
+              >
+                <Suspense fallback={<div class="flex justify-center py-16 text-muted-foreground">{language.t("store.loading")}</div>}>
+                  <ItemDetailContent
+                    itemId={itemId()}
+                    class={cn(sx.sheetBody, "thin-scrollbar")}
+                    onItemLoaded={setDetailItem}
+                    favorited={favorited()}
+                    favoriteCount={favoriteCount()}
+                    previewCount={previewCount()}
+                    installCount={installCount()}
+                    onToggleFavorite={toggleFavorite}
+                    favoritePending={favoritePending()}
+                    isAuthenticated={!!auth.user() && !auth.loading()}
+                  />
+                </Suspense>
+              </Show>
             )}
           </Show>
         </SheetContent>
@@ -1509,7 +1537,7 @@ export default function Home() {
                   >
                     <For each={rows()}>
                       {(item) => (
-                        <TableRow class={sx.row} onClick={() => setSelectedItemId(item.id)}>
+                        <TableRow class={sx.row} onClick={() => openItemDetail(item)}>
                           <Show when={isColumnVisible("title")}>
                             <TableCell class={cn(sx.td, sx.colTitle)}>
                             <div class="flex min-w-0 items-center gap-2">
