@@ -437,12 +437,27 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                           <div class="flex items-center justify-between gap-4">
                             <div class="text-xs" style={{ color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))", "font-weight": 700 }}>{language.t("store.detail.author")}</div>
                             <div>
-                              <AvatarDisplay
-                                avatarUrl={authorInfo()?.avatarUrl}
-                                username={authorInfo()?.name ?? authorName() ?? data().createdBy}
-                                class="size-6 shrink-0"
-                                title={authorInfo()?.name ?? authorName() ?? data().createdBy}
-                              />
+                              <Show
+                                keyed
+                                when={authorInfo()}
+                                fallback={
+                                  <AvatarDisplay
+                                    avatarUrl={undefined}
+                                    username={authorName() ?? data().createdBy}
+                                    class="size-6 shrink-0"
+                                    title={authorName() ?? data().createdBy}
+                                  />
+                                }
+                              >
+                                {(info) => (
+                                  <AvatarDisplay
+                                    avatarUrl={info.avatarUrl}
+                                    username={info.name ?? authorName() ?? data().createdBy}
+                                    class="size-6 shrink-0"
+                                    title={info.name ?? authorName() ?? data().createdBy}
+                                  />
+                                )}
+                              </Show>
                             </div>
                           </div>
                         </div>

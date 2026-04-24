@@ -643,13 +643,13 @@ async function resolveUserInfo(userIds: string[]) {
       const pending = _userInfoPending.get(userId)
       if (pending) return [userId, await pending] as const
 
-      const request = apiFetch<{ user: UserBasicInfo & { picture?: string } }>(`/api/users/info?id=${encodeURIComponent(userId)}`)
+      const request = apiFetch<{ user: UserBasicInfo & { picture?: string; avatar_url?: string } }>(`/api/users/info?id=${encodeURIComponent(userId)}`)
         .then((res) => {
           const raw = res.user ?? { id: userId, name: userId }
           const user = {
             id: raw.id ?? userId,
             name: raw.name ?? userId,
-            avatarUrl: raw.avatarUrl ?? raw.picture,
+            avatarUrl: raw.avatarUrl ?? raw.picture ?? raw.avatar_url,
           } satisfies UserBasicInfo
           _userInfoCache.set(userId, user)
           _userInfoPending.delete(userId)

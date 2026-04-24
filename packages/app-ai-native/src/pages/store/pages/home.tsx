@@ -1541,12 +1541,27 @@ export default function Home() {
                           <Show when={isColumnVisible("title")}>
                             <TableCell class={cn(sx.td, sx.colTitle)}>
                             <div class="flex min-w-0 items-center gap-2">
-                              <AvatarDisplay
-                                avatarUrl={creatorInfo(item.createdBy)?.avatarUrl}
-                                username={creatorInfo(item.createdBy)?.name ?? item.createdBy}
-                                class="size-6 shrink-0"
-                                title={creatorInfo(item.createdBy)?.name ?? item.createdBy}
-                              />
+                              <Show
+                                keyed
+                                when={creatorInfo(item.createdBy)}
+                                fallback={
+                                  <AvatarDisplay
+                                    avatarUrl={undefined}
+                                    username={item.createdBy}
+                                    class="size-6 shrink-0"
+                                    title={item.createdBy}
+                                  />
+                                }
+                              >
+                                {(info) => (
+                                  <AvatarDisplay
+                                    avatarUrl={info.avatarUrl}
+                                    username={info.name ?? item.createdBy}
+                                    class="size-6 shrink-0"
+                                    title={info.name ?? item.createdBy}
+                                  />
+                                )}
+                              </Show>
                               <div class="min-w-0">
                                 <div
                                   class={cn(sx.item, "truncate text-[14px] font-bold leading-5 text-[color:color-mix(in_oklab,var(--native-foreground)_80%,white_20%)]")}
