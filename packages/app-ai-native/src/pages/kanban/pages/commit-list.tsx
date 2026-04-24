@@ -1,3 +1,4 @@
+import { useLanguage } from "@/context/language"
 import { useNavigate, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, on, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -32,6 +33,7 @@ function fmtCost(value?: number | null) {
 }
 
 export default function KanbanCommitList() {
+  const language = useLanguage()
   const navigate = useNavigate()
   const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; userName?: string; org1?: string; org2?: string; org3?: string; org4?: string; mock?: string }>()
   const [state, setState] = createStore({
@@ -90,17 +92,17 @@ export default function KanbanCommitList() {
   const columns = createMemo<KanbanColumn<CommitRow>[]>(() => [
     {
       prop: "commit_id",
-      label: "Commit ID",
+      label: language.t("kanban.table.commitId"),
       minWidth: 110,
       render: (row) => {
         const id = row.commit_id?.trim()
         return id ? <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/commit/${encodeURIComponent(id)}?${routeQuery()}`)}>{shortId(id, 8)}</button> : <span>-</span>
       },
     },
-    { prop: "commit_time", label: "时间", minWidth: 170, display: (row) => formatLocalTime(row.commit_time), filter: { type: "date" } },
+    { prop: "commit_time", label: language.t("kanban.table.time"), minWidth: 170, display: (row) => formatLocalTime(row.commit_time), filter: { type: "date" } },
     {
       prop: "org_display",
-      label: "组织",
+      label: language.t("kanban.table.org"),
       minWidth: 180,
       render: (row) => row.org_display?.trim()
         ? <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => {
@@ -112,7 +114,7 @@ export default function KanbanCommitList() {
     },
     {
       prop: "user_name",
-      label: "用户",
+      label: language.t("kanban.table.user"),
       minWidth: 110,
       render: (row) => <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => {
         const txt = row.user_id?.trim()
@@ -121,14 +123,6 @@ export default function KanbanCommitList() {
       }}>{row.user_name || row.user_id || "-"}</button>,
       filter: { type: "multi-select" },
     },
-    { prop: "comment", label: "说明", minWidth: 220, filter: { type: "text" } },
-    { prop: "repo_addr", label: "仓库", minWidth: 240, render: (row) => <div dir="rtl" class="truncate text-left">{row.repo_addr ? `${row.repo_addr}/${row.repo_branch || "-"}` : "-"}</div>, filter: { type: "multi-select" } },
-    { prop: "diff_lines", label: "代码量", minWidth: 90, align: "right", filter: { type: "number" } },
-    { prop: "commit_real_minutes", label: "实际耗时", minWidth: 110, align: "right", display: (row) => formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes), filter: { type: "number", valueGetter: (row) => row.commit_real_minutes_manual ?? row.commit_real_minutes } },
-    { prop: "commit_ancient_minutes", label: "传统开发时长预估", minWidth: 160, align: "right", display: (row) => formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes), filter: { type: "number", valueGetter: (row) => row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes } },
-    { prop: "efficiency_ratio", label: "提效比", minWidth: 100, align: "right", display: (row) => formatPercent(row.efficiency_ratio), filter: { type: "number" } },
-    { prop: "_tokens", label: "Tokens消耗", minWidth: 120, align: "right", display: (row) => ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-", filter: { type: "number", valueGetter: (row) => (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0) } },
-    { prop: "cost", label: "费用", minWidth: 100, align: "right", display: (row) => fmtCost(row.cost), filter: { type: "number" } },
   ])
 
   const table = useTableFilters<CommitRow>({
@@ -146,7 +140,7 @@ export default function KanbanCommitList() {
       try {
         return await queryCommitRows(input)
       } catch (err) {
-        showToast({ variant: "error", title: "提交列表加载失败", description: err instanceof Error ? err.message : String(err) })
+        showToast({ variant: "error", title: language.t("kanban.toast.loadFailed"), description: err instanceof Error ? err.message : String(err) })
         return { rows: [], total: 0, page: input.page, pageSize: input.pageSize }
       }
     },
@@ -170,7 +164,7 @@ export default function KanbanCommitList() {
             setState("org", value)
             setState("page", 1)
           }}
-          actions={<Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>{data.loading ? "刷新中..." : "刷新"}</Button>}
+          actions={<Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>{data.loading ? language.t("kanban.action.refreshing") : language.t("kanban.action.refresh")}</Button>}
         />
 
         <FilterTable
@@ -184,7 +178,7 @@ export default function KanbanCommitList() {
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[100, 250, 500]}
-          emptyText={data.loading ? "提交加载中..." : "当前时间范围内没有提交数据"}
+          emptyText={data.loading ? language.t("kanban.loading.commitList") : language.t("kanban.empty.noCommitData")}
           onPageChange={(page) => setState("page", page)}
           onPageSizeChange={(pageSize) => {
             setState("pageSize", pageSize)

@@ -2,6 +2,7 @@ import { createMemo, createResource, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -32,6 +33,7 @@ function dayOf(value?: string | null) {
 }
 
 export function AddRepoToProjectDialog(props: Props) {
+  const language = useLanguage()
   const dialog = useDialog()
   const [state, setState] = createStore({
     selectedProjectId: "",
@@ -51,7 +53,7 @@ export function AddRepoToProjectDialog(props: Props) {
     } catch (err) {
       showToast({
         variant: "error",
-        title: "加载 Project 列表失败",
+        title: language.t("kanban.toast.loadFailed"),
         description: err instanceof Error ? err.message : String(err),
       })
       return []
@@ -97,7 +99,7 @@ export function AddRepoToProjectDialog(props: Props) {
     if (state.selectedProjectId !== "__new__") return state.selectedProjectId
     const name = state.newProjectName.trim()
     if (!name) {
-      showToast({ variant: "error", title: "请输入 Project 名称" })
+      showToast({ variant: "error", title: language.t("kanban.validation.projectNameRequired") })
       return ""
     }
     const project = await createProjectOption({
@@ -110,13 +112,13 @@ export function AddRepoToProjectDialog(props: Props) {
   const submit = async (force = false) => {
     const picked = state.selectedProjectId.trim()
     if (!picked) {
-      showToast({ variant: "error", title: "请选择目标 Project" })
+      showToast({ variant: "error", title: language.t("kanban.validation.selectProject") })
       return
     }
 
     const ids = targetCommitIds()
     if (!ids.length) {
-      showToast({ variant: "error", title: "没有可添加的 Commits" })
+      showToast({ variant: "error", title: language.t("kanban.validation.noCommits") })
       return
     }
 
@@ -141,13 +143,13 @@ export function AddRepoToProjectDialog(props: Props) {
         exclude_commits: [],
       })
 
-      showToast({ variant: "success", title: "已添加到 Project" })
+      showToast({ variant: "success", title: language.t("kanban.toast.addedToProject") })
       await props.onAdded?.()
       dialog.close()
     } catch (err) {
       showToast({
         variant: "error",
-        title: "添加到 Project 失败",
+        title: language.t("kanban.toast.saveFailed"),
         description: err instanceof Error ? err.message : String(err),
       })
     } finally {
@@ -157,13 +159,13 @@ export function AddRepoToProjectDialog(props: Props) {
 
   return (
     <Modal
-      title="添加到 Project"
+      title={language.t("kanban.dialog.addToProject")}
       maxWidth="920px"
       maxHeight="calc(100vh - 56px)"
       footer={
         <>
           <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>
-            取消
+            {language.t("common.cancel")}
           </Button>
           <Button
             size="sm"
@@ -172,7 +174,7 @@ export function AddRepoToProjectDialog(props: Props) {
             variant={state.conflictsChecked && state.conflicts.length > 0 ? "destructive" : "default"}
             onClick={() => void submit(state.conflictsChecked && state.conflicts.length > 0)}
           >
-            {state.saving ? "提交中..." : state.conflictsChecked && state.conflicts.length > 0 ? "仍然添加" : "确认"}
+            {state.saving ? language.t("common.saving") : state.conflictsChecked && state.conflicts.length > 0 ? language.t("kanban.dialog.stillAdd") : language.t("common.confirm")}
           </Button>
         </>
       }
@@ -180,7 +182,7 @@ export function AddRepoToProjectDialog(props: Props) {
       <div class="modal-section">
         <div class="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <div class="modal-field">
-            <label class="modal-label">目标 Project</label>
+            <label class="modal-label">{language.t("kanban.form.targetProject")}</label>
             <select
               class="modal-input"
               value={state.selectedProjectId}
@@ -189,8 +191,8 @@ export function AddRepoToProjectDialog(props: Props) {
                 setState("selectedProjectId", e.currentTarget.value)
               }}
             >
-              <option value="">请选择</option>
-              <option value="__new__">+ 新建 Project</option>
+              <option value="">{language.t("kanban.form.pleaseSelect")}</option>
+              <option value="__new__">{language.t("kanban.form.createProject")}</option>
               <For each={projects.latest ?? []}>
                 {(item) => <option value={item.project_id}>{item.name}</option>}
               </For>
@@ -198,7 +200,7 @@ export function AddRepoToProjectDialog(props: Props) {
           </div>
 
           <div class="modal-field">
-            <label class="modal-label">时间范围</label>
+            <label class="modal-label">{language.t("kanban.form.dateRange")}</label>
             <DateRangePicker
               value={state.addProjectDateRange}
               onChange={(value) => {
@@ -207,7 +209,7 @@ export function AddRepoToProjectDialog(props: Props) {
                 setState("addProjectDateRange", value)
               }}
               clearable
-              placeholder="限定添加范围"
+              placeholder={language.t("kanban.form.scopeLimit")}
             />
           </div>
         </div>
@@ -215,7 +217,7 @@ export function AddRepoToProjectDialog(props: Props) {
         <Show when={state.selectedProjectId === "__new__"}>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">名称</label>
+              <label class="modal-label">{language.t("kanban.form.projectName")}</label>
               <input
                 class="modal-input"
                 value={state.newProjectName}
@@ -223,11 +225,11 @@ export function AddRepoToProjectDialog(props: Props) {
                   touch()
                   setState("newProjectName", e.currentTarget.value)
                 }}
-                placeholder="Project 名称"
+                placeholder={language.t("kanban.form.projectName")}
               />
             </div>
             <div class="modal-field">
-              <label class="modal-label">描述</label>
+              <label class="modal-label">{language.t("kanban.form.projectDesc")}</label>
               <input
                 class="modal-input"
                 value={state.newProjectDesc}
@@ -235,7 +237,7 @@ export function AddRepoToProjectDialog(props: Props) {
                   touch()
                   setState("newProjectDesc", e.currentTarget.value)
                 }}
-                placeholder="Project 描述（可选）"
+                placeholder={language.t("kanban.form.projectDesc")}
               />
             </div>
           </div>
@@ -252,24 +254,24 @@ export function AddRepoToProjectDialog(props: Props) {
               if (!e.currentTarget.checked) setState("selectedCommitIds", [])
             }}
           />
-          <span>白名单模式，仅包含指定 Commits</span>
+          <span>{language.t("kanban.dialog.whitelistMode")}</span>
         </label>
       </div>
 
       <Show when={state.whitelistMode}>
         <div class="modal-section">
-          <div class="modal-section-title">选择 Commits</div>
-          <div class="modal-section-desc">只会把勾选的 commits 作为 repo 过滤白名单写入目标 Project。</div>
+          <div class="modal-section-title">{language.t("kanban.dialog.selectCommits")}</div>
+          <div class="modal-section-desc">{language.t("kanban.dialog.selectCommitsDesc")}</div>
           <div class="max-h-[320px] overflow-auto rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)]">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead class="w-12">选择</TableHead>
-                  <TableHead class="w-28">Commit ID</TableHead>
-                  <TableHead>说明</TableHead>
-                  <TableHead class="w-28">用户</TableHead>
-                  <TableHead class="w-44">时间</TableHead>
-                  <TableHead class="w-24 text-right">代码行数</TableHead>
+                  <TableHead class="w-12">{language.t("kanban.table.select")}</TableHead>
+                  <TableHead class="w-28">{language.t("kanban.table.commitId")}</TableHead>
+                  <TableHead>{language.t("kanban.table.description")}</TableHead>
+                  <TableHead class="w-28">{language.t("kanban.table.user")}</TableHead>
+                  <TableHead class="w-44">{language.t("kanban.table.time")}</TableHead>
+                  <TableHead class="w-24 text-right">{language.t("kanban.table.codeLines")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -305,7 +307,7 @@ export function AddRepoToProjectDialog(props: Props) {
       <Show when={state.conflicts.length > 0}>
         <div class="modal-section">
           <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-warning)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-warning)_8%,var(--native-panel))] p-4">
-            <div class="text-sm font-semibold text-[var(--native-foreground)]">以下 Commits 已属于其他 Project</div>
+            <div class="text-sm font-semibold text-[var(--native-foreground)]">{language.t("kanban.dialog.conflictTitle")}</div>
             <div class="mt-3 grid gap-2 text-sm text-[var(--native-muted)]">
               <For each={state.conflicts}>
                 {(item) => <div>{shortId(item.commit_id)} → {item.project_name || item.project_id}</div>}

@@ -25,18 +25,18 @@ const key = "kanban:repo:mock"
 const projects = [
   {
     project_id: "mock-proj-kanban",
-    name: "Kanban 迁移联调",
-    description: "用于本地对照 repo-v2 迁移效果",
+    name: "Kanban Migration Test",
+    description: "For local testing of repo-v2 migration",
   },
   {
     project_id: "mock-proj-growth",
-    name: "运营增长看板",
-    description: "观察高提效仓库的行为模式",
+    name: "Growth Dashboard",
+    description: "Observe high-efficiency repo behavior patterns",
   },
   {
     project_id: "mock-proj-infra",
-    name: "基础设施稳定性",
-    description: "偏向中后台与 infra 仓库",
+    name: "Infrastructure Stability",
+    description: "Focus on backend and infra repos",
   },
 ] satisfies ProjectOption[]
 
@@ -162,7 +162,7 @@ const tasks: Task[] = [
     task_id: "TM4012A1",
     start_time: "2026-04-20T08:35:00+08:00",
     user_name: "chenzj",
-    title: "迁移 repo list 页面到 kanban",
+    title: "Migrate repo list page to kanban",
     diff_lines: 268,
     task_real_minutes: 132,
     task_ancient_minutes: 760,
@@ -176,7 +176,7 @@ const tasks: Task[] = [
     task_id: "TM4018B2",
     start_time: "2026-04-19T13:10:00+08:00",
     user_name: "chenzj",
-    title: "补齐 repo detail 指标卡和表格",
+    title: "Complete repo detail metrics and table",
     diff_lines: 193,
     task_real_minutes: 108,
     task_ancient_minutes: 620,
@@ -190,7 +190,7 @@ const tasks: Task[] = [
     task_id: "TF4030C3",
     start_time: "2026-04-18T09:40:00+08:00",
     user_name: "molly",
-    title: "添加 repo 与 project 绑定弹窗",
+    title: "Add repo-project binding dialog",
     diff_lines: 152,
     task_real_minutes: 96,
     task_ancient_minutes: 540,
@@ -204,7 +204,7 @@ const tasks: Task[] = [
     task_id: "SC3901D4",
     start_time: "2026-04-17T09:00:00+08:00",
     user_name: "jojo",
-    title: "运营看板交互收口",
+    title: "Polish operations dashboard interactions",
     diff_lines: 176,
     task_real_minutes: 148,
     task_ancient_minutes: 510,
@@ -218,7 +218,7 @@ const tasks: Task[] = [
     task_id: "BE3880E5",
     start_time: "2026-04-15T18:00:00+08:00",
     user_name: "delta",
-    title: "后端聚合查询优化",
+    title: "Optimize backend aggregation query",
     diff_lines: 221,
     task_real_minutes: 240,
     task_ancient_minutes: 660,
@@ -229,8 +229,8 @@ const tasks: Task[] = [
 ]
 
 const links = {
-  c0d1a8f4b2e19a3c: { project_id: "mock-proj-growth", project_name: "运营增长看板" },
-  e67209bfca31d4ae: { project_id: "mock-proj-kanban", project_name: "Kanban 迁移联调" },
+  c0d1a8f4b2e19a3c: { project_id: "mock-proj-growth", project_name: "Growth Dashboard" },
+  e67209bfca31d4ae: { project_id: "mock-proj-kanban", project_name: "Kanban Migration Test" },
 }
 
 function day(v?: string | null) {
@@ -301,8 +301,8 @@ function detail(input: RepoDetailQuery): RepoDetailResult {
       repo_ancient_minutes: ancient,
       repo_real_minutes: real,
       efficiency_ratio: ratio(ancient, real),
-      repo_ancient_minutes_reason: `Mock 汇总自 ${commitRows.length} 个 commits 与 ${taskRows.length} 个 tasks，便于本地对照视觉结构。`,
-      repo_real_minutes_reason: `Mock 数据故意保留耗时、tokens、费用和分支差异，用于验证详情页卡片与表格排布。`,
+      repo_ancient_minutes_reason: `Mock aggregated from ${commitRows.length} commits and ${taskRows.length} tasks for local visual comparison.`,
+      repo_real_minutes_reason: `Mock data intentionally preserves time, tokens, cost, and branch differences for validating detail page cards and table layout.`,
     },
     summary: {
       commit_count: commitRows.length,

@@ -42,7 +42,7 @@ export function ChartCard(props: Props) {
   return (
     <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-3 shadow-[var(--native-shadow-sm)]">
       <div ref={el} class="w-full" style={{ height: props.height ?? "280px" }}>
-        {!props.option ? <div class="flex h-full items-center justify-center text-sm text-[var(--native-muted)]">{props.empty ?? "暂无图表数据"}</div> : null}
+        {!props.option ? <div class="flex h-full items-center justify-center text-sm text-[var(--native-muted)]">{props.empty ?? "No chart data"}</div> : null}
       </div>
     </section>
   )

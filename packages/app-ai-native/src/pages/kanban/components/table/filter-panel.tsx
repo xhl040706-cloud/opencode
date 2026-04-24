@@ -1,4 +1,5 @@
 import { For } from "solid-js"
+import { useLanguage } from "@/context/language"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { TextField, TextFieldInput, TextFieldLabel } from "@/components/ui/text-field"
@@ -19,6 +20,7 @@ type Props<Row extends EfficiencyRow> = {
 }
 
 export function FilterPanel<Row extends EfficiencyRow>(props: Props<Row>) {
+  const language = useLanguage()
   const options = () => deriveFilterOptions(props.column, props.rows)
   const type = () => props.column.filter?.type
   const shortcuts = () => props.column.filter?.shortcuts ?? []
@@ -26,14 +28,14 @@ export function FilterPanel<Row extends EfficiencyRow>(props: Props<Row>) {
   return (
     <div class="flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-4 p-4">
       <div>
-        <div class="text-sm font-semibold text-[var(--native-foreground)]">筛选「{props.column.label}」</div>
-        <div class="mt-1 text-[0.75rem] text-[var(--native-muted)]">根据列类型渲染对应的筛选面板。</div>
+        <div class="text-sm font-semibold text-[var(--native-foreground)]">Filter: {props.column.label}</div>
+        <div class="mt-1 text-[0.75rem] text-[var(--native-muted)]">Render filter panel based on column type.</div>
       </div>
 
       {type() === "text" ? (
         <TextField class="gap-2">
-          <TextFieldLabel class="text-[0.75rem] text-[var(--native-muted)]">关键词</TextFieldLabel>
-          <TextFieldInput value={(props.value as string) ?? ""} onInput={(e) => props.onChange(e.currentTarget.value)} placeholder={props.column.filter?.placeholder ?? "输入关键词..."} />
+          <TextFieldLabel class="text-[0.75rem] text-[var(--native-muted)]">Keyword</TextFieldLabel>
+          <TextFieldInput value={(props.value as string) ?? ""} onInput={(e) => props.onChange(e.currentTarget.value)} placeholder={props.column.filter?.placeholder ?? "Enter keyword..."} />
         </TextField>
       ) : null}
 
@@ -44,22 +46,22 @@ export function FilterPanel<Row extends EfficiencyRow>(props: Props<Row>) {
           onChange={(value) => props.onChange(value)}
           onCreate={(value) => props.onChange(value)}
           clearable
-          placeholder={props.column.filter?.placeholder ?? "选择或输入..."}
+          placeholder={props.column.filter?.placeholder ?? "Select or enter..."}
         />
       ) : null}
 
       {type() === "date" ? (
-        <DateRangePicker value={(props.value as DateRangeValue) ?? null} onChange={props.onChange} clearable placeholder={props.column.filter?.placeholder ?? "选择日期范围"} />
+        <DateRangePicker value={(props.value as DateRangeValue) ?? null} onChange={props.onChange} clearable placeholder={props.column.filter?.placeholder ?? "Select date range"} />
       ) : null}
 
       {type() === "number" ? (
         <div class="grid gap-3 sm:grid-cols-2">
           <TextField class="gap-2">
-            <TextFieldLabel class="text-[0.75rem] text-[var(--native-muted)]">最小值</TextFieldLabel>
+            <TextFieldLabel class="text-[0.75rem] text-[var(--native-muted)]">Min</TextFieldLabel>
             <TextFieldInput type="number" value={String((props.value as { min?: number })?.min ?? "")} onInput={(e) => props.onChange({ ...(props.value as { min?: number; max?: number }), min: e.currentTarget.value ? Number(e.currentTarget.value) : undefined })} />
           </TextField>
           <TextField class="gap-2">
-            <TextFieldLabel class="text-[0.75rem] text-[var(--native-muted)]">最大值</TextFieldLabel>
+            <TextFieldLabel class="text-[0.75rem] text-[var(--native-muted)]">Max</TextFieldLabel>
             <TextFieldInput type="number" value={String((props.value as { max?: number })?.max ?? "")} onInput={(e) => props.onChange({ ...(props.value as { min?: number; max?: number }), max: e.currentTarget.value ? Number(e.currentTarget.value) : undefined })} />
           </TextField>
         </div>
@@ -107,8 +109,8 @@ export function FilterPanel<Row extends EfficiencyRow>(props: Props<Row>) {
       ) : null}
 
       <div class="flex items-center justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={props.onReset}>重置</Button>
-        <Button size="sm" onClick={props.onApply}>应用</Button>
+        <Button variant="outline" size="sm" onClick={props.onReset}>Reset</Button>
+        <Button size="sm" onClick={props.onApply}>Apply</Button>
       </div>
     </div>
   )

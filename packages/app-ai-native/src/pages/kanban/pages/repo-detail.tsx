@@ -1,11 +1,11 @@
-import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import Back from "../components/back"
 import { RatioPill } from "../components/ratio-pill"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { AddRepoToProjectDialog } from "../components/dialogs/add-repo-to-project-dialog"
@@ -64,6 +64,7 @@ function MetricCard(props: { label: string; value: string; hint?: string; accent
 }
 
 export default function KanbanRepoDetail() {
+  const language = useLanguage()
   const params = useParams()
   const navigate = useNavigate()
   const dialog = useDialog()
@@ -113,7 +114,7 @@ export default function KanbanRepoDetail() {
       } catch (err) {
         showToast({
           variant: "error",
-          title: "仓库详情加载失败",
+          title: language.t("kanban.repo.loadFailed"),
           description: err instanceof Error ? err.message : String(err),
         })
         return null
@@ -166,101 +167,117 @@ export default function KanbanRepoDetail() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <Back href={listHref()} label="返回仓库列表" />
-
-      <header class="flex w-full flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <header class="mx-auto flex w-full max-w-[1320px] flex-col gap-3">
+        <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
+          <span>←</span>
+          <span>{language.t("kanban.repo.backToList")}</span>
+        </A>
         <div>
-          <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">仓库详情</h1>
-        </div>
-
-        <div class="flex min-w-0 flex-nowrap items-center justify-end gap-3 overflow-x-auto">
-          <select
-            class="flex h-10 min-w-[12rem] shrink-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            value={repoBranch()}
-            onChange={(e) => {
-              const next = e.currentTarget.value.trim()
-              navigate(detailHref(next || undefined))
-            }}
-          >
-            <option value="">全部分支</option>
-            <For each={branches()}>
-              {(item) => <option value={item}>{item}</option>}
-            </For>
-          </select>
-
-          <DateRangePicker
-            value={dateRange()}
-            fullWidth={false}
-            onChange={(value) => {
-              const next = value ?? defaultWideRange()
-              setSearch(Object.fromEntries(searchQuery([
-                ["startDate", rangeQuery(next).startDate],
-                ["endDate", rangeQuery(next).endDate],
-                ["mock", search.mock],
-              ]).entries()))
-            }}
-            placeholder="选择日期范围"
-          />
-
-          <Button size="sm" class="shrink-0" onClick={openAddDialog} disabled={!detail()}>
-            添加到 Project
-          </Button>
+          <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">{language.t("kanban.breadcrumb.repoDetail")}</p>
+          <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.repo.detailTitle")}</h1>
+          <p class="mt-3 max-w-[74ch] text-[0.9375rem] leading-[1.7] text-[var(--native-muted)]">
+            {language.t("kanban.repo.detailDescription")}
+          </p>
         </div>
       </header>
 
-      <div class="flex w-full flex-col gap-5">
-        <Show when={!detail.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">仓库详情加载中...</div>}>
-          <Show when={detail()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">没有查询到仓库详情</div>}>
+      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+        <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+          <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => navigate(listHref())}>
+                {language.t("kanban.repo.back")}
+              </Button>
+              <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.repo.detailTitle")}</div>
+            </div>
+
+            <div class="flex flex-col gap-3 md:flex-row md:items-center">
+              <select
+                class="flex h-10 min-w-[12rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={repoBranch()}
+                onChange={(e) => {
+                  const next = e.currentTarget.value.trim()
+                  navigate(detailHref(next || undefined))
+                }}
+              >
+                <option value="">{language.t("kanban.repo.allBranches")}</option>
+                <For each={branches()}>
+                  {(item) => <option value={item}>{item}</option>}
+                </For>
+              </select>
+
+              <DateRangePicker
+                value={dateRange()}
+                onChange={(value) => {
+                  const next = value ?? defaultWideRange()
+                  setSearch(Object.fromEntries(searchQuery([
+                    ["startDate", rangeQuery(next).startDate],
+                    ["endDate", rangeQuery(next).endDate],
+                    ["mock", search.mock],
+                  ]).entries()))
+                }}
+                placeholder={language.t("kanban.filter.selectDateRange")}
+              />
+
+              <Button size="sm" onClick={openAddDialog} disabled={!detail()}>
+                {language.t("kanban.repo.addToProject")}
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <Show when={!detail.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.repo.loadingDetail")}</div>}>
+          <Show when={detail()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.repo.noDetail")}</div>}>
             {(item) => (
               <>
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">基础信息</div>
+                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.repo.basicInfo")}</div>
                   <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <MetricCard label="仓库地址" value={item().repo_addr || "-"} hint="当前查看的 repo_addr" />
-                    <MetricCard label="分支" value={repoBranch() || item().repo_branch || "全部分支"} hint="当前详情分支上下文" accent="var(--native-info, var(--native-primary))" />
-                    <MetricCard label="活跃时间" value={activityRange()} hint="基于 commits 时间范围" accent="var(--native-success)" />
-                    <MetricCard label="提交数" value={String(item().summary.commit_count ?? commits().length)} accent="var(--native-warning)" />
-                    <MetricCard label="任务数" value={String(item().summary.task_count ?? tasks().length)} accent="var(--native-primary)" />
-                    <MetricCard label="总 Tokens" value={totalTokens().toLocaleString()} accent="var(--native-success)" />
+                    <MetricCard label={language.t("kanban.metric.repoUrl")} value={item().repo_addr || "-"} hint={language.t("kanban.repo.repoUrlHint")} />
+                    <MetricCard label={language.t("kanban.metric.branch")} value={repoBranch() || item().repo_branch || language.t("kanban.repo.allBranches")} hint={language.t("kanban.repo.branchHint")} accent="var(--native-info, var(--native-primary))" />
+                    <MetricCard label={language.t("kanban.metric.activeTime")} value={activityRange()} hint={language.t("kanban.repo.activeTimeHint")} accent="var(--native-success)" />
+                    <MetricCard label={language.t("kanban.metric.commitCount")} value={String(item().summary.commit_count ?? commits().length)} accent="var(--native-warning)" />
+                    <MetricCard label={language.t("kanban.metric.taskCount")} value={String(item().summary.task_count ?? tasks().length)} accent="var(--native-primary)" />
+                    <MetricCard label={language.t("kanban.metric.totalTokens")} value={totalTokens().toLocaleString()} accent="var(--native-success)" />
                   </div>
                 </section>
 
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">度量信息（基于 Commits 汇总）</div>
+                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.repo.metricsTitle")}</div>
                   <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     <MetricCard
-                      label="传统开发时长预估"
-                      value={formatDuration(efficiency().repo_ancient_minutes)}
+                      label={language.t("kanban.metric.traditionalEst")}
+                      value={formatDuration(efficiency().repo_ancient_minutes, language.t)}
                       hint={efficiency().repo_ancient_minutes_reason || "-"}
                       accent="var(--native-warning)"
                     />
                     <MetricCard
-                      label="实际耗时"
-                      value={formatDuration(efficiency().repo_real_minutes)}
+                      label={language.t("kanban.metric.actualTime")}
+                      value={formatDuration(efficiency().repo_real_minutes, language.t)}
                       hint={efficiency().repo_real_minutes_reason || "-"}
                       accent="var(--native-primary)"
                     />
                     <MetricCard
-                      label="提效比"
+                      label={language.t("kanban.metric.efficiencyRatio")}
                       value={efficiencyRatio() == null ? "-" : `${Math.round(efficiencyRatio()!)}%`}
                       accent={efficiencyRatio() != null && efficiencyRatio()! >= 300 ? "var(--native-success)" : "var(--native-primary)"}
                     />
-                    <MetricCard label="代码行数" value={`${totalDiffLines().toLocaleString()} 行`} accent="var(--native-info, var(--native-primary))" />
-                    <MetricCard label="总费用（Tasks）" value={totalCost() > 0 ? `${totalCost().toFixed(2)} 元` : "-"} accent="var(--native-warning)" />
-                    <MetricCard label="贡献者" value={`${contributorCount()} 人`} accent="var(--native-success)" />
+                    <MetricCard label={language.t("kanban.metric.codeLines")} value={`${totalDiffLines().toLocaleString()} ${language.t("kanban.repo.lines")}`} accent="var(--native-info, var(--native-primary))" />
+                    <MetricCard label={language.t("kanban.metric.costFromTasks")} value={totalCost() > 0 ? `${totalCost().toFixed(2)} ${language.t("kanban.repo.yuan")}` : "-"} accent="var(--native-warning)" />
+                    <MetricCard label={language.t("kanban.metric.contributors")} value={`${contributorCount()} ${language.t("kanban.repo.people")}`} accent="var(--native-success)" />
                   </div>
 
                   <div class="mt-4 grid gap-4 lg:grid-cols-2">
                     <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-4 text-sm text-[var(--native-muted)]">
                       <div class="flex items-center text-[var(--native-foreground)]">
-                        <span class="font-medium">传统开发时长预估原因</span>
+                        <span class="font-medium">{language.t("kanban.repo.traditionalEstReason")}</span>
                         <ReasonTip value={efficiency().repo_ancient_minutes_reason} />
                       </div>
                       <p class="mt-2 leading-6">{efficiency().repo_ancient_minutes_reason || "-"}</p>
                     </div>
                     <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-4 text-sm text-[var(--native-muted)]">
                       <div class="flex items-center text-[var(--native-foreground)]">
-                        <span class="font-medium">实际耗时原因</span>
+                        <span class="font-medium">{language.t("kanban.repo.actualTimeReason")}</span>
                         <ReasonTip value={efficiency().repo_real_minutes_reason} />
                       </div>
                       <p class="mt-2 leading-6">{efficiency().repo_real_minutes_reason || "-"}</p>
@@ -270,22 +287,22 @@ export default function KanbanRepoDetail() {
 
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                   <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                    Commits ({commits().length})
+                    {language.t("kanban.section.commitList")} ({commits().length})
                   </div>
                   <div class="overflow-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead class="min-w-[100px]">Commit ID</TableHead>
-                          <TableHead class="min-w-[150px]">时间</TableHead>
-                          <TableHead class="min-w-[90px]">用户</TableHead>
-                          <TableHead class="min-w-[220px]">说明</TableHead>
-                          <TableHead class="min-w-[90px] text-right">代码行数</TableHead>
-                          <TableHead class="min-w-[100px] text-right">实际耗时</TableHead>
-                          <TableHead class="min-w-[140px] text-right">传统开发时长预估</TableHead>
-                          <TableHead class="min-w-[90px] text-center">硅含量</TableHead>
-                          <TableHead class="min-w-[90px] text-center">提效比</TableHead>
-                          <TableHead class="min-w-[110px] text-right">Tokens消耗</TableHead>
+                          <TableHead class="min-w-[100px]">{language.t("kanban.table.commitId")}</TableHead>
+                          <TableHead class="min-w-[150px]">{language.t("kanban.table.time")}</TableHead>
+                          <TableHead class="min-w-[90px]">{language.t("kanban.table.user")}</TableHead>
+                          <TableHead class="min-w-[220px]">{language.t("kanban.table.description")}</TableHead>
+                          <TableHead class="min-w-[90px] text-right">{language.t("kanban.metric.codeLines")}</TableHead>
+                          <TableHead class="min-w-[100px] text-right">{language.t("kanban.metric.actualTime")}</TableHead>
+                          <TableHead class="min-w-[140px] text-right">{language.t("kanban.metric.traditionalEst")}</TableHead>
+                          <TableHead class="min-w-[90px] text-center">{language.t("kanban.table.silica")}</TableHead>
+                          <TableHead class="min-w-[90px] text-center">{language.t("kanban.metric.efficiencyRatio")}</TableHead>
+                          <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.tokensConsumed")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -297,8 +314,8 @@ export default function KanbanRepoDetail() {
                               <TableCell>{row.git_user_name || "-"}</TableCell>
                               <TableCell>{row.comment || "-"}</TableCell>
                               <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
-                              <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes)}</TableCell>
-                              <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes)}</TableCell>
+                              <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes, language.t)}</TableCell>
+                              <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes, language.t)}</TableCell>
                               <TableCell class="text-center"><RatioPill value={row.silica} digits={1} /></TableCell>
                               <TableCell class="text-center"><RatioPill value={commitEffRatio(row)} /></TableCell>
                               <TableCell class="text-right tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>
@@ -313,22 +330,22 @@ export default function KanbanRepoDetail() {
                 <Show when={tasks().length > 0}>
                   <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                     <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                      Tasks ({tasks().length})
+                      {language.t("kanban.section.taskList")} ({tasks().length})
                     </div>
                     <div class="overflow-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead class="min-w-[100px]">Task ID</TableHead>
-                            <TableHead class="min-w-[150px]">时间</TableHead>
-                            <TableHead class="min-w-[90px]">用户</TableHead>
-                            <TableHead class="min-w-[220px]">说明</TableHead>
-                            <TableHead class="min-w-[90px] text-right">代码行数</TableHead>
-                            <TableHead class="min-w-[100px] text-right">实际耗时</TableHead>
-                            <TableHead class="min-w-[140px] text-right">传统开发时长预估</TableHead>
-                            <TableHead class="min-w-[90px] text-center">提效比</TableHead>
-                            <TableHead class="min-w-[80px] text-right">费用</TableHead>
-                            <TableHead class="min-w-[110px] text-right">Tokens消耗</TableHead>
+                            <TableHead class="min-w-[100px]">{language.t("kanban.table.taskId")}</TableHead>
+                            <TableHead class="min-w-[150px]">{language.t("kanban.table.time")}</TableHead>
+                            <TableHead class="min-w-[90px]">{language.t("kanban.table.user")}</TableHead>
+                            <TableHead class="min-w-[220px]">{language.t("kanban.table.description")}</TableHead>
+                            <TableHead class="min-w-[90px] text-right">{language.t("kanban.metric.codeLines")}</TableHead>
+                            <TableHead class="min-w-[100px] text-right">{language.t("kanban.metric.actualTime")}</TableHead>
+                            <TableHead class="min-w-[140px] text-right">{language.t("kanban.metric.traditionalEst")}</TableHead>
+                            <TableHead class="min-w-[90px] text-center">{language.t("kanban.metric.efficiencyRatio")}</TableHead>
+                            <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.cost")}</TableHead>
+                            <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.tokensConsumed")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -340,8 +357,8 @@ export default function KanbanRepoDetail() {
                                 <TableCell>{row.user_name || "-"}</TableCell>
                                 <TableCell>{row.title || "-"}</TableCell>
                                 <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes)}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes)}</TableCell>
+                                <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t)}</TableCell>
+                                <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t)}</TableCell>
                                 <TableCell class="text-center"><RatioPill value={taskEffRatio(row)} /></TableCell>
                                 <TableCell class="text-right tabular-nums">{row.cost != null && row.cost > 0 ? row.cost.toFixed(2) : "-"}</TableCell>
                                 <TableCell class="text-right tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>

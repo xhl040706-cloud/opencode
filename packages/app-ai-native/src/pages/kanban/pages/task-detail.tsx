@@ -4,6 +4,7 @@ import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
@@ -56,6 +57,7 @@ type TimelineItem =
 
 function TaskManualDialog(props: { task: TaskRow; onSaved?: () => void | Promise<void> }) {
   const dialog = useDialog()
+  const language = useLanguage()
   const [form, setForm] = createStore({
     task_real_minutes_manual: props.task.task_real_minutes_manual?.toString() || props.task.task_real_minutes?.toString() || "",
     task_real_minutes_reason_manual: props.task.task_real_minutes_reason_manual || "",
@@ -68,7 +70,7 @@ function TaskManualDialog(props: { task: TaskRow; onSaved?: () => void | Promise
     e.preventDefault()
     const taskId = props.task.task_id?.trim()
     if (!taskId) {
-      showToast({ variant: "error", title: "Task ID 缺失" })
+      showToast({ variant: "error", title: language.t("kanban.toast.taskIdMissing") })
       return
     }
 
@@ -82,13 +84,13 @@ function TaskManualDialog(props: { task: TaskRow; onSaved?: () => void | Promise
     setForm("saving", true)
     try {
       await updateTaskManual(taskId, payload)
-      showToast({ variant: "success", title: "人工调整已保存" })
+      showToast({ variant: "success", title: language.t("kanban.toast.correctionSaved") })
       await props.onSaved?.()
       dialog.close()
     } catch (err) {
       showToast({
         variant: "error",
-        title: "保存失败",
+        title: language.t("kanban.toast.saveFailed"),
         description: err instanceof Error ? err.message : String(err),
       })
     } finally {
@@ -99,15 +101,15 @@ function TaskManualDialog(props: { task: TaskRow; onSaved?: () => void | Promise
   return (
     <form onSubmit={submit}>
       <Modal
-        title="Task 人工调整"
+        title={language.t("kanban.dialog.manualAdjustment")}
         maxWidth="680px"
         footer={
           <>
             <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>
-              取消
+              {language.t("common.cancel")}
             </Button>
             <Button size="sm" type="submit" disabled={form.saving}>
-              {form.saving ? "保存中..." : "保存"}
+              {form.saving ? language.t("common.saving") : language.t("common.save")}
             </Button>
           </>
         }
@@ -115,11 +117,11 @@ function TaskManualDialog(props: { task: TaskRow; onSaved?: () => void | Promise
         <div class="modal-section">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">实际耗时（分钟）</label>
+              <label class="modal-label">{language.t("kanban.form.actualTime")}</label>
               <input class="modal-input" type="number" step="0.1" min="0" value={form.task_real_minutes_manual} onInput={(e) => setForm("task_real_minutes_manual", e.currentTarget.value)} />
             </div>
             <div class="modal-field">
-              <label class="modal-label">传统开发时长预估（分钟）</label>
+              <label class="modal-label">{language.t("kanban.form.traditionalEst")}</label>
               <input class="modal-input" type="number" step="0.1" min="0" value={form.task_ancient_minutes_manual} onInput={(e) => setForm("task_ancient_minutes_manual", e.currentTarget.value)} />
             </div>
           </div>
@@ -128,11 +130,11 @@ function TaskManualDialog(props: { task: TaskRow; onSaved?: () => void | Promise
         <div class="modal-section">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">实际耗时理由</label>
+              <label class="modal-label">{language.t("kanban.form.actualTimeReason")}</label>
               <textarea class="modal-input" value={form.task_real_minutes_reason_manual} onInput={(e) => setForm("task_real_minutes_reason_manual", e.currentTarget.value)} />
             </div>
             <div class="modal-field">
-              <label class="modal-label">传统开发时长预估理由</label>
+              <label class="modal-label">{language.t("kanban.form.traditionalEstReason")}</label>
               <textarea class="modal-input" value={form.task_ancient_minutes_reason_manual} onInput={(e) => setForm("task_ancient_minutes_reason_manual", e.currentTarget.value)} />
             </div>
           </div>
@@ -143,6 +145,7 @@ function TaskManualDialog(props: { task: TaskRow; onSaved?: () => void | Promise
 }
 
 export default function KanbanTaskDetail() {
+  const language = useLanguage()
   const params = useParams()
   const navigate = useNavigate()
   const dialog = useDialog()
@@ -162,7 +165,7 @@ export default function KanbanTaskDetail() {
     } catch (err) {
       showToast({
         variant: "error",
-        title: "Task 详情加载失败",
+        title: language.t("kanban.toast.loadFailed"),
         description: err instanceof Error ? err.message : String(err),
       })
       return null
@@ -249,38 +252,38 @@ export default function KanbanTaskDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex flex-col gap-3">
-          <Back href={listHref()} label="返回 Task 列表" />
+          <Back href={listHref()} />
           <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">Task 详情</h1>
+              <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.home.nav.task")}</h1>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
               <Show when={summaryHref()}>
                 <a href={summaryHref()} target="_blank" rel="noreferrer">
-                  <Button variant="outline" size="sm">查看 Summary</Button>
+                  <Button variant="outline" size="sm">{language.t("kanban.action.viewSummary")}</Button>
                 </a>
               </Show>
               <Show when={conversationHref()}>
                 <a href={conversationHref()} target="_blank" rel="noreferrer">
-                  <Button variant="outline" size="sm">查看原始对话</Button>
+                  <Button variant="outline" size="sm">{language.t("kanban.action.viewRawConversation")}</Button>
                 </a>
               </Show>
-              <Button size="sm" onClick={openManual} disabled={!task().task_id}>人工调整</Button>
+              <Button size="sm" onClick={openManual} disabled={!task().task_id}>{language.t("kanban.dialog.manualAdjustment")}</Button>
             </div>
           </div>
         </header>
 
-        <Show when={!data.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">Task 详情加载中...</div>}>
-          <Show when={data()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">没有查询到 Task 详情</div>}>
+        <Show when={!data.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.loading.taskDetail")}</div>}>
+          <Show when={data()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.empty.noTaskDetail")}</div>}>
             <section class="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
               <article class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">基础信息</div>
+                <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.basicInfo")}</div>
                 <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">Task ID</div><div class="mt-1 break-all text-sm text-[var(--native-foreground)]">{text(task().task_id)}</div></div>
-                  <div class="md:col-span-2"><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">任务描述</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text(task().title)}</div></div>
+                  <div class="md:col-span-2"><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.taskDescription")}</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text(task().title)}</div></div>
                   <div>
-                    <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">用户</div>
+                    <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.user")}</div>
                     <div class="mt-1 text-sm text-[var(--native-foreground)]">
                       <Show when={task().user_id?.trim()} fallback={text(task().user_name)}>
                         <button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/user/${encodeURIComponent(task().user_id!.trim())}`)}>
@@ -290,7 +293,7 @@ export default function KanbanTaskDetail() {
                     </div>
                   </div>
                   <div>
-                    <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">仓库</div>
+                    <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.repository")}</div>
                     <div class="mt-1 text-sm text-[var(--native-foreground)]">
                       <Show when={task().repo_addr?.trim()} fallback={repoLabel()}>
                         <button
@@ -303,24 +306,24 @@ export default function KanbanTaskDetail() {
                       </Show>
                     </div>
                   </div>
-                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">工作目录</div><div class="mt-1 break-all text-sm text-[var(--native-foreground)]"><Show when={task().work_dir_id?.trim()} fallback={text(task().work_dir)}><button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate("/kanban/workdir/" + encodeURIComponent(task().work_dir_id!.trim()) + "?fromTaskId=" + encodeURIComponent(task().task_id!.trim()))}>{task().work_dir || task().work_dir_id}</button></Show></div></div>
-                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">开始时间</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{formatLocalTime(task().start_time)}</div></div>
-                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">结束时间</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{formatLocalTime(task().end_time)}</div></div>
-                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">系统</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text([task().client_os, task().client_os_version].filter(Boolean).join(" "))}</div></div>
-                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">客户端</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text([task().client_ide, task().client_version].filter(Boolean).join(" "))}</div></div>
-                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">模式</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text(task().caller)}</div></div>
+                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.workDir")}</div><div class="mt-1 break-all text-sm text-[var(--native-foreground)]"><Show when={task().work_dir_id?.trim()} fallback={text(task().work_dir)}><button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate("/kanban/workdir/" + encodeURIComponent(task().work_dir_id!.trim()) + "?fromTaskId=" + encodeURIComponent(task().task_id!.trim()))}>{task().work_dir || task().work_dir_id}</button></Show></div></div>
+                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.startTime")}</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{formatLocalTime(task().start_time)}</div></div>
+                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.endTime")}</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{formatLocalTime(task().end_time)}</div></div>
+                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.system")}</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text([task().client_os, task().client_os_version].filter(Boolean).join(" "))}</div></div>
+                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.client")}</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text([task().client_ide, task().client_version].filter(Boolean).join(" "))}</div></div>
+                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.mode")}</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text(task().caller)}</div></div>
                 </div>
               </article>
 
               <article class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">估时说明</div>
+                <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.estimationNotes")}</div>
                 <div class="mt-4 grid gap-3">
                   <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_20%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-3">
-                    <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">实际耗时说明</div>
+                    <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.actualTimeNote")}</div>
                     <div class="mt-2 text-sm leading-[1.7] text-[var(--native-foreground)]">{text(task().task_real_minutes_reason_manual || task().task_real_minutes_reason)}</div>
                   </div>
                   <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_20%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-3">
-                    <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">传统开发时长预估说明</div>
+                    <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.traditionalEstNote")}</div>
                     <div class="mt-2 text-sm leading-[1.7] text-[var(--native-foreground)]">{text(task().task_ancient_minutes_reason_manual || task().task_ancient_minutes_reason)}</div>
                   </div>
                 </div>
@@ -328,19 +331,19 @@ export default function KanbanTaskDetail() {
             </section>
 
             <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <MetricCard label="生成代码量" value={task().diff_lines == null ? "-" : `${task().diff_lines} 行`} accent="var(--native-warning)" />
-              <MetricCard label="实际耗时" value={formatDuration(task().task_real_minutes_manual ?? task().task_real_minutes)} accent="var(--native-primary)" />
-              <MetricCard label="传统开发时长预估" value={formatDuration(task().task_ancient_minutes_manual ?? task().task_ancient_minutes)} accent="var(--native-success)" />
-              <MetricCard label="API 请求次数" value={String(convs().length)} accent="var(--native-primary)" />
-              <MetricCard label="总 Tokens" value={totalTokens() > 0 ? totalTokens().toLocaleString() : "-"} hint={`上行 ${totalUp().toLocaleString()} / 下行 ${totalDown().toLocaleString()}`} accent="var(--native-warning)" />
-              <MetricCard label="费用" value={costLabel()} accent="var(--native-warning)" />
+              <MetricCard label={language.t("kanban.metric.generatedCode")} value={task().diff_lines == null ? "-" : `${task().diff_lines} ${language.t("kanban.repo.lines")}`} accent="var(--native-warning)" />
+              <MetricCard label={language.t("kanban.metric.actualTime")} value={formatDuration(task().task_real_minutes_manual ?? task().task_real_minutes, language.t)} accent="var(--native-primary)" />
+              <MetricCard label={language.t("kanban.metric.traditionalEst")} value={formatDuration(task().task_ancient_minutes_manual ?? task().task_ancient_minutes, language.t)} accent="var(--native-success)" />
+              <MetricCard label={language.t("kanban.metric.apiRequests")} value={String(convs().length)} accent="var(--native-primary)" />
+              <MetricCard label={language.t("kanban.metric.totalTokens")} value={totalTokens() > 0 ? totalTokens().toLocaleString() : "-"} hint={language.t("kanban.hint.upstreamDownstream", { upstream: totalUp().toLocaleString(), downstream: totalDown().toLocaleString() })} accent="var(--native-warning)" />
+              <MetricCard label={language.t("kanban.metric.cost")} value={costLabel()} accent="var(--native-warning)" />
             </section>
 
             <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">提效视图</div>
-                  <div class="mt-1 text-sm text-[var(--native-muted)]">手工值优先覆盖自动值，提效比按照有效实际耗时和传统开发时长预估计算。</div>
+                  <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.efficiencyView")}</div>
+                  <div class="mt-1 text-sm text-[var(--native-muted)]">{language.t("kanban.hint.efficiencyCalculation")}</div>
                 </div>
                 <RatioPill value={efficiency()} digits={0} />
               </div>
@@ -348,14 +351,14 @@ export default function KanbanTaskDetail() {
 
             <Show when={segments().length > 0}>
               <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">时间片段</div>
+                <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.timeSegments")}</div>
                 <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   <For each={segments()}>
                     {(item: TimeSegment, index) => (
                       <article class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_20%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-3">
-                        <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">片段 {index() + 1}</div>
+                        <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.timeline.segment", { index: index() + 1 })}</div>
                         <div class="mt-2 text-sm text-[var(--native-foreground)]">{formatLocalTime(item.start)} ~ {formatLocalTime(item.end)}</div>
-                        <div class="mt-1 text-sm text-[var(--native-muted)]">{item.conv_count ?? 0} 条对话</div>
+                        <div class="mt-1 text-sm text-[var(--native-muted)]">{language.t("kanban.timeline.conversations", { count: item.conv_count ?? 0 })}</div>
                       </article>
                     )}
                   </For>
@@ -366,11 +369,11 @@ export default function KanbanTaskDetail() {
             <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">对话历史</div>
-                  <div class="mt-1 text-sm text-[var(--native-muted)]">保留旧版的时间片段断点展示方式，连续工作片段之间会插入“间隔”提示。</div>
+                  <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.conversationHistory")}</div>
+                  <div class="mt-1 text-sm text-[var(--native-muted)]">{language.t("kanban.hint.timeSegments")}</div>
                 </div>
                 <Show when={!convs().length}>
-                  <div class="text-sm text-[var(--native-muted)]">暂无对话记录</div>
+                  <div class="text-sm text-[var(--native-muted)]">{language.t("kanban.empty.noConversation")}</div>
                 </Show>
               </div>
 
@@ -378,7 +381,7 @@ export default function KanbanTaskDetail() {
                 <For each={items()}>
                   {(item) => item.type === "gap" ? (
                     <div class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-warning)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-warning)_10%,var(--native-panel))] px-4 py-3 text-sm text-[var(--native-foreground)]">
-                      间隔 {item.gapMinutes} 分钟，不计入耗时
+                      {language.t("kanban.timeline.gap", { minutes: item.gapMinutes })}
                     </div>
                   ) : (
                     <article class="rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_22%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_90%,var(--native-bg-subtle))] p-4 shadow-[var(--native-shadow-xs)]">
@@ -386,19 +389,19 @@ export default function KanbanTaskDetail() {
                         <div>
                           <div class="flex flex-wrap items-center gap-2 text-sm font-medium text-[var(--native-foreground)]">
                             <span>{formatLocalTime(item.conv.start_time)}</span>
-                            <Show when={item.isSegmentStart}><span class="rounded-full bg-[color:color-mix(in_oklab,var(--native-warning)_14%,transparent)] px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--native-warning)]">新片段</span></Show>
+                            <Show when={item.isSegmentStart}><span class="rounded-full bg-[color:color-mix(in_oklab,var(--native-warning)_14%,transparent)] px-2 py-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--native-warning)]">{language.t("kanban.timeline.newSegment")}</span></Show>
                           </div>
                           <div class="mt-1 text-sm text-[var(--native-muted)]">{text(item.conv.prompt_mode)} / {text(item.conv.mode)} / {text(item.conv.model)}</div>
                         </div>
                         <div class="grid gap-x-4 gap-y-1 text-sm text-[var(--native-muted)] md:grid-cols-2 xl:grid-cols-4">
-                          <div>处理耗时 {num(item.conv.process_time)} ms</div>
+                          <div>{language.t("kanban.timeline.processTime")} {num(item.conv.process_time)} ms</div>
                           <div>TTFT {num(item.conv.process_ttft)} ms</div>
-                          <div>上行 {num(item.conv.upstream_tokens)}</div>
-                          <div>下行 {num(item.conv.downstream_tokens)}</div>
-                          <div>费用 {fmtCost(item.conv.cost)}</div>
-                          <div>代码 {num(item.conv.diff_lines)} 行</div>
-                          <div>开始 {formatLocalTime(item.conv.start_time)}</div>
-                          <div>结束 {formatLocalTime(item.conv.end_time)}</div>
+                          <div>{language.t("kanban.timeline.upstream")} {num(item.conv.upstream_tokens)}</div>
+                          <div>{language.t("kanban.timeline.downstream")} {num(item.conv.downstream_tokens)}</div>
+                          <div>{language.t("kanban.timeline.cost")} {fmtCost(item.conv.cost)}</div>
+                          <div>{language.t("kanban.timeline.codeLines")} {num(item.conv.diff_lines)} {language.t("kanban.timeline.codeLinesCount", { count: item.conv.diff_lines ?? 0 })}</div>
+                          <div>{language.t("kanban.timeline.start")} {formatLocalTime(item.conv.start_time)}</div>
+                          <div>{language.t("kanban.timeline.end")} {formatLocalTime(item.conv.end_time)}</div>
                         </div>
                       </div>
 
@@ -410,11 +413,11 @@ export default function KanbanTaskDetail() {
 
                       <Show when={item.conv.user_input?.trim()}>
                         <div class="mt-3">
-                          <div class="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--native-dim)]">用户输入</div>
+                          <div class="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.timeline.userInput")}</div>
                           <pre class="overflow-x-auto whitespace-pre-wrap break-all rounded-[var(--native-radius-md)] bg-[color:color-mix(in_oklab,var(--native-bg-subtle)_88%,var(--native-panel))] p-3 text-[12px] leading-[1.7] text-[var(--native-foreground)]">{preview(item.conv.user_input, item.index, "user_input")}</pre>
                           <Show when={(item.conv.user_input?.length ?? 0) > 320}>
                             <button type="button" class="mt-2 text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggle(item.index, "user_input")}>
-                              {expand[`${item.index}:user_input`] ? "收起" : "展开全文"}
+                              {expand[`${item.index}:user_input`] ? language.t("kanban.timeline.collapse") : language.t("kanban.timeline.expand")}
                             </button>
                           </Show>
                         </div>
@@ -422,11 +425,11 @@ export default function KanbanTaskDetail() {
 
                       <Show when={item.conv.output?.trim()}>
                         <div class="mt-3">
-                          <div class="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--native-dim)]">模型输出</div>
+                          <div class="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.timeline.modelOutput")}</div>
                           <pre class="overflow-x-auto whitespace-pre-wrap break-all rounded-[var(--native-radius-md)] bg-[color:color-mix(in_oklab,var(--native-bg-subtle)_88%,var(--native-panel))] p-3 text-[12px] leading-[1.7] text-[var(--native-foreground)]">{preview(item.conv.output, item.index, "output")}</pre>
                           <Show when={(item.conv.output?.length ?? 0) > 320}>
                             <button type="button" class="mt-2 text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggle(item.index, "output")}>
-                              {expand[`${item.index}:output`] ? "收起" : "展开全文"}
+                              {expand[`${item.index}:output`] ? language.t("kanban.timeline.collapse") : language.t("kanban.timeline.expand")}
                             </button>
                           </Show>
                         </div>

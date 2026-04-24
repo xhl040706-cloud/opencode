@@ -2,6 +2,7 @@ import { useNavigate, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, on, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import type { EChartsOption } from "echarts"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
@@ -76,6 +77,7 @@ function values(series: OrgAggregateSeries, field: keyof OrgAggregateSeries["poi
 }
 
 export default function KanbanOrgList() {
+  const language = useLanguage()
   const navigate = useNavigate()
   const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; org1?: string; org2?: string; org3?: string; org4?: string; granularity?: string; mock?: string }>()
   const [state, setState] = createStore({
@@ -120,7 +122,7 @@ export default function KanbanOrgList() {
   const columns = createMemo<KanbanColumn<OrgAggregateRow>[]>(() => [
     {
       prop: "org_name",
-      label: "组织",
+      label: language.t("kanban.table.org"),
       minWidth: 160,
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
@@ -135,7 +137,7 @@ export default function KanbanOrgList() {
     },
     {
       prop: "user_count",
-      label: "成员数",
+      label: language.t("kanban.metric.memberCount"),
       minWidth: 90,
       align: "right",
       render: (row) => {
@@ -150,7 +152,7 @@ export default function KanbanOrgList() {
     },
     {
       prop: "task_count",
-      label: "Task 数",
+      label: language.t("kanban.table.taskCount"),
       minWidth: 90,
       align: "right",
       render: (row) => {
@@ -163,11 +165,11 @@ export default function KanbanOrgList() {
       },
       filter: { type: "number" },
     },
-    { prop: "task_diff_lines", label: "Task 代码量", minWidth: 110, align: "right", filter: { type: "number" } },
-    { prop: "task_efficiency_ratio", label: "Task 提效比", minWidth: 120, align: "center", render: (row) => <RatioPill value={row.task_efficiency_ratio} />, filter: { type: "number" } },
+    { prop: "task_diff_lines", label: language.t("kanban.metric.taskCodeAmount"), minWidth: 110, align: "right", filter: { type: "number" } },
+    { prop: "task_efficiency_ratio", label: language.t("kanban.table.taskEfficiencyRatio"), minWidth: 120, align: "center", render: (row) => <RatioPill value={row.task_efficiency_ratio} />, filter: { type: "number" } },
     {
       prop: "commit_count",
-      label: "Commit 数",
+      label: language.t("kanban.table.commitCount"),
       minWidth: 100,
       align: "right",
       render: (row) => {
@@ -180,10 +182,10 @@ export default function KanbanOrgList() {
       },
       filter: { type: "number" },
     },
-    { prop: "commit_diff_lines", label: "Commit 代码量", minWidth: 120, align: "right", filter: { type: "number" } },
-    { prop: "commit_efficiency_ratio", label: "Commit 提效比", minWidth: 130, align: "center", render: (row) => <RatioPill value={row.commit_efficiency_ratio} />, filter: { type: "number" } },
-    { prop: "total_tokens", label: "Tokens 消耗", minWidth: 120, align: "right", display: (row) => (row.total_tokens ?? 0) > 0 ? (row.total_tokens ?? 0).toLocaleString() : "-", filter: { type: "number" } },
-    { prop: "total_cost", label: "总费用", minWidth: 100, align: "right", display: (row) => fmtCost(row.total_cost), filter: { type: "number" } },
+    { prop: "commit_diff_lines", label: language.t("kanban.metric.commitCodeAmount"), minWidth: 120, align: "right", filter: { type: "number" } },
+    { prop: "commit_efficiency_ratio", label: language.t("kanban.table.commitEfficiencyRatio"), minWidth: 130, align: "center", render: (row) => <RatioPill value={row.commit_efficiency_ratio} />, filter: { type: "number" } },
+    { prop: "total_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "right", display: (row) => (row.total_tokens ?? 0) > 0 ? (row.total_tokens ?? 0).toLocaleString() : "-", filter: { type: "number" } },
+    { prop: "total_cost", label: language.t("kanban.metric.totalCost"), minWidth: 100, align: "right", display: (row) => fmtCost(row.total_cost), filter: { type: "number" } },
   ])
 
   const table = useTableFilters<OrgAggregateRow>({
@@ -195,7 +197,7 @@ export default function KanbanOrgList() {
     try {
       return await queryOrgRows(input)
     } catch (err) {
-      showToast({ variant: "error", title: "组织列表加载失败", description: err instanceof Error ? err.message : String(err) })
+      showToast({ variant: "error", title: language.t("kanban.toast.loadFailed"), description: err instanceof Error ? err.message : String(err) })
       return { rows: [], periods: [], series: [] }
     }
   })
@@ -205,19 +207,19 @@ export default function KanbanOrgList() {
   const periods = createMemo(() => data.latest?.periods ?? [])
   const series = createMemo(() => data.latest?.series ?? [])
 
-  const memberOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("成员数", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "user_count") })), { type: "line" }) : undefined)
-  const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Task / Commit 数", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_count") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_count") }])), { type: "line" }) : undefined)
-  const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("代码量", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_diff_lines") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_diff_lines") }])), { type: "line" }) : undefined)
-  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("提效比", periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / Task`, data: values(item, "task_efficiency_ratio") }, { name: `${item.org_name || "-"} / Commit`, data: values(item, "commit_efficiency_ratio") }])), { type: "line", format: (value) => formatPercent(value) }) : undefined)
-  const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("Tokens 消耗", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_tokens") })), { type: "line", format: (value) => value.toLocaleString() }) : undefined)
-  const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart("总费用", periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_cost") })), { type: "line", format: (value) => fmtCost(value) }) : undefined)
+  const memberOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.metric.memberCount"), periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "user_count") })), { type: "line" }) : undefined)
+  const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(`${language.t("kanban.table.taskCount")} / ${language.t("kanban.table.commitCount")}`, periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.task")}`, data: values(item, "task_count") }, { name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.commit")}`, data: values(item, "commit_count") }])), { type: "line" }) : undefined)
+  const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.metric.codeLines"), periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.task")}`, data: values(item, "task_diff_lines") }, { name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.commit")}`, data: values(item, "commit_diff_lines") }])), { type: "line" }) : undefined)
+  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.chart.efficiencyRatio"), periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.task")}`, data: values(item, "task_efficiency_ratio") }, { name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.commit")}`, data: values(item, "commit_efficiency_ratio") }])), { type: "line", format: (value) => formatPercent(value) }) : undefined)
+  const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.table.tokensConsumed"), periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_tokens") })), { type: "line", format: (value) => value.toLocaleString() }) : undefined)
+  const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.metric.totalCost"), periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_cost") })), { type: "line", format: (value) => fmtCost(value) }) : undefined)
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex w-full flex-col gap-3">
           <Back />
-          <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">组织视图</h1>
+          <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.view.org")}</h1>
         </header>
 
         <FilterBar
@@ -235,15 +237,15 @@ export default function KanbanOrgList() {
           actions={
             <>
               <label class="flex min-w-0 flex-col gap-2">
-                <span class="text-[0.75rem] text-[var(--native-muted)]">聚合粒度</span>
+                <span class="text-[0.75rem] text-[var(--native-muted)]">{language.t("kanban.granularity")}</span>
                 <select class="flex h-9 min-w-[8rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" value={state.granularity} onChange={(e) => setState("granularity", e.currentTarget.value as Granularity)}>
-                  <option value="day">天</option>
-                  <option value="week">周</option>
-                  <option value="month">月</option>
-                  <option value="year">年</option>
+                  <option value="day">{language.t("kanban.granularity.day")}</option>
+                  <option value="week">{language.t("kanban.granularity.week")}</option>
+                  <option value="month">{language.t("kanban.granularity.month")}</option>
+                  <option value="year">{language.t("kanban.granularity.year")}</option>
                 </select>
               </label>
-              <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>{data.loading ? "刷新中..." : "刷新"}</Button>
+              <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>{data.loading ? language.t("kanban.action.refreshing") : language.t("kanban.action.refresh")}</Button>
             </>
           }
         />
@@ -259,7 +261,7 @@ export default function KanbanOrgList() {
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[25, 50, 100, 200]}
-          emptyText={data.loading ? "组织列表加载中..." : "当前筛选条件下没有组织数据"}
+          emptyText={data.loading ? language.t("kanban.loading.orgList") : language.t("kanban.empty.noOrgData")}
           onPageChange={(page) => setState("page", page)}
           onPageSizeChange={(pageSize) => {
             setState("pageSize", pageSize)
@@ -268,12 +270,12 @@ export default function KanbanOrgList() {
         />
 
         <section class="grid gap-4 xl:grid-cols-2">
-          <ChartCard option={memberOption()} empty="暂无成员数图表数据" />
-          <ChartCard option={countOption()} empty="暂无 Task / Commit 数图表数据" />
-          <ChartCard option={codeOption()} empty="暂无代码量图表数据" />
-          <ChartCard option={ratioOption()} empty="暂无提效比图表数据" />
-          <ChartCard option={tokenOption()} empty="暂无 Token 图表数据" />
-          <ChartCard option={costOption()} empty="暂无费用图表数据" />
+          <ChartCard option={memberOption()} empty={language.t("kanban.chart.empty.memberCount")} />
+          <ChartCard option={countOption()} empty={language.t("kanban.chart.empty.count")} />
+          <ChartCard option={codeOption()} empty={language.t("kanban.chart.empty.code")} />
+          <ChartCard option={ratioOption()} empty={language.t("kanban.chart.empty.ratio")} />
+          <ChartCard option={tokenOption()} empty={language.t("kanban.chart.empty.token")} />
+          <ChartCard option={costOption()} empty={language.t("kanban.chart.empty.cost")} />
         </section>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { For } from "solid-js"
 import { cn } from "@/lib/utils"
+import { useLanguage } from "@/context/language"
 import { useOrgCascade } from "../../hooks/use-org-cascade"
 import type { DateRangeValue, OrgCascadeValue } from "../../lib/types"
 
@@ -11,10 +12,12 @@ type Props = {
 }
 
 export function OrgCascadeSelect(props: Props) {
+  const { t } = useLanguage()
   const cascade = useOrgCascade({
     value: props.value,
     dateRange: props.dateRange,
     onChange: props.onChange,
+    t,
   })
 
   return (
@@ -29,7 +32,7 @@ export function OrgCascadeSelect(props: Props) {
               disabled={item.disabled}
               onChange={(e) => void cascade.setLevel(item.level, e.currentTarget.value)}
             >
-              <option value="">全部</option>
+              <option value="">All</option>
               <For each={item.options}>
                 {(option) => <option value={option}>{option}</option>}
               </For>

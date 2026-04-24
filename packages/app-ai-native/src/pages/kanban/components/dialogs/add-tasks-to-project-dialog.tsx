@@ -2,6 +2,7 @@ import { createResource, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -23,6 +24,7 @@ function num(value: string) {
 }
 
 export function AddTasksToProjectDialog(props: Props) {
+  const language = useLanguage()
   const dialog = useDialog()
   const [state, setState] = createStore({
     selectedProjectId: "",
@@ -38,7 +40,7 @@ export function AddTasksToProjectDialog(props: Props) {
     } catch (err) {
       showToast({
         variant: "error",
-        title: "加载 Project 列表失败",
+        title: language.t("kanban.toast.loadFailed"),
         description: err instanceof Error ? err.message : String(err),
       })
       return []
@@ -49,7 +51,7 @@ export function AddTasksToProjectDialog(props: Props) {
     if (state.selectedProjectId !== "__new__") return state.selectedProjectId
     const name = state.newProjectName.trim()
     if (!name) {
-      showToast({ variant: "error", title: "请输入 Project 名称" })
+      showToast({ variant: "error", title: language.t("kanban.validation.projectNameRequired") })
       return ""
     }
     const item = await createProjectOption({
@@ -62,19 +64,19 @@ export function AddTasksToProjectDialog(props: Props) {
   const submit = async () => {
     const picked = state.selectedProjectId.trim()
     if (!picked) {
-      showToast({ variant: "error", title: "请选择目标 Project" })
+      showToast({ variant: "error", title: language.t("kanban.validation.selectProject") })
       return
     }
 
     const ids = props.tasks.map((item) => item.task_id?.trim() ?? "").filter(Boolean)
     if (!ids.length) {
-      showToast({ variant: "error", title: "没有可添加的 Task" })
+      showToast({ variant: "error", title: language.t("kanban.validation.noTasks") })
       return
     }
 
     const weight = num(state.silica)
     if (weight == null) {
-      showToast({ variant: "error", title: "Silica 权重必须是 0 到 1 之间的数字" })
+      showToast({ variant: "error", title: language.t("kanban.validation.silicaWeightRange") })
       return
     }
 
@@ -88,13 +90,13 @@ export function AddTasksToProjectDialog(props: Props) {
         task_ids_silica: ids.map(() => weight),
       })
 
-      showToast({ variant: "success", title: "已添加到 Project" })
+      showToast({ variant: "success", title: language.t("kanban.toast.addedToProject") })
       await props.onAdded?.()
       dialog.close()
     } catch (err) {
       showToast({
         variant: "error",
-        title: "添加到 Project 失败",
+        title: language.t("kanban.toast.saveFailed"),
         description: err instanceof Error ? err.message : String(err),
       })
     } finally {
@@ -104,16 +106,16 @@ export function AddTasksToProjectDialog(props: Props) {
 
   return (
     <Modal
-      title="添加到 Project"
+      title={language.t("kanban.dialog.addToProject")}
       maxWidth="860px"
       maxHeight="calc(100vh - 56px)"
       footer={
         <>
           <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>
-            取消
+            {language.t("common.cancel")}
           </Button>
           <Button size="sm" type="button" disabled={state.saving} onClick={() => void submit()}>
-            {state.saving ? "提交中..." : "确认"}
+            {state.saving ? language.t("common.saving") : language.t("common.submit")}
           </Button>
         </>
       }
@@ -121,10 +123,10 @@ export function AddTasksToProjectDialog(props: Props) {
       <div class="modal-section">
         <div class="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
           <div class="modal-field">
-            <label class="modal-label">目标 Project</label>
+            <label class="modal-label">{language.t("kanban.form.targetProject")}</label>
             <select class="modal-input" value={state.selectedProjectId} onChange={(e) => setState("selectedProjectId", e.currentTarget.value)}>
-              <option value="">请选择</option>
-              <option value="__new__">+ 新建 Project</option>
+              <option value="">{language.t("kanban.form.pleaseSelect")}</option>
+              <option value="__new__">{language.t("kanban.form.createProject")}</option>
               <For each={projects.latest ?? []}>
                 {(item) => <option value={item.project_id}>{item.name}</option>}
               </For>
@@ -132,37 +134,37 @@ export function AddTasksToProjectDialog(props: Props) {
           </div>
 
           <div class="modal-field">
-            <label class="modal-label">Silica 权重</label>
-            <input class="modal-input" value={state.silica} onInput={(e) => setState("silica", e.currentTarget.value)} placeholder="0 ~ 1" />
+            <label class="modal-label">{language.t("kanban.form.silicaWeight")}</label>
+            <input class="modal-input" value={state.silica} onInput={(e) => setState("silica", e.currentTarget.value)} placeholder={language.t("kanban.form.silicaWeightPlaceholder")} />
           </div>
         </div>
 
         <Show when={state.selectedProjectId === "__new__"}>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">名称</label>
-              <input class="modal-input" value={state.newProjectName} onInput={(e) => setState("newProjectName", e.currentTarget.value)} placeholder="Project 名称" />
+              <label class="modal-label">{language.t("kanban.form.projectName")}</label>
+              <input class="modal-input" value={state.newProjectName} onInput={(e) => setState("newProjectName", e.currentTarget.value)} placeholder={language.t("kanban.form.projectName")} />
             </div>
             <div class="modal-field">
-              <label class="modal-label">描述</label>
-              <input class="modal-input" value={state.newProjectDesc} onInput={(e) => setState("newProjectDesc", e.currentTarget.value)} placeholder="Project 描述（可选）" />
+              <label class="modal-label">{language.t("kanban.form.projectDesc")}</label>
+              <input class="modal-input" value={state.newProjectDesc} onInput={(e) => setState("newProjectDesc", e.currentTarget.value)} placeholder={language.t("kanban.form.projectDesc")} />
             </div>
           </div>
         </Show>
       </div>
 
       <div class="modal-section">
-        <div class="modal-section-title">已选 Tasks</div>
-        <div class="modal-section-desc">将按统一的 silica 权重写入 kanban 自己的 project 体系，不会接到主产品 projects 模块。</div>
+        <div class="modal-section-title">{language.t("kanban.dialog.selectedTasks")}</div>
+        <div class="modal-section-desc">{language.t("kanban.dialog.selectedTasksDesc")}</div>
         <div class="max-h-[360px] overflow-auto rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)]">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead class="w-24">Task ID</TableHead>
-                <TableHead>说明</TableHead>
-                <TableHead class="w-28">用户</TableHead>
-                <TableHead class="w-40">时间</TableHead>
-                <TableHead class="w-28 text-right">实际耗时</TableHead>
+                <TableHead class="w-24">{language.t("kanban.table.taskId")}</TableHead>
+                <TableHead>{language.t("kanban.table.description")}</TableHead>
+                <TableHead class="w-28">{language.t("kanban.table.user")}</TableHead>
+                <TableHead class="w-40">{language.t("kanban.table.time")}</TableHead>
+                <TableHead class="w-28 text-right">{language.t("kanban.table.actualDuration")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -173,7 +175,7 @@ export function AddTasksToProjectDialog(props: Props) {
                     <TableCell>{item.title || "-"}</TableCell>
                     <TableCell>{item.user_name || item.user_id || "-"}</TableCell>
                     <TableCell>{formatLocalTime(item.start_time)}</TableCell>
-                    <TableCell class="text-right">{formatDuration(item.task_real_minutes_manual ?? item.task_real_minutes)}</TableCell>
+                    <TableCell class="text-right">{formatDuration(item.task_real_minutes_manual ?? item.task_real_minutes, language.t)}</TableCell>
                   </TableRow>
                 )}
               </For>

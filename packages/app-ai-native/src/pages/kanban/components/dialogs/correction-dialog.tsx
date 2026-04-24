@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { submitCorrection, loadCorrectionHistory } from "../../lib/api"
 import { formatDay } from "../../lib/date-range"
+import { useLanguage } from "@/context/language"
 import type { CorrectionPayload, EfficiencyDimension } from "../../lib/types"
 
 type Props = {
@@ -28,6 +29,7 @@ function fmtDate(value?: string) {
 
 export function CorrectionDialog(props: Props) {
   const dialog = useDialog()
+  const language = useLanguage()
   const [form, setForm] = createStore({
     value: props.correctedDays ?? props.rawDays ?? 0,
     reason: "",
@@ -53,11 +55,11 @@ export function CorrectionDialog(props: Props) {
     }
 
     if (!payload.reason.trim()) {
-      showToast({ variant: "error", title: "请填写纠正原因" })
+      showToast({ variant: "error", title: language.t("kanban.validation.correctionReasonRequired") })
       return
     }
     if (!payload.operator.trim()) {
-      showToast({ variant: "error", title: "请填写操作人" })
+      showToast({ variant: "error", title: language.t("kanban.validation.operatorRequired") })
       return
     }
 
@@ -66,12 +68,12 @@ export function CorrectionDialog(props: Props) {
       await submitCorrection(payload)
       await refetch()
       await props.onCorrected?.()
-      showToast({ variant: "success", title: "纠错提交成功" })
+      showToast({ variant: "success", title: language.t("kanban.toast.correctionSubmitted") })
       dialog.close()
     } catch (err) {
       showToast({
         variant: "error",
-        title: "纠错失败",
+        title: language.t("kanban.toast.correctionFailed"),
         description: err instanceof Error ? err.message : String(err),
       })
     } finally {
@@ -82,16 +84,16 @@ export function CorrectionDialog(props: Props) {
   return (
     <form onSubmit={submit}>
       <Modal
-        title="AI 预估人天纠错"
+        title={language.t("kanban.dialog.correction")}
         maxWidth="720px"
         maxHeight="calc(100vh - 80px)"
         footer={
           <>
             <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>
-              取消
+              {language.t("common.cancel")}
             </Button>
             <Button size="sm" type="submit" disabled={form.saving}>
-              {form.saving ? "提交中..." : "确认提交"}
+              {form.saving ? `${language.t("common.submit")}...` : language.t("common.submit")}
             </Button>
           </>
         }
@@ -99,19 +101,19 @@ export function CorrectionDialog(props: Props) {
         <div class="modal-section">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">维度</label>
+              <label class="modal-label">{language.t("kanban.form.dimension")}</label>
               <input class="modal-input" value={props.dimension} disabled />
             </div>
             <div class="modal-field">
-              <label class="modal-label">维度 ID</label>
+              <label class="modal-label">{language.t("kanban.form.dimensionId")}</label>
               <input class="modal-input" value={props.dimensionId} disabled />
             </div>
             <div class="modal-field">
-              <label class="modal-label">原始值</label>
+              <label class="modal-label">{language.t("kanban.form.rawValue")}</label>
               <input class="modal-input" value={props.rawDays == null ? "-" : String(props.rawDays)} disabled />
             </div>
             <div class="modal-field">
-              <label class="modal-label">日期范围</label>
+              <label class="modal-label">{language.t("kanban.form.dateRange")}</label>
               <input class="modal-input" value={`${formatDay(props.startDate)}  To  ${formatDay(props.endDate)}`} disabled />
             </div>
           </div>
@@ -120,7 +122,7 @@ export function CorrectionDialog(props: Props) {
         <div class="modal-section">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">纠正值</label>
+              <label class="modal-label">{language.t("kanban.form.correctedValue")}</label>
               <input
                 class="modal-input"
                 type="number"
@@ -131,32 +133,32 @@ export function CorrectionDialog(props: Props) {
               />
             </div>
             <div class="modal-field">
-              <label class="modal-label">操作人</label>
-              <input class="modal-input" value={form.operator} onInput={(e) => setForm("operator", e.currentTarget.value)} placeholder="请输入操作人" />
+              <label class="modal-label">{language.t("kanban.form.operator")}</label>
+              <input class="modal-input" value={form.operator} onInput={(e) => setForm("operator", e.currentTarget.value)} placeholder={language.t("kanban.form.operatorPlaceholder")} />
             </div>
           </div>
 
           <div class="modal-field">
-            <label class="modal-label">纠正原因</label>
-            <textarea class="modal-input" value={form.reason} onInput={(e) => setForm("reason", e.currentTarget.value)} placeholder="请输入纠正原因" />
+            <label class="modal-label">{language.t("kanban.form.correctionReason")}</label>
+            <textarea class="modal-input" value={form.reason} onInput={(e) => setForm("reason", e.currentTarget.value)} placeholder={language.t("kanban.form.correctionReasonPlaceholder")} />
           </div>
         </div>
 
         <div class="modal-section">
-          <div class="modal-section-title">纠错历史</div>
-          <div class="modal-section-desc">打开弹窗后会自动加载当前维度的纠错历史。</div>
+          <div class="modal-section-title">{language.t("kanban.dialog.correctionHistory")}</div>
+          <div class="modal-section-desc">{language.t("kanban.dialog.correctionHistoryDesc")}</div>
           {history.loading ? (
-            <div class="text-sm text-[var(--native-muted)]">加载中...</div>
+            <div class="text-sm text-[var(--native-muted)]">{language.t("common.loading")}...</div>
           ) : history()?.length ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>时间</TableHead>
-                  <TableHead>字段</TableHead>
-                  <TableHead>旧值</TableHead>
-                  <TableHead>新值</TableHead>
-                  <TableHead>原因</TableHead>
-                  <TableHead>操作人</TableHead>
+                  <TableHead>{language.t("kanban.table.time")}</TableHead>
+                  <TableHead>{language.t("kanban.table.field")}</TableHead>
+                  <TableHead>{language.t("kanban.table.oldValue")}</TableHead>
+                  <TableHead>{language.t("kanban.table.newValue")}</TableHead>
+                  <TableHead>{language.t("kanban.table.reason")}</TableHead>
+                  <TableHead>{language.t("kanban.form.operator")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -173,7 +175,7 @@ export function CorrectionDialog(props: Props) {
               </TableBody>
             </Table>
           ) : (
-            <div class="text-sm text-[var(--native-muted)]">暂无纠错记录</div>
+            <div class="text-sm text-[var(--native-muted)]">{language.t("kanban.dialog.noCorrectionRecords")}</div>
           )}
         </div>
       </Modal>

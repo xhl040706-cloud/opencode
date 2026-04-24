@@ -70,7 +70,7 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
       />
 
       <Show when={props.rows.length > 0 || !props.loading} fallback={<div class="px-4 py-8 text-sm text-[var(--native-muted)]">Loading...</div>}>
-        <Show when={props.rows.length > 0} fallback={<div class="px-4 py-10 text-center text-sm text-[var(--native-muted)]">{props.emptyText ?? "暂无数据"}</div>}>
+        <Show when={props.rows.length > 0} fallback={<div class="px-4 py-10 text-center text-sm text-[var(--native-muted)]">{props.emptyText ?? "No data"}</div>}>
           <div class="relative">
             <Show when={showOverlay()}>
               <div class="absolute inset-0 z-10 flex items-center justify-center bg-[color:color-mix(in_oklab,var(--native-panel)_70%,transparent)] backdrop-blur-[4px]">
@@ -156,13 +156,13 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
 
       <div class="flex flex-col gap-3 border-t border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div class="text-[0.8125rem] leading-[1.55] text-[var(--native-muted)]">
-          <Show when={props.total > 0} fallback="暂无数据">
-            显示 {from()} - {to()} / {props.total}
+          <Show when={props.total > 0} fallback="No data">
+            Showing {from()} - {to()} of {props.total}
           </Show>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <label class="flex items-center gap-2">
-            <span class="text-[0.8125rem] text-[var(--native-muted)]">每页</span>
+            <span class="text-[0.8125rem] text-[var(--native-muted)]">per page</span>
             <span class="relative inline-flex items-center">
               <select
                 class="h-8 min-w-[4.5rem] appearance-none rounded-md border border-input bg-transparent pr-9 pl-3 text-[0.8125rem] text-[var(--native-foreground)]"

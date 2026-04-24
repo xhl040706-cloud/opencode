@@ -1,3 +1,17 @@
+export function formatDuration(value?: number | null, t: (key: string) => string = (k) => k) {
+  if (value == null || value === 0) return "-"
+
+  const minutes = Math.round(Number(value))
+  if (!Number.isFinite(minutes) || minutes <= 0) return "-"
+  if (minutes < 60) return `${minutes}${t("kanban.duration.minutes")}`
+  if (minutes <= 480) {
+    const hour = Math.floor(minutes / 60)
+    const remain = minutes % 60
+    return remain === 0 ? `${hour}${t("kanban.duration.hour")}` : `${hour}${t("kanban.duration.hours")}${remain}${t("kanban.duration.minutes")}`
+  }
+  return `${(minutes / 480).toFixed(1)}${t("kanban.duration.manDays")}`
+}
+
 export function formatLocalTime(value?: string | null) {
   if (!value) return "-"
   const date = new Date(value)
@@ -11,20 +25,6 @@ export function formatLocalTime(value?: string | null) {
   const second = String(date.getSeconds()).padStart(2, "0")
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`
-}
-
-export function formatDuration(value?: number | null) {
-  if (value == null || value === 0) return "-"
-
-  const minutes = Math.round(Number(value))
-  if (!Number.isFinite(minutes) || minutes <= 0) return "-"
-  if (minutes < 60) return `${minutes}分钟`
-  if (minutes <= 480) {
-    const hour = Math.floor(minutes / 60)
-    const remain = minutes % 60
-    return remain === 0 ? `${hour}小时` : `${hour}小时${remain}分钟`
-  }
-  return `${(minutes / 480).toFixed(1)}人天`
 }
 
 export function formatPercent(value?: number | null, digits = 0) {
