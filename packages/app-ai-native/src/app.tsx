@@ -15,6 +15,7 @@ import { FileProvider } from "@/context/file"
 import { GlobalSDKProvider } from "@/context/global-sdk"
 import { GlobalSyncProvider } from "@/context/global-sync"
 import { HighlightsProvider } from "@/context/highlights"
+import { ItemFilterOptionsProvider } from "@/context/item-filter-options"
 import { LanguageProvider, useLanguage } from "@/context/language"
 import { LayoutProvider } from "@/context/layout"
 import { ModelsProvider } from "@/context/models"
@@ -148,7 +149,9 @@ export function AppBaseProviders(props: ParentProps) {
                   <DialogProvider>
                     <MarkedProviderWithNativeParser>
                       <FileComponentProvider component={File}>
-                        <AuthProvider>{props.children}</AuthProvider>
+                        <AuthProvider>
+                          <ItemFilterOptionsProvider>{props.children}</ItemFilterOptionsProvider>
+                        </AuthProvider>
                       </FileComponentProvider>
                     </MarkedProviderWithNativeParser>
                   </DialogProvider>

@@ -3,7 +3,7 @@ import { Icon, type IconProps } from "@opencode-ai/ui/icon"
 import { LocalIcon } from "@/components/local-icon"
 import { useLanguage } from "@/context/language"
 import { behaviorApi, itemApi, type CapabilityItem } from "../lib/api"
-import { categoryKey, typeKey } from "../lib/constants"
+import { typeKey } from "../lib/constants"
 import { getInstallCommand } from "./item-detail-content"
 import { useAuth } from "../hooks/use-auth"
 import SecurityTag from "./security-tag"
@@ -221,11 +221,6 @@ export default function BestPracticeCarousel(props: BestPracticeCarouselProps) {
                       {TYPE_LABEL[item.itemType] ?? "\u2726"}{" "}
                       {language.t(typeKey(item.itemType))}
                     </span>
-                    {/* <Show when={item.category?.trim()}>
-                      <span class="inline-flex items-center rounded-[0.625rem] bg-[color-mix(in_srgb,var(--native-muted)_8%,transparent)] px-2 py-0.5 text-[12px] whitespace-nowrap text-[var(--native-muted)]">
-                        {language.t(categoryKey(item.category))}
-                      </span>
-                    </Show> */}
                     <Show when={item.securityStatus}>
                       <SecurityTag status={item.securityStatus} />
                     </Show>
