@@ -225,6 +225,7 @@ export const dict = {
   "store.capabilityEditor.sections.package": "Package",
   "store.capabilityEditor.sections.files": "File Tree",
   "store.dashboard.nav.devices": "Devices",
+  "store.dashboard.nav.projects": "Projects",
   "store.dashboard.nav.notifications": "Notifications",
   "store.sidebar.nav.skills": "Skills",
   "store.sidebar.nav.subagents": "Subagents",
