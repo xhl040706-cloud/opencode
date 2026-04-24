@@ -294,14 +294,14 @@ function buildCapabilityPayloadFromFiles(itemType: ItemType, slug: string, fileC
   return { sourcePath, content, assets }
 }
 
-function buildFileContentsFromItem(item: CapabilityItem): FileContentMap {
+function buildFileContentsFromItem(item: CapabilityItem, assets?: CapabilityItemAsset[]): FileContentMap {
   const itemType = (item.itemType as ItemType) || "skill"
   const sourcePath = item.sourcePath || defaultSourcePathForItemType(itemType, item.slug || "")
   const next: FileContentMap = {
     [sourcePath]: item.content || TYPE_CONTENT_PLACEHOLDER[itemType] || "",
   }
 
-  for (const asset of item.assets ?? []) {
+  for (const asset of assets ?? item.assets ?? []) {
     if (!asset.relPath || typeof asset.textContent !== "string") continue
     next[asset.relPath] = asset.textContent
   }
@@ -1232,6 +1232,14 @@ export default function CapabilityEditorPage() {
     },
   )
 
+  const [itemAssets, { mutate: mutateItemAssets }] = createResource(
+	() => params.itemId,
+	async (itemId) => {
+	  if (!itemId) return [] as CapabilityItemAsset[]
+	  return itemApi.getAssets(itemId)
+	},
+  )
+
   const [selectedVersion] = createResource(
     () => {
       if (!isEdit() || !params.itemId || form.selectedRevision <= 0) return null
@@ -1385,7 +1393,8 @@ export default function CapabilityEditorPage() {
     if (!isEdit() || !data || form.loaded) return
 
     const itemType = (data.itemType as ItemType) || "skill"
-    const fileContents = buildFileContentsFromItem(data)
+    if (itemAssets.loading) return
+    const fileContents = buildFileContentsFromItem(data, itemAssets() ?? [])
     const filePaths = Object.keys(fileContents)
     const selectedTreePath = data.sourcePath || defaultSourcePathForItemType(itemType, data.slug || "") || filePaths[0] || ""
 
@@ -1461,7 +1470,8 @@ export default function CapabilityEditorPage() {
     if (!isEdit() || !data || !form.loaded) return
     if (isViewingHistoricalVersion()) return
 
-    const fileContents = buildFileContentsFromItem(data)
+    if (itemAssets.loading) return
+    const fileContents = buildFileContentsFromItem(data, itemAssets() ?? [])
     const filePaths = Object.keys(fileContents)
     const selectedTreePath = data.sourcePath || defaultSourcePathForItemType((data.itemType as ItemType) || "skill", data.slug || "") || filePaths[0] || ""
 
@@ -1737,6 +1747,8 @@ export default function CapabilityEditorPage() {
 
       const refreshed = await itemApi.get(params.itemId)
       mutateItem(refreshed)
+      const refreshedAssets = await itemApi.getAssets(params.itemId)
+      mutateItemAssets(refreshedAssets)
       const refreshedVersions = await itemApi.listVersions(params.itemId)
       mutateVersions(refreshedVersions)
       setForm("selectedRevision", refreshed.currentRevision || version.revision)

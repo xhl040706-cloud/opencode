@@ -736,11 +736,12 @@ export const registryApi = {
 }
 
 export const itemApi = {
-  listMy: (ownerId: string, opts?: { type?: string; page?: number; pageSize?: number }) => {
+  listMy: (ownerId: string, opts?: { type?: string; page?: number; pageSize?: number; search?: string }) => {
     const p = new URLSearchParams({ ownerId })
     if (opts?.type) p.set("type", opts.type)
     if (opts?.page) p.set("page", String(opts.page))
     if (opts?.pageSize) p.set("pageSize", String(opts.pageSize))
+    if (opts?.search) p.set("search", opts.search)
     return apiFetch<{ items: CapabilityItem[]; total: number }>(`/api/items/my?${p.toString()}`)
   },
 
@@ -848,6 +849,8 @@ export const itemApi = {
   delete: (id: string) => apiFetch<{ message: string }>(`/api/items/${id}`, { method: "DELETE" }),
 
   get: (id: string) => apiFetch<CapabilityItem>(`/api/items/${id}`, { credentials: "include" }),
+
+  getAssets: (id: string) => apiFetch<{ assets: CapabilityItemAsset[] }>(`/api/items/${id}/assets`, { credentials: "include" }).then((res) => res.assets ?? []),
 
   listVersions: (id: string) => apiFetch<{ versions: CapabilityVersion[] }>(`/api/items/${id}/versions`, { credentials: "include" }).then((res) => res.versions ?? []),
 

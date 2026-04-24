@@ -92,6 +92,8 @@ export const dict = {
   "store.console.capabilities.showing": "Showing {{from}}-{{to}} of {{total}}",
   "store.console.capabilities.myCreated": "My Created",
   "store.console.capabilities.myFavorited": "My Favorited",
+  "store.console.capabilities.backToHome": "Back to Home",
+  "store.console.capabilities.searchPlaceholder": "Search capabilities",
   "store.console.capabilities.favorited.loading": "Loading favorited capabilities...",
   "store.console.capabilities.favorited.empty": "No favorited capabilities yet.",
   "store.console.filters.all": "All",
