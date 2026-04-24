@@ -1046,6 +1046,7 @@ export const dict = {
   "store.capabilityEditor.sections.package": "包信息",
   "store.capabilityEditor.sections.files": "文件树",
   "store.dashboard.nav.devices": "设备管理",
+  "store.dashboard.nav.projects": "项目管理",
   "store.dashboard.nav.notifications": "通知频道",
   "store.sidebar.nav.skills": "技能",
   "store.sidebar.nav.subagents": "子智能体",
