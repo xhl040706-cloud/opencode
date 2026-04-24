@@ -4,7 +4,7 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { LocalIcon } from "@/components/local-icon"
 import { useLanguage } from "@/context/language"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { createEffect, createMemo, createSignal, For, Show, Suspense } from "solid-js"
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, Suspense } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useAuth } from "@/pages/store/hooks/use-auth"
 import { getLoginUrl } from "@/pages/store/lib/auth"
@@ -33,6 +33,7 @@ export default function DashboardCapabilities() {
   const navigate = useNavigate()
   const { user, loading } = useAuth()
   const [selectedItemId, setSelectedItemId] = createSignal<string | null>(null)
+  const [detailRenderItemId, setDetailRenderItemId] = createSignal<string | null>(null)
   const [detailItem, setDetailItem] = createSignal<CapabilityItem | null>(null)
   const [favoritePending, setFavoritePending] = createSignal(false)
   const [favorited, setFavorited] = createSignal(false)
@@ -107,6 +108,23 @@ export default function DashboardCapabilities() {
   const totalPages = createMemo(() => Math.max(1, Math.ceil(state.totalItems / PAGE_SIZE)))
   const favTotalPages = createMemo(() => Math.max(1, Math.ceil(favState.total / PAGE_SIZE)))
   const detailOpen = createMemo(() => !!selectedItemId())
+  const [detailContentReady, setDetailContentReady] = createSignal(false)
+  let detailContentTimer: ReturnType<typeof setTimeout> | undefined
+
+  createEffect(() => {
+    const itemId = selectedItemId()
+    clearTimeout(detailContentTimer)
+    if (!itemId) {
+      setDetailContentReady(false)
+      setDetailRenderItemId(null)
+      return
+    }
+    setDetailContentReady(false)
+    detailContentTimer = setTimeout(() => {
+      setDetailRenderItemId(itemId)
+      setDetailContentReady(true)
+    }, 180)
+  })
 
   const buildPages = (total: number, cur: number) => {
     if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
@@ -155,6 +173,10 @@ export default function DashboardCapabilities() {
     await behaviorApi.unfavorite(id)
     void loadFavorited(favState.page)
   }
+
+  onCleanup(() => {
+    clearTimeout(detailContentTimer)
+  })
 
   const toggleFavorite = async () => {
     const data = detailItem()
@@ -541,22 +563,27 @@ export default function DashboardCapabilities() {
               <SheetTitle>{language.t("store.home.detail.title")}</SheetTitle>
               <SheetDescription>{language.t("store.home.detail.description")}</SheetDescription>
             </SheetHeader>
-            <Show when={selectedItemId()}>
+            <Show when={detailRenderItemId()}>
               {(itemId) => (
-                <Suspense fallback={<div class="flex justify-center py-16 text-muted-foreground">{language.t("store.loading")}</div>}>
-                  <ItemDetailContent
-                    itemId={itemId()}
-                    class={cn(sx.sheetBody, "thin-scrollbar")}
-                    onItemLoaded={setDetailItem}
-                    favorited={favorited()}
-                    favoriteCount={favoriteCount()}
-                    previewCount={previewCount()}
-                    installCount={installCount()}
-                    onToggleFavorite={toggleFavorite}
-                    favoritePending={favoritePending()}
-                    isAuthenticated={!!user() && !loading()}
-                  />
-                </Suspense>
+                <Show
+                  when={detailContentReady()}
+                  fallback={<div class="flex justify-center py-16 text-muted-foreground">{language.t("store.loading")}</div>}
+                >
+                  <Suspense fallback={<div class="flex justify-center py-16 text-muted-foreground">{language.t("store.loading")}</div>}>
+                    <ItemDetailContent
+                      itemId={itemId()}
+                      class={cn(sx.sheetBody, "thin-scrollbar")}
+                      onItemLoaded={setDetailItem}
+                      favorited={favorited()}
+                      favoriteCount={favoriteCount()}
+                      previewCount={previewCount()}
+                      installCount={installCount()}
+                      onToggleFavorite={toggleFavorite}
+                      favoritePending={favoritePending()}
+                      isAuthenticated={!!user() && !loading()}
+                    />
+                  </Suspense>
+                </Show>
               )}
             </Show>
           </SheetContent>

@@ -41,6 +41,7 @@ export default function StoreManagerPage() {
   const [selectedItemId, setSelectedItemId] = createStore<{ value: string | null }>({ value: null })
   const [detailState, setDetailState] = createStore({
     item: null as CapabilityItem | null,
+    renderItemId: null as string | null,
     favoritePending: false,
     favorited: false,
     favoriteCount: 0,
@@ -149,10 +150,12 @@ export default function StoreManagerPage() {
     clearTimeout(detailContentTimer)
     if (!itemId) {
       setDetailState("contentReady", false)
+      setDetailState("renderItemId", null)
       return
     }
     setDetailState("contentReady", false)
     detailContentTimer = setTimeout(() => {
+      setDetailState("renderItemId", itemId)
       setDetailState("contentReady", true)
     }, 180)
   })
@@ -205,7 +208,7 @@ export default function StoreManagerPage() {
 
   const openItemDetail = (item: CapabilityItem) => {
     setSelectedItemId("value", item.id)
-    queueMicrotask(() => setDetailState("item", item))
+    setDetailState("item", item)
   }
 
   onCleanup(() => {
@@ -609,7 +612,7 @@ export default function StoreManagerPage() {
                 <SheetTitle>{language.t("store.home.detail.title")}</SheetTitle>
                 <SheetDescription>{language.t("store.home.detail.description")}</SheetDescription>
               </SheetHeader>
-              <Show when={selectedItemId.value}>
+              <Show when={detailState.renderItemId}>
                 {(itemId) => (
                   <Show
                     when={detailState.contentReady}

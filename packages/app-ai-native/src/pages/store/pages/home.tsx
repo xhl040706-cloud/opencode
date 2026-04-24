@@ -176,6 +176,7 @@ export default function Home() {
   const [installCount, setInstallCount] = createSignal(0)
   const [trackedItemId, setTrackedItemId] = createSignal<string | null>(null)
   const [detailContentReady, setDetailContentReady] = createSignal(false)
+  const [detailRenderItemId, setDetailRenderItemId] = createSignal<string | null>(null)
   let detailContentTimer: ReturnType<typeof setTimeout> | undefined
 
   const [columnPrefs, setColumnPrefs] = persisted(
@@ -450,7 +451,7 @@ export default function Home() {
 
   const openItemDetail = (item: CapabilityItem) => {
     setSelectedItemId(item.id)
-    queueMicrotask(() => setDetailItem(item))
+    setDetailItem(item)
   }
 
   createEffect(() => {
@@ -462,10 +463,12 @@ export default function Home() {
     clearTimeout(detailContentTimer)
     if (!itemId) {
       setDetailContentReady(false)
+      setDetailRenderItemId(null)
       return
     }
     setDetailContentReady(false)
     detailContentTimer = setTimeout(() => {
+      setDetailRenderItemId(itemId)
       setDetailContentReady(true)
     }, 180)
   })
@@ -1134,7 +1137,7 @@ export default function Home() {
             <SheetTitle>{language.t("store.home.detail.title")}</SheetTitle>
             <SheetDescription>{language.t("store.home.detail.description")}</SheetDescription>
           </SheetHeader>
-          <Show when={selectedItemId()}>
+          <Show when={detailRenderItemId()}>
             {(itemId) => (
               <Show
                 when={detailContentReady()}
