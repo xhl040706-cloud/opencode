@@ -1,4 +1,5 @@
 import { createMemo } from "solid-js"
+import { useLanguage } from "@/context/language"
 import { useAggregateKeys } from "../../hooks/use-aggregate-keys"
 import { SearchCreateSelect } from "./search-create-select"
 
@@ -13,6 +14,7 @@ type Props = {
 }
 
 export function DimensionSelect(props: Props) {
+  const language = useLanguage()
   const range = createMemo(() => {
     if (!props.startDate || !props.endDate) return null
     return [props.startDate, props.endDate] as [string, string]
@@ -32,8 +34,8 @@ export function DimensionSelect(props: Props) {
       allowCreate={props.allowCreate}
       clearable
       loading={keys.loading()}
-      placeholder={props.placeholder ?? "输入关键词搜索..."}
-      emptyMessage="没有匹配的维度值"
+      placeholder={props.placeholder ?? language.t("common.search.placeholder")}
+      emptyMessage="No matching values"
     />
   )
 }

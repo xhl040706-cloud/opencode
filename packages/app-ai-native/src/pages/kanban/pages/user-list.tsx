@@ -2,6 +2,7 @@ import { useNavigate, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, on, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
 import { FilterBar } from "../components/filters/filter-bar"
@@ -40,6 +41,7 @@ function points(series: UserSeries, field: keyof UserSeries["points"][number]) {
 }
 
 export default function KanbanUserList() {
+  const language = useLanguage()
   const navigate = useNavigate()
   const [search, setSearch] = useSearchParams<{
     startDate?: string
@@ -114,7 +116,7 @@ export default function KanbanUserList() {
   const columns = createMemo<KanbanColumn<UserAggregateRow>[]>(() => [
     {
       prop: "org_display",
-      label: "组织",
+      label: language.t("kanban.table.org"),
       minWidth: 180,
       render: (row) => row.org_display?.trim()
         ? <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => {
@@ -126,7 +128,7 @@ export default function KanbanUserList() {
     },
     {
       prop: "user_name",
-      label: "用户名",
+      label: language.t("kanban.table.userName"),
       minWidth: 140,
       render: (row) => <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => {
         const txt = row.user_id?.trim()
@@ -135,29 +137,29 @@ export default function KanbanUserList() {
       }}>{row.user_name || row.user_id || "-"}</button>,
       filter: { type: "multi-select" },
     },
-    { prop: "task_count", label: "Task数", minWidth: 90, align: "right", filter: { type: "number" } },
-    { prop: "commit_count", label: "Commit数", minWidth: 100, align: "right", filter: { type: "number" } },
-    { prop: "task_diff_lines", label: "Task代码量", minWidth: 110, align: "right", filter: { type: "number" } },
-    { prop: "commit_diff_lines", label: "Commit代码量", minWidth: 120, align: "right", filter: { type: "number" } },
+    { prop: "task_count", label: language.t("kanban.table.taskCount"), minWidth: 90, align: "right", filter: { type: "number" } },
+    { prop: "commit_count", label: language.t("kanban.table.commitCount"), minWidth: 100, align: "right", filter: { type: "number" } },
+    { prop: "task_diff_lines", label: language.t("kanban.table.taskCodeLines"), minWidth: 110, align: "right", filter: { type: "number" } },
+    { prop: "commit_diff_lines", label: language.t("kanban.table.commitCodeLines"), minWidth: 120, align: "right", filter: { type: "number" } },
     {
       prop: "task_real_minutes",
-      label: "Task实际耗时",
+      label: language.t("kanban.table.taskActualTime"),
       minWidth: 120,
       align: "right",
-      display: (row) => formatDuration(row.task_real_minutes),
+      display: (row) => formatDuration(row.task_real_minutes, language.t),
       filter: { type: "number" },
     },
     {
       prop: "commit_real_minutes",
-      label: "Commit实际耗时",
+      label: language.t("kanban.table.commitActualTime"),
       minWidth: 130,
       align: "right",
-      display: (row) => formatDuration(row.commit_real_minutes),
+      display: (row) => formatDuration(row.commit_real_minutes, language.t),
       filter: { type: "number" },
     },
     {
       prop: "task_efficiency_ratio",
-      label: "Task提效比",
+      label: language.t("kanban.table.taskEfficiency"),
       minWidth: 110,
       align: "center",
       render: (row) => <RatioPill value={row.task_efficiency_ratio} />,
@@ -165,7 +167,7 @@ export default function KanbanUserList() {
     },
     {
       prop: "commit_efficiency_ratio",
-      label: "Commit提效比",
+      label: language.t("kanban.table.commitEfficiency"),
       minWidth: 120,
       align: "center",
       render: (row) => <RatioPill value={row.commit_efficiency_ratio} />,
@@ -173,7 +175,7 @@ export default function KanbanUserList() {
     },
     {
       prop: "_tokens",
-      label: "Tokens消耗",
+      label: language.t("kanban.table.tokensConsumed"),
       minWidth: 110,
       align: "right",
       display: (row) => {
@@ -184,7 +186,7 @@ export default function KanbanUserList() {
     },
     {
       prop: "cost",
-      label: "费用",
+      label: language.t("kanban.table.cost"),
       minWidth: 90,
       align: "right",
       display: (row) => row.cost == null || row.cost === 0 ? "-" : `¥${row.cost.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`,
@@ -211,7 +213,7 @@ export default function KanbanUserList() {
       } catch (err) {
         showToast({
           variant: "error",
-          title: "用户列表加载失败",
+          title: language.t("kanban.loading.userList"),
           description: err instanceof Error ? err.message : String(err),
         })
         return {
@@ -238,51 +240,51 @@ export default function KanbanUserList() {
   const countOption = createMemo<EChartsOption | undefined>(() => {
     if (!periods().length || !series().length) return undefined
     const list = series().flatMap((item) => [
-      { name: `${item.user_name || item.user_id || "-"} Task数`, data: points(item, "task_count") },
-      { name: `${item.user_name || item.user_id || "-"} Commit数`, data: points(item, "commit_count") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.task")}`, data: points(item, "task_count") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commit")}`, data: points(item, "commit_count") },
     ])
-    return chart("Task数 & Commit数", periods(), list)
+    return chart(language.t("kanban.chart.tasksAndCommits"), periods(), list)
   })
 
   const codeOption = createMemo<EChartsOption | undefined>(() => {
     if (!periods().length || !series().length) return undefined
     const list = series().flatMap((item) => [
-      { name: `${item.user_name || item.user_id || "-"} Task代码量`, data: points(item, "task_diff_lines") },
-      { name: `${item.user_name || item.user_id || "-"} Commit代码量`, data: points(item, "commit_diff_lines") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.taskCode")}`, data: points(item, "task_diff_lines") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commitCode")}`, data: points(item, "commit_diff_lines") },
     ])
-    return chart("Task代码量 & Commit代码量", periods(), list)
+    return chart(language.t("kanban.chart.taskAndCommitCode"), periods(), list)
   })
 
   const timeOption = createMemo<EChartsOption | undefined>(() => {
     if (!periods().length || !series().length) return undefined
     const list = series().flatMap((item) => [
-      { name: `${item.user_name || item.user_id || "-"} Task传统耗时`, data: points(item, "task_ancient_minutes") },
-      { name: `${item.user_name || item.user_id || "-"} Commit传统耗时`, data: points(item, "commit_ancient_minutes") },
-      { name: `${item.user_name || item.user_id || "-"} Task实际耗时`, data: points(item, "task_real_minutes") },
-      { name: `${item.user_name || item.user_id || "-"} Commit实际耗时`, data: points(item, "commit_real_minutes") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.taskTrad")}`, data: points(item, "task_ancient_minutes") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commitTrad")}`, data: points(item, "commit_ancient_minutes") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.taskActual")}`, data: points(item, "task_real_minutes") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commitActual")}`, data: points(item, "commit_real_minutes") },
     ])
-    return chart("传统耗时 & 实际耗时（分钟）", periods(), list, { format: (value) => formatDuration(value) })
+    return chart(language.t("kanban.chart.traditionalVsActual"), periods(), list, { format: (value) => formatDuration(value, language.t) })
   })
 
   const ratioOption = createMemo<EChartsOption | undefined>(() => {
     if (!periods().length || !series().length) return undefined
     const list = series().flatMap((item) => [
-      { name: `${item.user_name || item.user_id || "-"} Task提效比`, data: points(item, "task_efficiency_ratio") },
-      { name: `${item.user_name || item.user_id || "-"} Commit提效比`, data: points(item, "commit_efficiency_ratio") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.taskEff")}`, data: points(item, "task_efficiency_ratio") },
+      { name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commitEff")}`, data: points(item, "commit_efficiency_ratio") },
     ])
-    return chart("Task提效比 & Commit提效比", periods(), list, { format: (value) => formatPercent(value) })
+    return chart(language.t("kanban.chart.efficiencyRatio"), periods(), list, { format: (value) => formatPercent(value) })
   })
 
   const tokenOption = createMemo<EChartsOption | undefined>(() => {
     if (!periods().length || !series().length) return undefined
     const list = series().map((item) => ({ name: item.user_name || item.user_id || "-", data: points(item, "total_tokens") }))
-    return chart("Tokens消耗", periods(), list)
+    return chart(language.t("kanban.chart.tokens"), periods(), list)
   })
 
   const costOption = createMemo<EChartsOption | undefined>(() => {
     if (!periods().length || !series().length) return undefined
     const list = series().map((item) => ({ name: item.user_name || item.user_id || "-", data: points(item, "total_cost") }))
-    return chart("总费用", periods(), list, { format: (value) => `${value.toFixed(2)} 元` })
+    return chart(language.t("kanban.chart.cost"), periods(), list, { format: (value) => `¥${value.toFixed(2)}` })
   })
 
   return (
@@ -290,7 +292,7 @@ export default function KanbanUserList() {
       <div class="flex w-full flex-col gap-5">
         <header class="flex w-full flex-col gap-3">
           <Back />
-          <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">用户视图</h1>
+          <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.view.user")}</h1>
         </header>
 
         <FilterBar
@@ -309,7 +311,7 @@ export default function KanbanUserList() {
           actions={
             <>
               <label class="flex min-w-0 flex-col gap-2">
-                <span class="text-[0.75rem] text-[var(--native-muted)]">聚合粒度</span>
+                <span class="text-[0.75rem] text-[var(--native-muted)]">{language.t("kanban.granularity")}</span>
                 <select
                   class="flex h-10 min-w-[8rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   value={state.granularity}
@@ -318,15 +320,15 @@ export default function KanbanUserList() {
                     setState("page", 1)
                   }}
                 >
-                  <option value="day">天</option>
-                  <option value="week">周</option>
-                  <option value="month">月</option>
-                  <option value="year">年</option>
+                  <option value="day">{language.t("kanban.granularity.day")}</option>
+                  <option value="week">{language.t("kanban.granularity.week")}</option>
+                  <option value="month">{language.t("kanban.granularity.month")}</option>
+                  <option value="year">{language.t("kanban.granularity.year")}</option>
                 </select>
               </label>
               <div class="flex items-end">
                 <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>
-                  {data.loading ? "刷新中..." : "刷新"}
+                  {data.loading ? language.t("kanban.action.refreshing") : language.t("kanban.action.refresh")}
                 </Button>
               </div>
             </>
@@ -344,7 +346,7 @@ export default function KanbanUserList() {
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[50, 100, 250]}
-          emptyText={data.loading ? "用户聚合加载中..." : "当前时间范围内没有用户数据"}
+          emptyText={data.loading ? language.t("kanban.loading.userAggregate") : language.t("kanban.empty.noUserData")}
           onPageChange={(page) => setState("page", page)}
           onPageSizeChange={(pageSize) => {
             setState("pageSize", pageSize)
@@ -353,12 +355,12 @@ export default function KanbanUserList() {
         />
 
         <section class="grid gap-4 lg:grid-cols-2">
-          <ChartCard option={countOption()} empty="暂无数量图表数据" />
-          <ChartCard option={codeOption()} empty="暂无代码量图表数据" />
-          <ChartCard option={timeOption()} empty="暂无耗时图表数据" />
-          <ChartCard option={ratioOption()} empty="暂无提效比图表数据" />
-          <ChartCard option={tokenOption()} empty="暂无 Token 图表数据" />
-          <ChartCard option={costOption()} empty="暂无费用图表数据" />
+          <ChartCard option={countOption()} empty={language.t("kanban.chart.empty.count")} />
+          <ChartCard option={codeOption()} empty={language.t("kanban.chart.empty.code")} />
+          <ChartCard option={timeOption()} empty={language.t("kanban.chart.empty.time")} />
+          <ChartCard option={ratioOption()} empty={language.t("kanban.chart.empty.ratio")} />
+          <ChartCard option={tokenOption()} empty={language.t("kanban.chart.empty.token")} />
+          <ChartCard option={costOption()} empty={language.t("kanban.chart.empty.cost")} />
         </section>
       </div>
     </div>

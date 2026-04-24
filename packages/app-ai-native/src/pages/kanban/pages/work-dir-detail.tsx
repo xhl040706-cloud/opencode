@@ -1,6 +1,7 @@
 import { A, useParams, useSearchParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Back from "../components/back"
 import { getWorkDirDetail } from "../lib/api"
@@ -58,6 +59,7 @@ function SilicaBar(props: { value: number }) {
 }
 
 export default function KanbanWorkDirDetail() {
+  const language = useLanguage()
   const params = useParams()
   const [searchParams] = useSearchParams<{ fromTaskId?: string }>()
 
@@ -65,7 +67,7 @@ export default function KanbanWorkDirDetail() {
     const taskId = searchParams.fromTaskId?.trim()
     return taskId ? `/kanban/task/${encodeURIComponent(taskId)}` : "/kanban"
   })
-  const backLabel = createMemo(() => searchParams.fromTaskId?.trim() ? "返回 Task 详情" : "返回看板")
+  const backLabel = createMemo(() => searchParams.fromTaskId?.trim() ? language.t("kanban.backToTaskDetail") : language.t("kanban.back"))
 
   const workDirId = createMemo(() => decodeURIComponent(params.workDirId ?? "").trim())
 
@@ -78,7 +80,7 @@ export default function KanbanWorkDirDetail() {
       } catch (err) {
         showToast({
           variant: "error",
-          title: "工作目录详情加载失败",
+          title: language.t("kanban.loading.workDirDetail"),
           description: err instanceof Error ? err.message : String(err),
         })
         return null
@@ -118,31 +120,31 @@ export default function KanbanWorkDirDetail() {
       <header class="mx-auto flex w-full max-w-[1320px] flex-col gap-3">
         <Back href={backHref()} label={backLabel()} />
         <div>
-          <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / WorkDir Detail</p>
+          <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">{language.t("kanban.breadcrumb.workDirDetail")}</p>
           <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">
-            工作目录详情: {detail()?.repo_addr || detail()?.repo_id || "-"}
+            {language.t("kanban.detail.workDir")}: {detail()?.repo_addr || detail()?.repo_id || "-"}
           </h1>
         </div>
       </header>
 
       <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <Show when={!detail.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">加载中...</div>}>
-          <Show when={detail()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">没有查询到工作目录详情</div>}>
+        <Show when={!detail.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.misc.loading")}</div>}>
+          <Show when={detail()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.empty.noWorkDirDetail")}</div>}>
             {(_) => (
               <>
                 {/* 基础信息 */}
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">基础信息</div>
+                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.basicInfo")}</div>
                   <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <MetricCard label="仓库地址" value={detail()?.repo_addr || "-"} hint="当前查看的工作目录" />
-                    <MetricCard label="分支" value={detail()?.repo_branch || "-"} accent="var(--native-info, var(--native-primary))" />
-                    <MetricCard label="用户数" value={String(summary().user_count ?? "-")} accent="var(--native-success)" />
-                    <MetricCard label="关联Task数" value={String(summary().task_count ?? "-")} accent="var(--native-primary)" />
-                    <MetricCard label="关联Commit数" value={String(summary().commit_count ?? "-")} accent="var(--native-warning)" />
-                    <MetricCard label="总费用" value={summary().total_cost != null ? `${summary().total_cost!.toFixed(2)} 元` : "-"} accent="var(--native-warning)" />
+                    <MetricCard label={language.t("kanban.metric.repoUrl")} value={detail()?.repo_addr || "-"} hint={language.t("kanban.hint.currentWorkDir")} />
+                    <MetricCard label={language.t("kanban.metric.branch")} value={detail()?.repo_branch || "-"} accent="var(--native-info, var(--native-primary))" />
+                    <MetricCard label={language.t("kanban.metric.userCount")} value={String(summary().user_count ?? "-")} accent="var(--native-success)" />
+                    <MetricCard label={language.t("kanban.metric.relatedTaskCount")} value={String(summary().task_count ?? "-")} accent="var(--native-primary)" />
+                    <MetricCard label={language.t("kanban.metric.relatedCommitCount")} value={String(summary().commit_count ?? "-")} accent="var(--native-warning)" />
+                    <MetricCard label={language.t("kanban.metric.totalCost")} value={summary().total_cost != null ? `${summary().total_cost!.toFixed(2)} ${language.t("kanban.repo.yuan")}` : "-"} accent="var(--native-warning)" />
                     <MetricCard
-                      label="传统开发时长预估"
-                      value={formatDuration(summary().task_ancient_minutes)}
+                      label={language.t("kanban.metric.traditionalEst")}
+                      value={formatDuration(summary().task_ancient_minutes, language.t)}
                       accent="var(--native-success)"
                     />
                   </div>
@@ -152,18 +154,18 @@ export default function KanbanWorkDirDetail() {
                 <Show when={commits().length > 0}>
                   <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                     <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                      Commits ({commits().length})
+                      {language.t("kanban.label.commits")} ({commits().length})
                     </div>
                     <div class="overflow-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead class="min-w-[120px]">Commit ID</TableHead>
-                            <TableHead class="min-w-[150px]">提交者</TableHead>
-                            <TableHead class="min-w-[160px]">提交时间</TableHead>
-                            <TableHead class="min-w-[80px] text-right">Diff行数</TableHead>
-                            <TableHead class="min-w-[110px] text-center">硅含量</TableHead>
-                            <TableHead class="min-w-[90px] text-right">关联Task数</TableHead>
+                            <TableHead class="min-w-[120px]">{language.t("kanban.table.commitId")}</TableHead>
+                            <TableHead class="min-w-[150px]">{language.t("kanban.label.submitter")}</TableHead>
+                            <TableHead class="min-w-[160px]">{language.t("kanban.label.commitTime")}</TableHead>
+                            <TableHead class="min-w-[80px] text-right">{language.t("kanban.label.diffLines")}</TableHead>
+                            <TableHead class="min-w-[110px] text-center">{language.t("kanban.table.silicaContent")}</TableHead>
+                            <TableHead class="min-w-[90px] text-right">{language.t("kanban.label.relatedTaskCount")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -189,20 +191,20 @@ export default function KanbanWorkDirDetail() {
                                     <td colSpan={6} class="border-t-0 bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] px-6 py-3">
                                       <Show when={row.silica_reason}>
                                         <div class="mb-2 text-sm">
-                                          <span class="font-medium text-[var(--native-foreground)]">硅含量分析理由：</span>
+                                          <span class="font-medium text-[var(--native-foreground)]">{language.t("kanban.label.silicaAnalysisReason")}：</span>
                                           <span class="text-[var(--native-muted)]">{row.silica_reason}</span>
                                         </div>
                                       </Show>
                                       <Show when={row.matched_tasks && row.matched_tasks.length > 0}>
                                         <div>
-                                          <span class="text-sm font-medium text-[var(--native-foreground)]">关联 Tasks：</span>
+                                          <span class="text-sm font-medium text-[var(--native-foreground)]">{language.t("kanban.label.relatedTasks")}：</span>
                                           <div class="mt-2 overflow-auto">
                                             <Table>
                                               <TableHeader>
                                                 <TableRow>
-                                                  <TableHead class="min-w-[160px]">Task ID</TableHead>
-                                                  <TableHead class="min-w-[100px]">用户</TableHead>
-                                                  <TableHead class="min-w-[100px] text-center">硅比例</TableHead>
+                                                  <TableHead class="min-w-[160px]">{language.t("kanban.table.taskId")}</TableHead>
+                                                  <TableHead class="min-w-[100px]">{language.t("kanban.table.user")}</TableHead>
+                                                  <TableHead class="min-w-[100px] text-center">{language.t("kanban.label.silicaRatio")}</TableHead>
                                                 </TableRow>
                                               </TableHeader>
                                               <TableBody>
@@ -229,7 +231,7 @@ export default function KanbanWorkDirDetail() {
                                         </div>
                                       </Show>
                                       <Show when={!row.matched_tasks || row.matched_tasks.length === 0}>
-                                        <span class="text-sm text-[var(--native-muted)]">暂无关联 Task</span>
+                                        <span class="text-sm text-[var(--native-muted)]">{language.t("kanban.empty.noRelatedTasks")}</span>
                                       </Show>
                                     </td>
                                   </tr>
@@ -247,15 +249,15 @@ export default function KanbanWorkDirDetail() {
                 <Show when={participants().length > 0}>
                   <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                     <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                      参与者列表 ({participants().length})
+                      {language.t("kanban.section.participantList")} ({participants().length})
                     </div>
                     <div class="overflow-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead class="min-w-[150px]">用户名</TableHead>
-                            <TableHead class="min-w-[80px] text-right">Task数</TableHead>
-                            <TableHead class="min-w-[80px] text-right">Commit数</TableHead>
+                            <TableHead class="min-w-[150px]">{language.t("kanban.table.userName")}</TableHead>
+                            <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.taskCount")}</TableHead>
+                            <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.commitCount")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -292,6 +294,7 @@ export default function KanbanWorkDirDetail() {
 }
 
 function SilicaChartSection(props: { entries: WorkDirSilicaEntry[] }) {
+  const language = useLanguage()
   const sorted = createMemo(() =>
     [...props.entries]
       .filter((e) => e.silica != null)
@@ -301,7 +304,7 @@ function SilicaChartSection(props: { entries: WorkDirSilicaEntry[] }) {
 
   return (
     <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-      <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">硅比例（按Task）</div>
+      <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.silicaRatio")}</div>
       <div class="flex flex-col gap-2">
         <For each={sorted()}>
           {(entry) => {

@@ -6,11 +6,13 @@ import type { DateRangeValue, OrgCascadeValue, OrgLevel } from "../lib/types"
 
 const order: OrgLevel[] = ["org1", "org2", "org3", "org4"]
 
-const labels: Record<OrgLevel, string> = {
-  org1: "一级组织",
-  org2: "二级组织",
-  org3: "三级组织",
-  org4: "四级组织",
+function makeLabels(t: (key: string) => string): Record<OrgLevel, string> {
+  return {
+    org1: t("kanban.org.level1"),
+    org2: t("kanban.org.level2"),
+    org3: t("kanban.org.level3"),
+    org4: t("kanban.org.level4"),
+  }
 }
 
 function cleanValue(input: OrgCascadeValue) {
@@ -29,6 +31,7 @@ type UseOrgCascadeOptions = {
   value?: OrgCascadeValue
   dateRange?: DateRangeValue
   onChange?: (value: OrgCascadeValue) => void
+  t?: (key: string) => string
 }
 
 export function useOrgCascade(props: UseOrgCascadeOptions = {}) {
@@ -132,7 +135,7 @@ export function useOrgCascade(props: UseOrgCascadeOptions = {}) {
   const levels = createMemo(() =>
     order.map((level, index) => ({
       level,
-      label: labels[level],
+      label: makeLabels(props.t ?? ((k: string) => k))[level],
       value: state.value[level] ?? "",
       options: state.options[level],
       loading: state.loading[level],

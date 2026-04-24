@@ -1,6 +1,7 @@
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Back from "../components/back"
@@ -74,6 +75,7 @@ function queryOf(range: [string, string], granularity: Granularity) {
 }
 
 export default function KanbanUserDetail() {
+  const language = useLanguage()
   const params = useParams()
   const navigate = useNavigate()
   const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string }>()
@@ -99,7 +101,7 @@ export default function KanbanUserDetail() {
       } catch (err) {
         showToast({
           variant: "error",
-          title: "用户列表加载失败",
+          title: language.t("kanban.loading.userList"),
           description: err instanceof Error ? err.message : String(err),
         })
         return [] as UserOption[]
@@ -116,7 +118,7 @@ export default function KanbanUserDetail() {
       } catch (err) {
         showToast({
           variant: "error",
-          title: "用户详情加载失败",
+          title: language.t("kanban.loading.userDetail"),
           description: err instanceof Error ? err.message : String(err),
         })
         return null
@@ -150,42 +152,42 @@ export default function KanbanUserDetail() {
 
   const chart1 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return chart("Task / Commit 数", labels(), [
-      { name: "Task数", data: tasks().map((item) => Number(item.task_count ?? 0)) },
-      { name: "Commit数", data: commits().map((item) => Number(item.commit_count ?? 0)) },
+    return chart(`${language.t("kanban.table.taskCount")} / ${language.t("kanban.table.commitCount")}`, labels(), [
+      { name: language.t("kanban.table.taskCount"), data: tasks().map((item) => Number(item.task_count ?? 0)) },
+      { name: language.t("kanban.table.commitCount"), data: commits().map((item) => Number(item.commit_count ?? 0)) },
     ], { titleSize: 14 })
   })
 
   const chart2 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return chart("代码行数", labels(), [
-      { name: "Task代码行数", data: tasks().map((item) => Number(item.task_diff_lines ?? 0)) },
-      { name: "Commit代码行数", data: commits().map((item) => Number(item.commit_diff_lines ?? 0)) },
+    return chart(language.t("kanban.metric.codeLines"), labels(), [
+      { name: `Task ${language.t("kanban.metric.codeLines")}`, data: tasks().map((item) => Number(item.task_diff_lines ?? 0)) },
+      { name: `Commit ${language.t("kanban.metric.codeLines")}`, data: commits().map((item) => Number(item.commit_diff_lines ?? 0)) },
     ], { titleSize: 14 })
   })
 
   const chart3 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return chart("耗时对比", labels(), [
-      { name: "Task传统耗时", data: tasks().map((item) => Number(item.task_ancient_minutes ?? 0)) },
-      { name: "Task实际耗时", data: tasks().map((item) => Number(item.task_real_minutes ?? 0)) },
-      { name: "Commit传统耗时", data: commits().map((item) => Number(item.commit_ancient_minutes ?? 0)) },
-      { name: "Commit实际耗时", data: commits().map((item) => Number(item.commit_real_minutes ?? 0)) },
-    ], { titleSize: 14, format: (value) => formatDuration(value) })
+    return chart(language.t("kanban.table.timeComparison"), labels(), [
+      { name: `Task ${language.t("kanban.table.traditionalEst")}`, data: tasks().map((item) => Number(item.task_ancient_minutes ?? 0)) },
+      { name: `Task ${language.t("kanban.table.actualTime")}`, data: tasks().map((item) => Number(item.task_real_minutes ?? 0)) },
+      { name: `Commit ${language.t("kanban.table.traditionalEst")}`, data: commits().map((item) => Number(item.commit_ancient_minutes ?? 0)) },
+      { name: `Commit ${language.t("kanban.table.actualTime")}`, data: commits().map((item) => Number(item.commit_real_minutes ?? 0)) },
+    ], { titleSize: 14, format: (value) => formatDuration(value, language.t) })
   })
 
   const chart4 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return chart("费用", labels(), [
-      { name: "费用", data: commits().map((item) => Number(item.cost ?? 0)) },
-    ], { titleSize: 14, format: (value) => `${value.toFixed(2)} 元` })
+    return chart(language.t("kanban.metric.cost"), labels(), [
+      { name: language.t("kanban.metric.cost"), data: commits().map((item) => Number(item.cost ?? 0)) },
+    ], { titleSize: 14, format: (value) => `${value.toFixed(2)} ${language.t("kanban.repo.yuan")}` })
   })
 
   const chart5 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
-    return chart("提效比趋势", labels(), [
-      { name: "Task提效比", type: "line", data: tasks().map((item) => Number(item.task_efficiency_ratio ?? 0)) },
-      { name: "Commit提效比", type: "line", data: commits().map((item) => Number(item.commit_efficiency_ratio ?? 0)) },
+    return chart(language.t("kanban.chart.efficiencyRatio"), labels(), [
+      { name: language.t("kanban.metric.taskEfficiency"), type: "line", data: tasks().map((item) => Number(item.task_efficiency_ratio ?? 0)) },
+      { name: language.t("kanban.metric.commitEfficiency"), type: "line", data: commits().map((item) => Number(item.commit_efficiency_ratio ?? 0)) },
     ], { titleSize: 14, format: (value) => formatPercent(value) })
   })
 
@@ -193,11 +195,11 @@ export default function KanbanUserDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex flex-col gap-3">
-          <Back href={listHref()} label="返回用户列表" />
+          <Back href={listHref()} />
 
           <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">用户详情</h1>
+              <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.detail.user")}</h1>
             </div>
 
             <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:justify-end">
@@ -211,7 +213,7 @@ export default function KanbanUserDetail() {
                     navigate(detailHref(txt))
                   }}
                 >
-                  <option value="">选择用户</option>
+                  <option value="">{language.t("kanban.label.selectUser")}</option>
                   <For each={users() ?? []}>
                     {(item) => <option value={item.user_id}>{item.user_name || item.user_id}</option>}
                   </For>
@@ -226,7 +228,7 @@ export default function KanbanUserDetail() {
                     setSearch(Object.fromEntries(queryOf(next, granularity()).entries()))
                   }}
                   clearable={false}
-                  placeholder="选择日期范围"
+                  placeholder={language.t("kanban.filter.selectDateRange")}
                 />
               </label>
 
@@ -239,47 +241,47 @@ export default function KanbanUserDetail() {
                     setSearch(Object.fromEntries(queryOf(dateRange(), next).entries()))
                   }}
                 >
-                  <option value="day">天</option>
-                  <option value="week">周</option>
-                  <option value="month">月</option>
-                  <option value="year">年</option>
+                  <option value="day">{language.t("kanban.granularity.day")}</option>
+                  <option value="week">{language.t("kanban.granularity.week")}</option>
+                  <option value="month">{language.t("kanban.granularity.month")}</option>
+                  <option value="year">{language.t("kanban.granularity.year")}</option>
                 </select>
               </label>
 
               <div class="flex items-end">
-                <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={detail.loading}>刷新</Button>
+                <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={detail.loading}>{language.t("kanban.action.refresh")}</Button>
               </div>
             </div>
           </div>
         </header>
 
         <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <MetricCard label="总活跃天数" value={String(summary().day_count ?? 0)} accent="var(--native-success)" />
-          <MetricCard label="总Task数" value={String(summary().task_count ?? 0)} accent="var(--native-warning)" />
-          <MetricCard label="总Commit数" value={String(summary().commit_count ?? 0)} accent="var(--native-primary)" />
-          <MetricCard label="Task提效比" value={formatPercent(taskRatio())} accent="var(--native-success)" />
-          <MetricCard label="Commit提效比" value={formatPercent(commitRatio())} accent="var(--native-primary)" />
-          <MetricCard label="总费用" value={fmtCost(summary().cost)} accent="var(--native-warning)" />
+          <MetricCard label={language.t("kanban.metric.totalActiveDays")} value={String(summary().day_count ?? 0)} accent="var(--native-success)" />
+          <MetricCard label={language.t("kanban.metric.totalTasks")} value={String(summary().task_count ?? 0)} accent="var(--native-warning)" />
+          <MetricCard label={language.t("kanban.metric.totalCommits")} value={String(summary().commit_count ?? 0)} accent="var(--native-primary)" />
+          <MetricCard label={language.t("kanban.metric.taskEfficiency")} value={formatPercent(taskRatio())} accent="var(--native-success)" />
+          <MetricCard label={language.t("kanban.metric.commitEfficiency")} value={formatPercent(commitRatio())} accent="var(--native-primary)" />
+          <MetricCard label={language.t("kanban.metric.totalCost")} value={fmtCost(summary().cost)} accent="var(--native-warning)" />
         </section>
 
         <section class="overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-          <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">Commits 列表</div>
+          <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.commitList")}</div>
           <div class="overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead class="min-w-[140px]">时间</TableHead>
-                  <TableHead class="min-w-[90px] text-right">Task数</TableHead>
-                  <TableHead class="min-w-[90px] text-right">代码量</TableHead>
-                  <TableHead class="min-w-[110px] text-right">实际耗时</TableHead>
-                  <TableHead class="min-w-[150px] text-right">传统开发时长预估</TableHead>
-                  <TableHead class="min-w-[100px] text-center">提效比</TableHead>
-                  <TableHead class="min-w-[120px] text-right">Tokens消耗</TableHead>
-                  <TableHead class="min-w-[100px] text-right">费用</TableHead>
+                  <TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead>
+                  <TableHead class="min-w-[90px] text-right">{language.t("kanban.table.taskCount")}</TableHead>
+                  <TableHead class="min-w-[90px] text-right">{language.t("kanban.table.codeLines")}</TableHead>
+                  <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.actualTime")}</TableHead>
+                  <TableHead class="min-w-[150px] text-right">{language.t("kanban.table.traditionalEst")}</TableHead>
+                  <TableHead class="min-w-[100px] text-center">{language.t("kanban.table.efficiencyRatio")}</TableHead>
+                  <TableHead class="min-w-[120px] text-right">{language.t("kanban.table.tokensConsumed")}</TableHead>
+                  <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.cost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <Show when={commits().length > 0} fallback={<TableRow><TableCell colSpan={8} class="py-8 text-center text-sm text-[var(--native-muted)]">暂无 Commit 数据</TableCell></TableRow>}>
+                <Show when={commits().length > 0} fallback={<TableRow><TableCell colSpan={8} class="py-8 text-center text-sm text-[var(--native-muted)]">{language.t("kanban.empty.noCommitRecords")}</TableCell></TableRow>}>
                   <For each={commits()}>
                     {(row) => {
                       const link = () => {
@@ -298,8 +300,8 @@ export default function KanbanUserDetail() {
                           <TableCell>{row.period_label || row.period_key || "-"}</TableCell>
                           <TableCell class="text-right tabular-nums">{(row.task_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(link())}>{row.task_count}</button> : 0}</TableCell>
                           <TableCell class="text-right tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
-                          <TableCell class="text-right">{formatDuration(row.commit_real_minutes)}</TableCell>
-                          <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes)}</TableCell>
+                          <TableCell class="text-right">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
+                          <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes, language.t)}</TableCell>
                           <TableCell class="text-center"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
                           <TableCell class="text-right tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell>
                           <TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell>
@@ -314,23 +316,23 @@ export default function KanbanUserDetail() {
         </section>
 
         <section class="overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-          <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">Tasks 列表</div>
+          <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.taskList")}</div>
           <div class="overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead class="min-w-[140px]">时间</TableHead>
-                  <TableHead class="min-w-[90px] text-right">Commit数</TableHead>
-                  <TableHead class="min-w-[90px] text-right">代码量</TableHead>
-                  <TableHead class="min-w-[110px] text-right">实际耗时</TableHead>
-                  <TableHead class="min-w-[150px] text-right">传统开发时长预估</TableHead>
-                  <TableHead class="min-w-[100px] text-center">提效比</TableHead>
-                  <TableHead class="min-w-[120px] text-right">Tokens消耗</TableHead>
-                  <TableHead class="min-w-[100px] text-right">费用</TableHead>
+                  <TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead>
+                  <TableHead class="min-w-[90px] text-right">{language.t("kanban.table.commitCount")}</TableHead>
+                  <TableHead class="min-w-[90px] text-right">{language.t("kanban.table.codeLines")}</TableHead>
+                  <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.actualTime")}</TableHead>
+                  <TableHead class="min-w-[150px] text-right">{language.t("kanban.table.traditionalEst")}</TableHead>
+                  <TableHead class="min-w-[100px] text-center">{language.t("kanban.table.efficiencyRatio")}</TableHead>
+                  <TableHead class="min-w-[120px] text-right">{language.t("kanban.table.tokensConsumed")}</TableHead>
+                  <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.cost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <Show when={tasks().length > 0} fallback={<TableRow><TableCell colSpan={8} class="py-8 text-center text-sm text-[var(--native-muted)]">暂无 Task 数据</TableCell></TableRow>}>
+                <Show when={tasks().length > 0} fallback={<TableRow><TableCell colSpan={8} class="py-8 text-center text-sm text-[var(--native-muted)]">{language.t("kanban.empty.noTaskRecords")}</TableCell></TableRow>}>
                   <For each={tasks()}>
                     {(row) => {
                       const link = () => {
@@ -349,8 +351,8 @@ export default function KanbanUserDetail() {
                           <TableCell>{row.period_label || row.period_key || "-"}</TableCell>
                           <TableCell class="text-right tabular-nums">{(row.commit_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(link())}>{row.commit_count}</button> : 0}</TableCell>
                           <TableCell class="text-right tabular-nums">{row.task_diff_lines ?? 0}</TableCell>
-                          <TableCell class="text-right">{formatDuration(row.task_real_minutes)}</TableCell>
-                          <TableCell class="text-right">{formatDuration(row.task_ancient_minutes)}</TableCell>
+                          <TableCell class="text-right">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
+                          <TableCell class="text-right">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
                           <TableCell class="text-center"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
                           <TableCell class="text-right tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell>
                           <TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell>
@@ -365,13 +367,13 @@ export default function KanbanUserDetail() {
         </section>
 
         <section class="grid gap-4 lg:grid-cols-2">
-          <ChartCard option={chart1()} empty="暂无数量图表数据" />
-          <ChartCard option={chart2()} empty="暂无代码量图表数据" />
-          <ChartCard option={chart3()} empty="暂无耗时图表数据" />
-          <ChartCard option={chart4()} empty="暂无费用图表数据" />
+          <ChartCard option={chart1()} empty={language.t("kanban.chart.empty.count")} />
+          <ChartCard option={chart2()} empty={language.t("kanban.chart.empty.code")} />
+          <ChartCard option={chart3()} empty={language.t("kanban.chart.empty.time")} />
+          <ChartCard option={chart4()} empty={language.t("kanban.chart.empty.cost")} />
         </section>
 
-        <ChartCard option={chart5()} empty="暂无提效比图表数据" />
+        <ChartCard option={chart5()} empty={language.t("kanban.chart.empty.ratio")} />
       </div>
     </div>
   )

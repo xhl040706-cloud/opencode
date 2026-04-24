@@ -1,5 +1,6 @@
 import { A, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, For, on, untrack, type JSX } from "solid-js"
+import { useLanguage } from "@/context/language"
 import { createStore } from "solid-js/store"
 import { ArrowRight, BadgeInfo, Building2, ChevronDown, ClipboardList, FolderGit2, FolderOpen, GitCommitHorizontal, GitMerge, Users, Wallet } from "lucide-solid"
 import { showToast } from "@opencode-ai/ui/toast"
@@ -32,14 +33,15 @@ function saved(summary: DashboardSummary) {
   return Math.max(0, summary.total_task_ancient_minutes - summary.total_real_minutes)
 }
 
-function stat(value?: number | null) {
+function stat(value?: number | null, t: (key: string) => string = (k) => k) {
   if (value == null || value <= 0) return "-"
-  return formatDuration(value)
+  return formatDuration(value, t)
 }
 
-function splitHumanDays(value?: number | null) {
-  const text = stat(value)
-  const match = text.match(/^(.+?)(人天)$/)
+function splitHumanDays(value?: number | null, t: (key: string) => string = (k) => k) {
+  const text = stat(value, t)
+  const unit = t("kanban.duration.manDays")
+  const match = text.match(new RegExp(`^(.+?)(${unit})$`))
   if (!match) return null
   return { amount: match[1], unit: match[2] }
 }
@@ -185,6 +187,7 @@ function TopMenu(props: { title: string; items: Array<{ title: string; href: str
 }
 
 export default function KanbanHome() {
+  const language = useLanguage()
   const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string }>()
   const [state, setState] = createStore({
     dateRange: parseQueryRange(search.startDate, search.endDate),
@@ -229,7 +232,7 @@ export default function KanbanHome() {
         const msg = err instanceof Error ? err.message : String(err)
         showToast({
           variant: "error",
-          title: "首页概览加载失败",
+          title: language.t("kanban.home.loadFailed"),
           description: msg,
         })
         return blank()
@@ -246,9 +249,9 @@ export default function KanbanHome() {
 
   const metrics = createMemo(() => [
     {
-      label: "总仓数",
+      label: language.t("kanban.home.metric.totalRepos"),
       value: fmtInt(view().total_repos),
-      hint: `工作目录 ${fmtInt(view().total_work_dirs)}`,
+      hint: language.t("kanban.home.metric.workDirs", { count: fmtInt(view().total_work_dirs) }),
       tone: "#2d6bff",
       iconShell: "bg-[#eef4ff] text-[#2d6bff]",
       icon: <FolderGit2 class="h-5 w-5" stroke-width={1.9} />,
@@ -256,15 +259,15 @@ export default function KanbanHome() {
       live: true,
     },
     {
-      label: "总用户数",
+      label: language.t("kanban.home.metric.totalUsers"),
       value: fmtInt(view().total_users),
-      hint: `覆盖 ${fmtInt(view().total_tasks)} 个任务样本`,
+      hint: language.t("kanban.home.metric.taskSamples", { count: fmtInt(view().total_tasks) }),
       tone: "#18a957",
-      iconShell: "bg-[#edf9f0] text-[#18a957]",
+      iconShell: "bg-[#edf9f0] text-[#18a95@7]",
       icon: <Users class="h-5 w-5" stroke-width={1.9} />,
     },
     {
-      label: "总 Task 数",
+      label: language.t("kanban.home.metric.totalTasks"),
       value: fmtInt(view().total_tasks),
       hint: "",
       tone: "#ff7a00",
@@ -272,17 +275,17 @@ export default function KanbanHome() {
       icon: <ClipboardList class="h-5 w-5" stroke-width={1.9} />,
     },
     {
-      label: "总 Commit 数",
+      label: language.t("kanban.home.metric.totalCommits"),
       value: fmtInt(view().total_commits),
-      hint: `Diff 行数 ${fmtInt(view().total_diff_lines)}`,
+      hint: language.t("kanban.home.metric.diffLines", { count: fmtInt(view().total_diff_lines) }),
       tone: "#8a4cf6",
       iconShell: "bg-[#f5eefe] text-[#8a4cf6]",
       icon: <GitMerge class="h-5 w-5" stroke-width={1.9} />,
     },
     {
-      label: "总费用",
+      label: language.t("kanban.home.metric.totalCost"),
       value: fmtCost(view().total_cost) ?? "-",
-      hint: `Tokens ${fmtInt(view().total_tokens)}`,
+      hint: language.t("kanban.home.metric.tokens", { count: fmtInt(view().total_tokens) }),
       tone: "#2d6bff",
       iconShell: "bg-[#eef4ff] text-[#2d6bff]",
       icon: <Wallet class="h-5 w-5" stroke-width={1.9} />,
@@ -291,42 +294,42 @@ export default function KanbanHome() {
 
   const nav = createMemo(() => [
     {
-      title: "仓库视图",
+      title: language.t("kanban.home.nav.repo"),
       iconShell: "bg-[#eef4ff] text-[#2d6bff]",
       icon: <FolderGit2 class="h-5 w-5" stroke-width={1.9} />,
       href: "/kanban/repo",
       live: true,
     },
     {
-      title: "用户视图",
+      title: language.t("kanban.home.nav.user"),
       iconShell: "bg-[#edf9f0] text-[#18a957]",
       icon: <Users class="h-5 w-5" stroke-width={1.9} />,
       href: "/kanban/user",
       live: true,
     },
     {
-      title: "组织视图",
+      title: language.t("kanban.home.nav.org"),
       iconShell: "bg-[#f3ecff] text-[#b188ef]",
       icon: <Building2 class="h-5 w-5" stroke-width={1.9} />,
       href: "/kanban/org",
       live: true,
     },
     {
-      title: "提交视图",
+      title: language.t("kanban.home.nav.commit"),
       iconShell: "bg-[#fff3e8] text-[#ff8a24]",
       icon: <GitMerge class="h-5 w-5" stroke-width={1.9} />,
       href: "/kanban/commit",
       live: true,
     },
     {
-      title: "任务视图",
+      title: language.t("kanban.home.nav.task"),
       iconShell: "bg-[#fff8df] text-[#f0b93f]",
       icon: <ClipboardList class="h-5 w-5" stroke-width={1.9} />,
       href: "/kanban/task",
       live: true,
     },
     {
-      title: "项目视图",
+      title: language.t("kanban.home.nav.project"),
       iconShell: "bg-[#eef4ff] text-[#5c88ff]",
       icon: <FolderOpen class="h-5 w-5" stroke-width={1.9} />,
       href: "/kanban/project",
@@ -336,20 +339,20 @@ export default function KanbanHome() {
 
   const summaryStat = createMemo(() => [
     {
-      label: "节省时间",
-      value: splitHumanDays(saved(view())) ?? stat(saved(view())),
+      label: language.t("kanban.home.summary.savedTime"),
+      value: splitHumanDays(saved(view()), language.t) ?? stat(saved(view()), language.t),
       tone: "text-[#1f2937]",
       unitTone: "text-[#6f7d96]",
     },
     {
-      label: "传统预估",
-      value: splitHumanDays(view().total_task_ancient_minutes) ?? stat(view().total_task_ancient_minutes),
+      label: language.t("kanban.home.summary.traditionalEst"),
+      value: splitHumanDays(view().total_task_ancient_minutes, language.t) ?? stat(view().total_task_ancient_minutes, language.t),
       tone: "text-[#1f2937]",
       unitTone: "text-[#6f7d96]",
     },
     {
-      label: "实际耗时",
-      value: stat(view().total_real_minutes),
+      label: language.t("kanban.home.summary.actualTime"),
+      value: stat(view().total_real_minutes, language.t),
       tone: "text-[#1f2937]",
       unitTone: "text-[#6f7d96]",
     },
@@ -357,14 +360,14 @@ export default function KanbanHome() {
 
   const top = createMemo(() => ({
     org: [
-      { title: "组织", href: href("/kanban/org") },
-      { title: "用户", href: href("/kanban/user") },
+      { title: language.t("kanban.home.shortNav.org"), href: href("/kanban/org") },
+      { title: language.t("kanban.home.shortNav.user"), href: href("/kanban/user") },
     ],
     project: [
-      { title: "项目", href: href("/kanban/project") },
-      { title: "仓库", href: href("/kanban/repo") },
-      { title: "提交", href: href("/kanban/commit") },
-      { title: "任务", href: href("/kanban/task") },
+      { title: language.t("kanban.home.shortNav.project"), href: href("/kanban/project") },
+      { title: language.t("kanban.home.shortNav.repo"), href: href("/kanban/repo") },
+      { title: language.t("kanban.home.shortNav.commit"), href: href("/kanban/commit") },
+      { title: language.t("kanban.home.shortNav.task"), href: href("/kanban/task") },
     ],
   }))
 
@@ -373,9 +376,9 @@ export default function KanbanHome() {
       <div class="mx-auto flex w-full flex-col gap-6">
         <nav class="flex min-h-[80px] flex-col gap-3 border-b border-[#dde3ee] px-1 py-3 lg:h-[80px] lg:flex-row lg:items-center lg:justify-between lg:px-0">
           <div class="flex flex-wrap items-center gap-2.5">
-            <TopLink title="首页" href={href("/kanban")} active={true} />
-            <TopMenu title="组织看板" items={top().org} />
-            <TopMenu title="项目看板" items={top().project} />
+            <TopLink title={language.t("kanban.home.topMenu.home")} href={href("/kanban")} active={true} />
+            <TopMenu title={language.t("kanban.home.topMenu.org")} items={top().org} />
+            <TopMenu title={language.t("kanban.home.topMenu.project")} items={top().project} />
           </div>
 
           <div class="w-full lg:w-[15.5rem] lg:flex-none lg:[&>div]:min-w-0 lg:[&>div]:gap-1.5 lg:[&>div]:px-3 lg:[&>div>div:last-child]:gap-1 lg:[&_[aria-label='Open_date_range_picker']]:h-7 lg:[&_[aria-label='Open_date_range_picker']]:w-7">
@@ -395,7 +398,7 @@ export default function KanbanHome() {
         <header class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="min-w-0 flex-1 pt-1">
             <h1 class="whitespace-nowrap font-[var(--native-font-display)] text-[clamp(2rem,4vw,2.7rem)] leading-[1.18] font-medium tracking-[-0.05em] text-[#182235]">
-                AI Coding 指标看板
+                {language.t("kanban.home.title")}
             </h1>
           </div>
         </header>
@@ -414,7 +417,7 @@ export default function KanbanHome() {
               <div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
                 <div class="max-w-[16rem]">
                   <div class="flex items-center gap-2 text-[#2a3348]">
-                    <p class="m-0 text-[0.95rem] font-medium tracking-[-0.02em]">综合提效比</p>
+                    <p class="m-0 text-[0.95rem] font-medium tracking-[-0.02em]">{language.t("kanban.home.summary.efficiency")}</p>
                     <span class="flex h-5 w-5 items-center justify-center rounded-full border border-[#d9e6ff] text-[#8c9bb7]">
                       <BadgeInfo class="h-3.5 w-3.5" stroke-width={2} />
                     </span>
@@ -425,7 +428,7 @@ export default function KanbanHome() {
                 <div class="relative mx-auto h-[12rem] w-full max-w-[20rem] shrink-0 overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_50%_65%,rgba(91,132,255,0.12),transparent_54%),radial-gradient(circle_at_68%_22%,rgba(137,172,255,0.14),transparent_28%),transparent]">
                   <img
                     src={`${(env.BASE_PATH || "").replace(/\/+$/, "")}/kanban/ratio.webp`}
-                    alt="综合提效比"
+                    alt={language.t("kanban.home.summary.efficiency")}
                     class="absolute inset-0 h-full w-full object-contain object-center"
                     loading="eager"
                   />
@@ -453,7 +456,7 @@ export default function KanbanHome() {
 
         <section class="grid gap-4">
           <div>
-            <h2 class="text-[1.55rem] font-medium tracking-[-0.04em] text-[#182235]">功能入口</h2>
+            <h2 class="text-[1.55rem] font-medium tracking-[-0.04em] text-[#182235]">{language.t("kanban.home.nav.entry")}</h2>
           </div>
 
           <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -3,6 +3,7 @@ import { createMemo, createResource, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -52,6 +53,7 @@ function MetricCard(props: { label: string; value: string; hint?: string; accent
 }
 
 function ManualDialog(props: { project: ProjectDetailResult; onSaved: () => void | Promise<void> }) {
+  const language = useLanguage()
   const dialog = useDialog()
   const [form, setForm] = createStore({
     project_ancient_minutes_manual: props.project.project_ancient_minutes_manual?.toString() || props.project.project_ancient_minutes?.toString() || "",
@@ -84,11 +86,11 @@ function ManualDialog(props: { project: ProjectDetailResult; onSaved: () => void
     setForm("saving", true)
     try {
       await updateProjectManual(projectId, payload)
-      showToast({ variant: "success", title: "人工调整已保存" })
+      showToast({ variant: "success", title: language.t("kanban.toast.correctionSaved") })
       await props.onSaved()
       dialog.close()
     } catch (err) {
-      showToast({ variant: "error", title: "保存失败", description: err instanceof Error ? err.message : String(err) })
+      showToast({ variant: "error", title: language.t("kanban.toast.saveFailed"), description: err instanceof Error ? err.message : String(err) })
     } finally {
       setForm("saving", false)
     }
@@ -97,23 +99,23 @@ function ManualDialog(props: { project: ProjectDetailResult; onSaved: () => void
   return (
     <form onSubmit={submit}>
       <Modal
-        title="人工调整"
+        title={language.t("kanban.dialog.manualAdjustment")}
         maxWidth="680px"
         footer={
           <>
-            <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>取消</Button>
-            <Button size="sm" type="submit" disabled={form.saving}>{form.saving ? "保存中..." : "保存"}</Button>
+            <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>{language.t("common.cancel")}</Button>
+            <Button size="sm" type="submit" disabled={form.saving}>{form.saving ? language.t("common.saving") : language.t("common.save")}</Button>
           </>
         }
       >
         <div class="modal-section">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">传统开发预估(分钟)</label>
+              <label class="modal-label">{language.t("kanban.form.traditionalEst")}</label>
               <input class="modal-input" type="number" step="0.1" min="0" value={form.project_ancient_minutes_manual} onInput={(e) => setForm("project_ancient_minutes_manual", e.currentTarget.value)} />
             </div>
             <div class="modal-field">
-              <label class="modal-label">实际处理耗时(分钟)</label>
+              <label class="modal-label">{language.t("kanban.form.actualTime")}</label>
               <input class="modal-input" type="number" step="0.1" min="0" value={form.project_real_process_minutes_manual} onInput={(e) => setForm("project_real_process_minutes_manual", e.currentTarget.value)} />
             </div>
           </div>
@@ -121,11 +123,11 @@ function ManualDialog(props: { project: ProjectDetailResult; onSaved: () => void
         <div class="modal-section">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">传统开发预估理由</label>
+              <label class="modal-label">{language.t("kanban.form.traditionalEstReason")}</label>
               <textarea class="modal-input" value={form.project_ancient_minutes_reason_manual} onInput={(e) => setForm("project_ancient_minutes_reason_manual", e.currentTarget.value)} />
             </div>
             <div class="modal-field">
-              <label class="modal-label">实际处理耗时理由</label>
+              <label class="modal-label">{language.t("kanban.form.actualTimeReason")}</label>
               <textarea class="modal-input" value={form.project_real_process_minutes_reason_manual} onInput={(e) => setForm("project_real_process_minutes_reason_manual", e.currentTarget.value)} />
             </div>
           </div>
@@ -133,11 +135,11 @@ function ManualDialog(props: { project: ProjectDetailResult; onSaved: () => void
         <div class="modal-section">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">项目周期(分钟)</label>
+              <label class="modal-label">{language.t("kanban.form.projectCycle")}</label>
               <input class="modal-input" type="number" step="0.1" min="0" value={form.project_real_lead_minutes_manual} onInput={(e) => setForm("project_real_lead_minutes_manual", e.currentTarget.value)} />
             </div>
             <div class="modal-field">
-              <label class="modal-label">项目周期理由</label>
+              <label class="modal-label">{language.t("kanban.form.projectCycleReason")}</label>
               <textarea class="modal-input" value={form.project_real_lead_minutes_reason_manual} onInput={(e) => setForm("project_real_lead_minutes_reason_manual", e.currentTarget.value)} />
             </div>
           </div>
@@ -145,11 +147,11 @@ function ManualDialog(props: { project: ProjectDetailResult; onSaved: () => void
         <div class="modal-section">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="modal-field">
-              <label class="modal-label">开始时间</label>
+              <label class="modal-label">{language.t("kanban.form.startTime")}</label>
               <input class="modal-input" type="datetime-local" value={form.start_time_manual ? form.start_time_manual.slice(0, 16) : ""} onInput={(e) => setForm("start_time_manual", e.currentTarget.value)} />
             </div>
             <div class="modal-field">
-              <label class="modal-label">结束时间</label>
+              <label class="modal-label">{language.t("kanban.form.endTime")}</label>
               <input class="modal-input" type="datetime-local" value={form.end_time_manual ? form.end_time_manual.slice(0, 16) : ""} onInput={(e) => setForm("end_time_manual", e.currentTarget.value)} />
             </div>
           </div>
@@ -160,23 +162,24 @@ function ManualDialog(props: { project: ProjectDetailResult; onSaved: () => void
 }
 
 function EditProjectDialog(props: { project: ProjectDetailResult; onSaved: () => void | Promise<void> }) {
+  const language = useLanguage()
   const dialog = useDialog()
   const [form, setForm] = createStore({ name: props.project.name || "", description: props.project.description || "", saving: false })
 
   const submit = async (e: SubmitEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) { showToast({ variant: "error", title: "项目名称不能为空" }); return }
+    if (!form.name.trim()) { showToast({ variant: "error", title: language.t("kanban.validation.projectNameEmpty") }); return }
     const projectId = props.project.project_id?.trim()
     if (!projectId) return
 
     setForm("saving", true)
     try {
       await updateProjectV2(projectId, { name: form.name.trim(), description: form.description.trim() })
-      showToast({ variant: "success", title: "编辑已保存" })
+      showToast({ variant: "success", title: language.t("kanban.toast.editSaved") })
       await props.onSaved()
       dialog.close()
     } catch (err) {
-      showToast({ variant: "error", title: "保存失败", description: err instanceof Error ? err.message : String(err) })
+      showToast({ variant: "error", title: language.t("kanban.toast.saveFailed"), description: err instanceof Error ? err.message : String(err) })
     } finally {
       setForm("saving", false)
     }
@@ -184,14 +187,14 @@ function EditProjectDialog(props: { project: ProjectDetailResult; onSaved: () =>
 
   return (
     <form onSubmit={submit}>
-      <Modal title="编辑项目" maxWidth="500px" footer={<><Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>取消</Button><Button size="sm" type="submit" disabled={form.saving}>{form.saving ? "保存中..." : "保存"}</Button></>}>
+      <Modal title={language.t("kanban.dialog.editProject")} maxWidth="500px" footer={<><Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>{language.t("common.cancel")}</Button><Button size="sm" type="submit" disabled={form.saving}>{form.saving ? language.t("common.saving") : language.t("common.save")}</Button></>}>
         <div class="modal-section">
           <div class="modal-field">
-            <label class="modal-label">项目名称</label>
+            <label class="modal-label">{language.t("kanban.form.projectName")}</label>
             <input class="modal-input" value={form.name} onInput={(e) => setForm("name", e.currentTarget.value)} />
           </div>
           <div class="modal-field mt-4">
-            <label class="modal-label">描述</label>
+            <label class="modal-label">{language.t("kanban.form.description")}</label>
             <textarea class="modal-input" rows={3} value={form.description} onInput={(e) => setForm("description", e.currentTarget.value)} />
           </div>
         </div>
@@ -201,6 +204,7 @@ function EditProjectDialog(props: { project: ProjectDetailResult; onSaved: () =>
 }
 
 export default function KanbanProjectDetail() {
+  const language = useLanguage()
   const params = useParams()
   const dialog = useDialog()
 
@@ -211,7 +215,7 @@ export default function KanbanProjectDetail() {
     try {
       return await getProjectDetail(id)
     } catch (err) {
-      showToast({ variant: "error", title: "项目详情加载失败", description: err instanceof Error ? err.message : String(err) })
+      showToast({ variant: "error", title: language.t("kanban.toast.loadFailed"), description: err instanceof Error ? err.message : String(err) })
       return null
     }
   })
@@ -249,7 +253,7 @@ export default function KanbanProjectDetail() {
   const userStats = createMemo<ProjectUserStat[]>(() => {
     const map: Record<string, ProjectUserStat> = {}
     for (const t of tasks()) {
-      const name = t.user_name || "未知"
+      const name = t.user_name || language.t("common.unknown")
       if (!map[name]) map[name] = { user_name: name, task_count: 0, commit_count: 0, commit_diff_lines: 0, task_ancient_minutes: 0, task_real_minutes: 0, commit_ancient_minutes: 0, commit_real_minutes: 0, cost: 0, task_efficiency_ratio: 0, commit_efficiency_ratio: 0 }
       map[name].task_count++
       map[name].task_ancient_minutes += (t.task_ancient_minutes_manual ?? t.task_ancient_minutes) ?? 0
@@ -257,7 +261,7 @@ export default function KanbanProjectDetail() {
       map[name].cost += t.cost ?? 0
     }
     for (const c of commits()) {
-      const name = c.user_name || "未知"
+      const name = c.user_name || language.t("common.unknown")
       if (!map[name]) map[name] = { user_name: name, task_count: 0, commit_count: 0, commit_diff_lines: 0, task_ancient_minutes: 0, task_real_minutes: 0, commit_ancient_minutes: 0, commit_real_minutes: 0, cost: 0, task_efficiency_ratio: 0, commit_efficiency_ratio: 0 }
       map[name].commit_count++
       map[name].commit_diff_lines += c.diff_lines ?? 0
@@ -276,118 +280,116 @@ export default function KanbanProjectDetail() {
   const openEdit = () => dialog.show(() => <EditProjectDialog project={project()} onSaved={() => void refetch()} />)
 
   const handleRemoveRepo = async (index: number) => {
-    if (!confirm("确定要删除此 Repo 配置吗？")) return
+    if (!confirm(language.t("kanban.confirm.deleteRepo"))) return
     const id = projectId()
     if (!id) return
     try {
       await removeRepoFromProject(id, index)
-      showToast({ variant: "success", title: "删除成功" })
+      showToast({ variant: "success", title: language.t("kanban.toast.deleteSuccess") })
       await refetch()
-    } catch (err) { showToast({ variant: "error", title: "删除失败", description: err instanceof Error ? err.message : String(err) }) }
+    } catch (err) { showToast({ variant: "error", title: language.t("kanban.toast.deleteFailed"), description: err instanceof Error ? err.message : String(err) }) }
   }
 
   const handleRemoveTask = async (taskId: string) => {
-    if (!confirm("确定要删除此 Task 吗？")) return
+    if (!confirm(language.t("kanban.confirm.deleteTask"))) return
     const id = projectId()
     if (!id) return
     try {
       await removeTasksFromProject(id, [taskId])
-      showToast({ variant: "success", title: "删除成功" })
+      showToast({ variant: "success", title: language.t("kanban.toast.deleteSuccess") })
       await refetch()
-    } catch (err) { showToast({ variant: "error", title: "删除失败", description: err instanceof Error ? err.message : String(err) }) }
+    } catch (err) { showToast({ variant: "error", title: language.t("kanban.toast.deleteFailed"), description: err instanceof Error ? err.message : String(err) }) }
   }
 
   const handleUpdateSilica = async (taskId: string, silica: number) => {
     const id = projectId()
     if (!id) return
-    const val = prompt("请输入 Silica 权重:", String(silica))
+    const val = prompt(language.t("kanban.prompt.silicaWeight"), String(silica))
     if (val === null) return
     const num = Number(val)
-    if (Number.isNaN(num)) { showToast({ variant: "error", title: "请输入有效数字" }); return }
+    if (Number.isNaN(num)) { showToast({ variant: "error", title: language.t("kanban.validation.validNumberRequired") }); return }
     try {
       await updateTaskSilicaInProject(id, { task_id: taskId, silica: num })
-      showToast({ variant: "success", title: "修改成功" })
+      showToast({ variant: "success", title: language.t("kanban.toast.modifySuccess") })
       await refetch()
-    } catch (err) { showToast({ variant: "error", title: "修改失败", description: err instanceof Error ? err.message : String(err) }) }
+    } catch (err) { showToast({ variant: "error", title: language.t("kanban.toast.modifyFailed"), description: err instanceof Error ? err.message : String(err) }) }
   }
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="flex w-full flex-col gap-5">
-        <header class="flex w-full flex-col gap-3">
-          <Back href="/kanban/project" label="返回项目列表" />
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">项目详情</h1>
-              <Show when={project().name || project().description}>
-                <p class="mt-2 max-w-[60rem] text-sm text-[var(--native-muted)]">
-                  <span class="font-medium text-[var(--native-foreground)]">{project().name || project().project_id || "当前项目"}</span>
-                  <Show when={project().description}><span> · {project().description}</span></Show>
-                </p>
-              </Show>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={openManual} disabled={!project().project_id}>人工调整</Button>
-              <Button size="sm" onClick={openEdit} disabled={!project().project_id}>编辑</Button>
-            </div>
+      <header class="mx-auto flex w-full max-w-[1320px] flex-col gap-3">
+        <A href="/kanban/project" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
+          <span>←</span>
+          <span>{language.t("kanban.backToProjectList")}</span>
+        </A>
+        <div class="flex flex-col gap-4 rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)] lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">{language.t("kanban.breadcrumb.projectDetail")}</p>
+            <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{project().name || language.t("kanban.projectDetail")}</h1>
+            <Show when={project().description}><p class="mt-1 text-sm text-[var(--native-muted)]">{project().description}</p></Show>
           </div>
-        </header>
+          <div class="flex gap-2">
+            <Button variant="outline" size="sm" onClick={openManual} disabled={!project().project_id}>{language.t("kanban.dialog.manualAdjustment")}</Button>
+            <Button size="sm" onClick={openEdit} disabled={!project().project_id}>{language.t("common.edit")}</Button>
+          </div>
+        </div>
+      </header>
 
-        <div class="flex w-full flex-col gap-5">
-          <Show when={!data.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">加载中...</div>}>
-            <Show when={data()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">没有查询到项目详情</div>}>
-              {(_) => (
-                <>
-                  {/* 基础信息 */}
-                  <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                    <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">基础信息</div>
-                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                      <MetricCard label="项目ID" value={project().project_id || "-"} />
-                      <MetricCard label="起始时间" value={formatLocalTime(project().start_time_manual || project().start_time)} />
-                      <MetricCard label="结束时间" value={formatLocalTime(project().end_time_manual || project().end_time)} />
-                      <MetricCard label="Repo数" value={String(repos().length)} accent="var(--native-primary)" />
-                      <MetricCard label="Task数" value={String(tasks().length)} accent="var(--native-success)" />
-                      <MetricCard label="Commit数" value={String(commits().length)} accent="var(--native-warning)" />
-                      <MetricCard label="参与人数" value={String(project().user_count)} accent="var(--native-info, var(--native-primary))" />
-                    </div>
-                  </section>
+      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+        <Show when={!data.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.misc.loading")}</div>}>
+          <Show when={data()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.empty.noProjectDetail")}</div>}>
+            {(_) => (
+              <>
+                {/* 基础信息 */}
+                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.basicInfo")}</div>
+                  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <MetricCard label={language.t("kanban.metric.projectId")} value={project().project_id || "-"} />
+                    <MetricCard label={language.t("kanban.metric.startTime")} value={formatLocalTime(project().start_time_manual || project().start_time)} />
+                    <MetricCard label={language.t("kanban.metric.endTime")} value={formatLocalTime(project().end_time_manual || project().end_time)} />
+                    <MetricCard label={language.t("kanban.metric.repoCount")} value={String(repos().length)} accent="var(--native-primary)" />
+                    <MetricCard label={language.t("kanban.metric.taskCount")} value={String(tasks().length)} accent="var(--native-success)" />
+                    <MetricCard label={language.t("kanban.metric.commitCount")} value={String(commits().length)} accent="var(--native-warning)" />
+                    <MetricCard label={language.t("kanban.metric.participantCount")} value={String(project().user_count)} accent="var(--native-info, var(--native-primary))" />
+                  </div>
+                </section>
 
-                  {/* 度量信息 */}
-                  <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                    <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">度量信息</div>
-                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                      <MetricCard label="传统开发预估" value={formatDuration(project().project_ancient_minutes_manual ?? project().project_ancient_minutes)} hint={project().project_ancient_minutes_reason} accent="var(--native-success)" />
-                      <MetricCard label="实际处理耗时" value={formatDuration(project().project_real_process_minutes_manual ?? project().project_real_process_minutes)} hint={project().project_real_process_minutes_reason} accent="var(--native-primary)" />
-                      <MetricCard label="项目周期" value={formatDuration(project().project_real_lead_minutes_manual ?? project().project_real_lead_minutes)} hint={project().project_real_lead_minutes_reason} accent="var(--native-warning)" />
-                      <MetricCard label="总Tokens" value={totalTokens() > 0 ? totalTokens().toLocaleString() : "-"} hint={`上行 ${project().upstream_tokens ?? 0} / 下行 ${project().downstream_tokens ?? 0}`} accent="var(--native-primary)" />
-                      <MetricCard label="总费用" value={project().cost != null && project().cost! > 0 ? fmtCost(project().cost) : "-"} accent="var(--native-warning)" />
-                      <MetricCard label="生成代码量" value={totalCodeLines() > 0 ? `${totalCodeLines().toLocaleString()} 行` : "-"} accent="var(--native-info, var(--native-primary))" />
-                      <MetricCard label="实际人天" value={actualWorkDays() != null ? `${actualWorkDays()!.toFixed(2)} 人天` : "-"} accent="var(--native-primary)" />
-                      <MetricCard label="实际人天代码量" value={actualLinesPerDay() != null ? `${Math.round(actualLinesPerDay()!)} 行/人天` : "-"} accent="var(--native-success)" />
-                      <MetricCard label="传统开发人天代码量" value={traditionalLinesPerDay() != null ? `${Math.round(traditionalLinesPerDay()!)} 行/人天` : "-"} hint={`企业基准 ${traditionalDevLinesPerDay()} 行/人天`} accent="var(--native-warning)" />
-                      <MetricCard label="开发提效比" value={devEfficiencyRatio() != null ? `${Math.round(devEfficiencyRatio()! * 100)}%` : "-"} accent={devEfficiencyRatio() != null && devEfficiencyRatio()! >= 3 ? "var(--native-success)" : "var(--native-primary)"} />
-                      <MetricCard label="端到端提效比" value={e2eEfficiencyRatio() != null ? `${Math.round(e2eEfficiencyRatio()! * 100)}%` : "-"} accent={e2eEfficiencyRatio() != null && e2eEfficiencyRatio()! >= 3 ? "var(--native-success)" : "var(--native-primary)"} />
-                    </div>
-                  </section>
+                {/* 度量信息 */}
+                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.metrics")}</div>
+                  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <MetricCard label={language.t("kanban.metric.traditionalDevEst")} value={formatDuration(project().project_ancient_minutes_manual ?? project().project_ancient_minutes, language.t)} hint={project().project_ancient_minutes_reason} accent="var(--native-success)" />
+                    <MetricCard label={language.t("kanban.metric.actualProcessTime")} value={formatDuration(project().project_real_process_minutes_manual ?? project().project_real_process_minutes, language.t)} hint={project().project_real_process_minutes_reason} accent="var(--native-primary)" />
+                    <MetricCard label={language.t("kanban.metric.projectCycle")} value={formatDuration(project().project_real_lead_minutes_manual ?? project().project_real_lead_minutes, language.t)} hint={project().project_real_lead_minutes_reason} accent="var(--native-warning)" />
+                    <MetricCard label={language.t("kanban.metric.totalTokens")} value={totalTokens() > 0 ? totalTokens().toLocaleString() : "-"} hint={language.t("kanban.hint.upstreamDownstream", { upstream: project().upstream_tokens ?? 0, downstream: project().downstream_tokens ?? 0 })} accent="var(--native-primary)" />
+                    <MetricCard label={language.t("kanban.metric.totalCost")} value={project().cost != null && project().cost! > 0 ? fmtCost(project().cost) : "-"} accent="var(--native-warning)" />
+                    <MetricCard label={language.t("kanban.metric.generatedCode")} value={totalCodeLines() > 0 ? `${totalCodeLines().toLocaleString()} ${language.t("kanban.repo.lines")}` : "-"} accent="var(--native-info, var(--native-primary))" />
+                    <MetricCard label={language.t("kanban.metric.actualManDays")} value={actualWorkDays() != null ? `${actualWorkDays()!.toFixed(2)} ${language.t("kanban.unit.manDays")}` : "-"} accent="var(--native-primary)" />
+                    <MetricCard label={language.t("kanban.metric.actualManDaysCode")} value={actualLinesPerDay() != null ? `${Math.round(actualLinesPerDay()!)} ${language.t("kanban.unit.linesPerManDay")}` : "-"} accent="var(--native-success)" />
+                    <MetricCard label={language.t("kanban.metric.traditionalManDaysCode")} value={traditionalLinesPerDay() != null ? `${Math.round(traditionalLinesPerDay()!)} ${language.t("kanban.unit.linesPerManDay")}` : "-"} hint={language.t("kanban.hint.enterpriseBaseline", { value: traditionalDevLinesPerDay() })} accent="var(--native-warning)" />
+                    <MetricCard label={language.t("kanban.metric.devEfficiency")} value={devEfficiencyRatio() != null ? `${Math.round(devEfficiencyRatio()! * 100)}%` : "-"} accent={devEfficiencyRatio() != null && devEfficiencyRatio()! >= 3 ? "var(--native-success)" : "var(--native-primary)"} />
+                    <MetricCard label={language.t("kanban.metric.e2eEfficiency")} value={e2eEfficiencyRatio() != null ? `${Math.round(e2eEfficiencyRatio()! * 100)}%` : "-"} accent={e2eEfficiencyRatio() != null && e2eEfficiencyRatio()! >= 3 ? "var(--native-success)" : "var(--native-primary)"} />
+                  </div>
+                </section>
 
                   {/* 用户视角 */}
                   <Show when={userStats().length > 0}>
                     <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                       <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                        用户视角 ({userStats().length})
+                        {language.t("kanban.section.userPerspectiveCount", { count: userStats().length })}
                       </div>
                       <div class="overflow-auto">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead class="min-w-[100px]">用户</TableHead>
-                              <TableHead class="min-w-[80px] text-right">Task数</TableHead>
-                              <TableHead class="min-w-[80px] text-right">Commit数</TableHead>
-                              <TableHead class="min-w-[80px] text-right">代码行数</TableHead>
-                              <TableHead class="min-w-[110px] text-right">Task传统预估</TableHead>
-                              <TableHead class="min-w-[110px] text-right">Task实际耗时</TableHead>
-                              <TableHead class="min-w-[90px] text-center">Task提效比</TableHead>
-                              <TableHead class="min-w-[80px] text-right">费用</TableHead>
+                              <TableHead class="min-w-[100px]">{language.t("kanban.table.user")}</TableHead>
+                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.taskCount")}</TableHead>
+                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.commitCount")}</TableHead>
+                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.codeLines")}</TableHead>
+                              <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.taskTraditionalEst")}</TableHead>
+                              <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.taskActualTime")}</TableHead>
+                              <TableHead class="min-w-[90px] text-center">{language.t("kanban.table.taskEfficiency")}</TableHead>
+                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.cost")}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -398,8 +400,8 @@ export default function KanbanProjectDetail() {
                                   <TableCell class="text-right tabular-nums">{row.task_count}</TableCell>
                                   <TableCell class="text-right tabular-nums">{row.commit_count}</TableCell>
                                   <TableCell class="text-right tabular-nums">{row.commit_diff_lines.toLocaleString()}</TableCell>
-                                  <TableCell class="text-right">{formatDuration(row.task_ancient_minutes)}</TableCell>
-                                  <TableCell class="text-right">{formatDuration(row.task_real_minutes)}</TableCell>
+                                  <TableCell class="text-right">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
+                                  <TableCell class="text-right">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
                                   <TableCell class="text-center">{row.task_efficiency_ratio > 0 ? formatPercent(row.task_efficiency_ratio) : "-"}</TableCell>
                                   <TableCell class="text-right tabular-nums">{row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
                                 </TableRow>
@@ -411,107 +413,107 @@ export default function KanbanProjectDetail() {
                     </section>
                   </Show>
 
-                  {/* Repos */}
-                  <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-                    <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                      Repos ({repos().length})
-                    </div>
-                    <div class="overflow-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead class="min-w-[200px]">仓库地址</TableHead>
-                            <TableHead class="min-w-[100px]">分支</TableHead>
-                            <TableHead class="min-w-[140px]">开始时间</TableHead>
-                            <TableHead class="min-w-[140px]">结束时间</TableHead>
-                            <TableHead class="min-w-[80px] text-right">操作</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <For each={repos()}>
-                            {(row, index) => (
-                              <TableRow>
-                                <TableCell>
-                                  <A href={`/kanban/repo/${encodeURIComponent(row.repo_addr ?? "")}${row.repo_branch ? `/${encodeURIComponent(row.repo_branch)}` : ""}`} class="text-[var(--native-primary)] hover:underline">
-                                    {row.repo_addr || "-"}
-                                  </A>
-                                </TableCell>
-                                <TableCell>{row.repo_branch || "-"}</TableCell>
-                                <TableCell>{formatLocalTime(row.start_time)}</TableCell>
-                                <TableCell>{formatLocalTime(row.end_time)}</TableCell>
-                                <TableCell class="text-right">
-                                  <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveRepo(index())}>删除</button>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </For>
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </section>
+                {/* Repos */}
+                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
+                  <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
+                    {language.t("kanban.label.repos")} ({repos().length})
+                  </div>
+                  <div class="overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead class="min-w-[200px]">{language.t("kanban.table.repoUrl")}</TableHead>
+                          <TableHead class="min-w-[100px]">{language.t("kanban.table.branch")}</TableHead>
+                          <TableHead class="min-w-[140px]">{language.t("kanban.table.startTime")}</TableHead>
+                          <TableHead class="min-w-[140px]">{language.t("kanban.table.endTime")}</TableHead>
+                          <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.action")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <For each={repos()}>
+                          {(row, index) => (
+                            <TableRow>
+                              <TableCell>
+                                <A href={`/kanban/repo/${encodeURIComponent(row.repo_addr ?? "")}${row.repo_branch ? `/${encodeURIComponent(row.repo_branch)}` : ""}`} class="text-[var(--native-primary)] hover:underline">
+                                  {row.repo_addr || "-"}
+                                </A>
+                              </TableCell>
+                              <TableCell>{row.repo_branch || "-"}</TableCell>
+                              <TableCell>{formatLocalTime(row.start_time)}</TableCell>
+                              <TableCell>{formatLocalTime(row.end_time)}</TableCell>
+                              <TableCell class="text-right">
+                                <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveRepo(index())}>{language.t("common.delete")}</button>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </For>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </section>
 
-                  {/* Tasks */}
-                  <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-                    <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                      Tasks ({tasks().length})
-                    </div>
-                    <div class="overflow-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead class="min-w-[100px]">Task ID</TableHead>
-                            <TableHead class="min-w-[90px]">用户</TableHead>
-                            <TableHead class="min-w-[140px]">开始时间</TableHead>
-                            <TableHead class="min-w-[100px] text-right">传统预估</TableHead>
-                            <TableHead class="min-w-[100px] text-right">实际耗时</TableHead>
-                            <TableHead class="min-w-[80px] text-right">Silica</TableHead>
-                            <TableHead class="min-w-[80px] text-right">费用</TableHead>
-                            <TableHead class="min-w-[80px] text-center">操作</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <For each={tasks()}>
-                            {(row) => (
-                              <TableRow>
-                                <TableCell>
-                                  <A href={`/kanban/task/${encodeURIComponent(row.task_id ?? "")}`} class="text-[var(--native-primary)] hover:underline">{shortId(row.task_id)}</A>
-                                </TableCell>
-                                <TableCell>{row.user_name || "-"}</TableCell>
-                                <TableCell>{formatLocalTime(row.start_time)}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes)}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes)}</TableCell>
-                                <TableCell class="text-right tabular-nums">{row.silica ?? 1.0}</TableCell>
-                                <TableCell class="text-right tabular-nums">{row.cost != null && row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
-                                <TableCell class="text-center">
-                                  <button type="button" class="mr-2 text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleUpdateSilica(row.task_id ?? "", row.silica ?? 1.0)}>编辑</button>
-                                  <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveTask(row.task_id ?? "")}>删除</button>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </For>
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </section>
+                {/* Tasks */}
+                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
+                  <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
+                    {language.t("kanban.label.tasks")} ({tasks().length})
+                  </div>
+                  <div class="overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead class="min-w-[100px]">{language.t("kanban.table.taskId")}</TableHead>
+                          <TableHead class="min-w-[90px]">{language.t("kanban.table.user")}</TableHead>
+                          <TableHead class="min-w-[140px]">{language.t("kanban.table.startTime")}</TableHead>
+                          <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.traditionalEst")}</TableHead>
+                          <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.actualTime")}</TableHead>
+                          <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.silicaContent")}</TableHead>
+                          <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.cost")}</TableHead>
+                          <TableHead class="min-w-[80px] text-center">{language.t("kanban.table.action")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <For each={tasks()}>
+                          {(row) => (
+                            <TableRow>
+                              <TableCell>
+                                <A href={`/kanban/task/${encodeURIComponent(row.task_id ?? "")}`} class="text-[var(--native-primary)] hover:underline">{shortId(row.task_id)}</A>
+                              </TableCell>
+                              <TableCell>{row.user_name || "-"}</TableCell>
+                              <TableCell>{formatLocalTime(row.start_time)}</TableCell>
+                              <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t)}</TableCell>
+                              <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t)}</TableCell>
+                              <TableCell class="text-right tabular-nums">{row.silica ?? 1.0}</TableCell>
+                              <TableCell class="text-right tabular-nums">{row.cost != null && row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
+                              <TableCell class="text-center">
+                                <button type="button" class="mr-2 text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleUpdateSilica(row.task_id ?? "", row.silica ?? 1.0)}>{language.t("common.edit")}</button>
+                                <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveTask(row.task_id ?? "")}>{language.t("common.delete")}</button>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </For>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </section>
 
-                  {/* Commits */}
-                  <Show when={commits().length > 0}>
+                {/* Commits */}
+                <Show when={commits().length > 0}>
                     <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                       <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                        Commits ({commits().length})
+                        {language.t("kanban.section.commitList")} ({commits().length})
                       </div>
                       <div class="overflow-auto">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead class="min-w-[100px]">Commit ID</TableHead>
-                              <TableHead class="min-w-[90px]">用户</TableHead>
-                              <TableHead class="min-w-[140px]">时间</TableHead>
-                              <TableHead class="min-w-[180px]">说明</TableHead>
-                              <TableHead class="min-w-[80px] text-right">代码行数</TableHead>
-                              <TableHead class="min-w-[100px] text-right">传统预估</TableHead>
-                              <TableHead class="min-w-[100px] text-right">实际耗时</TableHead>
-                              <TableHead class="min-w-[80px] text-center">硅含量</TableHead>
+                              <TableHead class="min-w-[100px]">{language.t("kanban.table.commitId")}</TableHead>
+                              <TableHead class="min-w-[90px]">{language.t("kanban.table.user")}</TableHead>
+                              <TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead>
+                              <TableHead class="min-w-[180px]">{language.t("kanban.table.comment")}</TableHead>
+                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.codeLines")}</TableHead>
+                              <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.traditionalEst")}</TableHead>
+                              <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.actualTime")}</TableHead>
+                              <TableHead class="min-w-[80px] text-center">{language.t("kanban.table.silicaContent")}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -525,8 +527,8 @@ export default function KanbanProjectDetail() {
                                   <TableCell>{formatLocalTime(row.commit_time)}</TableCell>
                                   <TableCell>{row.comment || "-"}</TableCell>
                                   <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
-                                  <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes)}</TableCell>
-                                  <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes)}</TableCell>
+                                  <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes, language.t)}</TableCell>
+                                  <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes, language.t)}</TableCell>
                                   <TableCell class="text-center">{row.silica != null ? `${row.silica.toFixed(1)}%` : "-"}</TableCell>
                                 </TableRow>
                               )}
@@ -535,12 +537,11 @@ export default function KanbanProjectDetail() {
                         </Table>
                       </div>
                     </section>
-                  </Show>
-                </>
-              )}
-            </Show>
+                </Show>
+              </>
+            )}
           </Show>
-        </div>
+        </Show>
       </div>
     </div>
   )

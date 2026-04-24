@@ -1,4 +1,5 @@
 import type { JSX } from "solid-js"
+import { useLanguage } from "@/context/language"
 import { DateRangePicker } from "./date-range-picker"
 import { OrgCascadeSelect } from "./org-cascade-select"
 import type { DateRangeValue, OrgCascadeValue } from "../../lib/types"
@@ -14,6 +15,7 @@ type Props = {
 }
 
 export function FilterBar(props: Props) {
+  const language = useLanguage()
   const emit = (input: { dateRange: DateRangeValue; orgValue: OrgCascadeValue }) => {
     props.onChange?.(input)
   }
@@ -24,7 +26,7 @@ export function FilterBar(props: Props) {
         <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div class="grid min-w-0 flex-1 gap-4 lg:grid-cols-[minmax(16rem,18rem)_minmax(0,1fr)]">
             <label class="flex min-w-0 flex-col gap-2">
-              <span class="text-[0.75rem] text-[var(--native-muted)]">日期范围</span>
+              <span class="text-[0.75rem] text-[var(--native-muted)]">{language.t("kanban.filter.selectDateRange")}</span>
               <DateRangePicker
                 value={props.dateRange}
                 onChange={(value) => {
@@ -32,7 +34,7 @@ export function FilterBar(props: Props) {
                   emit({ dateRange: value, orgValue: props.orgValue ?? {} })
                 }}
                 clearable={false}
-                placeholder="选择日期范围"
+                placeholder={language.t("kanban.filter.selectDateRange")}
               />
             </label>
           </div>

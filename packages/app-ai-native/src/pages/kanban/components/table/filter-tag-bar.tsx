@@ -16,7 +16,7 @@ export function FilterTagBar(props: Props) {
       <div class="flex flex-col gap-3 border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
         <Show when={props.tags.length > 0}>
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-[0.8125rem] text-[var(--native-muted)]">筛选条件:</span>
+            <span class="text-[0.8125rem] text-[var(--native-muted)]">Filters:</span>
             <For each={props.tags}>
               {(tag) => (
                 <div class="inline-flex items-center gap-1 rounded-full border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-3 py-1 text-[0.75rem] text-[var(--native-foreground)] shadow-[var(--native-shadow-sm)]">
@@ -30,7 +30,7 @@ export function FilterTagBar(props: Props) {
               )}
             </For>
             <button type="button" class="text-[0.75rem] text-[var(--native-primary)] hover:underline" onClick={props.onClearAll}>
-              清除全部
+              Clear all
             </button>
           </div>
         </Show>

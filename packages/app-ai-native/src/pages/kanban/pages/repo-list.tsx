@@ -2,6 +2,7 @@ import { useNavigate, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, on } from "solid-js"
 import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
 import { RatioPill } from "../components/ratio-pill"
@@ -14,6 +15,7 @@ import { formatDuration } from "../lib/formatters"
 import type { DateRangeValue, KanbanColumn, RepoAggregateRow } from "../lib/types"
 
 export default function KanbanRepoList() {
+  const language = useLanguage()
   const navigate = useNavigate()
   const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string }>()
   const [state, setState] = createStore({
@@ -33,49 +35,49 @@ export default function KanbanRepoList() {
   const columns = createMemo<KanbanColumn<RepoAggregateRow>[]>(() => [
     {
       prop: "repo_addr",
-      label: "仓库地址",
+      label: language.t("kanban.metric.repoUrl"),
       minWidth: 300,
       filter: { type: "text" },
     },
     {
       prop: "repo_branch",
-      label: "分支",
+      label: language.t("kanban.metric.branch"),
       minWidth: 120,
       filter: { type: "multi-select" },
     },
     {
       prop: "commit_count",
-      label: "Commit数",
+      label: language.t("kanban.table.commitCount"),
       minWidth: 110,
       align: "right",
       filter: { type: "number" },
     },
     {
       prop: "task_count",
-      label: "Task数",
+      label: language.t("kanban.table.taskCount"),
       minWidth: 110,
       align: "right",
       filter: { type: "number" },
     },
     {
       prop: "sum_ancient_minutes",
-      label: "传统开发时长预估",
+      label: language.t("kanban.metric.traditionalEst"),
       minWidth: 150,
       align: "right",
-      display: (row) => formatDuration(row.sum_ancient_minutes),
+      display: (row) => formatDuration(row.sum_ancient_minutes, language.t),
       filter: { type: "number" },
     },
     {
       prop: "sum_real_minutes",
-      label: "实际耗时",
+      label: language.t("kanban.metric.actualTime"),
       minWidth: 130,
       align: "right",
-      display: (row) => formatDuration(row.sum_real_minutes),
+      display: (row) => formatDuration(row.sum_real_minutes, language.t),
       filter: { type: "number" },
     },
     {
       prop: "efficiency_ratio",
-      label: "提效比",
+      label: language.t("kanban.metric.efficiencyRatio"),
       minWidth: 110,
       align: "center",
       render: (row) => <RatioPill value={row.efficiency_ratio} />,
@@ -90,7 +92,7 @@ export default function KanbanRepoList() {
     },
     {
       prop: "start_time",
-      label: "开始时间",
+      label: language.t("kanban.metric.startTime"),
       minWidth: 150,
       filter: { type: "date", serverSide: true },
     },
@@ -160,7 +162,7 @@ export default function KanbanRepoList() {
       } catch (err) {
         showToast({
           variant: "error",
-          title: "仓库列表加载失败",
+          title: language.t("kanban.repo.loadFailed"),
           description: err instanceof Error ? err.message : String(err),
         })
         return {
@@ -179,7 +181,7 @@ export default function KanbanRepoList() {
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <header class="flex w-full flex-col gap-3">
         <Back />
-        <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">仓库视图</h1>
+        <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.repo.listTitle")}</h1>
       </header>
 
       <div class="flex w-full flex-col gap-5">
@@ -195,10 +197,10 @@ export default function KanbanRepoList() {
           pageSize={state.pageSize}
           pageSizeOptions={[250, 500, 1000]}
           dateRange={state.serverRange}
-          emptyText={repoRows.loading ? "仓库聚合加载中..." : "当前时间范围内没有仓库数据"}
+          emptyText={repoRows.loading ? language.t("kanban.repo.loading") : language.t("kanban.repo.empty")}
           actions={
             <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={repoRows.loading}>
-              {repoRows.loading ? "刷新中..." : "刷新"}
+              {repoRows.loading ? language.t("kanban.repo.refreshing") : language.t("kanban.repo.refresh")}
             </Button>
           }
           onPageChange={(page) => setState("page", page)}

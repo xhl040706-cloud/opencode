@@ -3,10 +3,11 @@ import { createEffect, createMemo, createResource, createSignal, Show } from "so
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
-import { Modal } from "@/components/modal"
+import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
 import { ChartCard } from "../components/charts/chart-card"
+import { CollapsedTagBar } from "../components/filters/collapsed-tag-bar"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { FilterTable } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
@@ -35,6 +36,14 @@ function enrichData(list: ProjectRow[]): EnrichedProjectRow[] {
       _end_time_fmt: ongoing ? "" : formatLocalTime(endTime),
     }
   })
+}
+
+type SectionKey = "filter" | "table" | "charts"
+
+const SECTION_LABELS: Record<SectionKey, string> = {
+  filter: "kanban.section.filter",
+  table: "kanban.section.projectList",
+  charts: "kanban.section.charts",
 }
 
 function makeBarOption(title: string, categories: string[], seriesList: { name: string; data: (number | null)[] }[]) {
@@ -82,13 +91,14 @@ function toDay(m: number | null | undefined) {
 }
 
 function CreateProjectDialog(props: { onCreated: () => void }) {
+  const language = useLanguage()
   const dialog = useDialog()
   const [form, setForm] = createStore({ name: "", description: "" })
   const [busy, setBusy] = createSignal(false)
 
   const handleCreate = async () => {
     if (!form.name.trim()) {
-      showToast({ variant: "error", title: "请输入项目名称" })
+      showToast({ variant: "error", title: language.t("kanban.validation.projectNameRequired") })
       return
     }
     setBusy(true)
@@ -97,57 +107,51 @@ function CreateProjectDialog(props: { onCreated: () => void }) {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
       })
-      showToast({ variant: "success", title: "创建成功" })
+      showToast({ variant: "success", title: language.t("kanban.toast.createSuccess") })
       dialog.close()
       props.onCreated()
     } catch (e) {
-      showToast({ variant: "error", title: "创建失败", description: e instanceof Error ? e.message : String(e) })
+      showToast({ variant: "error", title: language.t("kanban.toast.createFailed"), description: e instanceof Error ? e.message : String(e) })
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Modal
-      title="创建项目"
-      maxWidth="560px"
-      footer={
-        <>
-          <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>取消</Button>
-          <Button size="sm" type="button" onClick={() => void handleCreate()} disabled={busy()}>{busy() ? "创建中..." : "创建"}</Button>
-        </>
-      }
-    >
-      <div class="modal-section">
-        <div class="flex flex-col gap-3">
-          <div>
-            <label class="mb-1 block text-sm text-[var(--native-muted)]">项目名称</label>
-            <input
-              type="text"
-              class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
-              placeholder="输入项目名称"
-              value={form.name}
-              onInput={(e) => setForm("name", e.currentTarget.value)}
-              autofocus
-            />
-          </div>
-          <div>
-            <label class="mb-1 block text-sm text-[var(--native-muted)]">描述</label>
-            <textarea
-              class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
-              rows={3}
-              placeholder="输入项目描述（可选）"
-              value={form.description}
-              onInput={(e) => setForm("description", e.currentTarget.value)}
-            />
-          </div>
+    <div class="flex flex-col gap-4 p-4">
+      <h3 class="m-0 text-lg font-semibold text-[var(--native-foreground)]">{language.t("kanban.dialog.createProjectTitle")}</h3>
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="mb-1 block text-sm text-[var(--native-muted)]">{language.t("kanban.form.projectName")}</label>
+          <input
+            type="text"
+            class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
+            placeholder={language.t("kanban.form.projectNamePlaceholder")}
+            value={form.name}
+            onInput={(e) => setForm("name", e.currentTarget.value)}
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm text-[var(--native-muted)]">{language.t("kanban.form.description")}</label>
+          <textarea
+            class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
+            rows={3}
+            placeholder={language.t("kanban.form.projectDescPlaceholder")}
+            value={form.description}
+            onInput={(e) => setForm("description", e.currentTarget.value)}
+          />
         </div>
       </div>
-    </Modal>
+      <div class="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={() => dialog.close()}>{language.t("common.cancel")}</Button>
+        <Button size="sm" onClick={() => void handleCreate()} disabled={busy()}>{busy() ? language.t("common.creating") : language.t("common.create")}</Button>
+      </div>
+    </div>
   )
 }
 
 export default function KanbanProjectList() {
+  const language = useLanguage()
   const navigate = useNavigate()
   const dialog = useDialog()
   const [search, setSearch] = useSearchParams<{
@@ -162,8 +166,21 @@ export default function KanbanProjectList() {
   const [state, setState] = createStore({
     filterName: "",
     filterRange: null as [string, string] | null,
+    filterStartRange: null as [string, string] | null,
+    filterEndRange: null as [string, string] | null,
     filterOngoing: false,
+    collapsed: { filter: false, table: false, charts: false } as Record<SectionKey, boolean>,
   })
+
+  function toggleSection(key: SectionKey) {
+    setState("collapsed", key, (prev) => !prev)
+  }
+
+  const collapsedTags = createMemo(() =>
+    (Object.keys(SECTION_LABELS) as SectionKey[])
+      .filter((key) => state.collapsed[key])
+      .map((key) => ({ key, label: language.t(SECTION_LABELS[key]) })),
+  )
 
   function parseDateStr(s?: string | null) {
     if (!s || s.length < 8) return ""
@@ -194,70 +211,70 @@ export default function KanbanProjectList() {
   }
 
   const columns = createMemo<KanbanColumn<EnrichedProjectRow>[]>(() => [
-    { prop: "name", label: "项目名称", minWidth: 200, filter: { type: "text" }, render: (row) => <button type="button" class="text-left font-semibold text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={(e) => { e.stopPropagation(); if (row.project_id) navigate(`/kanban/project/${encodeURIComponent(row.project_id)}`) }}>{row.name || "-"}</button> },
+    { prop: "name", label: language.t("kanban.form.projectName"), minWidth: 200, filter: { type: "text" }, render: (row) => <button type="button" class="text-left font-semibold text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={(e) => { e.stopPropagation(); if (row.project_id) navigate(`/kanban/project/${encodeURIComponent(row.project_id)}`) }}>{row.name || "-"}</button> },
     {
       prop: "start_time",
-      label: "开始时间",
+      label: language.t("kanban.table.startTime"),
       minWidth: 150,
       display: (row) => formatLocalTime(row.start_time_manual ?? row.start_time),
     },
     {
       prop: "end_time_display",
-      label: "结束时间",
+      label: language.t("kanban.table.endTimeDisplay"),
       minWidth: 150,
       render: (row) =>
         row._ongoing
-          ? <span class="font-medium text-[var(--native-success)]">尚未结束</span>
+          ? <span class="font-medium text-[var(--native-success)]">{language.t("kanban.status.ongoing")}</span>
           : <span>{row._end_time_fmt}</span>,
     },
-    { prop: "user_count", label: "人数", minWidth: 80, align: "right", filter: { type: "number" } },
-    { prop: "repo_count", label: "Repo数", minWidth: 90, align: "right", filter: { type: "number" } },
-    { prop: "task_count", label: "Task数", minWidth: 90, align: "right", filter: { type: "number" } },
+    { prop: "user_count", label: language.t("kanban.table.peopleCount"), minWidth: 80, align: "right", filter: { type: "number" } },
+    { prop: "repo_count", label: language.t("kanban.table.repoCount"), minWidth: 90, align: "right", filter: { type: "number" } },
+    { prop: "task_count", label: language.t("kanban.table.taskCount"), minWidth: 90, align: "right", filter: { type: "number" } },
     {
       prop: "total_code_lines",
-      label: "生成代码量",
+      label: language.t("kanban.table.generatedCode"),
       minWidth: 110,
       align: "right",
-      display: (row) => row.total_code_lines && row.total_code_lines > 0 ? row.total_code_lines.toLocaleString() + " 行" : "-",
+      display: (row) => row.total_code_lines && row.total_code_lines > 0 ? row.total_code_lines.toLocaleString() + " " + language.t("kanban.repo.lines") : "-",
     },
     {
       prop: "actual_lines_per_day",
-      label: "实际人天代码量",
+      label: language.t("kanban.table.actualLinesPerDay"),
       minWidth: 130,
       align: "right",
-      display: (row) => row.actual_lines_per_day != null ? Math.round(row.actual_lines_per_day).toLocaleString() + " 行/人天" : "-",
+      display: (row) => row.actual_lines_per_day != null ? Math.round(row.actual_lines_per_day).toLocaleString() + " " + language.t("kanban.unit.linesPerManDay") : "-",
     },
     {
       prop: "cost",
-      label: "费用",
+      label: language.t("kanban.table.cost"),
       minWidth: 100,
       align: "right",
       display: (row) => fmtCost(row.cost),
     },
     {
       prop: "project_real_lead_minutes",
-      label: "项目周期",
+      label: language.t("kanban.table.projectCycle"),
       minWidth: 120,
       align: "right",
-      display: (row) => formatDuration(row.project_real_lead_minutes_manual ?? row.project_real_lead_minutes),
+      display: (row) => formatDuration(row.project_real_lead_minutes_manual ?? row.project_real_lead_minutes, language.t),
     },
     {
       prop: "project_ancient_minutes",
-      label: "传统开发预估",
+      label: language.t("kanban.table.traditionalEst"),
       minWidth: 130,
       align: "right",
-      display: (row) => formatDuration(row.project_ancient_minutes_manual ?? row.project_ancient_minutes),
+      display: (row) => formatDuration(row.project_ancient_minutes_manual ?? row.project_ancient_minutes, language.t),
     },
     {
       prop: "project_real_process_minutes",
-      label: "实际耗时",
+      label: language.t("kanban.table.actualTime"),
       minWidth: 120,
       align: "right",
-      display: (row) => formatDuration(row.project_real_process_minutes_manual ?? row.project_real_process_minutes),
+      display: (row) => formatDuration(row.project_real_process_minutes_manual ?? row.project_real_process_minutes, language.t),
     },
     {
       prop: "efficiency_ratio",
-      label: "提效比",
+      label: language.t("kanban.table.efficiencyRatio"),
       minWidth: 110,
       align: "center",
       render: (row) =>
@@ -277,7 +294,7 @@ export default function KanbanProjectList() {
     },
     {
       prop: "_actions",
-      label: "操作",
+      label: language.t("kanban.table.action"),
       width: 80,
       align: "center",
       render: (row) => (
@@ -289,7 +306,7 @@ export default function KanbanProjectList() {
             void handleDelete(row)
           }}
         >
-          删除
+          {language.t("common.delete")}
         </button>
       ),
     },
@@ -335,17 +352,17 @@ export default function KanbanProjectList() {
   const chartEffOption = createMemo(() => {
     const d = filteredData()
     if (!d.length) return undefined
-    return makeBarOptionPct("提效比（按项目）", d.map((r) => r.name || "-"), [
-      { name: "提效比", data: d.map((r) => r.efficiency_ratio ?? null) },
+    return makeBarOptionPct(language.t("kanban.chart.efficiencyByProject"), d.map((r) => r.name || "-"), [
+      { name: language.t("kanban.metric.efficiencyRatio"), data: d.map((r) => r.efficiency_ratio ?? null) },
     ])
   })
 
   const chartCodeOption = createMemo(() => {
     const d = filteredData()
     if (!d.length) return undefined
-    return makeBarOption("代码量（按项目）", d.map((r) => r.name || "-"), [
-      { name: "生成代码量（行）", data: d.map((r) => r.total_code_lines || 0) },
-      { name: "实际人天代码量（行/人天）", data: d.map((r) => r.actual_lines_per_day != null ? Math.round(r.actual_lines_per_day) : null) },
+    return makeBarOption(language.t("kanban.chart.codeByProject"), d.map((r) => r.name || "-"), [
+      { name: language.t("kanban.chart.generatedCodeLines"), data: d.map((r) => r.total_code_lines || 0) },
+      { name: language.t("kanban.chart.actualLinesPerManDay"), data: d.map((r) => r.actual_lines_per_day != null ? Math.round(r.actual_lines_per_day) : null) },
     ])
   })
 
@@ -354,10 +371,10 @@ export default function KanbanProjectList() {
     if (!d.length) return undefined
     const names = d.map((r) => r.name || "-")
     return {
-      ...makeBarOption("时间对比（人天，按项目）", names, [
-        { name: "传统开发预估", data: d.map((r) => toDay(r.project_ancient_minutes_manual ?? r.project_ancient_minutes)) },
-        { name: "实际耗时", data: d.map((r) => toDay(r.project_real_process_minutes_manual ?? r.project_real_process_minutes)) },
-        { name: "项目周期", data: d.map((r) => toDay(r.project_real_lead_minutes_manual ?? r.project_real_lead_minutes)) },
+      ...makeBarOption(language.t("kanban.chart.timeComparisonByProject"), names, [
+        { name: language.t("kanban.chart.traditionalEst"), data: d.map((r) => toDay(r.project_ancient_minutes_manual ?? r.project_ancient_minutes)) },
+        { name: language.t("kanban.chart.actualTime"), data: d.map((r) => toDay(r.project_real_process_minutes_manual ?? r.project_real_process_minutes)) },
+        { name: language.t("kanban.chart.projectCycle"), data: d.map((r) => toDay(r.project_real_lead_minutes_manual ?? r.project_real_lead_minutes)) },
       ]),
       tooltip: {
         trigger: "axis" as const,
@@ -366,7 +383,7 @@ export default function KanbanProjectList() {
           const items = Array.isArray(params) ? params : [params]
           let str = (items[0]?.axisValue ?? "") + "<br/>"
           for (const p of items) {
-            str += (p.marker ?? "") + (p.seriesName ?? "") + ": " + (p.value ?? "-") + " 人天<br/>"
+            str += (p.marker ?? "") + (p.seriesName ?? "") + ": " + (p.value ?? "-") + " " + language.t("kanban.unit.manDays") + "<br/>"
           }
           return str
         },
@@ -377,10 +394,10 @@ export default function KanbanProjectList() {
   const chartPeopleOption = createMemo(() => {
     const d = filteredData()
     if (!d.length) return undefined
-    return makeBarOption("人员与规模（按项目）", d.map((r) => r.name || "-"), [
-      { name: "人数", data: d.map((r) => r.user_count || 0) },
-      { name: "Task数", data: d.map((r) => r.task_count || 0) },
-      { name: "Repo数", data: d.map((r) => r.repo_count || 0) },
+    return makeBarOption(language.t("kanban.chart.peopleAndScaleByProject"), d.map((r) => r.name || "-"), [
+      { name: language.t("kanban.chart.peopleCount"), data: d.map((r) => r.user_count || 0) },
+      { name: language.t("kanban.chart.taskCount"), data: d.map((r) => r.task_count || 0) },
+      { name: language.t("kanban.chart.repoCount"), data: d.map((r) => r.repo_count || 0) },
     ])
   })
 
@@ -388,8 +405,8 @@ export default function KanbanProjectList() {
     const d = filteredData()
     if (!d.length) return undefined
     return {
-      ...makeBarOption("费用（按项目）", d.map((r) => r.name || "-"), [
-        { name: "费用（元）", data: d.map((r) => r.cost || 0) },
+      ...makeBarOption(language.t("kanban.chart.costByProject"), d.map((r) => r.name || "-"), [
+        { name: language.t("kanban.chart.costYuan"), data: d.map((r) => r.cost || 0) },
       ]),
       tooltip: {
         trigger: "axis" as const,
@@ -398,7 +415,7 @@ export default function KanbanProjectList() {
           const items = Array.isArray(params) ? params : [params]
           let str = (items[0]?.axisValue ?? "") + "<br/>"
           for (const p of items) {
-            str += (p.marker ?? "") + (p.seriesName ?? "") + ": " + Number(p.value || 0).toFixed(2) + " 元<br/>"
+            str += (p.marker ?? "") + (p.seriesName ?? "") + ": " + Number(p.value || 0).toFixed(2) + " " + language.t("kanban.repo.yuan") + "<br/>"
           }
           return str
         },
@@ -408,13 +425,14 @@ export default function KanbanProjectList() {
 
   async function handleDelete(row: EnrichedProjectRow) {
     if (!row.project_id) return
-    if (!confirm(`确定要删除项目「${row.name}」吗？`)) return
+    const msg = language.t("kanban.confirm.deleteProject", { name: row.name ?? "" })
+    if (msg && !window.confirm(msg)) return
     try {
       await deleteProject(row.project_id)
-      showToast({ variant: "success", title: "删除成功" })
+      showToast({ variant: "success", title: language.t("kanban.toast.deleteSuccess") })
       await refetch()
     } catch (e) {
-      showToast({ variant: "error", title: "删除失败", description: e instanceof Error ? e.message : String(e) })
+      showToast({ variant: "error", title: language.t("kanban.toast.deleteFailed"), description: e instanceof Error ? e.message : String(e) })
     }
   }
 
@@ -424,78 +442,96 @@ export default function KanbanProjectList() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="flex w-full flex-col gap-5">
-        <header class="flex w-full flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div class="flex flex-col gap-3">
-            <Back href="/kanban" label="返回首页" />
-            <div>
-              <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">项目视图</h1>
+      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+        <a href="/kanban" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"><span>←</span><span>{language.t("kanban.backToHome")}</span></a>
+
+        <CollapsedTagBar tags={collapsedTags()} onExpand={(key) => toggleSection(key as SectionKey)} />
+
+        <Show when={!state.collapsed.filter}>
+          <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+            <div class="mb-3 flex items-center justify-between">
+              <span class="text-sm font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.filter")}</span>
+              <button type="button" class="text-xs text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggleSection("filter")}>{language.t("common.collapse")}</button>
             </div>
-          </div>
-
-          <div class="flex min-w-0 flex-wrap items-center justify-end gap-3">
-            <input
-              type="text"
-              class="h-10 min-w-[12rem] rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
-              placeholder="项目名称"
-              value={state.filterName}
-              onInput={(e) => {
-                setState("filterName", e.currentTarget.value)
-                updateUrl()
-              }}
-            />
-
-            <DateRangePicker
-              value={state.filterRange}
-              placeholder="项目时间范围"
-              clearable
-              size="sm"
-              fullWidth={false}
-              onChange={(value) => {
-                setState("filterRange", value ?? null)
-                updateUrl()
-              }}
-            />
-
-            <label class="flex h-10 items-center gap-2 rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_90%,var(--native-bg-subtle))] px-3 text-sm text-[var(--native-muted)]">
+            <div class="flex flex-wrap items-center gap-3">
               <input
-                type="checkbox"
-                class="h-4 w-4 accent-[var(--native-primary)]"
-                checked={state.filterOngoing}
-                onChange={(e) => {
-                  setState("filterOngoing", e.currentTarget.checked)
+                type="text"
+                class="w-[180px] rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-1.5 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
+                placeholder={language.t("kanban.form.projectNamePlaceholder")}
+                value={state.filterName}
+                onInput={(e) => {
+                  setState("filterName", e.currentTarget.value)
                   updateUrl()
                 }}
               />
-              仅显示尚未结束
-            </label>
-          </div>
-        </header>
+              <DateRangePicker
+                value={state.filterStartRange}
+                placeholder={language.t("kanban.form.startDate")}
+                clearable
+                size="sm"
+                onChange={(value) => {
+                  setState("filterStartRange", value ?? null)
+                  updateUrl()
+                }}
+              />
+              <DateRangePicker
+                value={state.filterEndRange}
+                placeholder={language.t("kanban.form.endDate")}
+                clearable
+                size="sm"
+                onChange={(value) => {
+                  setState("filterEndRange", value ?? null)
+                  updateUrl()
+                }}
+              />
+              <label class="flex items-center gap-1.5 text-sm text-[var(--native-muted)]">
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 accent-[var(--native-primary)]"
+                  checked={state.filterOngoing}
+                  onChange={(e) => {
+                    setState("filterOngoing", e.currentTarget.checked)
+                    updateUrl()
+                  }}
+                />
+                {language.t("kanban.filter.onlyOngoing")}
+              </label>
+            </div>
+          </section>
+        </Show>
 
-        <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <span class="text-sm font-semibold text-[var(--native-foreground)]">项目列表</span>
-            <Button size="sm" onClick={() => dialog.show(() => <CreateProjectDialog onCreated={() => void refetch()} />)}>+ 创建项目</Button>
-          </div>
-          <FilterTable
-            columns={columns()}
-            rows={filteredData()}
-            rawRows={data() ?? []}
-            controller={table}
-            loading={data.loading}
-            total={filteredData().length}
-            page={1}
-            pageSize={filteredData().length || 1}
-            pageSizeOptions={[250, 500, 1000]}
-            emptyText={data.loading ? "项目加载中..." : "暂无项目数据"}
-            onPageChange={() => {}}
-            onPageSizeChange={() => {}}
-          />
-        </section>
+        <Show when={!state.collapsed.table}>
+          <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+            <div class="mb-3 flex items-center justify-between">
+              <span class="text-sm font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.projectList")}</span>
+              <div class="flex items-center gap-2">
+                <Button size="sm" onClick={() => dialog.show(() => <CreateProjectDialog onCreated={() => void refetch()} />)}>{language.t("kanban.form.createProject")}</Button>
+                <button type="button" class="text-xs text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggleSection("table")}>{language.t("common.collapse")}</button>
+              </div>
+            </div>
+            <FilterTable
+              columns={columns()}
+              rows={filteredData()}
+              rawRows={data() ?? []}
+              controller={table}
+              loading={data.loading}
+              total={filteredData().length}
+              page={1}
+              pageSize={filteredData().length || 1}
+              pageSizeOptions={[250, 500, 1000]}
+              emptyText={data.loading ? language.t("kanban.loading.projects") : language.t("kanban.empty.noProjectData")}
+              onPageChange={() => {}}
+              onPageSizeChange={() => {}}
+            />
+          </section>
+        </Show>
 
         <Show when={filteredData().length > 0}>
           <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-            <div class="mb-4 text-sm font-semibold text-[var(--native-foreground)]">图表</div>
+            <div class="mb-3 flex items-center justify-between">
+              <span class="text-sm font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.charts")}</span>
+              <button type="button" class="text-xs text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggleSection("charts")}>{language.t("common.collapse")}</button>
+            </div>
             <div class="grid gap-3 lg:grid-cols-2">
               <ChartCard option={chartEffOption()} />
               <ChartCard option={chartCodeOption()} />

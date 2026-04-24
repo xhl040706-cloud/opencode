@@ -1,6 +1,7 @@
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, createSignal, For } from "solid-js"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Back from "../components/back"
@@ -17,6 +18,7 @@ function fmtCost(value?: number | null) {
 }
 
 export default function KanbanUserGroupDetail() {
+  const language = useLanguage()
   const params = useParams()
   const navigate = useNavigate()
   const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string }>()
@@ -51,7 +53,7 @@ export default function KanbanUserGroupDetail() {
       } catch (err) {
         showToast({
           variant: "error",
-          title: "用户组详情加载失败",
+          title: language.t("kanban.loading.userGroupDetail"),
           description: err instanceof Error ? err.message : String(err),
         })
         return null
@@ -77,16 +79,16 @@ export default function KanbanUserGroupDetail() {
 
   const drop = async () => {
     if (!groupId()) return
-    if (!window.confirm("确定要删除此虚拟组吗？删除后不可恢复。")) return
+    if (!window.confirm(language.t("kanban.confirm.deleteVirtualGroup"))) return
 
     try {
       await deleteUserGroup(groupId())
-      showToast({ variant: "success", title: "删除成功" })
+      showToast({ variant: "success", title: language.t("kanban.toast.deleteSuccess") })
       navigate("/kanban/user")
     } catch (err) {
       showToast({
         variant: "error",
-        title: "删除失败",
+        title: language.t("kanban.toast.deleteFailed"),
         description: err instanceof Error ? err.message : String(err),
       })
     }
@@ -103,18 +105,18 @@ export default function KanbanUserGroupDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
         <header class="flex flex-col gap-3">
-          <Back href={listHref()} label="返回用户列表" />
+          <Back href={listHref()} />
 
           <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
-                <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / User Group</p>
-                <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">虚拟组: {group().name || groupId() || "-"}</h1>
+                <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">{language.t("kanban.breadcrumb.userGroup")}</p>
+                <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.label.virtualGroup")}: {group().name || groupId() || "-"}</h1>
               </div>
 
               <div class="flex flex-col gap-3 md:flex-row md:items-end">
                 <label class="flex min-w-0 flex-col gap-2">
-                  <span class="text-[0.75rem] text-[var(--native-muted)]">日期范围</span>
+                  <span class="text-[0.75rem] text-[var(--native-muted)]">{language.t("kanban.label.dateRange")}</span>
                   <DateRangePicker
                     value={dateRange()}
                     onChange={(value) => {
@@ -125,13 +127,13 @@ export default function KanbanUserGroupDetail() {
                       ]).entries()))
                     }}
                     clearable={false}
-                    placeholder="选择日期范围"
+                    placeholder={language.t("kanban.filter.selectDateRange")}
                   />
                 </label>
 
                 <div class="flex items-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>刷新</Button>
-                  <Button variant="destructive" size="sm" onClick={() => void drop()} disabled={data.loading}>删除此组</Button>
+                  <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>{language.t("kanban.action.refresh")}</Button>
+                  <Button variant="destructive" size="sm" onClick={() => void drop()} disabled={data.loading}>{language.t("kanban.label.deleteGroup")}</Button>
                 </div>
               </div>
             </div>
@@ -139,27 +141,27 @@ export default function KanbanUserGroupDetail() {
         </header>
 
         <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <MetricCard label="成员数" value={String(members().length)} accent="var(--native-success)" />
-          <MetricCard label="总Task数" value={String(summary().task_count ?? 0)} accent="var(--native-warning)" />
-          <MetricCard label="总Commit数" value={String(summary().commit_count ?? 0)} accent="var(--native-primary)" />
-          <MetricCard label="加权Task提效比" value={formatPercent(taskRatio())} accent="var(--native-success)" />
-          <MetricCard label="加权Commit提效比" value={formatPercent(commitRatio())} accent="var(--native-primary)" />
-          <MetricCard label="总费用" value={fmtCost(summary().cost)} accent="var(--native-warning)" />
+          <MetricCard label={language.t("kanban.metric.memberCount")} value={String(members().length)} accent="var(--native-success)" />
+          <MetricCard label={language.t("kanban.metric.totalTasks")} value={String(summary().task_count ?? 0)} accent="var(--native-warning)" />
+          <MetricCard label={language.t("kanban.metric.totalCommits")} value={String(summary().commit_count ?? 0)} accent="var(--native-primary)" />
+          <MetricCard label={language.t("kanban.metric.weightedTaskEfficiency")} value={formatPercent(taskRatio())} accent="var(--native-success)" />
+          <MetricCard label={language.t("kanban.metric.weightedCommitEfficiency")} value={formatPercent(commitRatio())} accent="var(--native-primary)" />
+          <MetricCard label={language.t("kanban.metric.totalCost")} value={fmtCost(summary().cost)} accent="var(--native-warning)" />
         </section>
 
         <section class="overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-          <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">成员明细</div>
+          <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.participantList")}</div>
           <div class="overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead class="min-w-[150px]">用户名</TableHead>
-                  <TableHead class="min-w-[100px] text-right">活跃天数</TableHead>
-                  <TableHead class="min-w-[90px] text-right">Task数</TableHead>
-                  <TableHead class="min-w-[100px] text-right">Commit数</TableHead>
-                  <TableHead class="min-w-[110px] text-center">Task提效比</TableHead>
-                  <TableHead class="min-w-[120px] text-center">Commit提效比</TableHead>
-                  <TableHead class="min-w-[100px] text-right">费用</TableHead>
+                  <TableHead class="min-w-[150px]">{language.t("kanban.table.userName")}</TableHead>
+                  <TableHead class="min-w-[100px] text-right">{language.t("kanban.label.activeDays")}</TableHead>
+                  <TableHead class="min-w-[90px] text-right">{language.t("kanban.table.taskCount")}</TableHead>
+                  <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.commitCount")}</TableHead>
+                  <TableHead class="min-w-[110px] text-center">{language.t("kanban.table.taskEfficiency")}</TableHead>
+                  <TableHead class="min-w-[120px] text-center">{language.t("kanban.table.commitEfficiency")}</TableHead>
+                  <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.cost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

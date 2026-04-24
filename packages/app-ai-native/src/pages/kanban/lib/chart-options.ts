@@ -51,7 +51,7 @@ export function chart(title: string, labels: string[], list: Item[], opts: Opts 
         interval,
       },
     },
-    yAxis: title.includes("提效比") ? { type: "value", axisLabel: { formatter: "{value}%" } } : { type: "value" },
+    yAxis: title.includes("Efficiency") || title.includes("Ratio") ? { type: "value", axisLabel: { formatter: "{value}%" } } : { type: "value" },
     series: list.map((item) => {
       const next = item.type ?? type
       return { name: item.name, type: next, smooth: next === "line", data: item.data }
