@@ -144,7 +144,7 @@ function CreateProjectDialog(props: { onCreated: () => void }) {
       </div>
       <div class="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={() => dialog.close()}>{language.t("common.cancel")}</Button>
-        <Button size="sm" onClick={() => void handleCreate()} disabled={busy}>{busy ? language.t("common.creating") : language.t("common.create")}</Button>
+        <Button size="sm" onClick={() => void handleCreate()} disabled={busy()}>{busy() ? language.t("common.creating") : language.t("common.create")}</Button>
       </div>
     </div>
   )
@@ -425,7 +425,8 @@ export default function KanbanProjectList() {
 
   async function handleDelete(row: EnrichedProjectRow) {
     if (!row.project_id) return
-    if (!confirm(language.t("kanban.confirm.deleteProject", { name: row.name }))) return
+    const msg = language.t("kanban.confirm.deleteProject", { name: row.name ?? "" })
+    if (msg && !window.confirm(msg)) return
     try {
       await deleteProject(row.project_id)
       showToast({ variant: "success", title: language.t("kanban.toast.deleteSuccess") })

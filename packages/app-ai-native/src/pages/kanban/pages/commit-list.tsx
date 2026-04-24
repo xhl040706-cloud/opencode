@@ -35,7 +35,7 @@ function fmtCost(value?: number | null) {
 export default function KanbanCommitList() {
   const language = useLanguage()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; userName?: string; org1?: string; org2?: string; org3?: string; org4?: string; mock?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; userName?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
   const [state, setState] = createStore({
     page: 1,
     pageSize: 250,
@@ -51,7 +51,6 @@ export default function KanbanCommitList() {
     ["org2", search.org2],
     ["org3", search.org3],
     ["org4", search.org4],
-    ["mock", search.mock],
   ]).toString())
 
   createEffect(on(
@@ -74,7 +73,6 @@ export default function KanbanCommitList() {
       ["org2", state.org.org2],
       ["org3", state.org.org3],
       ["org4", state.org.org4],
-      ["mock", search.mock],
     ])
     const current = searchQuery([
       ["startDate", search.startDate],
@@ -84,7 +82,6 @@ export default function KanbanCommitList() {
       ["org2", search.org2],
       ["org3", search.org3],
       ["org4", search.org4],
-      ["mock", search.mock],
     ])
     if (query.toString() !== current.toString()) setSearch(Object.fromEntries(query.entries()))
   })

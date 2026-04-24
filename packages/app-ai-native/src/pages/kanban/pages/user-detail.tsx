@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
-import { createMemo, createResource, For, Show } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
@@ -65,13 +65,12 @@ function periodRange(row: UserDetailPeriodRow, granularity: Granularity) {
   return { start: `${key}0101`, end: `${key}1231` }
 }
 
-function queryOf(range: [string, string], granularity: Granularity, mock?: string) {
+function queryOf(range: [string, string], granularity: Granularity) {
   const next = rangeQuery(range)
   return searchQuery([
     ["startDate", next.startDate],
     ["endDate", next.endDate],
     ["granularity", granularity],
-    ["mock", mock],
   ])
 }
 
@@ -79,18 +78,18 @@ export default function KanbanUserDetail() {
   const language = useLanguage()
   const params = useParams()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string; mock?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string }>()
 
   const userId = createMemo(() => decodeURIComponent(params.userId ?? "").trim())
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
   const granularity = createMemo(() => parseGranularity(search.granularity))
   const listHref = createMemo(() => {
-    const q = queryOf(dateRange(), granularity(), search.mock)
+    const q = queryOf(dateRange(), granularity())
     return `/kanban/user?${q.toString()}`
   })
 
   const detailHref = (id: string) => {
-    const q = queryOf(dateRange(), granularity(), search.mock)
+    const q = queryOf(dateRange(), granularity())
     return `/kanban/user/${encodeURIComponent(id)}?${q.toString()}`
   }
 
@@ -127,9 +126,25 @@ export default function KanbanUserDetail() {
     },
   )
 
-  const summary = createMemo(() => detail()?.summary ?? {})
-  const commits = createMemo(() => detail()?.commits ?? [])
-  const tasks = createMemo(() => detail()?.tasks ?? [])
+  const [cachedDetail, setCachedDetail] = createSignal<{ key: string; data: NonNullable<Awaited<ReturnType<typeof getUserDetail>>> } | null>(null)
+
+  createEffect(() => {
+    const data = detail()
+    if (!data) return
+    setCachedDetail({ key: userId(), data })
+  })
+
+  const view = createMemo(() => {
+    const data = detail()
+    if (data) return data
+    const cached = cachedDetail()
+    if (cached?.key === userId()) return cached.data
+    return null
+  })
+
+  const summary = createMemo(() => view()?.summary ?? {})
+  const commits = createMemo(() => view()?.commits ?? [])
+  const tasks = createMemo(() => view()?.tasks ?? [])
   const labels = createMemo(() => (commits().length ? commits() : tasks()).map((item) => item.period_label || item.period_key || "-"))
   const taskRatio = createMemo(() => summary().task_efficiency_ratio)
   const commitRatio = createMemo(() => summary().commit_efficiency_ratio)
@@ -210,7 +225,7 @@ export default function KanbanUserDetail() {
                   value={dateRange()}
                   onChange={(value) => {
                     const next = value ?? defaultWideRange()
-                    setSearch(Object.fromEntries(queryOf(next, granularity(), search.mock).entries()))
+                    setSearch(Object.fromEntries(queryOf(next, granularity()).entries()))
                   }}
                   clearable={false}
                   placeholder={language.t("kanban.filter.selectDateRange")}
@@ -223,7 +238,7 @@ export default function KanbanUserDetail() {
                   value={granularity()}
                   onChange={(e) => {
                     const next = e.currentTarget.value as Granularity
-                    setSearch(Object.fromEntries(queryOf(dateRange(), next, search.mock).entries()))
+                    setSearch(Object.fromEntries(queryOf(dateRange(), next).entries()))
                   }}
                 >
                   <option value="day">{language.t("kanban.granularity.day")}</option>

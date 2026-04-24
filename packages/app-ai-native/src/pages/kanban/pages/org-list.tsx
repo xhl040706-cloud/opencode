@@ -54,7 +54,7 @@ function orgPath(value: OrgCascadeValue) {
   return [value.org1, value.org2, value.org3, value.org4].filter(Boolean).join("/")
 }
 
-function queryOf(range: [string, string], granularity: Granularity, org: OrgCascadeValue, mock?: string) {
+function queryOf(range: [string, string], granularity: Granularity, org: OrgCascadeValue) {
   const dates = rangeQuery(range)
   return searchQuery([
     ["startDate", dates.startDate],
@@ -64,12 +64,7 @@ function queryOf(range: [string, string], granularity: Granularity, org: OrgCasc
     ["org2", org.org2],
     ["org3", org.org3],
     ["org4", org.org4],
-    ["mock", mock],
   ]).toString()
-}
-
-function queryString(search: Record<string, string | undefined>) {
-  return searchQuery(Object.entries(search)).toString()
 }
 
 function values(series: OrgAggregateSeries, field: keyof OrgAggregateSeries["points"][number]) {
@@ -79,7 +74,7 @@ function values(series: OrgAggregateSeries, field: keyof OrgAggregateSeries["poi
 export default function KanbanOrgList() {
   const language = useLanguage()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; org1?: string; org2?: string; org3?: string; org4?: string; granularity?: string; mock?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; org1?: string; org2?: string; org3?: string; org4?: string; granularity?: string }>()
   const [state, setState] = createStore({
     page: 1,
     pageSize: 50,
@@ -106,8 +101,16 @@ export default function KanbanOrgList() {
     const next = normalizeDateRange(state.dateRange)
     if (!next) return
 
-    const mirror = queryOf(next, state.granularity, state.org, search.mock)
-    const current = queryString(search as Record<string, string | undefined>)
+    const mirror = queryOf(next, state.granularity, state.org)
+    const current = searchQuery([
+      ["startDate", search.startDate],
+      ["endDate", search.endDate],
+      ["granularity", search.granularity],
+      ["org1", search.org1],
+      ["org2", search.org2],
+      ["org3", search.org3],
+      ["org4", search.org4],
+    ]).toString()
     if (mirror !== current) setSearch(Object.fromEntries(new URLSearchParams(mirror).entries()))
   })
 
@@ -117,7 +120,7 @@ export default function KanbanOrgList() {
     granularity: state.granularity,
   }))
 
-  const routeQuery = (org: OrgCascadeValue) => queryOf(state.dateRange, state.granularity, org, search.mock)
+  const routeQuery = (org: OrgCascadeValue) => queryOf(state.dateRange, state.granularity, org)
 
   const columns = createMemo<KanbanColumn<OrgAggregateRow>[]>(() => [
     {

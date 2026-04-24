@@ -1,5 +1,5 @@
 import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
-import { createMemo, createResource, For, Show } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { showToast } from "@opencode-ai/ui/toast"
@@ -68,16 +68,16 @@ export default function KanbanRepoDetail() {
   const params = useParams()
   const navigate = useNavigate()
   const dialog = useDialog()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; mock?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string }>()
 
   const repoAddr = createMemo(() => decodeURIComponent(params.repoAddr ?? "").trim())
   const repoBranch = createMemo(() => decodeURIComponent(params.repoBranch ?? "").trim())
+  const repoKey = createMemo(() => `${repoAddr()}::${repoBranch()}`)
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
   const listHref = createMemo(() => {
     const q = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
-      ["mock", search.mock],
     ])
     const txt = q.toString()
     return txt ? `/kanban/repo?${txt}` : "/kanban/repo"
@@ -88,7 +88,6 @@ export default function KanbanRepoDetail() {
     const q = searchQuery([
       ["startDate", next.startDate],
       ["endDate", next.endDate],
-      ["mock", search.mock],
     ])
     const txt = q.toString()
     return branch
@@ -122,10 +121,26 @@ export default function KanbanRepoDetail() {
     },
   )
 
-  const commits = createMemo(() => detail()?.commits ?? [])
-  const tasks = createMemo(() => detail()?.tasks ?? [])
-  const branches = createMemo(() => detail()?.branches ?? [])
-  const efficiency = createMemo(() => detail()?.efficiency ?? {})
+  const [cachedDetail, setCachedDetail] = createSignal<{ key: string; data: NonNullable<Awaited<ReturnType<typeof getRepoDetail>>> } | null>(null)
+
+  createEffect(() => {
+    const data = detail()
+    if (!data) return
+    setCachedDetail({ key: repoKey(), data })
+  })
+
+  const view = createMemo(() => {
+    const data = detail()
+    if (data) return data
+    const cached = cachedDetail()
+    if (cached?.key === repoKey()) return cached.data
+    return null
+  })
+
+  const commits = createMemo(() => view()?.commits ?? [])
+  const tasks = createMemo(() => view()?.tasks ?? [])
+  const branches = createMemo(() => view()?.branches ?? [])
+  const efficiency = createMemo(() => view()?.efficiency ?? {})
   const efficiencyRatio = createMemo(() => efficiency().efficiency_ratio ?? null)
 
   const totalDiffLines = createMemo(() => commits().reduce((sum, item) => sum + (item.diff_lines ?? 0), 0))
@@ -179,55 +194,44 @@ export default function KanbanRepoDetail() {
             {language.t("kanban.repo.detailDescription")}
           </p>
         </div>
+
+        <div class="flex min-w-0 flex-nowrap items-center justify-end gap-3 overflow-x-auto">
+          <select
+            class="flex h-10 min-w-[12rem] shrink-0 rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={repoBranch()}
+            onChange={(e) => {
+              const next = e.currentTarget.value.trim()
+              navigate(detailHref(next || undefined))
+            }}
+          >
+            <option value="">{language.t("kanban.repo.allBranches")}</option>
+            <For each={branches()}>
+              {(item) => <option value={item}>{item}</option>}
+            </For>
+          </select>
+
+          <DateRangePicker
+            value={dateRange()}
+            fullWidth={false}
+            onChange={(value) => {
+              const next = value ?? defaultWideRange()
+              setSearch(Object.fromEntries(searchQuery([
+                ["startDate", rangeQuery(next).startDate],
+                ["endDate", rangeQuery(next).endDate],
+              ]).entries()))
+            }}
+            placeholder={language.t("kanban.filter.selectDateRange")}
+          />
+
+          <Button size="sm" class="shrink-0" onClick={openAddDialog} disabled={!view()}>
+            {language.t("kanban.repo.addToProject")}
+          </Button>
+        </div>
       </header>
 
       <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-          <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div class="flex items-center gap-3">
-              <Button variant="outline" size="sm" onClick={() => navigate(listHref())}>
-                {language.t("kanban.repo.back")}
-              </Button>
-              <div class="text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.repo.detailTitle")}</div>
-            </div>
-
-            <div class="flex flex-col gap-3 md:flex-row md:items-center">
-              <select
-                class="flex h-10 min-w-[12rem] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={repoBranch()}
-                onChange={(e) => {
-                  const next = e.currentTarget.value.trim()
-                  navigate(detailHref(next || undefined))
-                }}
-              >
-                <option value="">{language.t("kanban.repo.allBranches")}</option>
-                <For each={branches()}>
-                  {(item) => <option value={item}>{item}</option>}
-                </For>
-              </select>
-
-              <DateRangePicker
-                value={dateRange()}
-                onChange={(value) => {
-                  const next = value ?? defaultWideRange()
-                  setSearch(Object.fromEntries(searchQuery([
-                    ["startDate", rangeQuery(next).startDate],
-                    ["endDate", rangeQuery(next).endDate],
-                    ["mock", search.mock],
-                  ]).entries()))
-                }}
-                placeholder={language.t("kanban.filter.selectDateRange")}
-              />
-
-              <Button size="sm" onClick={openAddDialog} disabled={!detail()}>
-                {language.t("kanban.repo.addToProject")}
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        <Show when={!detail.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.repo.loadingDetail")}</div>}>
-          <Show when={detail()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.repo.noDetail")}</div>}>
+        <Show when={!detail.loading || view()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.repo.loadingDetail")}</div>}>
+          <Show when={view()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.repo.noDetail")}</div>}>
             {(item) => (
               <>
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">

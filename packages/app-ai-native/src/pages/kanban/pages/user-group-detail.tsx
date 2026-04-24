@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
-import { createEffect, createMemo, createResource, For } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, For } from "solid-js"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
@@ -21,14 +21,13 @@ export default function KanbanUserGroupDetail() {
   const language = useLanguage()
   const params = useParams()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; mock?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string }>()
 
   const groupId = createMemo(() => decodeURIComponent(params.groupId ?? "").trim())
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
   const routeQuery = createMemo(() => searchQuery([
     ["startDate", search.startDate],
     ["endDate", search.endDate],
-    ["mock", search.mock],
   ]).toString())
   const listHref = createMemo(() => routeQuery() ? `/kanban/user?${routeQuery()}` : "/kanban/user")
 
@@ -37,12 +36,10 @@ export default function KanbanUserGroupDetail() {
     const mirror = searchQuery([
       ["startDate", next.startDate],
       ["endDate", next.endDate],
-      ["mock", search.mock],
     ])
     const current = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
-      ["mock", search.mock],
     ])
     if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
   })
@@ -64,6 +61,22 @@ export default function KanbanUserGroupDetail() {
     },
   )
 
+  const [cachedDetail, setCachedDetail] = createSignal<{ key: string; data: NonNullable<Awaited<ReturnType<typeof getUserGroupDetail>>> } | null>(null)
+
+  createEffect(() => {
+    const next = data()
+    if (!next) return
+    setCachedDetail({ key: groupId(), data: next })
+  })
+
+  const view = createMemo(() => {
+    const next = data()
+    if (next) return next
+    const cached = cachedDetail()
+    if (cached?.key === groupId()) return cached.data
+    return null
+  })
+
   const drop = async () => {
     if (!groupId()) return
     if (!window.confirm(language.t("kanban.confirm.deleteVirtualGroup"))) return
@@ -81,7 +94,7 @@ export default function KanbanUserGroupDetail() {
     }
   }
 
-  const detail = createMemo(() => data())
+  const detail = createMemo(() => view())
   const group = createMemo(() => detail()?.group ?? {})
   const summary = createMemo(() => detail()?.summary ?? {})
   const members = createMemo(() => detail()?.members ?? [])
@@ -111,7 +124,6 @@ export default function KanbanUserGroupDetail() {
                       setSearch(Object.fromEntries(searchQuery([
                         ["startDate", rangeQuery(next).startDate],
                         ["endDate", rangeQuery(next).endDate],
-                        ["mock", search.mock],
                       ]).entries()))
                     }}
                     clearable={false}

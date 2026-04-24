@@ -5,6 +5,7 @@ import { createStore } from "solid-js/store"
 import { ArrowRight, BadgeInfo, Building2, ChevronDown, ClipboardList, FolderGit2, FolderOpen, GitCommitHorizontal, GitMerge, Users, Wallet } from "lucide-solid"
 import { showToast } from "@opencode-ai/ui/toast"
 import { cn } from "@/lib/utils"
+import { env } from "@/lib/env"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { queryDashboardSummary } from "../lib/api"
 import { normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
@@ -187,7 +188,7 @@ function TopMenu(props: { title: string; items: Array<{ title: string; href: str
 
 export default function KanbanHome() {
   const language = useLanguage()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; mock?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string }>()
   const [state, setState] = createStore({
     dateRange: parseQueryRange(search.startDate, search.endDate),
   })
@@ -208,12 +209,10 @@ export default function KanbanHome() {
     const mirror = searchQuery([
       ["startDate", query.startDate],
       ["endDate", query.endDate],
-      ["mock", search.mock],
     ])
     const current = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
-      ["mock", search.mock],
     ])
     if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
   })
@@ -241,11 +240,10 @@ export default function KanbanHome() {
     },
   )
 
-  const view = createMemo(() => summary() ?? blank())
+  const view = createMemo(() => summary.latest ?? summary() ?? blank())
   const query = createMemo(() => searchQuery([
     ["startDate", rangeQuery(state.dateRange).startDate],
     ["endDate", rangeQuery(state.dateRange).endDate],
-    ["mock", search.mock],
   ]).toString())
   const href = (path: string) => query() ? `${path}?${query()}` : path
 
@@ -253,7 +251,7 @@ export default function KanbanHome() {
     {
       label: language.t("kanban.home.metric.totalRepos"),
       value: fmtInt(view().total_repos),
-      hint: `${language.t("kanban.home.metric.workDirs")} ${fmtInt(view().total_work_dirs)}`,
+      hint: language.t("kanban.home.metric.workDirs", { count: fmtInt(view().total_work_dirs) }),
       tone: "#2d6bff",
       iconShell: "bg-[#eef4ff] text-[#2d6bff]",
       icon: <FolderGit2 class="h-5 w-5" stroke-width={1.9} />,
@@ -263,15 +261,15 @@ export default function KanbanHome() {
     {
       label: language.t("kanban.home.metric.totalUsers"),
       value: fmtInt(view().total_users),
-      hint: `${fmtInt(view().total_tasks)} ${language.t("kanban.home.metric.taskSamples")}`,
+      hint: language.t("kanban.home.metric.taskSamples", { count: fmtInt(view().total_tasks) }),
       tone: "#18a957",
-      iconShell: "bg-[#edf9f0] text-[#18a957]",
+      iconShell: "bg-[#edf9f0] text-[#18a95@7]",
       icon: <Users class="h-5 w-5" stroke-width={1.9} />,
     },
     {
       label: language.t("kanban.home.metric.totalTasks"),
       value: fmtInt(view().total_tasks),
-      hint: language.t("kanban.home.metric.totalTasksHint"),
+      hint: "",
       tone: "#ff7a00",
       iconShell: "bg-[#fff3e8] text-[#ff7a00]",
       icon: <ClipboardList class="h-5 w-5" stroke-width={1.9} />,
@@ -279,7 +277,7 @@ export default function KanbanHome() {
     {
       label: language.t("kanban.home.metric.totalCommits"),
       value: fmtInt(view().total_commits),
-      hint: `${language.t("kanban.home.metric.diffLines")} ${fmtInt(view().total_diff_lines)}`,
+      hint: language.t("kanban.home.metric.diffLines", { count: fmtInt(view().total_diff_lines) }),
       tone: "#8a4cf6",
       iconShell: "bg-[#f5eefe] text-[#8a4cf6]",
       icon: <GitMerge class="h-5 w-5" stroke-width={1.9} />,
@@ -287,7 +285,7 @@ export default function KanbanHome() {
     {
       label: language.t("kanban.home.metric.totalCost"),
       value: fmtCost(view().total_cost) ?? "-",
-      hint: `${language.t("kanban.home.metric.tokens")} ${fmtInt(view().total_tokens)}`,
+      hint: language.t("kanban.home.metric.tokens", { count: fmtInt(view().total_tokens) }),
       tone: "#2d6bff",
       iconShell: "bg-[#eef4ff] text-[#2d6bff]",
       icon: <Wallet class="h-5 w-5" stroke-width={1.9} />,
@@ -429,7 +427,7 @@ export default function KanbanHome() {
 
                 <div class="relative mx-auto h-[12rem] w-full max-w-[20rem] shrink-0 overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_50%_65%,rgba(91,132,255,0.12),transparent_54%),radial-gradient(circle_at_68%_22%,rgba(137,172,255,0.14),transparent_28%),transparent]">
                   <img
-                    src="/kanban/ratio.webp"
+                    src={`${(env.BASE_PATH || "").replace(/\/+$/, "")}/kanban/ratio.webp`}
                     alt={language.t("kanban.home.summary.efficiency")}
                     class="absolute inset-0 h-full w-full object-contain object-center"
                     loading="eager"
