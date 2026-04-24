@@ -1,4 +1,4 @@
-import { A, useNavigate, useParams } from "@solidjs/router"
+import { A, useParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -317,25 +317,27 @@ export default function KanbanProjectDetail() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <header class="mx-auto flex w-full max-w-[1320px] flex-col gap-3">
-        <A href="/kanban/project" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-          <span>←</span>
-          <span>{language.t("kanban.backToProjectList")}</span>
-        </A>
-        <div class="flex flex-col gap-4 rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)] lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">{language.t("kanban.breadcrumb.projectDetail")}</p>
-            <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{project().name || language.t("kanban.projectDetail")}</h1>
-            <Show when={project().description}><p class="mt-1 text-sm text-[var(--native-muted)]">{project().description}</p></Show>
+      <div class="flex w-full flex-col gap-5">
+        <header class="flex w-full flex-col gap-3">
+          <Back href="/kanban/project" label={language.t("kanban.backToProjectList")} />
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.projectDetail")}</h1>
+              <Show when={project().name || project().description}>
+                <p class="mt-2 max-w-[60rem] text-sm text-[var(--native-muted)]">
+                  <span class="font-medium text-[var(--native-foreground)]">{project().name || project().project_id || language.t("kanban.projectDetail")}</span>
+                  <Show when={project().description}><span> · {project().description}</span></Show>
+                </p>
+              </Show>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={openManual} disabled={!project().project_id}>{language.t("kanban.dialog.manualAdjustment")}</Button>
+              <Button size="sm" onClick={openEdit} disabled={!project().project_id}>{language.t("common.edit")}</Button>
+            </div>
           </div>
-          <div class="flex gap-2">
-            <Button variant="outline" size="sm" onClick={openManual} disabled={!project().project_id}>{language.t("kanban.dialog.manualAdjustment")}</Button>
-            <Button size="sm" onClick={openEdit} disabled={!project().project_id}>{language.t("common.edit")}</Button>
-          </div>
-        </div>
-      </header>
+        </header>
 
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
+        <div class="flex w-full flex-col gap-5">
         <Show when={!data.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.misc.loading")}</div>}>
           <Show when={data()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">{language.t("kanban.empty.noProjectDetail")}</div>}>
             {(_) => (
@@ -542,6 +544,7 @@ export default function KanbanProjectDetail() {
             )}
           </Show>
         </Show>
+      </div>
       </div>
     </div>
   )

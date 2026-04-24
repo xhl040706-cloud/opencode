@@ -4,10 +4,10 @@ import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
+import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
 import { ChartCard } from "../components/charts/chart-card"
-import { CollapsedTagBar } from "../components/filters/collapsed-tag-bar"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { FilterTable } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
@@ -36,14 +36,6 @@ function enrichData(list: ProjectRow[]): EnrichedProjectRow[] {
       _end_time_fmt: ongoing ? "" : formatLocalTime(endTime),
     }
   })
-}
-
-type SectionKey = "filter" | "table" | "charts"
-
-const SECTION_LABELS: Record<SectionKey, string> = {
-  filter: "kanban.section.filter",
-  table: "kanban.section.projectList",
-  charts: "kanban.section.charts",
 }
 
 function makeBarOption(title: string, categories: string[], seriesList: { name: string; data: (number | null)[] }[]) {
@@ -118,35 +110,42 @@ function CreateProjectDialog(props: { onCreated: () => void }) {
   }
 
   return (
-    <div class="flex flex-col gap-4 p-4">
-      <h3 class="m-0 text-lg font-semibold text-[var(--native-foreground)]">{language.t("kanban.dialog.createProjectTitle")}</h3>
-      <div class="flex flex-col gap-3">
-        <div>
-          <label class="mb-1 block text-sm text-[var(--native-muted)]">{language.t("kanban.form.projectName")}</label>
-          <input
-            type="text"
-            class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
-            placeholder={language.t("kanban.form.projectNamePlaceholder")}
-            value={form.name}
-            onInput={(e) => setForm("name", e.currentTarget.value)}
-          />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm text-[var(--native-muted)]">{language.t("kanban.form.description")}</label>
-          <textarea
-            class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
-            rows={3}
-            placeholder={language.t("kanban.form.projectDescPlaceholder")}
-            value={form.description}
-            onInput={(e) => setForm("description", e.currentTarget.value)}
-          />
+    <Modal
+      title={language.t("kanban.dialog.createProjectTitle")}
+      maxWidth="560px"
+      footer={
+        <>
+          <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>{language.t("common.cancel")}</Button>
+          <Button size="sm" type="button" onClick={() => void handleCreate()} disabled={busy()}>{busy() ? language.t("common.creating") : language.t("common.create")}</Button>
+        </>
+      }
+    >
+      <div class="modal-section">
+        <div class="flex flex-col gap-3">
+          <div>
+            <label class="mb-1 block text-sm text-[var(--native-muted)]">{language.t("kanban.form.projectName")}</label>
+            <input
+              type="text"
+              class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
+              placeholder={language.t("kanban.form.projectNamePlaceholder")}
+              value={form.name}
+              onInput={(e) => setForm("name", e.currentTarget.value)}
+              autofocus
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-[var(--native-muted)]">{language.t("kanban.form.description")}</label>
+            <textarea
+              class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
+              rows={3}
+              placeholder={language.t("kanban.form.projectDescPlaceholder")}
+              value={form.description}
+              onInput={(e) => setForm("description", e.currentTarget.value)}
+            />
+          </div>
         </div>
       </div>
-      <div class="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={() => dialog.close()}>{language.t("common.cancel")}</Button>
-        <Button size="sm" onClick={() => void handleCreate()} disabled={busy()}>{busy() ? language.t("common.creating") : language.t("common.create")}</Button>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -166,21 +165,8 @@ export default function KanbanProjectList() {
   const [state, setState] = createStore({
     filterName: "",
     filterRange: null as [string, string] | null,
-    filterStartRange: null as [string, string] | null,
-    filterEndRange: null as [string, string] | null,
     filterOngoing: false,
-    collapsed: { filter: false, table: false, charts: false } as Record<SectionKey, boolean>,
   })
-
-  function toggleSection(key: SectionKey) {
-    setState("collapsed", key, (prev) => !prev)
-  }
-
-  const collapsedTags = createMemo(() =>
-    (Object.keys(SECTION_LABELS) as SectionKey[])
-      .filter((key) => state.collapsed[key])
-      .map((key) => ({ key, label: language.t(SECTION_LABELS[key]) })),
-  )
 
   function parseDateStr(s?: string | null) {
     if (!s || s.length < 8) return ""
@@ -442,96 +428,78 @@ export default function KanbanProjectList() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <a href="/kanban" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"><span>←</span><span>{language.t("kanban.backToHome")}</span></a>
-
-        <CollapsedTagBar tags={collapsedTags()} onExpand={(key) => toggleSection(key as SectionKey)} />
-
-        <Show when={!state.collapsed.filter}>
-          <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-            <div class="mb-3 flex items-center justify-between">
-              <span class="text-sm font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.filter")}</span>
-              <button type="button" class="text-xs text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggleSection("filter")}>{language.t("common.collapse")}</button>
+      <div class="flex w-full flex-col gap-5">
+        <header class="flex w-full flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div class="flex flex-col gap-3">
+            <Back href="/kanban" label={language.t("kanban.backToHome")} />
+            <div>
+              <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.home.nav.project")}</h1>
             </div>
-            <div class="flex flex-wrap items-center gap-3">
-              <input
-                type="text"
-                class="w-[180px] rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-1.5 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
-                placeholder={language.t("kanban.form.projectNamePlaceholder")}
-                value={state.filterName}
-                onInput={(e) => {
-                  setState("filterName", e.currentTarget.value)
-                  updateUrl()
-                }}
-              />
-              <DateRangePicker
-                value={state.filterStartRange}
-                placeholder={language.t("kanban.form.startDate")}
-                clearable
-                size="sm"
-                onChange={(value) => {
-                  setState("filterStartRange", value ?? null)
-                  updateUrl()
-                }}
-              />
-              <DateRangePicker
-                value={state.filterEndRange}
-                placeholder={language.t("kanban.form.endDate")}
-                clearable
-                size="sm"
-                onChange={(value) => {
-                  setState("filterEndRange", value ?? null)
-                  updateUrl()
-                }}
-              />
-              <label class="flex items-center gap-1.5 text-sm text-[var(--native-muted)]">
-                <input
-                  type="checkbox"
-                  class="h-4 w-4 accent-[var(--native-primary)]"
-                  checked={state.filterOngoing}
-                  onChange={(e) => {
-                    setState("filterOngoing", e.currentTarget.checked)
-                    updateUrl()
-                  }}
-                />
-                {language.t("kanban.filter.onlyOngoing")}
-              </label>
-            </div>
-          </section>
-        </Show>
+          </div>
 
-        <Show when={!state.collapsed.table}>
-          <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-            <div class="mb-3 flex items-center justify-between">
-              <span class="text-sm font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.projectList")}</span>
-              <div class="flex items-center gap-2">
-                <Button size="sm" onClick={() => dialog.show(() => <CreateProjectDialog onCreated={() => void refetch()} />)}>{language.t("kanban.form.createProject")}</Button>
-                <button type="button" class="text-xs text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggleSection("table")}>{language.t("common.collapse")}</button>
-              </div>
-            </div>
-            <FilterTable
-              columns={columns()}
-              rows={filteredData()}
-              rawRows={data() ?? []}
-              controller={table}
-              loading={data.loading}
-              total={filteredData().length}
-              page={1}
-              pageSize={filteredData().length || 1}
-              pageSizeOptions={[250, 500, 1000]}
-              emptyText={data.loading ? language.t("kanban.loading.projects") : language.t("kanban.empty.noProjectData")}
-              onPageChange={() => {}}
-              onPageSizeChange={() => {}}
+          <div class="flex min-w-0 flex-wrap items-center justify-end gap-3">
+            <input
+              type="text"
+              class="h-10 min-w-[12rem] rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
+              placeholder={language.t("kanban.form.projectNamePlaceholder")}
+              value={state.filterName}
+              onInput={(e) => {
+                setState("filterName", e.currentTarget.value)
+                updateUrl()
+              }}
             />
-          </section>
-        </Show>
+
+            <DateRangePicker
+              value={state.filterRange}
+              placeholder={language.t("kanban.form.dateRange")}
+              clearable
+              size="sm"
+              fullWidth={false}
+              onChange={(value) => {
+                setState("filterRange", value ?? null)
+                updateUrl()
+              }}
+            />
+
+            <label class="flex h-10 items-center gap-2 rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_90%,var(--native-bg-subtle))] px-3 text-sm text-[var(--native-muted)]">
+              <input
+                type="checkbox"
+                class="h-4 w-4 accent-[var(--native-primary)]"
+                checked={state.filterOngoing}
+                onChange={(e) => {
+                  setState("filterOngoing", e.currentTarget.checked)
+                  updateUrl()
+                }}
+              />
+              {language.t("kanban.filter.onlyOngoing")}
+            </label>
+          </div>
+        </header>
+
+        <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <span class="text-sm font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.projectList")}</span>
+            <Button size="sm" onClick={() => dialog.show(() => <CreateProjectDialog onCreated={() => void refetch()} />)}>{language.t("kanban.form.createProject")}</Button>
+          </div>
+          <FilterTable
+            columns={columns()}
+            rows={filteredData()}
+            rawRows={data() ?? []}
+            controller={table}
+            loading={data.loading}
+            total={filteredData().length}
+            page={1}
+            pageSize={filteredData().length || 1}
+            pageSizeOptions={[250, 500, 1000]}
+            emptyText={data.loading ? language.t("kanban.loading.projects") : language.t("kanban.empty.noProjectData")}
+            onPageChange={() => {}}
+            onPageSizeChange={() => {}}
+          />
+        </section>
 
         <Show when={filteredData().length > 0}>
           <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-            <div class="mb-3 flex items-center justify-between">
-              <span class="text-sm font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.charts")}</span>
-              <button type="button" class="text-xs text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggleSection("charts")}>{language.t("common.collapse")}</button>
-            </div>
+            <div class="mb-4 text-sm font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.charts")}</div>
             <div class="grid gap-3 lg:grid-cols-2">
               <ChartCard option={chartEffOption()} />
               <ChartCard option={chartCodeOption()} />
