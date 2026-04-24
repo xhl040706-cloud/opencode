@@ -176,6 +176,7 @@ export default function Home() {
   const [installCount, setInstallCount] = createSignal(0)
   const [trackedItemId, setTrackedItemId] = createSignal<string | null>(null)
   const [detailContentReady, setDetailContentReady] = createSignal(false)
+  const [detailRenderItemId, setDetailRenderItemId] = createSignal<string | null>(null)
   let detailContentTimer: ReturnType<typeof setTimeout> | undefined
 
   const [columnPrefs, setColumnPrefs] = persisted(
@@ -450,7 +451,7 @@ export default function Home() {
 
   const openItemDetail = (item: CapabilityItem) => {
     setSelectedItemId(item.id)
-    queueMicrotask(() => setDetailItem(item))
+    setDetailItem(item)
   }
 
   createEffect(() => {
@@ -462,10 +463,12 @@ export default function Home() {
     clearTimeout(detailContentTimer)
     if (!itemId) {
       setDetailContentReady(false)
+      setDetailRenderItemId(null)
       return
     }
     setDetailContentReady(false)
     detailContentTimer = setTimeout(() => {
+      setDetailRenderItemId(itemId)
       setDetailContentReady(true)
     }, 180)
   })
@@ -1134,7 +1137,7 @@ export default function Home() {
             <SheetTitle>{language.t("store.home.detail.title")}</SheetTitle>
             <SheetDescription>{language.t("store.home.detail.description")}</SheetDescription>
           </SheetHeader>
-          <Show when={selectedItemId()}>
+          <Show when={detailRenderItemId()}>
             {(itemId) => (
               <Show
                 when={detailContentReady()}
@@ -1541,12 +1544,27 @@ export default function Home() {
                           <Show when={isColumnVisible("title")}>
                             <TableCell class={cn(sx.td, sx.colTitle)}>
                             <div class="flex min-w-0 items-center gap-2">
-                              <AvatarDisplay
-                                avatarUrl={creatorInfo(item.createdBy)?.avatarUrl}
-                                username={creatorInfo(item.createdBy)?.name ?? item.createdBy}
-                                class="size-6 shrink-0"
-                                title={creatorInfo(item.createdBy)?.name ?? item.createdBy}
-                              />
+                              <Show
+                                keyed
+                                when={creatorInfo(item.createdBy)}
+                                fallback={
+                                  <AvatarDisplay
+                                    avatarUrl={undefined}
+                                    username={item.createdBy}
+                                    class="size-6 shrink-0"
+                                    title={item.createdBy}
+                                  />
+                                }
+                              >
+                                {(info) => (
+                                  <AvatarDisplay
+                                    avatarUrl={info.avatarUrl}
+                                    username={info.name ?? item.createdBy}
+                                    class="size-6 shrink-0"
+                                    title={info.name ?? item.createdBy}
+                                  />
+                                )}
+                              </Show>
                               <div class="min-w-0">
                                 <div
                                   class={cn(sx.item, "truncate text-[14px] font-bold leading-5 text-[color:color-mix(in_oklab,var(--native-foreground)_80%,white_20%)]")}

@@ -1,4 +1,4 @@
-import { createMemo, createSignal, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import { cn } from "@/lib/utils"
 
 type AvatarDisplayProps = {
@@ -17,6 +17,12 @@ export default function AvatarDisplay(props: AvatarDisplayProps): JSX.Element {
   const normalizedUrl = createMemo(() => props.avatarUrl?.trim() || "")
   const alt = createMemo(() => props.username?.trim() || "User avatar")
   const showImage = createMemo(() => !!normalizedUrl() && !imageFailed())
+
+  createEffect(() => {
+    normalizedUrl()
+    setImageFailed(false)
+  })
+
   const sizeValue = createMemo(() => {
     const value = props.size ?? 24
     return typeof value === "number" ? `${value}px` : value
