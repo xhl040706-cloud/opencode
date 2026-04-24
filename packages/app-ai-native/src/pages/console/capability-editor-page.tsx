@@ -10,16 +10,18 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/pages/store/hooks/use-auth"
 import { Markdown } from "@opencode-ai/ui/markdown"
+import "@/styles/vscode-markdown.css"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { showToast } from "@opencode-ai/ui/toast"
 import { createEffect, createMemo, createResource, For, onCleanup, onMount, Show, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
-import { CATEGORIES, TYPE_COLORS, TYPE_CONTENT_PLACEHOLDER, categoryKey, typeKey } from "@/pages/store/lib/constants"
+import { TYPE_COLORS, TYPE_CONTENT_PLACEHOLDER, typeKey } from "@/pages/store/lib/constants"
 import { itemApi, registryApi2, repoApi, type CapabilityItem, type CapabilityItemAsset, type Repository } from "@/pages/store/lib/api"
 import { getInstallCommand } from "@/pages/store/components/item-detail-content"
 import { TagInput } from "@/pages/console/components/tag-input"
@@ -1163,6 +1165,7 @@ function MarkdownCodeEditor(props: {
 
 export default function CapabilityEditorPage() {
   const language = useLanguage()
+  const itemFilterOptions = useItemFilterOptions()
   const dialog = useDialog()
   const navigate = useNavigate()
   const params = useParams<{ itemId?: string }>()
@@ -1282,6 +1285,19 @@ export default function CapabilityEditorPage() {
   const selectedNamespace = createMemo(
     () => namespaceOptions().find((option) => option.value === form.namespace) ?? namespaceOptions()[0],
   )
+
+  const categoryOptions = createMemo(() => {
+    const options = itemFilterOptions.categories().map((category) => category.slug)
+    if (!form.category || options.includes(form.category)) return options
+    return [...options, form.category]
+  })
+
+  createEffect(() => {
+    const options = itemFilterOptions.categories()
+    if (!options.length) return
+    if (options.some((category) => category.slug === form.category)) return
+    setForm("category", options[0]!.slug)
+  })
 
   const currentItem = createMemo<CapabilityItem | null>(() => item() ?? null)
   const versionOptions = createMemo(() =>
@@ -2041,8 +2057,8 @@ export default function CapabilityEditorPage() {
                           class="h-8 min-w-0 w-full appearance-none rounded-[6px] bg-background-base pl-2.5 pr-9 text-xs text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                           style={{ border: `1px solid color-mix(in srgb, ${accent()} 18%, var(--native-border))` }}
                         >
-                          <For each={CATEGORIES}>
-                            {(category) => <option value={category}>{language.t(categoryKey(category))}</option>}
+                          <For each={categoryOptions()}>
+                            {(category) => <option value={category}>{itemFilterOptions.categoryLabel(category)}</option>}
                           </For>
                         </select>
                         <div class="pointer-events-none absolute inset-y-0 right-0 flex w-8 items-center justify-center text-[var(--native-muted)]">
@@ -2271,7 +2287,7 @@ export default function CapabilityEditorPage() {
                       when={selectedFileContent().trim()}
                       fallback={<div class="rounded-[var(--native-radius-md)] border border-dashed border-border-weak-base px-4 py-6 text-sm text-[var(--native-muted)]">{language.t("store.capabilityEditor.previewEmpty")}</div>}
                     >
-                      <Markdown text={selectedFileContent()} class="text-14-regular" />
+                      <Markdown text={selectedFileContent()} class="vscode-markdown text-14-regular" />
                     </Show>
                   </div>
                 </section>

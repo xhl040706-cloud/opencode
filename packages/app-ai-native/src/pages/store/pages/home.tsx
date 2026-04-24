@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, Suspense } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useNavigate, useSearchParams } from "@solidjs/router"
+import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useLanguage } from "@/context/language"
 import AvatarDisplay from "@/components/avatar-display"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
@@ -10,7 +11,7 @@ import { TextField, TextFieldInput } from "@/components/ui/text-field"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Persist, persisted } from "@/utils/persist"
-import { behaviorApi, itemApi, itemFilterApi, tagApi, userApi, type Category, type CapabilityItem, type FilterOption, type ItemOrder, type ItemSort, type ItemTag } from "../lib/api"
+import { behaviorApi, itemApi, tagApi, userApi, type Category, type CapabilityItem, type ItemOrder, type ItemSort, type ItemTag, type SecurityRiskGroup } from "../lib/api"
 import { typeKey } from "../lib/constants"
 import ItemDetailContent, { getInstallCommand } from "../components/item-detail-content"
 import SecurityTag from "../components/security-tag"
@@ -29,8 +30,8 @@ const STORE_TYPES = [
 
 type StoreType = (typeof STORE_TYPES)[number]["value"]
 type ListData = Awaited<ReturnType<typeof itemApi.list>>
-type SecurityFilterValue = NonNullable<CapabilityItem["securityStatus"]>
-type TableColumnKey = "title" | "description" | "category" | "security" | "tag" | "favorite" | "updated" | "action"
+type SecurityFilterValue = SecurityRiskGroup
+type TableColumnKey = "title" | "description" | "category" | "security" | "tag" | "source" | "experienceScore" | "favorite" | "updated" | "action"
 
 const PAGE_SIZE = 10
 const TAG_FILTER_PAGE_SIZE = 20
@@ -68,6 +69,8 @@ const DEFAULT_VISIBLE_COLUMNS: Record<TableColumnKey, boolean> = {
   category: true,
   security: true,
   tag: true,
+  source: true,
+  experienceScore: true,
   favorite: true,
   updated: true,
   action: true,
@@ -125,6 +128,7 @@ function rangePages(page: number, totalPages: number) {
 
 export default function Home() {
   const language = useLanguage()
+  const itemFilterOptions = useItemFilterOptions()
   const auth = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -149,12 +153,16 @@ export default function Home() {
   const [listCache, setListCache] = createSignal<{ key: string; data: ListData } | null>(null)
   const [sort, setSort] = createStore<{ by?: ItemSort; order?: ItemOrder }>({ by: "favoriteCount", order: "desc" })
   const [categoryFilterOpen, setCategoryFilterOpen] = createSignal(false)
+  const [sourceFilterOpen, setSourceFilterOpen] = createSignal(false)
   const [securityFilterOpen, setSecurityFilterOpen] = createSignal(false)
   const [categoryFilterQuery, setCategoryFilterQuery] = createSignal("")
+  const [sourceFilterQuery, setSourceFilterQuery] = createSignal("")
   const [securityFilterQuery, setSecurityFilterQuery] = createSignal("")
   const [appliedTagFilters, setAppliedTagFilters] = createSignal<string[]>([])
   const [appliedCategoryFilters, setAppliedCategoryFilters] = createSignal<string[]>([])
   const [pendingCategoryFilters, setPendingCategoryFilters] = createSignal<string[]>([])
+  const [appliedSourceFilters, setAppliedSourceFilters] = createSignal<string[]>([])
+  const [pendingSourceFilters, setPendingSourceFilters] = createSignal<string[]>([])
   const [appliedSecurityFilters, setAppliedSecurityFilters] = createSignal<SecurityFilterValue[]>([])
   const [pendingSecurityFilters, setPendingSecurityFilters] = createSignal<SecurityFilterValue[]>([])
   const [detailItem, setDetailItem] = createSignal<CapabilityItem | null>(null)
@@ -166,7 +174,6 @@ export default function Home() {
   const [installCount, setInstallCount] = createSignal(0)
   const [trackedItemId, setTrackedItemId] = createSignal<string | null>(null)
 
-  const [filterOptions] = createResource(() => itemFilterApi.list().catch(() => ({ categories: [] as Category[], securityStatuses: [] as FilterOption[] })))
   const [columnPrefs, setColumnPrefs] = persisted(
     Persist.global("store.table.columns", ["store.table.columns.v1"]),
     createStore({ visible: DEFAULT_VISIBLE_COLUMNS }),
@@ -177,11 +184,6 @@ export default function Home() {
     clearTimeout(pendingBlurRefocusTimer)
   })
 
-  const categoryName = (cat: Category) => {
-    const locale = language.locale()
-    return cat.names[locale] || cat.names.en || cat.slug
-  }
-
   const formatDate = (iso?: string) => {
     if (!iso) return "—"
     const locale = language.locale()
@@ -191,6 +193,14 @@ export default function Home() {
       month: locale === "zh" ? "numeric" : "short",
       day: "numeric",
     })
+  }
+
+  const formatSourceMetric = (value?: number, source?: string) => {
+    if (!source) return "—"
+    if (value == null) return "—"
+    if (Math.abs(value) >= 1000) return formatCompact(Math.round(value))
+    if (Number.isInteger(value)) return String(value)
+    return value.toFixed(1).replace(/\.0$/, "")
   }
 
   let searchTimer: ReturnType<typeof setTimeout> | undefined
@@ -251,6 +261,7 @@ export default function Home() {
     type: activeType(),
     search: debouncedSearch() || undefined,
     categories: appliedCategoryFilters().length ? appliedCategoryFilters() : undefined,
+    source: appliedSourceFilters().length ? appliedSourceFilters() : undefined,
     tags: appliedTagFilters().length ? appliedTagFilters() : undefined,
     securityStatuses: appliedSecurityFilters().length ? appliedSecurityFilters() : undefined,
     page: page(),
@@ -386,17 +397,21 @@ export default function Home() {
       .catch(() => undefined)
   })
 
-  const categories = createMemo(() => filterOptions()?.categories ?? [])
-  const securityOptions = createMemo(() => filterOptions()?.securityStatuses ?? [])
+  const categories = createMemo(() => itemFilterOptions.categories())
+  const sourceOptions = createMemo(() => itemFilterOptions.sources())
+  const securityOptions = createMemo(() => itemFilterOptions.securityRiskGroups())
   const categoryFilterActive = createMemo(() => appliedCategoryFilters().length > 0)
+  const sourceFilterActive = createMemo(() => appliedSourceFilters().length > 0)
   const securityFilterActive = createMemo(() => appliedSecurityFilters().length > 0)
   const tagFilterActive = createMemo(() => appliedTagFilters().length > 0)
   const columnOptions = createMemo(() => [
     { key: "title" as const, label: language.t("store.home.table.title") },
     { key: "description" as const, label: language.t("store.home.table.description") },
     { key: "category" as const, label: language.t("store.console.capabilities.category") },
-    { key: "security" as const, label: language.t("store.scanResults.securityScan") },
+    { key: "security" as const, label: language.t("store.security.riskLevel") },
     { key: "tag" as const, label: language.t("store.home.table.tag") },
+    { key: "source" as const, label: language.t("store.home.table.source") },
+    { key: "experienceScore" as const, label: language.t("store.home.table.experienceScore") },
     { key: "favorite" as const, label: language.t("store.home.table.favoriteCount") },
     { key: "updated" as const, label: language.t("store.detail.updated") },
     { key: "action" as const, label: language.t("store.home.table.action") },
@@ -404,12 +419,17 @@ export default function Home() {
   const filteredCategoryOptions = createMemo(() => {
     const query = categoryFilterQuery().trim().toLowerCase()
     if (!query) return categories()
-    return categories().filter((cat) => categoryName(cat).toLowerCase().includes(query) || cat.slug.toLowerCase().includes(query))
+    return categories().filter((cat) => itemFilterOptions.categoryLabel(cat.slug, cat).toLowerCase().includes(query) || cat.slug.toLowerCase().includes(query))
+  })
+  const filteredSourceOptions = createMemo(() => {
+    const query = sourceFilterQuery().trim().toLowerCase()
+    if (!query) return sourceOptions()
+    return sourceOptions().filter((source) => (itemFilterOptions.sourceLabel(source.value, source) || source.value).toLowerCase().includes(query) || source.value.toLowerCase().includes(query))
   })
   const filteredSecurityOptions = createMemo(() => {
     const query = securityFilterQuery().trim().toLowerCase()
     if (!query) return securityOptions()
-    return securityOptions().filter((option) => securityLabel(option.value as SecurityFilterValue, option).toLowerCase().includes(query) || option.value.toLowerCase().includes(query))
+    return securityOptions().filter((option) => itemFilterOptions.securityRiskGroupLabel(option.value as SecurityFilterValue, option).toLowerCase().includes(query) || option.value.toLowerCase().includes(query))
   })
   const rows = createMemo(() => listData()?.items ?? [])
   const totalItems = createMemo(() => listData()?.total ?? 0)
@@ -482,6 +502,10 @@ export default function Home() {
     setPendingCategoryFilters((current) => current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug])
   }
 
+  const togglePendingSourceFilter = (source: string) => {
+    setPendingSourceFilters((current) => current.includes(source) ? current.filter((item) => item !== source) : [...current, source])
+  }
+
   const togglePendingSecurityFilter = (status: SecurityFilterValue) => {
     setPendingSecurityFilters((current) => current.includes(status) ? current.filter((item) => item !== status) : [...current, status])
   }
@@ -492,6 +516,14 @@ export default function Home() {
     setSelectedItemId(null)
     setCategoryFilterQuery("")
     setCategoryFilterOpen(false)
+  }
+
+  const applySourceFilters = () => {
+    setAppliedSourceFilters([...pendingSourceFilters()])
+    setPage(1)
+    setSelectedItemId(null)
+    setSourceFilterQuery("")
+    setSourceFilterOpen(false)
   }
 
   const applySecurityFilters = () => {
@@ -511,6 +543,15 @@ export default function Home() {
     setCategoryFilterOpen(false)
   }
 
+  const resetSourceFilters = () => {
+    setPendingSourceFilters([])
+    setAppliedSourceFilters([])
+    setPage(1)
+    setSelectedItemId(null)
+    setSourceFilterQuery("")
+    setSourceFilterOpen(false)
+  }
+
   const resetSecurityFilters = () => {
     setPendingSecurityFilters([])
     setAppliedSecurityFilters([])
@@ -518,11 +559,6 @@ export default function Home() {
     setSelectedItemId(null)
     setSecurityFilterQuery("")
     setSecurityFilterOpen(false)
-  }
-
-  const securityLabel = (status: SecurityFilterValue, option?: FilterOption) => {
-    const locale = language.locale()
-    return (option?.names?.[locale] || option?.names?.en || language.t(`store.security.${status}`)).replace(/\.{2,}$/g, "")
   }
 
   const toggleAppliedTagFilter = (slug: string) => {
@@ -1054,9 +1090,7 @@ export default function Home() {
                       </div>
                     </div>
                     <Show when={item.category}>
-                      <span class="shrink-0 whitespace-nowrap rounded-[var(--native-radius-full)] bg-[color-mix(in_srgb,var(--tp-accent)_8%,transparent)] px-1.5 py-px text-[12px] text-[var(--tp-accent)]">{categories().find((c) => c.slug === item.category)
-                        ? categoryName(categories().find((c) => c.slug === item.category)!)
-                        : item.category}</span>
+                      <span class="shrink-0 whitespace-nowrap rounded-[var(--native-radius-full)] bg-[color-mix(in_srgb,var(--tp-accent)_8%,transparent)] px-1.5 py-px text-[12px] text-[var(--tp-accent)]">{itemFilterOptions.categoryLabel(item.category) || item.category}</span>
                     </Show>
                   </article>
                 )}
@@ -1237,7 +1271,7 @@ export default function Home() {
                                       checked={pendingCategoryFilters().includes(cat.slug)}
                                       onChange={() => togglePendingCategoryFilter(cat.slug)}
                                     />
-                                    <span class="min-w-0 truncate">{categoryName(cat)}</span>
+                                    <span class="min-w-0 truncate">{itemFilterOptions.categoryLabel(cat.slug, cat)}</span>
                                   </label>
                                 )}
                               </For>
@@ -1272,7 +1306,7 @@ export default function Home() {
                           class={cn(st.sort(false), "items-center gap-2")}
                         >
                           <FilterHeaderTrigger
-                            label={language.t("store.scanResults.securityScan")}
+                            label={language.t("store.security.riskLevel")}
                             active={securityFilterActive()}
                             count={appliedSecurityFilters().length}
                           />
@@ -1297,10 +1331,10 @@ export default function Home() {
                                       checked={pendingSecurityFilters().includes(option.value as SecurityFilterValue)}
                                       onChange={() => togglePendingSecurityFilter(option.value as SecurityFilterValue)}
                                     />
-                                    <span class="min-w-0 truncate">{securityLabel(option.value as SecurityFilterValue, option)}</span>
-                                  </label>
-                                )}
-                              </For>
+                                     <span class="min-w-0 truncate">{itemFilterOptions.securityRiskGroupLabel(option.value as SecurityFilterValue, option)}</span>
+                                   </label>
+                                 )}
+                               </For>
                               <Show when={filteredSecurityOptions().length === 0}>
                                 <div class="px-2 py-3 text-sm text-[var(--native-muted)]">{language.t("store.noResults")}</div>
                               </Show>
@@ -1321,6 +1355,81 @@ export default function Home() {
                     <Show when={isColumnVisible("tag")}>
                       <TableHead class={cn(sx.th, sx.colTag)}>
                       <TagFilterDropdown />
+                      </TableHead>
+                    </Show>
+                    <Show when={isColumnVisible("source")}>
+                      <TableHead class={cn(sx.th, sx.colSource)}>
+                      <DropdownMenu open={sourceFilterOpen()} onOpenChange={(open) => {
+                        setSourceFilterOpen(open)
+                        if (open) {
+                          setPendingSourceFilters([...appliedSourceFilters()])
+                          setSourceFilterQuery("")
+                        }
+                      }}>
+                        <DropdownMenuTrigger
+                          as="button"
+                          class={cn(st.sort(false), "items-center gap-2")}
+                        >
+                          <FilterHeaderTrigger
+                            label={language.t("store.home.table.source")}
+                            active={sourceFilterActive()}
+                            count={appliedSourceFilters().length}
+                          />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent class="w-64 p-2">
+                          <div class="flex max-h-[24rem] flex-col gap-2">
+                            <TextField class="min-w-0">
+                              <TextFieldInput
+                                type="search"
+                                value={sourceFilterQuery()}
+                                onInput={(e: InputEvent) => setSourceFilterQuery((e.currentTarget as HTMLInputElement).value)}
+                                placeholder={language.t("store.home.filters.searchSource")}
+                                class="h-9 rounded-md border-[color:color-mix(in_srgb,var(--native-border)_46%,transparent)] bg-[var(--native-panel)] px-3 text-sm !text-[var(--native-foreground)] [&::-webkit-search-cancel-button]:cursor-pointer focus-visible:border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] focus-visible:ring-0"
+                              />
+                            </TextField>
+                            <div class="thin-scrollbar flex max-h-[19.2rem] flex-col gap-1 overflow-y-auto pr-1">
+                              <For each={filteredSourceOptions()}>
+                                {(source) => (
+                                  <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                                    <input
+                                      type="checkbox"
+                                      checked={pendingSourceFilters().includes(source.value)}
+                                      onChange={() => togglePendingSourceFilter(source.value)}
+                                    />
+                                    <span class="min-w-0 truncate">{itemFilterOptions.sourceLabel(source.value, source) || source.value}</span>
+                                  </label>
+                                )}
+                              </For>
+                              <Show when={filteredSourceOptions().length === 0}>
+                                <div class="px-2 py-3 text-sm text-[var(--native-muted)]">{language.t("store.noResults")}</div>
+                              </Show>
+                            </div>
+                            <div class="flex items-center justify-end gap-2 border-t pt-2">
+                              <button type="button" class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-[var(--native-muted)] hover:bg-accent hover:text-accent-foreground" onClick={resetSourceFilters}>
+                                {language.t("common.reset")}
+                              </button>
+                              <button type="button" class="cursor-pointer rounded-md bg-[var(--native-primary)] px-2.5 py-1.5 text-sm" style={{ color: "#fff" }} onClick={applySourceFilters}>
+                                {language.t("channels.add.confirm")}
+                              </button>
+                            </div>
+                          </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      </TableHead>
+                    </Show>
+                    <Show when={isColumnVisible("experienceScore")}>
+                      <TableHead class={cn(sx.th, sx.colExperienceScore)} aria-sort={sortState("experienceScore")}>
+                      <button
+                        type="button"
+                        class={st.sort(sort.by === "experienceScore")}
+                        onClick={() => handleSortChange("experienceScore")}
+                      >
+                        <span>{language.t("store.home.table.experienceScore")}</span>
+                        <span class={sx.sortIcon} aria-hidden="true">
+                          <span class={st.arrow("up", sort.by === "experienceScore" && sort.order === "asc")} />
+                          <span class={st.arrow("down", sort.by === "experienceScore" && sort.order === "desc")} />
+                        </span>
+                      </button>
                       </TableHead>
                     </Show>
                     <Show when={isColumnVisible("favorite")}>
@@ -1448,11 +1557,7 @@ export default function Home() {
                           </Show>
                           <Show when={isColumnVisible("category")}>
                             <TableCell class={cn(sx.td, sx.colCategory, sx.mut)}>
-                            {item.category
-                              ? categories().find((c) => c.slug === item.category)
-                                ? categoryName(categories().find((c) => c.slug === item.category)!)
-                                : item.category
-                              : "—"}
+                            {item.category ? itemFilterOptions.categoryLabel(item.category) || item.category : "—"}
                             </TableCell>
                           </Show>
                           <Show when={isColumnVisible("security")}>
@@ -1463,6 +1568,55 @@ export default function Home() {
                           <Show when={isColumnVisible("tag")}>
                             <TableCell class={cn(sx.td, sx.colTag, sx.mut)}>
                               <TagCell tags={item.tags} />
+                            </TableCell>
+                          </Show>
+                          <Show when={isColumnVisible("source")}>
+                            <TableCell class={cn(sx.td, sx.colSource, sx.mut)}>
+                              <Show
+                                when={itemFilterOptions.sourceUrl(item.source)}
+                                fallback={
+                                  <span
+                                    class="block max-h-10 overflow-hidden leading-5"
+                                    style={{
+                                      display: "-webkit-box",
+                                      "-webkit-box-orient": "vertical",
+                                      "-webkit-line-clamp": 2,
+                                      "text-overflow": "ellipsis",
+                                      "white-space": "normal",
+                                      overflow: "hidden",
+                                    }}
+                                    title={itemFilterOptions.sourceLabel(item.source) || item.source || "—"}
+                                  >
+                                    {itemFilterOptions.sourceLabel(item.source) || item.source || "—"}
+                                  </span>
+                                }
+                              >
+                                {(url) => (
+                                  <a
+                                    href={url()}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    class="block max-h-10 cursor-pointer overflow-hidden leading-5 text-[#478be6] underline-offset-2 hover:text-[#478be6] hover:underline"
+                                    style={{
+                                      display: "-webkit-box",
+                                      "-webkit-box-orient": "vertical",
+                                      "-webkit-line-clamp": 2,
+                                      "text-overflow": "ellipsis",
+                                      "white-space": "normal",
+                                      overflow: "hidden",
+                                    }}
+                                    title={itemFilterOptions.sourceLabel(item.source) || item.source || "—"}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {itemFilterOptions.sourceLabel(item.source) || item.source || "—"}
+                                  </a>
+                                )}
+                              </Show>
+                            </TableCell>
+                          </Show>
+                          <Show when={isColumnVisible("experienceScore")}>
+                            <TableCell class={cn(sx.td, sx.colExperienceScore, sx.mut)} title={formatSourceMetric(item.experienceScore, item.source)}>
+                              {formatSourceMetric(item.experienceScore, item.source)}
                             </TableCell>
                           </Show>
                           <Show when={isColumnVisible("favorite")}>
@@ -1485,11 +1639,11 @@ export default function Home() {
                             </TableCell>
                           </Show>
                           <TableCell class={cn(sx.td, sx.colAction, "text-right")} onClick={(e: MouseEvent) => e.stopPropagation()}>
-                            <div class="flex items-center justify-end gap-2">
+                            <div class="flex items-center justify-end gap-1">
                               <Show when={canEditItem(item)}>
                                 <button
                                   type="button"
-                                  class="inline-flex size-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)]"
+                                  class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)]"
                                   title={language.t("common.edit")}
                                   onClick={() => navigate(`/capabilities/${item.id}/edit`)}
                                 >
@@ -1499,19 +1653,11 @@ export default function Home() {
                               <button
                                 type="button"
                                 disabled={!auth.user() || auth.loading() || favoriteActionItemId() === item.id}
-                                class="inline-flex size-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] disabled:cursor-not-allowed disabled:opacity-60"
+                                  class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] disabled:cursor-not-allowed disabled:opacity-60"
                                 title={auth.user() ? (item.favorited ? language.t("store.detail.unfavorite") : language.t("store.detail.favorite")) : language.t("store.detail.favoriteSignIn")}
                                 onClick={() => void toggleRowFavorite(item)}
                               >
                                 <LocalIcon name={item.favorited ? "star-filled" : "star"} size="small" style={{ color: favoriteIconColor(item.favorited) }} />
-                              </button>
-                              <button
-                                type="button"
-                                class="inline-flex size-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)]"
-                                title={language.t("store.home.table.copyInstall")}
-                                onClick={() => void copyInstall(item)}
-                              >
-                                <Icon name={copiedItemId() === item.id ? "check-small" : "copy"} size="small" class={copiedItemId() === item.id ? "text-green-500" : ""} />
                               </button>
                             </div>
                           </TableCell>

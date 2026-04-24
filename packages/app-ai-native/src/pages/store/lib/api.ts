@@ -243,12 +243,14 @@ export interface CapabilityItem {
   currentRevision?: number
   sourcePath?: string
   sourceType?: string
+  source?: string
   previewCount?: number
   installCount?: number
   favoriteCount?: number
   favorited?: boolean
   securityStatus?: SecurityStatus
   lastScanId?: string
+  experienceScore?: number
   repoName?: string
   createdBy: string
   createdAt: string
@@ -260,7 +262,7 @@ export interface CapabilityItem {
   tags?: ItemTag[]
 }
 
-export type ItemSort = "favoriteCount" | "installCount" | "previewCount" | "updatedAt"
+export type ItemSort = "favoriteCount" | "installCount" | "previewCount" | "experienceScore" | "updatedAt"
 export type ItemOrder = "asc" | "desc"
 
 export interface RepoRegistryStatus {
@@ -747,6 +749,7 @@ export const itemApi = {
     search?: string
     category?: string
     categories?: string[]
+    source?: string[]
     tags?: string[]
     securityStatuses?: string[]
     registryId?: string
@@ -762,6 +765,7 @@ export const itemApi = {
     if (params?.search) p.set("search", params.search)
     if (params?.categories?.length) p.set("categories", params.categories.join(","))
     if (params?.category) p.set("category", params.category)
+    if (params?.source?.length) p.set("source", params.source.join(","))
     if (params?.tags?.length) p.set("tags", params.tags.join(","))
     if (params?.securityStatuses?.length) p.set("securityStatuses", params.securityStatuses.join(","))
     if (params?.registryId) p.set("registryId", params.registryId)
@@ -955,6 +959,14 @@ export interface FilterOption {
   names: Record<string, string>
 }
 
+export type SecurityRiskGroup = "unknown" | "low" | "medium" | "high"
+
+export interface SourceOption {
+  value: string
+  label: string
+  url: string
+}
+
 export interface UserBasicInfo {
   id: string
   name: string
@@ -964,6 +976,8 @@ export interface UserBasicInfo {
 export interface ItemFilterOptions {
   categories: Category[]
   securityStatuses: FilterOption[]
+  securityRiskGroups: FilterOption[]
+  sources: SourceOption[]
 }
 
 export interface TagListResponse {
