@@ -1,17 +1,18 @@
 import { useNavigate, useSearchParams } from "@solidjs/router"
-import { createEffect, createMemo, createResource, Show } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
+import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
+import Back from "../components/back"
 import { ChartCard } from "../components/charts/chart-card"
-import { CollapsedTagBar } from "../components/filters/collapsed-tag-bar"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { FilterTable } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
 import { createProjectOptionV2, deleteProject, getProjects } from "../lib/api"
 import { applyClientFilters } from "../lib/filter-utils"
-import { formatDuration, formatLocalTime } from "../lib/formatters"
+import { formatDuration, formatLocalTime, formatPercent } from "../lib/formatters"
 import type { KanbanColumn, ProjectRow } from "../lib/types"
 
 function fmtCost(value?: number | null) {
@@ -36,21 +37,17 @@ function enrichData(list: ProjectRow[]): EnrichedProjectRow[] {
   })
 }
 
-type SectionKey = "filter" | "table" | "charts"
-
-const SECTION_LABELS: Record<SectionKey, string> = {
-  filter: "筛选条件",
-  table: "项目列表",
-  charts: "图表",
-}
-
 function makeBarOption(title: string, categories: string[], seriesList: { name: string; data: (number | null)[] }[]) {
   return {
-    title: { text: title, left: "center" as const, textStyle: { fontSize: 13, fontWeight: "bold" as const } },
+    title: { text: title, left: "center" as const, top: 10, textStyle: { fontSize: 13, fontWeight: "bold" as const } },
     tooltip: { trigger: "axis" as const, axisPointer: { type: "shadow" as const } },
-    legend: { data: seriesList.map((s) => s.name), top: "8%", type: "scroll" as const },
-    grid: { left: "5%", right: "5%", top: "22%", bottom: "15%", containLabel: true },
-    xAxis: { type: "category" as const, data: categories, axisLabel: { rotate: 30, fontSize: 11, overflow: "truncate" as const, width: 80 } },
+    legend: { data: seriesList.map((s) => s.name), top: 42, type: "scroll" as const },
+    grid: { left: "5%", right: "5%", top: 92, bottom: 56, containLabel: true },
+    xAxis: {
+      type: "category" as const,
+      data: categories,
+      axisLabel: { rotate: 0, margin: 12, fontSize: 11, overflow: "truncate" as const, width: 96, hideOverlap: true },
+    },
     yAxis: { type: "value" as const },
     series: seriesList.map((s) => ({
       name: s.name,
@@ -71,7 +68,7 @@ function makeBarOptionPct(title: string, categories: string[], seriesList: { nam
         const items = Array.isArray(params) ? params : [params]
         let str = (items[0]?.axisValue ?? "") + "<br/>"
         for (const p of items) {
-          str += (p.marker ?? "") + (p.seriesName ?? "") + ": " + ((p.value ?? 0)).toFixed(1) + "%<br/>"
+          str += (p.marker ?? "") + (p.seriesName ?? "") + ": " + formatPercent(p.value ?? 0) + "<br/>"
         }
         return str
       },
@@ -87,14 +84,14 @@ function toDay(m: number | null | undefined) {
 function CreateProjectDialog(props: { onCreated: () => void }) {
   const dialog = useDialog()
   const [form, setForm] = createStore({ name: "", description: "" })
-  let busy = false
+  const [busy, setBusy] = createSignal(false)
 
   const handleCreate = async () => {
     if (!form.name.trim()) {
       showToast({ variant: "error", title: "请输入项目名称" })
       return
     }
-    busy = true
+    setBusy(true)
     try {
       await createProjectOptionV2({
         name: form.name.trim(),
@@ -106,40 +103,47 @@ function CreateProjectDialog(props: { onCreated: () => void }) {
     } catch (e) {
       showToast({ variant: "error", title: "创建失败", description: e instanceof Error ? e.message : String(e) })
     } finally {
-      busy = false
+      setBusy(false)
     }
   }
 
   return (
-    <div class="flex flex-col gap-4 p-4">
-      <h3 class="m-0 text-lg font-semibold text-[var(--native-foreground)]">创建项目</h3>
-      <div class="flex flex-col gap-3">
-        <div>
-          <label class="mb-1 block text-sm text-[var(--native-muted)]">项目名称</label>
-          <input
-            type="text"
-            class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
-            placeholder="输入项目名称"
-            value={form.name}
-            onInput={(e) => setForm("name", e.currentTarget.value)}
-          />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm text-[var(--native-muted)]">描述</label>
-          <textarea
-            class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
-            rows={3}
-            placeholder="输入项目描述（可选）"
-            value={form.description}
-            onInput={(e) => setForm("description", e.currentTarget.value)}
-          />
+    <Modal
+      title="创建项目"
+      maxWidth="560px"
+      footer={
+        <>
+          <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>取消</Button>
+          <Button size="sm" type="button" onClick={() => void handleCreate()} disabled={busy()}>{busy() ? "创建中..." : "创建"}</Button>
+        </>
+      }
+    >
+      <div class="modal-section">
+        <div class="flex flex-col gap-3">
+          <div>
+            <label class="mb-1 block text-sm text-[var(--native-muted)]">项目名称</label>
+            <input
+              type="text"
+              class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
+              placeholder="输入项目名称"
+              value={form.name}
+              onInput={(e) => setForm("name", e.currentTarget.value)}
+              autofocus
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-[var(--native-muted)]">描述</label>
+            <textarea
+              class="w-full rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
+              rows={3}
+              placeholder="输入项目描述（可选）"
+              value={form.description}
+              onInput={(e) => setForm("description", e.currentTarget.value)}
+            />
+          </div>
         </div>
       </div>
-      <div class="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={() => dialog.close()}>取消</Button>
-        <Button size="sm" onClick={() => void handleCreate()} disabled={busy}>{busy ? "创建中..." : "创建"}</Button>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -149,29 +153,17 @@ export default function KanbanProjectList() {
   const [search, setSearch] = useSearchParams<{
     name?: string
     ongoing?: string
+    dateFrom?: string
+    dateTo?: string
     startFrom?: string
     startTo?: string
-    endFrom?: string
-    endTo?: string
   }>()
 
   const [state, setState] = createStore({
     filterName: "",
-    filterStartRange: null as [string, string] | null,
-    filterEndRange: null as [string, string] | null,
+    filterRange: null as [string, string] | null,
     filterOngoing: false,
-    collapsed: {} as Partial<Record<SectionKey, boolean>>,
   })
-
-  function toggleSection(key: SectionKey) {
-    setState("collapsed", key, (prev) => !prev)
-  }
-
-  const collapsedTags = createMemo(() =>
-    (Object.keys(SECTION_LABELS) as SectionKey[])
-      .filter((key) => state.collapsed[key])
-      .map((key) => ({ key, label: SECTION_LABELS[key] })),
-  )
 
   function parseDateStr(s?: string | null) {
     if (!s || s.length < 8) return ""
@@ -182,11 +174,10 @@ export default function KanbanProjectList() {
     setState({
       filterName: search.name ? String(search.name).trim() : "",
       filterOngoing: search.ongoing === "1",
-      filterStartRange: search.startFrom && search.startTo
-        ? [parseDateStr(search.startFrom), parseDateStr(search.startTo)] as [string, string]
-        : null,
-      filterEndRange: search.endFrom && search.endTo
-        ? [parseDateStr(search.endFrom), parseDateStr(search.endTo)] as [string, string]
+      filterRange: search.dateFrom && search.dateTo
+        ? [parseDateStr(search.dateFrom), parseDateStr(search.dateTo)] as [string, string]
+        : search.startFrom && search.startTo
+          ? [parseDateStr(search.startFrom), parseDateStr(search.startTo)] as [string, string]
         : null,
     })
   }
@@ -195,13 +186,9 @@ export default function KanbanProjectList() {
     const query: Record<string, string> = {}
     if (state.filterName) query.name = state.filterName
     if (state.filterOngoing) query.ongoing = "1"
-    if (state.filterStartRange) {
-      query.startFrom = state.filterStartRange[0].replace(/-/g, "")
-      query.startTo = state.filterStartRange[1].replace(/-/g, "")
-    }
-    if (state.filterEndRange) {
-      query.endFrom = state.filterEndRange[0].replace(/-/g, "")
-      query.endTo = state.filterEndRange[1].replace(/-/g, "")
+    if (state.filterRange) {
+      query.dateFrom = state.filterRange[0].replace(/-/g, "")
+      query.dateTo = state.filterRange[1].replace(/-/g, "")
     }
     setSearch(query, { replace: true })
   }
@@ -283,7 +270,7 @@ export default function KanbanProjectList() {
                   ? "bg-[color:color-mix(in_oklab,var(--native-primary)_16%,transparent)] text-[var(--native-primary)]"
                   : "bg-[color:color-mix(in_oklab,var(--native-dim)_16%,transparent)] text-[var(--native-muted)]"
             }`}>
-              {row.efficiency_ratio.toFixed(1)}%
+              {formatPercent(row.efficiency_ratio)}
             </span>
           )
           : <span class="text-[var(--native-muted)]">-</span>,
@@ -330,24 +317,15 @@ export default function KanbanProjectList() {
 
     if (state.filterOngoing) rows = rows.filter((r) => r._ongoing)
 
-    if (state.filterStartRange) {
-      const [from, to] = state.filterStartRange
+    if (state.filterRange) {
+      const [from, to] = state.filterRange
       rows = rows.filter((r) => {
         const st = r.start_time_manual ?? r.start_time
         if (!st) return false
-        const d = st.slice(0, 10)
-        return d >= from && d <= to
-      })
-    }
-
-    if (state.filterEndRange) {
-      const [from, to] = state.filterEndRange
-      rows = rows.filter((r) => {
-        if (r._ongoing) return false
         const et = r.end_time_manual ?? r.end_time
-        if (!et) return false
-        const d = et.slice(0, 10)
-        return d >= from && d <= to
+        const start = st.slice(0, 10)
+        const end = et ? et.slice(0, 10) : "9999-12-31"
+        return start <= to && end >= from
       })
     }
 
@@ -446,96 +424,78 @@ export default function KanbanProjectList() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <a href="/kanban" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"><span>←</span><span>返回首页</span></a>
-
-        <CollapsedTagBar tags={collapsedTags()} onExpand={(key) => toggleSection(key as SectionKey)} />
-
-        <Show when={!state.collapsed.filter}>
-          <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-            <div class="mb-3 flex items-center justify-between">
-              <span class="text-sm font-semibold text-[var(--native-foreground)]">筛选条件</span>
-              <button type="button" class="text-xs text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggleSection("filter")}>折叠</button>
+      <div class="flex w-full flex-col gap-5">
+        <header class="flex w-full flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div class="flex flex-col gap-3">
+            <Back href="/kanban" label="返回首页" />
+            <div>
+              <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">项目视图</h1>
             </div>
-            <div class="flex flex-wrap items-center gap-3">
-              <input
-                type="text"
-                class="w-[180px] rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-1.5 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
-                placeholder="项目名称"
-                value={state.filterName}
-                onInput={(e) => {
-                  setState("filterName", e.currentTarget.value)
-                  updateUrl()
-                }}
-              />
-              <DateRangePicker
-                value={state.filterStartRange}
-                placeholder="开始时间范围"
-                clearable
-                size="sm"
-                onChange={(value) => {
-                  setState("filterStartRange", value ?? null)
-                  updateUrl()
-                }}
-              />
-              <DateRangePicker
-                value={state.filterEndRange}
-                placeholder="结束时间范围"
-                clearable
-                size="sm"
-                onChange={(value) => {
-                  setState("filterEndRange", value ?? null)
-                  updateUrl()
-                }}
-              />
-              <label class="flex items-center gap-1.5 text-sm text-[var(--native-muted)]">
-                <input
-                  type="checkbox"
-                  class="h-4 w-4 accent-[var(--native-primary)]"
-                  checked={state.filterOngoing}
-                  onChange={(e) => {
-                    setState("filterOngoing", e.currentTarget.checked)
-                    updateUrl()
-                  }}
-                />
-                仅显示尚未结束
-              </label>
-            </div>
-          </section>
-        </Show>
+          </div>
 
-        <Show when={!state.collapsed.table}>
-          <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-            <div class="mb-3 flex items-center justify-between">
-              <span class="text-sm font-semibold text-[var(--native-foreground)]">项目列表</span>
-              <div class="flex items-center gap-2">
-                <Button size="sm" onClick={() => dialog.show(() => <CreateProjectDialog onCreated={() => void refetch()} />)}>+ 创建项目</Button>
-                <button type="button" class="text-xs text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggleSection("table")}>折叠</button>
-              </div>
-            </div>
-            <FilterTable
-              columns={columns()}
-              rows={filteredData()}
-              rawRows={data() ?? []}
-              controller={table}
-              loading={data.loading}
-              total={filteredData().length}
-              page={1}
-              pageSize={filteredData().length || 1}
-              pageSizeOptions={[250, 500, 1000]}
-              emptyText={data.loading ? "项目加载中..." : "暂无项目数据"}
-              onPageChange={() => {}}
-              onPageSizeChange={() => {}}
+          <div class="flex min-w-0 flex-wrap items-center justify-end gap-3">
+            <input
+              type="text"
+              class="h-10 min-w-[12rem] rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_36%,transparent)] bg-[var(--native-panel)] px-3 py-2 text-sm text-[var(--native-foreground)] outline-none transition-colors focus:border-[var(--native-primary)]"
+              placeholder="项目名称"
+              value={state.filterName}
+              onInput={(e) => {
+                setState("filterName", e.currentTarget.value)
+                updateUrl()
+              }}
             />
-          </section>
-        </Show>
 
-        <Show when={!state.collapsed.charts && filteredData().length > 0}>
+            <DateRangePicker
+              value={state.filterRange}
+              placeholder="项目时间范围"
+              clearable
+              size="sm"
+              fullWidth={false}
+              onChange={(value) => {
+                setState("filterRange", value ?? null)
+                updateUrl()
+              }}
+            />
+
+            <label class="flex h-10 items-center gap-2 rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_90%,var(--native-bg-subtle))] px-3 text-sm text-[var(--native-muted)]">
+              <input
+                type="checkbox"
+                class="h-4 w-4 accent-[var(--native-primary)]"
+                checked={state.filterOngoing}
+                onChange={(e) => {
+                  setState("filterOngoing", e.currentTarget.checked)
+                  updateUrl()
+                }}
+              />
+              仅显示尚未结束
+            </label>
+          </div>
+        </header>
+
+        <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <span class="text-sm font-semibold text-[var(--native-foreground)]">项目列表</span>
+            <Button size="sm" onClick={() => dialog.show(() => <CreateProjectDialog onCreated={() => void refetch()} />)}>+ 创建项目</Button>
+          </div>
+          <FilterTable
+            columns={columns()}
+            rows={filteredData()}
+            rawRows={data() ?? []}
+            controller={table}
+            loading={data.loading}
+            total={filteredData().length}
+            page={1}
+            pageSize={filteredData().length || 1}
+            pageSizeOptions={[250, 500, 1000]}
+            emptyText={data.loading ? "项目加载中..." : "暂无项目数据"}
+            onPageChange={() => {}}
+            onPageSizeChange={() => {}}
+          />
+        </section>
+
+        <Show when={filteredData().length > 0}>
           <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-            <div class="mb-3 flex items-center justify-between">
-              <span class="text-sm font-semibold text-[var(--native-foreground)]">图表</span>
-              <button type="button" class="text-xs text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => toggleSection("charts")}>折叠</button>
-            </div>
+            <div class="mb-4 text-sm font-semibold text-[var(--native-foreground)]">图表</div>
             <div class="grid gap-3 lg:grid-cols-2">
               <ChartCard option={chartEffOption()} />
               <ChartCard option={chartCodeOption()} />

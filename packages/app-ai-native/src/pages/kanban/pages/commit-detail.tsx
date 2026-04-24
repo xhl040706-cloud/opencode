@@ -1,4 +1,4 @@
-import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -7,6 +7,7 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import Back from "../components/back"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
 import { getCommitDetail, updateCommitManual } from "../lib/api"
@@ -178,10 +179,7 @@ export default function KanbanCommitDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex w-full flex-col gap-3">
-          <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-            <span>←</span>
-            <span>返回 Commit 列表</span>
-          </A>
+          <Back href={listHref()} label="返回 Commit 列表" />
 
           <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>

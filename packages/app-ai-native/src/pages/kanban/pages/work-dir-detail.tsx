@@ -2,6 +2,7 @@ import { A, useParams, useSearchParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import Back from "../components/back"
 import { getWorkDirDetail } from "../lib/api"
 import { formatDuration, formatLocalTime, shortId } from "../lib/formatters"
 import type {
@@ -115,10 +116,7 @@ export default function KanbanWorkDirDetail() {
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <header class="mx-auto flex w-full max-w-[1320px] flex-col gap-3">
-        <A href={backHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-          <span>←</span>
-          <span>{backLabel()}</span>
-        </A>
+        <Back href={backHref()} label={backLabel()} />
         <div>
           <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / WorkDir Detail</p>
           <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">

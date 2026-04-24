@@ -1,13 +1,13 @@
 import { A, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, For, on, untrack, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
-import { ArrowRight, BadgeInfo, Building2, ClipboardList, FolderGit2, FolderOpen, GitCommitHorizontal, Users, Wallet } from "lucide-solid"
+import { ArrowRight, BadgeInfo, Building2, ChevronDown, ClipboardList, FolderGit2, FolderOpen, GitCommitHorizontal, GitMerge, Users, Wallet } from "lucide-solid"
 import { showToast } from "@opencode-ai/ui/toast"
 import { cn } from "@/lib/utils"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { queryDashboardSummary } from "../lib/api"
 import { normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
-import { formatDuration } from "../lib/formatters"
+import { formatDuration, formatPercent } from "../lib/formatters"
 import type { DashboardSummary } from "../lib/types"
 
 function fmtInt(value?: number | null) {
@@ -24,8 +24,7 @@ function fmtCost(value?: number | null) {
 }
 
 function fmtRatio(value?: number | null) {
-  if (value == null) return "-"
-  return `${value.toFixed(1)}%`
+  return formatPercent(value)
 }
 
 function saved(summary: DashboardSummary) {
@@ -133,6 +132,57 @@ function NavCard(props: {
     : body
 }
 
+function TopLink(props: { title: string; href: string; active?: boolean }) {
+  return (
+    <A
+      href={props.href}
+      class={cn(
+        "inline-flex h-11 items-center rounded-full px-4 text-[0.95rem] font-medium tracking-[-0.02em] transition-all duration-200 ease-out active:scale-[0.98]",
+        props.active
+          ? "bg-white text-[#182235] shadow-[0_10px_22px_-18px_rgba(43,63,129,0.4)]"
+          : "text-[#53627d] [@media(hover:hover)]:hover:bg-white/88 [@media(hover:hover)]:hover:text-[#182235]",
+      )}
+      style={{ "touch-action": "manipulation" }}
+    >
+      {props.title}
+    </A>
+  )
+}
+
+function TopMenu(props: { title: string; items: Array<{ title: string; href: string }> }) {
+  return (
+    <div class="group relative">
+      <button
+        type="button"
+        class="inline-flex h-11 items-center gap-2 rounded-full px-4 text-[0.95rem] font-medium tracking-[-0.02em] text-[#53627d] transition-all duration-200 ease-out [@media(hover:hover)]:hover:bg-white/88 [@media(hover:hover)]:hover:text-[#182235] focus-visible:bg-white/88 focus-visible:text-[#182235] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#cddcff] active:scale-[0.98]"
+      >
+        <span>{props.title}</span>
+        <ChevronDown class="h-4 w-4 transition-transform duration-200 ease-out [@media(hover:hover)]:group-hover:rotate-180 group-focus-within:rotate-180" stroke-width={1.8} />
+      </button>
+
+      <div class="pointer-events-none invisible absolute left-0 top-full z-20 min-w-[12rem] pt-3 translate-y-2 transition-transform duration-150 ease-out group-hover:pointer-events-auto group-hover:visible group-hover:translate-y-0 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:translate-y-0">
+        <div
+          class="relative isolate overflow-hidden rounded-[18px] border border-[#dde3ee] shadow-[0_18px_34px_-24px_rgba(34,58,120,0.28),0_8px_16px_-12px_rgba(72,90,140,0.14)]"
+          style={{ "background-color": "#ffffff" }}
+        >
+          <div class="absolute inset-0" style={{ "background-color": "#ffffff" }} />
+          <div class="relative flex flex-col gap-1 p-2">
+            <For each={props.items}>{(item) => (
+              <A
+                href={item.href}
+                class="flex items-center justify-between rounded-[12px] px-3 py-2.5 text-[0.92rem] font-medium tracking-[-0.02em] text-[#32405f] transition-colors duration-150 [@media(hover:hover)]:hover:bg-[#f3f7ff] [@media(hover:hover)]:hover:text-[#182235]"
+              >
+                <span>{item.title}</span>
+                <ArrowRight class="h-4 w-4 text-[#8fa1c1]" stroke-width={1.9} />
+              </A>
+            )}</For>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function KanbanHome() {
   const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; mock?: string }>()
   const [state, setState] = createStore({
@@ -189,6 +239,12 @@ export default function KanbanHome() {
   )
 
   const view = createMemo(() => summary() ?? blank())
+  const query = createMemo(() => searchQuery([
+    ["startDate", rangeQuery(state.dateRange).startDate],
+    ["endDate", rangeQuery(state.dateRange).endDate],
+    ["mock", search.mock],
+  ]).toString())
+  const href = (path: string) => query() ? `${path}?${query()}` : path
 
   const metrics = createMemo(() => [
     {
@@ -223,7 +279,7 @@ export default function KanbanHome() {
       hint: `Diff 行数 ${fmtInt(view().total_diff_lines)}`,
       tone: "#8a4cf6",
       iconShell: "bg-[#f5eefe] text-[#8a4cf6]",
-      icon: <GitCommitHorizontal class="h-5 w-5" stroke-width={1.9} />,
+      icon: <GitMerge class="h-5 w-5" stroke-width={1.9} />,
     },
     {
       label: "总费用",
@@ -260,7 +316,7 @@ export default function KanbanHome() {
     {
       title: "提交视图",
       iconShell: "bg-[#fff3e8] text-[#ff8a24]",
-      icon: <GitCommitHorizontal class="h-5 w-5" stroke-width={1.9} />,
+      icon: <GitMerge class="h-5 w-5" stroke-width={1.9} />,
       href: "/kanban/commit",
       live: true,
     },
@@ -301,35 +357,58 @@ export default function KanbanHome() {
     },
   ])
 
+  const top = createMemo(() => ({
+    org: [
+      { title: "组织", href: href("/kanban/org") },
+      { title: "用户", href: href("/kanban/user") },
+    ],
+    project: [
+      { title: "项目", href: href("/kanban/project") },
+      { title: "仓库", href: href("/kanban/repo") },
+      { title: "提交", href: href("/kanban/commit") },
+      { title: "任务", href: href("/kanban/task") },
+    ],
+  }))
+
   return (
-    <div class="min-h-full overflow-x-clip bg-[#fafbfe] px-[clamp(1rem,3vw,4.5rem)] py-[clamp(1rem,2vw,2rem)]">
+    <div class="min-h-full overflow-x-clip bg-[#fafbfe] px-[clamp(1rem,3vw,4.5rem)] pb-[clamp(1rem,2vw,2rem)]">
       <div class="mx-auto flex w-full flex-col gap-6">
+        <nav class="flex min-h-[80px] flex-col gap-3 border-b border-[#dde3ee] px-1 py-3 lg:h-[80px] lg:flex-row lg:items-center lg:justify-between lg:px-0">
+          <div class="flex flex-wrap items-center gap-2.5">
+            <TopLink title="首页" href={href("/kanban")} active={true} />
+            <TopMenu title="组织看板" items={top().org} />
+            <TopMenu title="项目看板" items={top().project} />
+          </div>
+
+          <div class="w-full lg:w-[15.5rem] lg:flex-none lg:[&>div]:min-w-0 lg:[&>div]:gap-1.5 lg:[&>div]:px-3 lg:[&>div>div:last-child]:gap-1 lg:[&_[aria-label='Open_date_range_picker']]:h-7 lg:[&_[aria-label='Open_date_range_picker']]:w-7">
+            <DateRangePicker
+              value={state.dateRange}
+              onChange={(value) => {
+                if (!value) return
+                setState("dateRange", value)
+              }}
+              clearable={false}
+              size="sm"
+              fullWidth={true}
+            />
+          </div>
+        </nav>
+
         <header class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="min-w-0 flex-1 pt-2">
+          <div class="min-w-0 flex-1 pt-1">
             <h1 class="whitespace-nowrap font-[var(--native-font-display)] text-[clamp(2rem,4vw,2.7rem)] leading-[1.18] font-medium tracking-[-0.05em] text-[#182235]">
                 AI Coding 指标看板
             </h1>
-          </div>
-
-          <div class="w-full max-w-[21rem] lg:flex-none">
-            <div class="rounded-[18px] border border-[color:color-mix(in_oklab,var(--native-border)_20%,white)] bg-white p-1.5 shadow-[0_10px_24px_-22px_rgba(43,63,129,0.28),0_2px_12px_-8px_rgba(71,85,145,0.12)]">
-              <DateRangePicker
-                value={state.dateRange}
-                onChange={(value) => {
-                  if (!value) return
-                  setState("dateRange", value)
-                }}
-                clearable={false}
-                size="sm"
-                fullWidth={true}
-              />
-            </div>
           </div>
         </header>
 
         <section class="grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(25rem,0.88fr)]">
           <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <For each={metrics()}>{(item) => <MetricCard {...item} />}</For>
+            <For each={metrics()}>{(item, index) => (
+              <div class={cn(index() === 4 && "xl:col-span-2") }>
+                <MetricCard {...item} />
+              </div>
+            )}</For>
           </div>
 
           <section class="overflow-hidden rounded-[22px] border border-[color:color-mix(in_oklab,var(--native-primary)_14%,white)] bg-[linear-gradient(115deg,#f7faff_42%,#e8f0ff_100%)] px-6 py-6 shadow-[0_18px_38px_-30px_rgba(50,92,191,0.42),0_10px_24px_-18px_rgba(89,118,195,0.22)]">
@@ -345,22 +424,13 @@ export default function KanbanHome() {
                   <p class="mt-10 text-[clamp(2.4rem,5vw,4rem)] leading-none font-medium tracking-[-0.08em] text-[#2d6bff] tabular-nums">{fmtRatio(view().avg_efficiency_ratio)}</p>
                 </div>
 
-                <div class="relative mx-auto flex min-h-[12rem] w-full max-w-[20rem] items-center justify-center overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_50%_65%,rgba(91,132,255,0.12),transparent_54%),radial-gradient(circle_at_68%_22%,rgba(137,172,255,0.14),transparent_28%),transparent]">
-                  <div class="absolute inset-x-[18%] bottom-[20%] h-10 rounded-full bg-[radial-gradient(circle,rgba(115,150,255,0.12),rgba(115,150,255,0.04)_55%,transparent_72%)]" />
-                  <div class="absolute left-[10%] top-[12%] h-32 w-44 rounded-full border border-[#dbe7ff]" />
-                  <div class="absolute right-[6%] top-[28%] h-28 w-28 rounded-full border border-[#dbe7ff]" />
-                  <div class="absolute left-[22%] top-[24%] h-2.5 w-2.5 rounded-full bg-[#d7e5ff]" />
-                  <div class="absolute right-[3%] top-[58%] h-3.5 w-3.5 rounded-full bg-[#85a8ff]" />
-                  <div class="absolute left-[22%] top-[39%] h-1.5 w-[5.2rem] rotate-[-46deg] rounded-full bg-[#5b85ff]" />
-                  <div class="absolute left-[42%] top-[28%] h-1.5 w-[3.1rem] rotate-[36deg] rounded-full bg-[#5b85ff]" />
-                  <div class="absolute left-[55%] top-[20%] h-1.5 w-[3.8rem] rotate-[-54deg] rounded-full bg-[#5b85ff]" />
-                  <div class="absolute left-[68%] top-[11%] h-1.5 w-[2.4rem] rotate-[97deg] rounded-full bg-[#5b85ff]" />
-                  <div class="absolute left-[60%] top-[11%] h-4 w-4 rotate-[14deg] border-r-[4px] border-t-[4px] border-[#5b85ff]" />
-                  <div class="absolute bottom-[24%] left-[37%] flex items-end gap-3">
-                    <div class="h-7 w-4 rounded-[4px] bg-[linear-gradient(180deg,#95b4ff,#6f95ff)] shadow-[0_8px_18px_-14px_rgba(61,107,255,0.7)]" />
-                    <div class="h-10 w-4 rounded-[4px] bg-[linear-gradient(180deg,#95b4ff,#6f95ff)] shadow-[0_8px_18px_-14px_rgba(61,107,255,0.7)]" />
-                    <div class="h-14 w-4 rounded-[4px] bg-[linear-gradient(180deg,#95b4ff,#6f95ff)] shadow-[0_8px_18px_-14px_rgba(61,107,255,0.7)]" />
-                  </div>
+                <div class="relative mx-auto h-[12rem] w-full max-w-[20rem] shrink-0 overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_50%_65%,rgba(91,132,255,0.12),transparent_54%),radial-gradient(circle_at_68%_22%,rgba(137,172,255,0.14),transparent_28%),transparent]">
+                  <img
+                    src="/kanban/ratio.webp"
+                    alt="综合提效比"
+                    class="absolute inset-0 h-full w-full object-contain object-center"
+                    loading="eager"
+                  />
                 </div>
               </div>
 
@@ -388,10 +458,8 @@ export default function KanbanHome() {
             <h2 class="text-[1.55rem] font-medium tracking-[-0.04em] text-[#182235]">功能入口</h2>
           </div>
 
-          <div class="w-full max-w-[72rem]">
-            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <For each={nav()}>{(item) => <NavCard {...item} />}</For>
-            </div>
+          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <For each={nav()}>{(item) => <NavCard {...item} />}</For>
           </div>
         </section>
       </div>

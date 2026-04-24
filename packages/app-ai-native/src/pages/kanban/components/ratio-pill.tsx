@@ -1,3 +1,5 @@
+import { formatPercent } from "../lib/formatters"
+
 type Props = {
   value?: number | null
   digits?: number
@@ -11,7 +13,7 @@ function tone(value?: number | null) {
 }
 
 export function RatioPill(props: Props) {
-  const label = () => props.value == null || props.value <= 0 ? "-" : `${props.value.toFixed(props.digits ?? 1)}%`
+  const label = () => props.value == null || props.value <= 0 ? "-" : formatPercent(props.value, props.digits ?? 0)
 
   return (
     <span class={`inline-flex min-w-[4.5rem] items-center justify-center rounded-full border px-2 py-1 text-xs font-medium ${tone(props.value)}`}>

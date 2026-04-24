@@ -13,7 +13,7 @@ import { queryUserRows } from "../lib/api"
 import { chart } from "../lib/chart-options"
 import { defaultWideRange, normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
 import { applyClientFilters } from "../lib/filter-utils"
-import { formatDuration } from "../lib/formatters"
+import { formatDuration, formatPercent } from "../lib/formatters"
 import type { DateRangeValue, Granularity, KanbanColumn, OrgCascadeValue, UserAggregateRow, UserSeries } from "../lib/types"
 import type { EChartsOption } from "echarts"
 
@@ -230,14 +230,14 @@ export default function KanbanUserList() {
     },
   )
 
-  const rows = createMemo(() => applyClientFilters(data()?.rows ?? [], columns(), table.filters))
+  const rows = createMemo(() => applyClientFilters(data.latest?.rows ?? [], columns(), table.filters))
   const series = createMemo(() => {
     const names = new Set(rows().map((row) => (row.user_name?.trim() || row.user_id?.trim() || "")).filter(Boolean))
-    const all = data()?.series ?? []
+    const all = data.latest?.series ?? []
     if (!names.size || names.size === all.length) return all
     return all.filter((item) => names.has(item.user_name?.trim() || item.user_id?.trim() || ""))
   })
-  const periods = createMemo(() => data()?.periods ?? [])
+  const periods = createMemo(() => data.latest?.periods ?? [])
 
   const countOption = createMemo<EChartsOption | undefined>(() => {
     if (!periods().length || !series().length) return undefined
@@ -274,7 +274,7 @@ export default function KanbanUserList() {
       { name: `${item.user_name || item.user_id || "-"} Task提效比`, data: points(item, "task_efficiency_ratio") },
       { name: `${item.user_name || item.user_id || "-"} Commit提效比`, data: points(item, "commit_efficiency_ratio") },
     ])
-    return chart("Task提效比 & Commit提效比", periods(), list, { format: (value) => `${value.toFixed(1)}%` })
+    return chart("Task提效比 & Commit提效比", periods(), list, { format: (value) => formatPercent(value) })
   })
 
   const tokenOption = createMemo<EChartsOption | undefined>(() => {
@@ -341,10 +341,10 @@ export default function KanbanUserList() {
           class="rounded-none"
           columns={columns()}
           rows={rows()}
-          rawRows={data()?.rows ?? []}
+          rawRows={data.latest?.rows ?? []}
           controller={table}
           loading={data.loading}
-          total={data()?.total ?? 0}
+          total={data.latest?.total ?? 0}
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[50, 100, 250]}

@@ -10,7 +10,7 @@ import { useTableFilters } from "../hooks/use-table-filters"
 import { queryCommitRows } from "../lib/api"
 import { defaultWideRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
 import { applyClientFilters } from "../lib/filter-utils"
-import { formatDuration, formatLocalTime, shortId } from "../lib/formatters"
+import { formatDuration, formatLocalTime, formatPercent, shortId } from "../lib/formatters"
 import type { CommitRow, KanbanColumn, OrgCascadeValue } from "../lib/types"
 
 function parseOrg(search: { org1?: string; org2?: string; org3?: string; org4?: string }) {
@@ -126,7 +126,7 @@ export default function KanbanCommitList() {
     { prop: "diff_lines", label: "代码量", minWidth: 90, align: "right", filter: { type: "number" } },
     { prop: "commit_real_minutes", label: "实际耗时", minWidth: 110, align: "right", display: (row) => formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes), filter: { type: "number", valueGetter: (row) => row.commit_real_minutes_manual ?? row.commit_real_minutes } },
     { prop: "commit_ancient_minutes", label: "传统开发时长预估", minWidth: 160, align: "right", display: (row) => formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes), filter: { type: "number", valueGetter: (row) => row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes } },
-    { prop: "efficiency_ratio", label: "提效比", minWidth: 100, align: "right", display: (row) => row.efficiency_ratio == null ? "-" : `${row.efficiency_ratio.toFixed(1)}%`, filter: { type: "number" } },
+    { prop: "efficiency_ratio", label: "提效比", minWidth: 100, align: "right", display: (row) => formatPercent(row.efficiency_ratio), filter: { type: "number" } },
     { prop: "_tokens", label: "Tokens消耗", minWidth: 120, align: "right", display: (row) => ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-", filter: { type: "number", valueGetter: (row) => (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0) } },
     { prop: "cost", label: "费用", minWidth: 100, align: "right", display: (row) => fmtCost(row.cost), filter: { type: "number" } },
   ])
@@ -152,7 +152,7 @@ export default function KanbanCommitList() {
     },
   )
 
-  const rows = createMemo(() => applyClientFilters(data()?.rows ?? [], columns(), table.filters))
+  const rows = createMemo(() => applyClientFilters(data.latest?.rows ?? [], columns(), table.filters))
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
@@ -177,10 +177,10 @@ export default function KanbanCommitList() {
           class="rounded-none"
           columns={columns()}
           rows={rows()}
-          rawRows={data()?.rows ?? []}
+          rawRows={data.latest?.rows ?? []}
           controller={table}
           loading={data.loading}
-          total={data()?.total ?? 0}
+          total={data.latest?.total ?? 0}
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[100, 250, 500]}

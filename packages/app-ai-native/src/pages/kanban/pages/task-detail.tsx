@@ -1,4 +1,4 @@
-import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -6,6 +6,7 @@ import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
+import Back from "../components/back"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
 import { getTaskDetail, updateTaskManual } from "../lib/api"
@@ -248,10 +249,7 @@ export default function KanbanTaskDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex flex-col gap-3">
-          <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-            <span>←</span>
-            <span>返回 Task 列表</span>
-          </A>
+          <Back href={listHref()} label="返回 Task 列表" />
           <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">Task 详情</h1>

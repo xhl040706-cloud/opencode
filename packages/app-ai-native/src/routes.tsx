@@ -38,9 +38,11 @@ const ConsoleCapabilities = lazy(() => consoleImport.then((m) => ({ default: m.D
 const CapabilityEditorPage = lazy(() => consoleImport.then((m) => ({ default: m.CapabilityEditorPage })))
 const ConsoleDevices = lazy(() => consoleImport.then((m) => ({ default: m.DevicesPage })))
 const ConsoleNotifications = lazy(() => consoleImport.then((m) => ({ default: m.NotificationsPage })))
+const ConsoleKanban = lazy(() => consoleImport.then((m) => ({ default: m.DashboardKanban })))
 
 const ConsoleDevicesRoute: Component = () => <ConsoleDevices />
 const ConsoleNotificationsRoute: Component = () => <ConsoleNotifications />
+const ConsoleKanbanRoute: Component = () => <ConsoleKanban />
 
 
 const wrap = (Component: Component<{ children?: JSX.Element }>) => (props: { children?: JSX.Element }) => (
@@ -146,6 +148,7 @@ export const routeConfig: RouteConfig[] = [
       { path: "/capabilities", component: ConsoleCapabilities },
       { path: "/devices", component: ConsoleDevicesRoute },
       { path: "/notifications", component: ConsoleNotificationsRoute },
+      { path: "/kanban", component: ConsoleKanbanRoute },
     ],
   },
   {

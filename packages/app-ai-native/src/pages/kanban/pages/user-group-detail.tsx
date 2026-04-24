@@ -1,12 +1,14 @@
-import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, For } from "solid-js"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import Back from "../components/back"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
 import { defaultWideRange, parseQueryRange, rangeQuery, searchQuery } from "../lib/date-range"
+import { formatPercent } from "../lib/formatters"
 import { deleteUserGroup, getUserGroupDetail } from "../lib/api"
 
 function fmtCost(value?: number | null) {
@@ -26,6 +28,7 @@ export default function KanbanUserGroupDetail() {
     ["endDate", search.endDate],
     ["mock", search.mock],
   ]).toString())
+  const listHref = createMemo(() => routeQuery() ? `/kanban/user?${routeQuery()}` : "/kanban/user")
 
   createEffect(() => {
     const next = rangeQuery(dateRange())
@@ -87,10 +90,7 @@ export default function KanbanUserGroupDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
         <header class="flex flex-col gap-3">
-          <A href="/kanban/user" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-            <span>←</span>
-            <span>返回用户列表</span>
-          </A>
+          <Back href={listHref()} label="返回用户列表" />
 
           <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -130,8 +130,8 @@ export default function KanbanUserGroupDetail() {
           <MetricCard label="成员数" value={String(members().length)} accent="var(--native-success)" />
           <MetricCard label="总Task数" value={String(summary().task_count ?? 0)} accent="var(--native-warning)" />
           <MetricCard label="总Commit数" value={String(summary().commit_count ?? 0)} accent="var(--native-primary)" />
-          <MetricCard label="加权Task提效比" value={taskRatio() == null ? "-" : `${taskRatio()!.toFixed(1)}%`} accent="var(--native-success)" />
-          <MetricCard label="加权Commit提效比" value={commitRatio() == null ? "-" : `${commitRatio()!.toFixed(1)}%`} accent="var(--native-primary)" />
+          <MetricCard label="加权Task提效比" value={formatPercent(taskRatio())} accent="var(--native-success)" />
+          <MetricCard label="加权Commit提效比" value={formatPercent(commitRatio())} accent="var(--native-primary)" />
           <MetricCard label="总费用" value={fmtCost(summary().cost)} accent="var(--native-warning)" />
         </section>
 

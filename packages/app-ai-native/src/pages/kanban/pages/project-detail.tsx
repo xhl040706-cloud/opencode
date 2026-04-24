@@ -6,6 +6,7 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import Back from "../components/back"
 import {
   getProjectDetail,
   updateProjectManual,
@@ -15,7 +16,7 @@ import {
   updateTaskSilicaInProject,
   getGlobalConfig,
 } from "../lib/api"
-import { formatDuration, formatLocalTime, shortId } from "../lib/formatters"
+import { formatDuration, formatLocalTime, formatPercent, shortId } from "../lib/formatters"
 import type {
   ProjectDetailResult,
   ProjectManualPayload,
@@ -201,7 +202,6 @@ function EditProjectDialog(props: { project: ProjectDetailResult; onSaved: () =>
 
 export default function KanbanProjectDetail() {
   const params = useParams()
-  const navigate = useNavigate()
   const dialog = useDialog()
 
   const projectId = createMemo(() => decodeURIComponent(params.projectId ?? "").trim())
@@ -313,93 +313,135 @@ export default function KanbanProjectDetail() {
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <header class="mx-auto flex w-full max-w-[1320px] flex-col gap-3">
-        <A href="/kanban/project" class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-          <span>←</span>
-          <span>返回项目列表</span>
-        </A>
-        <div class="flex flex-col gap-4 rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)] lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">Kanban / Project Detail</p>
-            <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{project().name || "项目详情"}</h1>
-            <Show when={project().description}><p class="mt-1 text-sm text-[var(--native-muted)]">{project().description}</p></Show>
+      <div class="flex w-full flex-col gap-5">
+        <header class="flex w-full flex-col gap-3">
+          <Back href="/kanban/project" label="返回项目列表" />
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">项目详情</h1>
+              <Show when={project().name || project().description}>
+                <p class="mt-2 max-w-[60rem] text-sm text-[var(--native-muted)]">
+                  <span class="font-medium text-[var(--native-foreground)]">{project().name || project().project_id || "当前项目"}</span>
+                  <Show when={project().description}><span> · {project().description}</span></Show>
+                </p>
+              </Show>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={openManual} disabled={!project().project_id}>人工调整</Button>
+              <Button size="sm" onClick={openEdit} disabled={!project().project_id}>编辑</Button>
+            </div>
           </div>
-          <div class="flex gap-2">
-            <Button variant="outline" size="sm" onClick={openManual} disabled={!project().project_id}>人工调整</Button>
-            <Button size="sm" onClick={openEdit} disabled={!project().project_id}>编辑</Button>
-          </div>
-        </div>
-      </header>
+        </header>
 
-      <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
-        <Show when={!data.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">加载中...</div>}>
-          <Show when={data()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">没有查询到项目详情</div>}>
-            {(_) => (
-              <>
-                {/* 基础信息 */}
-                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">基础信息</div>
-                  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <MetricCard label="项目ID" value={project().project_id || "-"} />
-                    <MetricCard label="起始时间" value={formatLocalTime(project().start_time_manual || project().start_time)} />
-                    <MetricCard label="结束时间" value={formatLocalTime(project().end_time_manual || project().end_time)} />
-                    <MetricCard label="Repo数" value={String(repos().length)} accent="var(--native-primary)" />
-                    <MetricCard label="Task数" value={String(tasks().length)} accent="var(--native-success)" />
-                    <MetricCard label="Commit数" value={String(commits().length)} accent="var(--native-warning)" />
-                    <MetricCard label="参与人数" value={String(project().user_count)} accent="var(--native-info, var(--native-primary))" />
-                  </div>
-                </section>
+        <div class="flex w-full flex-col gap-5">
+          <Show when={!data.loading} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">加载中...</div>}>
+            <Show when={data()} fallback={<div class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] px-4 py-10 text-sm text-[var(--native-muted)] shadow-[var(--native-shadow-sm)]">没有查询到项目详情</div>}>
+              {(_) => (
+                <>
+                  {/* 基础信息 */}
+                  <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+                    <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">基础信息</div>
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <MetricCard label="项目ID" value={project().project_id || "-"} />
+                      <MetricCard label="起始时间" value={formatLocalTime(project().start_time_manual || project().start_time)} />
+                      <MetricCard label="结束时间" value={formatLocalTime(project().end_time_manual || project().end_time)} />
+                      <MetricCard label="Repo数" value={String(repos().length)} accent="var(--native-primary)" />
+                      <MetricCard label="Task数" value={String(tasks().length)} accent="var(--native-success)" />
+                      <MetricCard label="Commit数" value={String(commits().length)} accent="var(--native-warning)" />
+                      <MetricCard label="参与人数" value={String(project().user_count)} accent="var(--native-info, var(--native-primary))" />
+                    </div>
+                  </section>
 
-                {/* 度量信息 */}
-                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
-                  <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">度量信息</div>
-                  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <MetricCard label="传统开发预估" value={formatDuration(project().project_ancient_minutes_manual ?? project().project_ancient_minutes)} hint={project().project_ancient_minutes_reason} accent="var(--native-success)" />
-                    <MetricCard label="实际处理耗时" value={formatDuration(project().project_real_process_minutes_manual ?? project().project_real_process_minutes)} hint={project().project_real_process_minutes_reason} accent="var(--native-primary)" />
-                    <MetricCard label="项目周期" value={formatDuration(project().project_real_lead_minutes_manual ?? project().project_real_lead_minutes)} hint={project().project_real_lead_minutes_reason} accent="var(--native-warning)" />
-                    <MetricCard label="总Tokens" value={totalTokens() > 0 ? totalTokens().toLocaleString() : "-"} hint={`上行 ${project().upstream_tokens ?? 0} / 下行 ${project().downstream_tokens ?? 0}`} accent="var(--native-primary)" />
-                    <MetricCard label="总费用" value={project().cost != null && project().cost! > 0 ? fmtCost(project().cost) : "-"} accent="var(--native-warning)" />
-                    <MetricCard label="生成代码量" value={totalCodeLines() > 0 ? `${totalCodeLines().toLocaleString()} 行` : "-"} accent="var(--native-info, var(--native-primary))" />
-                    <MetricCard label="实际人天" value={actualWorkDays() != null ? `${actualWorkDays()!.toFixed(2)} 人天` : "-"} accent="var(--native-primary)" />
-                    <MetricCard label="实际人天代码量" value={actualLinesPerDay() != null ? `${Math.round(actualLinesPerDay()!)} 行/人天` : "-"} accent="var(--native-success)" />
-                    <MetricCard label="传统开发人天代码量" value={traditionalLinesPerDay() != null ? `${Math.round(traditionalLinesPerDay()!)} 行/人天` : "-"} hint={`企业基准 ${traditionalDevLinesPerDay()} 行/人天`} accent="var(--native-warning)" />
-                    <MetricCard label="开发提效比" value={devEfficiencyRatio() != null ? `${Math.round(devEfficiencyRatio()! * 100)}%` : "-"} accent={devEfficiencyRatio() != null && devEfficiencyRatio()! >= 3 ? "var(--native-success)" : "var(--native-primary)"} />
-                    <MetricCard label="端到端提效比" value={e2eEfficiencyRatio() != null ? `${Math.round(e2eEfficiencyRatio()! * 100)}%` : "-"} accent={e2eEfficiencyRatio() != null && e2eEfficiencyRatio()! >= 3 ? "var(--native-success)" : "var(--native-primary)"} />
-                  </div>
-                </section>
+                  {/* 度量信息 */}
+                  <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
+                    <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">度量信息</div>
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <MetricCard label="传统开发预估" value={formatDuration(project().project_ancient_minutes_manual ?? project().project_ancient_minutes)} hint={project().project_ancient_minutes_reason} accent="var(--native-success)" />
+                      <MetricCard label="实际处理耗时" value={formatDuration(project().project_real_process_minutes_manual ?? project().project_real_process_minutes)} hint={project().project_real_process_minutes_reason} accent="var(--native-primary)" />
+                      <MetricCard label="项目周期" value={formatDuration(project().project_real_lead_minutes_manual ?? project().project_real_lead_minutes)} hint={project().project_real_lead_minutes_reason} accent="var(--native-warning)" />
+                      <MetricCard label="总Tokens" value={totalTokens() > 0 ? totalTokens().toLocaleString() : "-"} hint={`上行 ${project().upstream_tokens ?? 0} / 下行 ${project().downstream_tokens ?? 0}`} accent="var(--native-primary)" />
+                      <MetricCard label="总费用" value={project().cost != null && project().cost! > 0 ? fmtCost(project().cost) : "-"} accent="var(--native-warning)" />
+                      <MetricCard label="生成代码量" value={totalCodeLines() > 0 ? `${totalCodeLines().toLocaleString()} 行` : "-"} accent="var(--native-info, var(--native-primary))" />
+                      <MetricCard label="实际人天" value={actualWorkDays() != null ? `${actualWorkDays()!.toFixed(2)} 人天` : "-"} accent="var(--native-primary)" />
+                      <MetricCard label="实际人天代码量" value={actualLinesPerDay() != null ? `${Math.round(actualLinesPerDay()!)} 行/人天` : "-"} accent="var(--native-success)" />
+                      <MetricCard label="传统开发人天代码量" value={traditionalLinesPerDay() != null ? `${Math.round(traditionalLinesPerDay()!)} 行/人天` : "-"} hint={`企业基准 ${traditionalDevLinesPerDay()} 行/人天`} accent="var(--native-warning)" />
+                      <MetricCard label="开发提效比" value={devEfficiencyRatio() != null ? `${Math.round(devEfficiencyRatio()! * 100)}%` : "-"} accent={devEfficiencyRatio() != null && devEfficiencyRatio()! >= 3 ? "var(--native-success)" : "var(--native-primary)"} />
+                      <MetricCard label="端到端提效比" value={e2eEfficiencyRatio() != null ? `${Math.round(e2eEfficiencyRatio()! * 100)}%` : "-"} accent={e2eEfficiencyRatio() != null && e2eEfficiencyRatio()! >= 3 ? "var(--native-success)" : "var(--native-primary)"} />
+                    </div>
+                  </section>
 
-                {/* 用户视角 */}
-                <Show when={userStats().length > 0}>
+                  {/* 用户视角 */}
+                  <Show when={userStats().length > 0}>
+                    <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
+                      <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
+                        用户视角 ({userStats().length})
+                      </div>
+                      <div class="overflow-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead class="min-w-[100px]">用户</TableHead>
+                              <TableHead class="min-w-[80px] text-right">Task数</TableHead>
+                              <TableHead class="min-w-[80px] text-right">Commit数</TableHead>
+                              <TableHead class="min-w-[80px] text-right">代码行数</TableHead>
+                              <TableHead class="min-w-[110px] text-right">Task传统预估</TableHead>
+                              <TableHead class="min-w-[110px] text-right">Task实际耗时</TableHead>
+                              <TableHead class="min-w-[90px] text-center">Task提效比</TableHead>
+                              <TableHead class="min-w-[80px] text-right">费用</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <For each={userStats()}>
+                              {(row) => (
+                                <TableRow>
+                                  <TableCell>{row.user_name}</TableCell>
+                                  <TableCell class="text-right tabular-nums">{row.task_count}</TableCell>
+                                  <TableCell class="text-right tabular-nums">{row.commit_count}</TableCell>
+                                  <TableCell class="text-right tabular-nums">{row.commit_diff_lines.toLocaleString()}</TableCell>
+                                  <TableCell class="text-right">{formatDuration(row.task_ancient_minutes)}</TableCell>
+                                  <TableCell class="text-right">{formatDuration(row.task_real_minutes)}</TableCell>
+                                  <TableCell class="text-center">{row.task_efficiency_ratio > 0 ? formatPercent(row.task_efficiency_ratio) : "-"}</TableCell>
+                                  <TableCell class="text-right tabular-nums">{row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
+                                </TableRow>
+                              )}
+                            </For>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </section>
+                  </Show>
+
+                  {/* Repos */}
                   <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                     <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                      用户视角 ({userStats().length})
+                      Repos ({repos().length})
                     </div>
                     <div class="overflow-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead class="min-w-[100px]">用户</TableHead>
-                            <TableHead class="min-w-[80px] text-right">Task数</TableHead>
-                            <TableHead class="min-w-[80px] text-right">Commit数</TableHead>
-                            <TableHead class="min-w-[80px] text-right">代码行数</TableHead>
-                            <TableHead class="min-w-[110px] text-right">Task传统预估</TableHead>
-                            <TableHead class="min-w-[110px] text-right">Task实际耗时</TableHead>
-                            <TableHead class="min-w-[90px] text-center">Task提效比</TableHead>
-                            <TableHead class="min-w-[80px] text-right">费用</TableHead>
+                            <TableHead class="min-w-[200px]">仓库地址</TableHead>
+                            <TableHead class="min-w-[100px]">分支</TableHead>
+                            <TableHead class="min-w-[140px]">开始时间</TableHead>
+                            <TableHead class="min-w-[140px]">结束时间</TableHead>
+                            <TableHead class="min-w-[80px] text-right">操作</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          <For each={userStats()}>
-                            {(row) => (
+                          <For each={repos()}>
+                            {(row, index) => (
                               <TableRow>
-                                <TableCell>{row.user_name}</TableCell>
-                                <TableCell class="text-right tabular-nums">{row.task_count}</TableCell>
-                                <TableCell class="text-right tabular-nums">{row.commit_count}</TableCell>
-                                <TableCell class="text-right tabular-nums">{row.commit_diff_lines.toLocaleString()}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.task_ancient_minutes)}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.task_real_minutes)}</TableCell>
-                                <TableCell class="text-center">{row.task_efficiency_ratio > 0 ? `${row.task_efficiency_ratio.toFixed(1)}%` : "-"}</TableCell>
-                                <TableCell class="text-right tabular-nums">{row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
+                                <TableCell>
+                                  <A href={`/kanban/repo/${encodeURIComponent(row.repo_addr ?? "")}${row.repo_branch ? `/${encodeURIComponent(row.repo_branch)}` : ""}`} class="text-[var(--native-primary)] hover:underline">
+                                    {row.repo_addr || "-"}
+                                  </A>
+                                </TableCell>
+                                <TableCell>{row.repo_branch || "-"}</TableCell>
+                                <TableCell>{formatLocalTime(row.start_time)}</TableCell>
+                                <TableCell>{formatLocalTime(row.end_time)}</TableCell>
+                                <TableCell class="text-right">
+                                  <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveRepo(index())}>删除</button>
+                                </TableCell>
                               </TableRow>
                             )}
                           </For>
@@ -407,125 +449,43 @@ export default function KanbanProjectDetail() {
                       </Table>
                     </div>
                   </section>
-                </Show>
 
-                {/* Repos */}
-                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-                  <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                    Repos ({repos().length})
-                  </div>
-                  <div class="overflow-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead class="min-w-[200px]">仓库地址</TableHead>
-                          <TableHead class="min-w-[100px]">分支</TableHead>
-                          <TableHead class="min-w-[140px]">开始时间</TableHead>
-                          <TableHead class="min-w-[140px]">结束时间</TableHead>
-                          <TableHead class="min-w-[80px] text-right">操作</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <For each={repos()}>
-                          {(row, index) => (
-                            <TableRow>
-                              <TableCell>
-                                <A href={`/kanban/repo/${encodeURIComponent(row.repo_addr ?? "")}${row.repo_branch ? `/${encodeURIComponent(row.repo_branch)}` : ""}`} class="text-[var(--native-primary)] hover:underline">
-                                  {row.repo_addr || "-"}
-                                </A>
-                              </TableCell>
-                              <TableCell>{row.repo_branch || "-"}</TableCell>
-                              <TableCell>{formatLocalTime(row.start_time)}</TableCell>
-                              <TableCell>{formatLocalTime(row.end_time)}</TableCell>
-                              <TableCell class="text-right">
-                                <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveRepo(index())}>删除</button>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </For>
-                      </TableBody>
-                    </Table>
-                  </div>
-                </section>
-
-                {/* Tasks */}
-                <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-                  <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                    Tasks ({tasks().length})
-                  </div>
-                  <div class="overflow-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead class="min-w-[100px]">Task ID</TableHead>
-                          <TableHead class="min-w-[90px]">用户</TableHead>
-                          <TableHead class="min-w-[140px]">开始时间</TableHead>
-                          <TableHead class="min-w-[100px] text-right">传统预估</TableHead>
-                          <TableHead class="min-w-[100px] text-right">实际耗时</TableHead>
-                          <TableHead class="min-w-[80px] text-right">Silica</TableHead>
-                          <TableHead class="min-w-[80px] text-right">费用</TableHead>
-                          <TableHead class="min-w-[80px] text-center">操作</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <For each={tasks()}>
-                          {(row) => (
-                            <TableRow>
-                              <TableCell>
-                                <A href={`/kanban/task/${encodeURIComponent(row.task_id ?? "")}`} class="text-[var(--native-primary)] hover:underline">{shortId(row.task_id)}</A>
-                              </TableCell>
-                              <TableCell>{row.user_name || "-"}</TableCell>
-                              <TableCell>{formatLocalTime(row.start_time)}</TableCell>
-                              <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes)}</TableCell>
-                              <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes)}</TableCell>
-                              <TableCell class="text-right tabular-nums">{row.silica ?? 1.0}</TableCell>
-                              <TableCell class="text-right tabular-nums">{row.cost != null && row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
-                              <TableCell class="text-center">
-                                <button type="button" class="mr-2 text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleUpdateSilica(row.task_id ?? "", row.silica ?? 1.0)}>编辑</button>
-                                <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveTask(row.task_id ?? "")}>删除</button>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </For>
-                      </TableBody>
-                    </Table>
-                  </div>
-                </section>
-
-                {/* Commits */}
-                <Show when={commits().length > 0}>
+                  {/* Tasks */}
                   <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                     <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                      Commits ({commits().length})
+                      Tasks ({tasks().length})
                     </div>
                     <div class="overflow-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead class="min-w-[100px]">Commit ID</TableHead>
+                            <TableHead class="min-w-[100px]">Task ID</TableHead>
                             <TableHead class="min-w-[90px]">用户</TableHead>
-                            <TableHead class="min-w-[140px]">时间</TableHead>
-                            <TableHead class="min-w-[180px]">说明</TableHead>
-                            <TableHead class="min-w-[80px] text-right">代码行数</TableHead>
+                            <TableHead class="min-w-[140px]">开始时间</TableHead>
                             <TableHead class="min-w-[100px] text-right">传统预估</TableHead>
                             <TableHead class="min-w-[100px] text-right">实际耗时</TableHead>
-                            <TableHead class="min-w-[80px] text-center">硅含量</TableHead>
+                            <TableHead class="min-w-[80px] text-right">Silica</TableHead>
+                            <TableHead class="min-w-[80px] text-right">费用</TableHead>
+                            <TableHead class="min-w-[80px] text-center">操作</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          <For each={commits()}>
+                          <For each={tasks()}>
                             {(row) => (
                               <TableRow>
                                 <TableCell>
-                                  <A href={`/kanban/commit/${encodeURIComponent(row.commit_id ?? "")}`} class="text-[var(--native-primary)] hover:underline">{shortId(row.commit_id)}</A>
+                                  <A href={`/kanban/task/${encodeURIComponent(row.task_id ?? "")}`} class="text-[var(--native-primary)] hover:underline">{shortId(row.task_id)}</A>
                                 </TableCell>
                                 <TableCell>{row.user_name || "-"}</TableCell>
-                                <TableCell>{formatLocalTime(row.commit_time)}</TableCell>
-                                <TableCell>{row.comment || "-"}</TableCell>
-                                <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes)}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes)}</TableCell>
-                                <TableCell class="text-center">{row.silica != null ? `${row.silica.toFixed(1)}%` : "-"}</TableCell>
+                                <TableCell>{formatLocalTime(row.start_time)}</TableCell>
+                                <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes)}</TableCell>
+                                <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes)}</TableCell>
+                                <TableCell class="text-right tabular-nums">{row.silica ?? 1.0}</TableCell>
+                                <TableCell class="text-right tabular-nums">{row.cost != null && row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
+                                <TableCell class="text-center">
+                                  <button type="button" class="mr-2 text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleUpdateSilica(row.task_id ?? "", row.silica ?? 1.0)}>编辑</button>
+                                  <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveTask(row.task_id ?? "")}>删除</button>
+                                </TableCell>
                               </TableRow>
                             )}
                           </For>
@@ -533,11 +493,54 @@ export default function KanbanProjectDetail() {
                       </Table>
                     </div>
                   </section>
-                </Show>
-              </>
-            )}
+
+                  {/* Commits */}
+                  <Show when={commits().length > 0}>
+                    <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
+                      <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
+                        Commits ({commits().length})
+                      </div>
+                      <div class="overflow-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead class="min-w-[100px]">Commit ID</TableHead>
+                              <TableHead class="min-w-[90px]">用户</TableHead>
+                              <TableHead class="min-w-[140px]">时间</TableHead>
+                              <TableHead class="min-w-[180px]">说明</TableHead>
+                              <TableHead class="min-w-[80px] text-right">代码行数</TableHead>
+                              <TableHead class="min-w-[100px] text-right">传统预估</TableHead>
+                              <TableHead class="min-w-[100px] text-right">实际耗时</TableHead>
+                              <TableHead class="min-w-[80px] text-center">硅含量</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <For each={commits()}>
+                              {(row) => (
+                                <TableRow>
+                                  <TableCell>
+                                    <A href={`/kanban/commit/${encodeURIComponent(row.commit_id ?? "")}`} class="text-[var(--native-primary)] hover:underline">{shortId(row.commit_id)}</A>
+                                  </TableCell>
+                                  <TableCell>{row.user_name || "-"}</TableCell>
+                                  <TableCell>{formatLocalTime(row.commit_time)}</TableCell>
+                                  <TableCell>{row.comment || "-"}</TableCell>
+                                  <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
+                                  <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes)}</TableCell>
+                                  <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes)}</TableCell>
+                                  <TableCell class="text-center">{row.silica != null ? `${row.silica.toFixed(1)}%` : "-"}</TableCell>
+                                </TableRow>
+                              )}
+                            </For>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </section>
+                  </Show>
+                </>
+              )}
+            </Show>
           </Show>
-        </Show>
+        </div>
       </div>
     </div>
   )
