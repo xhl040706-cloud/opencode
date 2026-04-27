@@ -1,27 +1,21 @@
-import { createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, Suspense } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, Suspense } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useNavigate, useSearchParams } from "@solidjs/router"
 import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useLanguage } from "@/context/language"
-import AvatarDisplay from "@/components/avatar-display"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
-import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { TextField, TextFieldInput } from "@/components/ui/text-field"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Persist, persisted } from "@/utils/persist"
-import { behaviorApi, itemApi, tagApi, userApi, type Category, type CapabilityItem, type ItemOrder, type ItemSort, type ItemTag, type SecurityRiskGroup } from "../lib/api"
-import { typeKey } from "../lib/constants"
+import { behaviorApi, itemApi, userApi, type CapabilityItem, type ItemOrder, type ItemSort, type SecurityRiskGroup } from "../lib/api"
 import ItemDetailContent, { getInstallCommand } from "../components/item-detail-content"
 import { ItemDetailLoadingSkeleton } from "../components/item-detail-loading-skeleton"
-import SecurityTag from "../components/security-tag"
+import { buildStoreTableColumnOptions, DEFAULT_VISIBLE_COLUMNS, formatCompact, formatSourceMetric, formatStoreDate, formatStoreTablePaginationSummary, StoreCapabilityTable, StoreTableFooter, type TableColumnKey } from "../components/store-capability-table"
 import { Icon, type IconProps } from "@opencode-ai/ui/icon"
 import { LocalIcon } from "@/components/local-icon"
 import { useAuth } from "../hooks/use-auth"
 import { cn } from "@/lib/utils"
-import { st, sx } from "../lib/styles"
+import { typeKey } from "../lib/constants"
+import { sx } from "../lib/styles"
 
 const STORE_TYPES = [
   { value: "skill", labelKey: "store.sidebar.nav.skills", descKey: "store.home.type.skill.description", icon: "sparkles" as IconProps["name"], color: "#ffa000", bg: "#FEF3C7" },
@@ -33,100 +27,7 @@ const STORE_TYPES = [
 type StoreType = (typeof STORE_TYPES)[number]["value"]
 type ListData = Awaited<ReturnType<typeof itemApi.list>>
 type SecurityFilterValue = SecurityRiskGroup
-type TableColumnKey = "title" | "description" | "category" | "security" | "tag" | "source" | "experienceScore" | "favorite" | "updated" | "action"
-
 const PAGE_SIZE = 10
-const TAG_FILTER_PAGE_SIZE = 20
-const TAG_COLOR_BY_CLASS = {
-  system: {
-    color: "#e17a0c",
-    background: "#f9a02c1a",
-    activeColor: "#fff3d6",
-    activeBackground: "#f58b19",
-  },
-  custom: {
-    color: "#478be6",
-    background: "#4184e41a",
-    activeColor: "#dcecff",
-    activeBackground: "#478be6",
-  },
-} as const
-const TAG_BADGE_WIDTH_CACHE_LIMIT = 200
-const TAG_LAYOUT_CACHE_LIMIT = 300
-const TAG_BADGE_WIDTH_CACHE = new Map<string, number>()
-const TAG_LAYOUT_CACHE = new Map<string, { visibleCount: number; hiddenCount: number }>()
-let sharedTagMeasureRoot: HTMLDivElement | undefined
-
-type TagFilterState = {
-  open: boolean
-  query: string
-  debouncedQuery: string
-  applied: string[]
-  pending: string[]
-}
-
-const DEFAULT_VISIBLE_COLUMNS: Record<TableColumnKey, boolean> = {
-  title: true,
-  description: true,
-  category: true,
-  security: true,
-  tag: true,
-  source: true,
-  experienceScore: true,
-  favorite: true,
-  updated: true,
-  action: true,
-}
-
-function compareTags(a: Pick<ItemTag, "tagClass" | "slug">, b: Pick<ItemTag, "tagClass" | "slug">) {
-  const aPriority = a.tagClass === "system" ? 0 : 1
-  const bPriority = b.tagClass === "system" ? 0 : 1
-  if (aPriority !== bPriority) return aPriority - bPriority
-  return a.slug.localeCompare(b.slug, undefined, { sensitivity: "base" })
-}
-
-function getTagLayoutCacheKey(tags: Pick<ItemTag, "slug" | "tagClass">[], containerWidth: number) {
-  return `${containerWidth}::${tags.map((tag) => `${tag.tagClass}:${tag.slug}`).join("|")}`
-}
-
-function setBoundedCache<K, V>(cache: Map<K, V>, key: K, value: V, limit: number) {
-  if (cache.has(key)) cache.delete(key)
-  cache.set(key, value)
-  if (cache.size <= limit) return
-  const oldestKey = cache.keys().next().value
-  if (oldestKey !== undefined) cache.delete(oldestKey)
-}
-
-function ensureSharedTagMeasureRoot() {
-  if (typeof document === "undefined") return undefined
-  if (sharedTagMeasureRoot?.isConnected) return sharedTagMeasureRoot
-
-  const root = document.createElement("div")
-  root.setAttribute("aria-hidden", "true")
-  root.className = "pointer-events-none fixed left-0 top-0 -z-10 flex opacity-0"
-  document.body.appendChild(root)
-  sharedTagMeasureRoot = root
-  return sharedTagMeasureRoot
-}
-
-function formatCompact(n: number) {
-  if (n >= 1000000) {
-    const value = (n / 1000000).toFixed(n >= 10000000 ? 0 : 1)
-    return `${value.replace(/\.0$/, "")}M`
-  }
-  if (n >= 1000) {
-    const value = (n / 1000).toFixed(n >= 10000 ? 0 : 1)
-    return `${value.replace(/\.0$/, "")}k`
-  }
-  return String(n)
-}
-
-function rangePages(page: number, totalPages: number) {
-  const size = 5
-  if (totalPages <= size) return Array.from({ length: totalPages }, (_, i) => i + 1)
-  const start = Math.max(1, Math.min(page - 2, totalPages - size + 1))
-  return Array.from({ length: size }, (_, i) => start + i)
-}
 
 export default function Home() {
   const language = useLanguage()
@@ -183,6 +84,7 @@ export default function Home() {
     Persist.global("store.table.columns", ["store.table.columns.v1"]),
     createStore({ visible: DEFAULT_VISIBLE_COLUMNS }),
   )
+  const visibleColumns = createMemo(() => ({ ...columnPrefs.visible, type: false as const }))
 
   onCleanup(() => {
     clearTimeout(searchTimer)
@@ -190,27 +92,9 @@ export default function Home() {
     clearTimeout(detailContentTimer)
   })
 
-  const formatDate = (iso?: string) => {
-    if (!iso) return "—"
-    const locale = language.locale()
-    const normalizedLocale = locale === "zh" ? "zh-CN" : locale === "en" ? "en-US" : locale
-    return new Date(iso).toLocaleDateString(normalizedLocale, {
-      year: "numeric",
-      month: locale === "zh" ? "numeric" : "short",
-      day: "numeric",
-    })
-  }
-
-  const formatSourceMetric = (value?: number, source?: string) => {
-    if (!source) return "—"
-    if (value == null) return "—"
-    if (Math.abs(value) >= 1000) return formatCompact(Math.round(value))
-    if (Number.isInteger(value)) return String(value)
-    return value.toFixed(1).replace(/\.0$/, "")
-  }
+  const formatDate = (iso?: string) => formatStoreDate(language.locale(), iso)
 
   let searchTimer: ReturnType<typeof setTimeout> | undefined
-  const isColumnVisible = (key: TableColumnKey) => columnPrefs.visible[key]
   const toggleColumnVisibility = (key: Exclude<TableColumnKey, "action">) => {
     setColumnPrefs("visible", key, (current) => !current)
   }
@@ -410,18 +294,7 @@ export default function Home() {
   const sourceFilterActive = createMemo(() => appliedSourceFilters().length > 0)
   const securityFilterActive = createMemo(() => appliedSecurityFilters().length > 0)
   const tagFilterActive = createMemo(() => appliedTagFilters().length > 0)
-  const columnOptions = createMemo(() => [
-    { key: "title" as const, label: language.t("store.home.table.title") },
-    { key: "description" as const, label: language.t("store.home.table.description") },
-    { key: "category" as const, label: language.t("store.console.capabilities.category") },
-    { key: "security" as const, label: language.t("store.security.riskLevel") },
-    { key: "tag" as const, label: language.t("store.home.table.tag") },
-    { key: "source" as const, label: language.t("store.home.table.source") },
-    { key: "experienceScore" as const, label: language.t("store.home.table.experienceScore") },
-    { key: "favorite" as const, label: language.t("store.home.table.favoriteCount") },
-    { key: "updated" as const, label: language.t("store.detail.updated") },
-    { key: "action" as const, label: language.t("store.home.table.action") },
-  ])
+  const columnOptions = createMemo(() => buildStoreTableColumnOptions(language.t).filter((column) => column.key !== "type"))
   const filteredCategoryOptions = createMemo(() => {
     const query = categoryFilterQuery().trim().toLowerCase()
     if (!query) return categories()
@@ -444,7 +317,6 @@ export default function Home() {
     (ids) => userApi.getInfo(ids),
   )
   const totalPages = createMemo(() => Math.max(1, Math.ceil(totalItems() / PAGE_SIZE)))
-  const visiblePages = createMemo(() => rangePages(page(), totalPages()))
   const listError = createMemo(() => (list.error instanceof Error ? list.error.message : ""))
   const showError = createMemo(() => !!listError() && rows().length === 0)
   const detailOpen = createMemo(() => !!selectedItemId())
@@ -595,371 +467,7 @@ export default function Home() {
 
   const creatorInfo = (userId: string) => creatorInfoMap()?.[userId]
   const favoriteIconColor = (favorited?: boolean) => favorited ? (typeMeta().color ?? "var(--native-primary)") : "var(--native-muted)"
-
-  const tagStyle = (tagClass?: string, active = false) => {
-    const accent = tagClass === "system" ? TAG_COLOR_BY_CLASS.system : TAG_COLOR_BY_CLASS.custom
-    return {
-      color: active ? accent.activeColor : accent.color,
-      "background-color": active ? accent.activeBackground : accent.background,
-    }
-  }
-
-  function TagBadge(props: { slug: string; tagClass?: string; muted?: boolean; active?: boolean; clickable?: boolean; onClick?: () => void }) {
-    const [hovered, setHovered] = createSignal(false)
-
-    return (
-      <button
-        type="button"
-        class={cn(
-          "inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 text-[11px] leading-4 font-semibold transition-colors",
-          props.clickable ? "cursor-pointer" : "cursor-default",
-        )}
-        style={props.muted
-          ? {
-              color: "#dcecff",
-              "background-color": "#478be6",
-            }
-          : tagStyle(props.tagClass, props.active || (props.clickable && hovered()))}
-        title={props.slug}
-        onClick={(e) => {
-          e.stopPropagation()
-          props.onClick?.()
-        }}
-        onMouseDown={(e) => {
-          if (props.clickable) e.stopPropagation()
-        }}
-        onMouseEnter={() => {
-          if (props.clickable) setHovered(true)
-        }}
-        onMouseLeave={() => {
-          if (props.clickable) setHovered(false)
-        }}
-        disabled={!props.clickable && !props.onClick}
-      >
-        <span class="truncate">{props.slug}</span>
-      </button>
-    )
-  }
-
-  function FilterHeaderTrigger(props: { label: string; active: boolean; count: number }) {
-    return (
-      <>
-        <span>{props.label}</span>
-        <span
-          class="ml-auto inline-flex items-center gap-1.5"
-          style={props.active ? { color: "var(--native-primary)" } : undefined}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="size-4"
-            aria-hidden="true"
-          >
-            <path d="M4 6h16" />
-            <path d="M7 12h10" />
-            <path d="M10 18h4" />
-          </svg>
-          <Show when={props.count > 0}>
-            <span class="inline-flex min-w-5 items-center justify-center rounded-full bg-[#478be6] px-1.5 py-0.5 text-[10px] leading-none font-semibold text-[#dcecff]">
-              {props.count}
-            </span>
-          </Show>
-        </span>
-      </>
-    )
-  }
-
-  function TagCell(props: { tags?: ItemTag[] }) {
-    const allTags = createMemo(() => [...(props.tags ?? [])].sort(compareTags))
-    const activeTagSet = createMemo(() => new Set(appliedTagFilters()))
-    const [layout, setLayout] = createStore<{ visibleCount: number; hiddenCount: number }>({
-      visibleCount: Math.min(6, allTags().length),
-      hiddenCount: Math.max(allTags().length - Math.min(6, allTags().length), 0),
-    })
-    let containerRef: HTMLDivElement | undefined
-    let resizeObserver: ResizeObserver | undefined
-
-    const recomputeLayout = () => {
-      const tags = allTags()
-      const container = containerRef
-      const measure = ensureSharedTagMeasureRoot()
-      if (!container || !measure || tags.length === 0) {
-        setLayout({ visibleCount: 0, hiddenCount: 0 })
-        return
-      }
-
-      const containerWidth = container.clientWidth
-      if (!containerWidth) {
-        setLayout({ visibleCount: Math.min(6, tags.length), hiddenCount: Math.max(tags.length - Math.min(6, tags.length), 0) })
-        return
-      }
-
-      const layoutCacheKey = getTagLayoutCacheKey(tags, containerWidth)
-      const cachedLayout = TAG_LAYOUT_CACHE.get(layoutCacheKey)
-      if (cachedLayout) {
-        setLayout(cachedLayout)
-        return
-      }
-
-      const rowGap = 4
-      const maxRows = 2
-
-      const createMeasureBadge = (slug: string, tagClass?: string, muted = false) => {
-        const node = document.createElement("span")
-        node.className = "inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 text-[11px] leading-4 font-semibold whitespace-nowrap"
-        if (muted) {
-          node.style.color = "#dcecff"
-          node.style.backgroundColor = "#478be6"
-        }
-        else {
-          const style = tagStyle(tagClass)
-          node.style.color = String(style.color)
-          node.style.backgroundColor = String(style["background-color"])
-        }
-        node.textContent = slug
-        return node
-      }
-
-      const widths = tags.map((tag) => {
-        const widthCacheKey = `${tag.tagClass}:${tag.slug}`
-        const cachedWidth = TAG_BADGE_WIDTH_CACHE.get(widthCacheKey)
-        if (cachedWidth !== undefined) return cachedWidth
-
-        const badge = createMeasureBadge(tag.slug, tag.tagClass)
-        measure.appendChild(badge)
-        const width = Math.ceil(badge.getBoundingClientRect().width)
-        badge.remove()
-        setBoundedCache(TAG_BADGE_WIDTH_CACHE, widthCacheKey, width, TAG_BADGE_WIDTH_CACHE_LIMIT)
-        return width
-      })
-
-      const getOverflowWidth = (hiddenCount: number) => {
-        const widthCacheKey = `muted:+${hiddenCount}`
-        const cachedWidth = TAG_BADGE_WIDTH_CACHE.get(widthCacheKey)
-        if (cachedWidth !== undefined) return cachedWidth
-
-        const badge = createMeasureBadge(`+${hiddenCount}`, undefined, true)
-          measure.appendChild(badge)
-        const width = Math.ceil(badge.getBoundingClientRect().width)
-        badge.remove()
-        setBoundedCache(TAG_BADGE_WIDTH_CACHE, widthCacheKey, width, TAG_BADGE_WIDTH_CACHE_LIMIT)
-        return width
-      }
-
-      let bestVisible = tags.length
-      for (let visibleCount = tags.length; visibleCount >= 0; visibleCount -= 1) {
-        const hiddenCount = tags.length - visibleCount
-        const items = widths.slice(0, visibleCount)
-        if (hiddenCount > 0) items.push(getOverflowWidth(hiddenCount))
-
-        let rows = 1
-        let rowWidth = 0
-        let fits = true
-        for (const width of items) {
-          const nextWidth = rowWidth === 0 ? width : rowWidth + rowGap + width
-          if (nextWidth <= containerWidth) {
-            rowWidth = nextWidth
-            continue
-          }
-          rows += 1
-          if (rows > maxRows) {
-            fits = false
-            break
-          }
-          rowWidth = width
-          if (rowWidth > containerWidth) {
-            fits = false
-            break
-          }
-        }
-
-        if (fits) {
-          bestVisible = visibleCount
-          break
-        }
-      }
-
-      const nextLayout = {
-        visibleCount: bestVisible,
-        hiddenCount: Math.max(tags.length - bestVisible, 0),
-      }
-      setBoundedCache(TAG_LAYOUT_CACHE, layoutCacheKey, nextLayout, TAG_LAYOUT_CACHE_LIMIT)
-      setLayout(nextLayout)
-    }
-
-    onMount(() => {
-      recomputeLayout()
-      if (typeof ResizeObserver !== "undefined" && containerRef) {
-        resizeObserver = new ResizeObserver(() => recomputeLayout())
-        resizeObserver.observe(containerRef)
-      }
-    })
-
-    createEffect(() => {
-      allTags()
-      queueMicrotask(() => recomputeLayout())
-    })
-
-    onCleanup(() => {
-      resizeObserver?.disconnect()
-    })
-
-    const visibleTags = createMemo(() => allTags().slice(0, layout.visibleCount))
-    const hiddenCount = createMemo(() => layout.hiddenCount)
-
-    return (
-      <Show when={allTags().length > 0} fallback={<span>—</span>}>
-        <div ref={containerRef} class="flex max-h-[3.75rem] flex-wrap gap-1 overflow-hidden">
-          <For each={visibleTags()}>
-            {(tag) => {
-              const isActive = () => activeTagSet().has(tag.slug)
-              return (
-                <TagBadge
-                  slug={tag.slug}
-                  tagClass={tag.tagClass}
-                  active={isActive()}
-                  clickable
-                  onClick={() => toggleAppliedTagFilter(tag.slug)}
-                />
-              )
-            }}
-          </For>
-          <Show when={hiddenCount() > 0}>
-            <TagBadge slug={`+${hiddenCount()}`} muted />
-          </Show>
-        </div>
-      </Show>
-    )
-  }
-
-  function TagFilterDropdown() {
-    const [tagFilter, setTagFilter] = createStore<Omit<TagFilterState, "applied">>({
-      open: false,
-      query: "",
-      debouncedQuery: "",
-      pending: [],
-    })
-    let tagSearchTimer: ReturnType<typeof setTimeout> | undefined
-
-    onCleanup(() => {
-      clearTimeout(tagSearchTimer)
-    })
-
-    const [tagOptions] = createResource(
-      () => ({ query: tagFilter.debouncedQuery.trim() || undefined, page: 1, pageSize: TAG_FILTER_PAGE_SIZE }),
-      (params) => tagApi.list(params).catch(() => ({ tags: [] as ItemTag[], total: 0, page: 1, pageSize: TAG_FILTER_PAGE_SIZE, hasMore: false })),
-    )
-
-    const visibleTagOptions = createMemo(() => {
-      const loaded = tagOptions.latest?.tags ?? []
-      const selected = tagFilter.pending.filter((slug) => !loaded.some((tag) => tag.slug === slug)).map((slug) => ({
-        id: `mock-${slug}`,
-        slug,
-        tagClass: "custom",
-        createdBy: "mock",
-        createdAt: "",
-      }) satisfies ItemTag)
-      return [...selected, ...loaded].sort(compareTags)
-    })
-
-    const tagFilterHasMore = createMemo(() => Boolean(tagOptions.latest?.hasMore || (tagOptions.latest?.total ?? 0) > TAG_FILTER_PAGE_SIZE))
-
-    const togglePendingTagFilter = (slug: string) => {
-      setTagFilter("pending", (current) => current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug])
-    }
-
-    const handleTagFilterInput = (value: string) => {
-      setTagFilter("query", value)
-      clearTimeout(tagSearchTimer)
-      tagSearchTimer = setTimeout(() => {
-        setTagFilter("debouncedQuery", value.trim())
-      }, 300)
-    }
-
-    const applyTagFilters = () => {
-      setAppliedTagFilters([...tagFilter.pending])
-      setPage(1)
-      setSelectedItemId(null)
-      setTagFilter("query", "")
-      setTagFilter("debouncedQuery", "")
-      setTagFilter("open", false)
-    }
-
-    const resetTagFilters = () => {
-      setAppliedTagFilters([])
-      setPage(1)
-      setSelectedItemId(null)
-      setTagFilter("pending", [])
-      setTagFilter("query", "")
-      setTagFilter("debouncedQuery", "")
-      setTagFilter("open", false)
-    }
-
-    return (
-      <Popover modal={false} open={tagFilter.open} onOpenChange={(open) => {
-        setTagFilter("open", open)
-        if (open) {
-          setTagFilter("pending", [...appliedTagFilters()])
-          setTagFilter("query", "")
-          setTagFilter("debouncedQuery", "")
-        }
-      }}>
-        <PopoverTrigger as="button" class={cn(st.sort(false), "items-center gap-2")}>
-          <FilterHeaderTrigger
-            label={language.t("store.home.table.tag")}
-            active={tagFilterActive()}
-            count={appliedTagFilters().length}
-          />
-        </PopoverTrigger>
-        <PopoverContent class="w-72 p-2">
-          <div class="flex max-h-[28.8rem] flex-col gap-2">
-            <TextField class="min-w-0">
-              <TextFieldInput
-                type="search"
-                value={tagFilter.query}
-                onInput={(e: InputEvent) => handleTagFilterInput((e.currentTarget as HTMLInputElement).value)}
-                placeholder={language.t("store.home.filters.searchTag")}
-                class="h-9 rounded-md border-[color:color-mix(in_srgb,var(--native-border)_46%,transparent)] bg-[var(--native-panel)] px-3 text-sm !text-[var(--native-foreground)] [&::-webkit-search-cancel-button]:cursor-pointer focus-visible:border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] focus-visible:ring-0"
-              />
-            </TextField>
-            <div class="thin-scrollbar flex max-h-[19.2rem] flex-col gap-1 overflow-y-auto pr-1">
-              <For each={visibleTagOptions().slice(0, TAG_FILTER_PAGE_SIZE)}>
-                {(tag) => (
-                  <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
-                    <input
-                      type="checkbox"
-                      checked={tagFilter.pending.includes(tag.slug)}
-                      onChange={() => togglePendingTagFilter(tag.slug)}
-                    />
-                    <TagBadge slug={tag.slug} tagClass={tag.tagClass} active={tagFilter.pending.includes(tag.slug)} />
-                  </label>
-                )}
-              </For>
-              <Show when={visibleTagOptions().length === 0}>
-                <div class="px-2 py-3 text-sm text-[var(--native-muted)]">{language.t("store.noResults")}</div>
-              </Show>
-            </div>
-            <Show when={tagFilterHasMore()}>
-              <div class="px-2 text-[11px] text-[var(--native-muted)]">{language.t("store.home.filters.tagLimitHint")}</div>
-            </Show>
-            <div class="flex items-center justify-end gap-2 border-t pt-2">
-              <button type="button" class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-[var(--native-muted)] hover:bg-accent hover:text-accent-foreground" onClick={resetTagFilters}>
-                {language.t("common.reset")}
-              </button>
-              <button type="button" class="cursor-pointer rounded-md bg-[var(--native-primary)] px-2.5 py-1.5 text-sm" style={{ color: "#fff" }} onClick={applyTagFilters}>
-                {language.t("channels.add.confirm")}
-              </button>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-    )
-  }
+  const typeLabel = (value: string) => language.t(typeKey(value))
 
   const copyInstall = async (item: CapabilityItem) => {
     await navigator.clipboard.writeText(getInstallCommand(item))
@@ -1033,6 +541,18 @@ export default function Home() {
                     )}
                   </For>
                   </div>
+                  <Tooltip value={language.t("store.console.capabilities.title")} placement="bottom">
+                    <button
+                      type="button"
+                      class="flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[0.375rem] bg-[color:color-mix(in_oklab,var(--native-primary)_85%,white)] px-3 !text-white shadow-[var(--native-shadow-sm)] transition-[background-color,filter,transform] hover:cursor-pointer hover:bg-[var(--native-primary)] hover:!text-white"
+                      style={{ color: "#ffffff" }}
+                      aria-label={language.t("store.console.capabilities.title")}
+                      onClick={() => navigate("/store/manager")}
+                    >
+                      <Icon name="sliders" class="size-4" style={{ color: "#ffffff" }} />
+                      <span class="text-sm font-medium leading-none !text-white" style={{ color: "#ffffff" }}>{language.t("store.console.capabilities.title")}</span>
+                    </button>
+                  </Tooltip>
                   <Tooltip value={language.t("store.console.capabilities.create")} placement="bottom">
                     <button
                       type="button"
@@ -1254,519 +774,164 @@ export default function Home() {
                   <div class={sx.spinner} />
                 </div>
               </Show>
-              <Table class="table-fixed text-[0.8125rem]">
-                <TableHeader class={sx.thead}>
-                  <TableRow>
-                    <Show when={isColumnVisible("title")}>
-                      <TableHead class={cn(sx.th, sx.colTitle)}>{language.t("store.home.table.title")}</TableHead>
-                    </Show>
-                    <Show when={isColumnVisible("description")}>
-                      <TableHead class={cn(sx.th, sx.colDescription)}>{language.t("store.home.table.description")}</TableHead>
-                    </Show>
-                    <Show when={isColumnVisible("category")}>
-                      <TableHead class={cn(sx.th, sx.colCategory)}>
-                      <DropdownMenu open={categoryFilterOpen()} onOpenChange={(open) => {
-                        setCategoryFilterOpen(open)
-                        if (open) {
-                          setPendingCategoryFilters([...appliedCategoryFilters()])
-                          setCategoryFilterQuery("")
-                        }
-                      }}>
-                        <DropdownMenuTrigger
-                          as="button"
-                          class={cn(st.sort(false), "items-center gap-2")}
-                        >
-                          <FilterHeaderTrigger
-                            label={language.t("store.console.capabilities.category")}
-                            active={categoryFilterActive()}
-                            count={appliedCategoryFilters().length}
-                          />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent class="w-64 p-2">
-                          <div class="flex max-h-[24rem] flex-col gap-2">
-                            <TextField class="min-w-0">
-                              <TextFieldInput
-                                type="search"
-                                value={categoryFilterQuery()}
-                                onInput={(e: InputEvent) => setCategoryFilterQuery((e.currentTarget as HTMLInputElement).value)}
-                                placeholder={language.t("store.home.filters.searchCategory")}
-                                class="h-9 rounded-md border-[color:color-mix(in_srgb,var(--native-border)_46%,transparent)] bg-[var(--native-panel)] px-3 text-sm !text-[var(--native-foreground)] [&::-webkit-search-cancel-button]:cursor-pointer focus-visible:border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] focus-visible:ring-0"
-                              />
-                            </TextField>
-                            <div class="thin-scrollbar flex max-h-[19.2rem] flex-col gap-1 overflow-y-auto pr-1">
-                              <For each={filteredCategoryOptions()}>
-                                {(cat) => (
-                                  <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
-                                    <input
-                                      type="checkbox"
-                                      checked={pendingCategoryFilters().includes(cat.slug)}
-                                      onChange={() => togglePendingCategoryFilter(cat.slug)}
-                                    />
-                                    <span class="min-w-0 truncate">{itemFilterOptions.categoryLabel(cat.slug, cat)}</span>
-                                  </label>
-                                )}
-                              </For>
-                              <Show when={filteredCategoryOptions().length === 0}>
-                                <div class="px-2 py-3 text-sm text-[var(--native-muted)]">{language.t("store.noResults")}</div>
-                              </Show>
-                            </div>
-                            <div class="flex items-center justify-end gap-2 border-t pt-2">
-                              <button type="button" class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-[var(--native-muted)] hover:bg-accent hover:text-accent-foreground" onClick={resetCategoryFilters}>
-                                {language.t("common.reset")}
-                              </button>
-                              <button type="button" class="cursor-pointer rounded-md bg-[var(--native-primary)] px-2.5 py-1.5 text-sm" style={{ color: "#fff" }} onClick={applyCategoryFilters}>
-                                {language.t("channels.add.confirm")}
-                              </button>
-                            </div>
-                          </div>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      </TableHead>
-                    </Show>
-                    <Show when={isColumnVisible("security")}>
-                      <TableHead class={cn(sx.th, sx.colSecurity)}>
-                      <DropdownMenu open={securityFilterOpen()} onOpenChange={(open) => {
-                        setSecurityFilterOpen(open)
-                        if (open) {
-                          setPendingSecurityFilters([...appliedSecurityFilters()])
-                          setSecurityFilterQuery("")
-                        }
-                      }}>
-                        <DropdownMenuTrigger
-                          as="button"
-                          class={cn(st.sort(false), "items-center gap-2")}
-                        >
-                          <FilterHeaderTrigger
-                            label={language.t("store.security.riskLevel")}
-                            active={securityFilterActive()}
-                            count={appliedSecurityFilters().length}
-                          />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent class="w-64 p-2">
-                          <div class="flex max-h-[24rem] flex-col gap-2">
-                            <TextField class="min-w-0">
-                              <TextFieldInput
-                                type="search"
-                                value={securityFilterQuery()}
-                                onInput={(e: InputEvent) => setSecurityFilterQuery((e.currentTarget as HTMLInputElement).value)}
-                                placeholder={language.t("store.home.filters.searchSecurity")}
-                                class="h-9 rounded-md border-[color:color-mix(in_srgb,var(--native-border)_46%,transparent)] bg-[var(--native-panel)] px-3 text-sm !text-[var(--native-foreground)] [&::-webkit-search-cancel-button]:cursor-pointer focus-visible:border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] focus-visible:ring-0"
-                              />
-                            </TextField>
-                            <div class="thin-scrollbar flex max-h-[19.2rem] flex-col gap-1 overflow-y-auto pr-1">
-                              <For each={filteredSecurityOptions()}>
-                                {(option) => (
-                                  <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
-                                    <input
-                                      type="checkbox"
-                                      checked={pendingSecurityFilters().includes(option.value as SecurityFilterValue)}
-                                      onChange={() => togglePendingSecurityFilter(option.value as SecurityFilterValue)}
-                                    />
-                                     <span class="min-w-0 truncate">{itemFilterOptions.securityRiskGroupLabel(option.value as SecurityFilterValue, option)}</span>
-                                   </label>
-                                 )}
-                               </For>
-                              <Show when={filteredSecurityOptions().length === 0}>
-                                <div class="px-2 py-3 text-sm text-[var(--native-muted)]">{language.t("store.noResults")}</div>
-                              </Show>
-                            </div>
-                            <div class="flex items-center justify-end gap-2 border-t pt-2">
-                              <button type="button" class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-[var(--native-muted)] hover:bg-accent hover:text-accent-foreground" onClick={resetSecurityFilters}>
-                                {language.t("common.reset")}
-                              </button>
-                              <button type="button" class="cursor-pointer rounded-md bg-[var(--native-primary)] px-2.5 py-1.5 text-sm" style={{ color: "#fff" }} onClick={applySecurityFilters}>
-                                {language.t("channels.add.confirm")}
-                              </button>
-                            </div>
-                          </div>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      </TableHead>
-                    </Show>
-                    <Show when={isColumnVisible("tag")}>
-                      <TableHead class={cn(sx.th, sx.colTag)}>
-                      <TagFilterDropdown />
-                      </TableHead>
-                    </Show>
-                    <Show when={isColumnVisible("source")}>
-                      <TableHead class={cn(sx.th, sx.colSource)}>
-                      <DropdownMenu open={sourceFilterOpen()} onOpenChange={(open) => {
-                        setSourceFilterOpen(open)
-                        if (open) {
-                          setPendingSourceFilters([...appliedSourceFilters()])
-                          setSourceFilterQuery("")
-                        }
-                      }}>
-                        <DropdownMenuTrigger
-                          as="button"
-                          class={cn(st.sort(false), "items-center gap-2")}
-                        >
-                          <FilterHeaderTrigger
-                            label={language.t("store.home.table.source")}
-                            active={sourceFilterActive()}
-                            count={appliedSourceFilters().length}
-                          />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent class="w-64 p-2">
-                          <div class="flex max-h-[24rem] flex-col gap-2">
-                            <TextField class="min-w-0">
-                              <TextFieldInput
-                                type="search"
-                                value={sourceFilterQuery()}
-                                onInput={(e: InputEvent) => setSourceFilterQuery((e.currentTarget as HTMLInputElement).value)}
-                                placeholder={language.t("store.home.filters.searchSource")}
-                                class="h-9 rounded-md border-[color:color-mix(in_srgb,var(--native-border)_46%,transparent)] bg-[var(--native-panel)] px-3 text-sm !text-[var(--native-foreground)] [&::-webkit-search-cancel-button]:cursor-pointer focus-visible:border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] focus-visible:ring-0"
-                              />
-                            </TextField>
-                            <div class="thin-scrollbar flex max-h-[19.2rem] flex-col gap-1 overflow-y-auto pr-1">
-                              <For each={filteredSourceOptions()}>
-                                {(source) => (
-                                  <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
-                                    <input
-                                      type="checkbox"
-                                      checked={pendingSourceFilters().includes(source.value)}
-                                      onChange={() => togglePendingSourceFilter(source.value)}
-                                    />
-                                    <span class="min-w-0 truncate">{itemFilterOptions.sourceLabel(source.value, source) || source.value}</span>
-                                  </label>
-                                )}
-                              </For>
-                              <Show when={filteredSourceOptions().length === 0}>
-                                <div class="px-2 py-3 text-sm text-[var(--native-muted)]">{language.t("store.noResults")}</div>
-                              </Show>
-                            </div>
-                            <div class="flex items-center justify-end gap-2 border-t pt-2">
-                              <button type="button" class="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-[var(--native-muted)] hover:bg-accent hover:text-accent-foreground" onClick={resetSourceFilters}>
-                                {language.t("common.reset")}
-                              </button>
-                              <button type="button" class="cursor-pointer rounded-md bg-[var(--native-primary)] px-2.5 py-1.5 text-sm" style={{ color: "#fff" }} onClick={applySourceFilters}>
-                                {language.t("channels.add.confirm")}
-                              </button>
-                            </div>
-                          </div>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      </TableHead>
-                    </Show>
-                    <Show when={isColumnVisible("experienceScore")}>
-                      <TableHead class={cn(sx.th, sx.colExperienceScore)} aria-sort={sortState("experienceScore")}>
+              <StoreCapabilityTable
+                rows={rows()}
+                visibleColumns={visibleColumns()}
+                columnOptions={columnOptions()}
+                onToggleColumnVisibility={toggleColumnVisibility}
+                sort={sort}
+                onSortChange={handleSortChange}
+                onRowClick={openItemDetail}
+                creatorInfo={creatorInfo}
+                typeLabel={typeLabel}
+                categoryLabel={(slug, category) => itemFilterOptions.categoryLabel(slug, category)}
+                sourceLabel={(value, source) => itemFilterOptions.sourceLabel(value, source as Parameters<typeof itemFilterOptions.sourceLabel>[1])}
+                sourceUrl={(value) => itemFilterOptions.sourceUrl(value)}
+                securityLabel={(value, option) => itemFilterOptions.securityRiskGroupLabel(value, option as Parameters<typeof itemFilterOptions.securityRiskGroupLabel>[1])}
+                favoriteIconColor={favoriteIconColor}
+                formatDate={formatDate}
+                formatSourceMetric={formatSourceMetric}
+                formatCompact={formatCompact}
+                filters={{
+                  category: {
+                    open: categoryFilterOpen(),
+                    onOpenChange: (open) => {
+                      setCategoryFilterOpen(open)
+                      if (open) {
+                        setPendingCategoryFilters([...appliedCategoryFilters()])
+                        setCategoryFilterQuery("")
+                      }
+                    },
+                    active: categoryFilterActive(),
+                    appliedValues: appliedCategoryFilters(),
+                    pendingValues: pendingCategoryFilters(),
+                    query: categoryFilterQuery(),
+                    onQueryChange: setCategoryFilterQuery,
+                    options: filteredCategoryOptions(),
+                    togglePending: togglePendingCategoryFilter,
+                    apply: applyCategoryFilters,
+                    reset: resetCategoryFilters,
+                  },
+                  security: {
+                    open: securityFilterOpen(),
+                    onOpenChange: (open) => {
+                      setSecurityFilterOpen(open)
+                      if (open) {
+                        setPendingSecurityFilters([...appliedSecurityFilters()])
+                        setSecurityFilterQuery("")
+                      }
+                    },
+                    active: securityFilterActive(),
+                    appliedValues: appliedSecurityFilters(),
+                    pendingValues: pendingSecurityFilters(),
+                    query: securityFilterQuery(),
+                    onQueryChange: setSecurityFilterQuery,
+                    options: filteredSecurityOptions(),
+                    togglePending: togglePendingSecurityFilter,
+                    apply: applySecurityFilters,
+                    reset: resetSecurityFilters,
+                  },
+                  source: {
+                    open: sourceFilterOpen(),
+                    onOpenChange: (open) => {
+                      setSourceFilterOpen(open)
+                      if (open) {
+                        setPendingSourceFilters([...appliedSourceFilters()])
+                        setSourceFilterQuery("")
+                      }
+                    },
+                    active: sourceFilterActive(),
+                    appliedValues: appliedSourceFilters(),
+                    pendingValues: pendingSourceFilters(),
+                    query: sourceFilterQuery(),
+                    onQueryChange: setSourceFilterQuery,
+                    options: filteredSourceOptions(),
+                    togglePending: togglePendingSourceFilter,
+                    apply: applySourceFilters,
+                    reset: resetSourceFilters,
+                  },
+                  tag: {
+                    active: tagFilterActive(),
+                    appliedValues: appliedTagFilters(),
+                    onApply: (values) => {
+                      setAppliedTagFilters(values)
+                      setPage(1)
+                      setSelectedItemId(null)
+                    },
+                    onReset: () => {
+                      setAppliedTagFilters([])
+                      setPage(1)
+                      setSelectedItemId(null)
+                    },
+                    onTagClick: toggleAppliedTagFilter,
+                  },
+                }}
+          labels={{
+            title: language.t("store.home.table.title"),
+            description: language.t("store.home.table.description"),
+            type: language.t("store.console.capabilities.type"),
+            category: language.t("store.console.capabilities.category"),
+            security: language.t("store.security.riskLevel"),
+                  tag: language.t("store.home.table.tag"),
+                  source: language.t("store.home.table.source"),
+                  experienceScore: language.t("store.home.table.experienceScore"),
+                  favoriteCount: language.t("store.home.table.favoriteCount"),
+                  updated: language.t("store.detail.updated"),
+                  action: language.t("store.home.table.action"),
+                  toggleColumns: language.t("store.home.table.toggleColumns"),
+                  noResults: language.t("store.noResults"),
+                  reset: language.t("common.reset"),
+                  confirm: language.t("channels.add.confirm"),
+                  searchCategory: language.t("store.home.filters.searchCategory"),
+                  searchSecurity: language.t("store.home.filters.searchSecurity"),
+                  searchSource: language.t("store.home.filters.searchSource"),
+                  searchTag: language.t("store.home.filters.searchTag"),
+                  tagLimitHint: language.t("store.home.filters.tagLimitHint"),
+                }}
+                emptyMessage={language.t("store.home.emptyCategory")}
+                renderActions={(item) => (
+                  <div class="flex items-center justify-end gap-1">
+                    <Show when={canEditItem(item)}>
                       <button
                         type="button"
-                        class={st.sort(sort.by === "experienceScore")}
-                        onClick={() => handleSortChange("experienceScore")}
+                        class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)]"
+                        title={language.t("common.edit")}
+                        onClick={() => navigate(`/capabilities/${item.id}/edit`)}
                       >
-                        <span>{language.t("store.home.table.experienceScore")}</span>
-                        <span class={sx.sortIcon} aria-hidden="true">
-                          <span class={st.arrow("up", sort.by === "experienceScore" && sort.order === "asc")} />
-                          <span class={st.arrow("down", sort.by === "experienceScore" && sort.order === "desc")} />
-                        </span>
+                        <Icon name="edit" size="small" />
                       </button>
-                      </TableHead>
                     </Show>
-                    <Show when={isColumnVisible("favorite")}>
-                      <TableHead class={cn(sx.th, sx.colFavorite)} aria-sort={sortState("favoriteCount")}>
-                      <button
-                        type="button"
-                        class={st.sort(sort.by === "favoriteCount")}
-                        onClick={() => handleSortChange("favoriteCount")}
-                      >
-                        <span>{language.t("store.home.table.favoriteCount")}</span>
-                        <span class={sx.sortIcon} aria-hidden="true">
-                          <span class={st.arrow("up", sort.by === "favoriteCount" && sort.order === "asc")} />
-                          <span class={st.arrow("down", sort.by === "favoriteCount" && sort.order === "desc")} />
-                        </span>
-                      </button>
-                      </TableHead>
-                    </Show>
-                    <Show when={isColumnVisible("updated")}>
-                      <TableHead class={cn(sx.th, sx.colUpdated)} aria-sort={sortState("updatedAt")}>
-                      <button
-                        type="button"
-                        class={st.sort(sort.by === "updatedAt")}
-                        onClick={() => handleSortChange("updatedAt")}
-                      >
-                        <span>{language.t("store.detail.updated")}</span>
-                        <span class={sx.sortIcon} aria-hidden="true">
-                          <span class={st.arrow("up", sort.by === "updatedAt" && sort.order === "asc")} />
-                          <span class={st.arrow("down", sort.by === "updatedAt" && sort.order === "desc")} />
-                        </span>
-                      </button>
-                      </TableHead>
-                    </Show>
-                    <TableHead class={cn(sx.th, sx.colAction, "text-right")}>
-                      <div class="flex items-center justify-end gap-2">
-                        <span>{language.t("store.home.table.action")}</span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            as="button"
-                            class="inline-flex size-7 items-center justify-center rounded-[0.375rem] text-[var(--native-muted)] transition-colors hover:bg-accent hover:text-accent-foreground"
-                            title="Toggle columns"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true">
-                              <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-                              <circle cx="12" cy="12" r="3" />
-                            </svg>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent class="w-56 p-1">
-                            <DropdownMenuGroup>
-                              <DropdownMenuGroupLabel class="px-2 py-1.5 text-xs font-medium text-[var(--native-muted)]">
-                                {language.t("store.home.table.toggleColumns")}
-                              </DropdownMenuGroupLabel>
-                            </DropdownMenuGroup>
-                            <DropdownMenuSeparator />
-                            <For each={columnOptions()}>
-                              {(column) => (
-                                <DropdownMenuCheckboxItem
-                                  checked={isColumnVisible(column.key)}
-                                  disabled={column.key === "action"}
-                                  onChange={() => {
-                                    if (column.key !== "action") toggleColumnVisibility(column.key)
-                                  }}
-                                >
-                                  {column.label}
-                                </DropdownMenuCheckboxItem>
-                              )}
-                            </For>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <Show
-                    when={rows().length > 0}
-                    fallback={<TableEmptyState colSpan={Object.values(columnPrefs.visible).filter(Boolean).length} message={language.t("store.home.emptyCategory")} />}
-                  >
-                    <For each={rows()}>
-                      {(item) => (
-                        <TableRow class={sx.row} onClick={() => openItemDetail(item)}>
-                          <Show when={isColumnVisible("title")}>
-                            <TableCell class={cn(sx.td, sx.colTitle)}>
-                            <div class="flex min-w-0 items-center gap-2">
-                              <Show
-                                keyed
-                                when={creatorInfo(item.createdBy)}
-                                fallback={
-                                  <AvatarDisplay
-                                    avatarUrl={undefined}
-                                    username={item.createdBy}
-                                    class="size-6 shrink-0"
-                                    title={item.createdBy}
-                                  />
-                                }
-                              >
-                                {(info) => (
-                                  <AvatarDisplay
-                                    avatarUrl={info.avatarUrl}
-                                    username={info.name ?? item.createdBy}
-                                    class="size-6 shrink-0"
-                                    title={info.name ?? item.createdBy}
-                                  />
-                                )}
-                              </Show>
-                              <div class="min-w-0">
-                                <div
-                                  class={cn(sx.item, "truncate text-[14px] font-bold leading-5 text-[color:color-mix(in_oklab,var(--native-foreground)_80%,white_20%)]")}
-                                  style={{ "font-weight": 700 }}
-                                  title={item.name}
-                                >
-                                  {item.name}
-                                </div>
-                                <div
-                                  class="block min-w-0 truncate whitespace-nowrap text-[11px] leading-4 text-[color:color-mix(in_oklab,var(--native-muted)_82%,white_18%)]"
-                                  title={`${item.repoName || item.repoId || "repo"}/${item.slug}`}
-                                >
-                                  {item.repoName || item.repoId || "repo"}/{item.slug}
-                                </div>
-                              </div>
-                            </div>
-                            </TableCell>
-                          </Show>
-                          <Show when={isColumnVisible("description")}>
-                            <TableCell class={cn(sx.td, sx.colDescription, sx.mut)}>
-                            <span
-                              class="block max-h-10 overflow-hidden leading-5"
-                              style={{
-                                display: "-webkit-box",
-                                "-webkit-box-orient": "vertical",
-                                "-webkit-line-clamp": 2,
-                                "text-overflow": "ellipsis",
-                                "white-space": "normal",
-                                overflow: "hidden",
-                              }}
-                              title={item.description || "—"}
-                            >
-                              {item.description || "—"}
-                            </span>
-                            </TableCell>
-                          </Show>
-                          <Show when={isColumnVisible("category")}>
-                            <TableCell class={cn(sx.td, sx.colCategory, sx.mut)}>
-                            {item.category ? itemFilterOptions.categoryLabel(item.category) || item.category : "—"}
-                            </TableCell>
-                          </Show>
-                          <Show when={isColumnVisible("security")}>
-                            <TableCell class={cn(sx.td, sx.colSecurity)}>
-                            <SecurityTag status={item.securityStatus} />
-                            </TableCell>
-                          </Show>
-                          <Show when={isColumnVisible("tag")}>
-                            <TableCell class={cn(sx.td, sx.colTag, sx.mut)}>
-                              <TagCell tags={item.tags} />
-                            </TableCell>
-                          </Show>
-                          <Show when={isColumnVisible("source")}>
-                            <TableCell class={cn(sx.td, sx.colSource, sx.mut)}>
-                              <Show
-                                when={itemFilterOptions.sourceUrl(item.source)}
-                                fallback={
-                                  <span
-                                    class="block max-h-10 overflow-hidden leading-5"
-                                    style={{
-                                      display: "-webkit-box",
-                                      "-webkit-box-orient": "vertical",
-                                      "-webkit-line-clamp": 2,
-                                      "text-overflow": "ellipsis",
-                                      "white-space": "normal",
-                                      overflow: "hidden",
-                                    }}
-                                    title={itemFilterOptions.sourceLabel(item.source) || item.source || "—"}
-                                  >
-                                    {itemFilterOptions.sourceLabel(item.source) || item.source || "—"}
-                                  </span>
-                                }
-                              >
-                                {(url) => (
-                                  <a
-                                    href={url()}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    class="block max-h-10 cursor-pointer overflow-hidden leading-5 text-[#478be6] underline-offset-2 hover:text-[#478be6] hover:underline"
-                                    style={{
-                                      display: "-webkit-box",
-                                      "-webkit-box-orient": "vertical",
-                                      "-webkit-line-clamp": 2,
-                                      "text-overflow": "ellipsis",
-                                      "white-space": "normal",
-                                      overflow: "hidden",
-                                    }}
-                                    title={itemFilterOptions.sourceLabel(item.source) || item.source || "—"}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {itemFilterOptions.sourceLabel(item.source) || item.source || "—"}
-                                  </a>
-                                )}
-                              </Show>
-                            </TableCell>
-                          </Show>
-                          <Show when={isColumnVisible("experienceScore")}>
-                            <TableCell class={cn(sx.td, sx.colExperienceScore, sx.mut)} title={formatSourceMetric(item.experienceScore, item.source)}>
-                              {formatSourceMetric(item.experienceScore, item.source)}
-                            </TableCell>
-                          </Show>
-                          <Show when={isColumnVisible("favorite")}>
-                            <TableCell class={cn(sx.td, sx.colFavorite, sx.mut)}>
-                            <div class="inline-flex h-4 items-center justify-center gap-1.5 align-middle">
-                              <LocalIcon
-                                name={item.favorited ? "star-filled" : "star"}
-                                size="small"
-                                style={{ color: favoriteIconColor(item.favorited) }}
-                              />
-                              <span class="inline-flex h-4 items-center leading-4" title={(item.favoriteCount ?? 0).toLocaleString()}>
-                                {formatCompact(item.favoriteCount ?? 0)}
-                              </span>
-                            </div>
-                            </TableCell>
-                          </Show>
-                          <Show when={isColumnVisible("updated")}>
-                            <TableCell class={cn(sx.td, sx.colUpdated, sx.mut)}>
-                            {formatDate(item.updatedAt)}
-                            </TableCell>
-                          </Show>
-                          <TableCell class={cn(sx.td, sx.colAction, "text-right")} onClick={(e: MouseEvent) => e.stopPropagation()}>
-                            <div class="flex items-center justify-end gap-1">
-                              <Show when={canEditItem(item)}>
-                                <button
-                                  type="button"
-                                  class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)]"
-                                  title={language.t("common.edit")}
-                                  onClick={() => navigate(`/capabilities/${item.id}/edit`)}
-                                >
-                                  <Icon name="edit" size="small" />
-                                </button>
-                              </Show>
-                              <button
-                                type="button"
-                                disabled={!auth.user() || auth.loading() || favoriteActionItemId() === item.id}
-                                  class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] disabled:cursor-not-allowed disabled:opacity-60"
-                                title={auth.user() ? (item.favorited ? language.t("store.detail.unfavorite") : language.t("store.detail.favorite")) : language.t("store.detail.favoriteSignIn")}
-                                onClick={() => void toggleRowFavorite(item)}
-                              >
-                                <LocalIcon name={item.favorited ? "star-filled" : "star"} size="small" style={{ color: favoriteIconColor(item.favorited) }} />
-                              </button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </For>
-                  </Show>
-                </TableBody>
-              </Table>
+                    <button
+                      type="button"
+                      disabled={!auth.user() || auth.loading() || favoriteActionItemId() === item.id}
+                      class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] disabled:cursor-not-allowed disabled:opacity-60"
+                      title={auth.user() ? (item.favorited ? language.t("store.detail.unfavorite") : language.t("store.detail.favorite")) : language.t("store.detail.favoriteSignIn")}
+                      onClick={() => void toggleRowFavorite(item)}
+                    >
+                      <LocalIcon name={item.favorited ? "star-filled" : "star"} size="small" style={{ color: favoriteIconColor(item.favorited) }} />
+                    </button>
+                  </div>
+                )}
+              />
             </Show>
           </Show>
         </div>
 
-        <div class={sx.pager}>
-          <div class={sx.pagerSum}>
-            <Show when={totalItems() > 0} fallback={language.t("store.home.pagination.empty")}>
-              {language.t("store.console.capabilities.showing", {
-                from: Math.min((page() - 1) * PAGE_SIZE + 1, totalItems()),
-                to: Math.min(page() * PAGE_SIZE, totalItems()),
-                total: totalItems(),
-              })}
-            </Show>
-          </div>
-          <div class={sx.pagerActs}>
-            <button class={st.page(false)} disabled={page() <= 1} onClick={() => handlePageChange(1)}>
-              <span aria-hidden="true">«</span>
-            </button>
-            <button class={st.page(false)} disabled={page() <= 1} onClick={() => handlePageChange(page() - 1)}>
-              <Icon name="chevron-left" />
-            </button>
-            <For each={visiblePages()}>
-              {(pageNumber) => (
-                <button
-                  class={st.page(pageNumber === page())}
-                  onClick={() => handlePageChange(pageNumber)}
-                >
-                  {pageNumber}
-                </button>
-              )}
-            </For>
-            <button
-              class={st.page(false)}
-              disabled={page() >= totalPages()}
-              onClick={() => handlePageChange(page() + 1)}
-            >
-              <Icon name="chevron-right" />
-            </button>
-            <button class={st.page(false)} disabled={page() >= totalPages()} onClick={() => handlePageChange(totalPages())}>
-              <span aria-hidden="true">»</span>
-            </button>
-          </div>
-        </div>
+        <StoreTableFooter
+          page={page()}
+          pageSize={PAGE_SIZE}
+          totalPages={totalPages()}
+          totalItems={totalItems()}
+          summary={formatStoreTablePaginationSummary({
+            page: page(),
+            pageSize: PAGE_SIZE,
+            totalItems: totalItems(),
+            showingLabel: (args) => language.t("store.console.capabilities.showing", args),
+            emptyLabel: language.t("store.home.pagination.empty"),
+          })}
+          onPageChange={handlePageChange}
+        />
       </section>
     )
   }
-}
-
-function TableEmptyState(props: { colSpan: number; message: string }) {
-  return (
-    <TableRow>
-      <TableCell class="border-b-0 p-0" colSpan={props.colSpan}>
-        <div class={sx.state}>{props.message}</div>
-      </TableCell>
-    </TableRow>
-  )
 }

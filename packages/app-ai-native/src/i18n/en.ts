@@ -70,7 +70,7 @@ export const dict = {
   "store.console.repositories.toast.deleteSuccess": "Space deleted",
   "store.console.repositories.toast.deleteFailed": "Failed to delete space",
   "store.console.capabilities.title": "Capabilities",
-  "store.console.capabilities.description": "Directory of the capabilities you created.",
+  "store.console.capabilities.description": "Manage your personal capability items",
   "store.console.capabilities.total": "Total",
   "store.console.capabilities.visibleAfterFilter": "Visible after filter",
   "store.console.capabilities.loading": "Loading capabilities...",

@@ -522,10 +522,8 @@ export const repoRegistryApi = {
 }
 
 export const repoApi = {
-  async listMy(userId: string) {
-    const res = await apiFetch<{ repositories: RepositoryResponse[] }>(
-      `/api/repositories/my?userId=${encodeURIComponent(userId)}`,
-    )
+  async listMy() {
+    const res = await apiFetch<{ repositories: RepositoryResponse[] }>("/api/repositories/my")
     return { repositories: (res.repositories ?? []).map(normalizeRepository) }
   },
 
@@ -736,12 +734,29 @@ export const registryApi = {
 }
 
 export const itemApi = {
-  listMy: (ownerId: string, opts?: { type?: string; page?: number; pageSize?: number; search?: string }) => {
-    const p = new URLSearchParams({ ownerId })
+  listMy: (opts?: {
+    type?: string
+    page?: number
+    pageSize?: number
+    search?: string
+    categories?: string[]
+    source?: string[]
+    tags?: string[]
+    securityStatuses?: string[]
+    sortBy?: ItemSort
+    sortOrder?: ItemOrder
+  }) => {
+    const p = new URLSearchParams()
     if (opts?.type) p.set("type", opts.type)
     if (opts?.page) p.set("page", String(opts.page))
     if (opts?.pageSize) p.set("pageSize", String(opts.pageSize))
     if (opts?.search) p.set("search", opts.search)
+    if (opts?.categories?.length) p.set("categories", opts.categories.join(","))
+    if (opts?.source?.length) p.set("source", opts.source.join(","))
+    if (opts?.tags?.length) p.set("tags", opts.tags.join(","))
+    if (opts?.securityStatuses?.length) p.set("securityStatuses", opts.securityStatuses.join(","))
+    if (opts?.sortBy) p.set("sortBy", opts.sortBy)
+    if (opts?.sortOrder) p.set("sortOrder", opts.sortOrder)
     return apiFetch<{ items: CapabilityItem[]; total: number }>(`/api/items/my?${p.toString()}`)
   },
 

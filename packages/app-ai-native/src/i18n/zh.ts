@@ -901,7 +901,7 @@ export const dict = {
   "store.console.repositories.toast.deleteSuccess": "空间已删除",
   "store.console.repositories.toast.deleteFailed": "删除空间失败",
   "store.console.capabilities.title": "能力管理",
-  "store.console.capabilities.description": "管理您创建的能力目录。",
+  "store.console.capabilities.description": "管理您的个人能力项",
   "store.console.capabilities.total": "总数",
   "store.console.capabilities.visibleAfterFilter": "筛选后可见",
   "store.console.capabilities.loading": "正在加载能力...",

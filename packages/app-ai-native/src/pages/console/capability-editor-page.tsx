@@ -1259,7 +1259,7 @@ export default function CapabilityEditorPage() {
     () => auth.user()?.id ?? auth.user()?.subjectId ?? auth.user()?.sub ?? "",
     async (userId) => {
       if (!userId) return [] as Repository[]
-      const result = await repoApi.listMy(userId)
+      const result = await repoApi.listMy()
       return result.repositories ?? []
     },
   )
@@ -1777,7 +1777,7 @@ export default function CapabilityEditorPage() {
       navigate(-1)
       return
     }
-    navigate("/console/capabilities")
+    navigate("/store/manager")
   }
 
   function toggleSidebar() {
@@ -2220,7 +2220,7 @@ export default function CapabilityEditorPage() {
               </div>
 
               <div class="flex shrink-0 items-center gap-2">
-                <Button type="button" size="sm" variant="outline" class="h-8 px-3" onClick={() => navigate("/console/capabilities")}>
+                <Button type="button" size="sm" variant="outline" class="h-8 px-3" onClick={() => navigate("/store/manager")}>
                   {language.t("store.capabilityEditor.backToManagement")}
                 </Button>
                 <Show
