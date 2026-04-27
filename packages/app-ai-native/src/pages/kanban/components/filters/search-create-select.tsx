@@ -1,6 +1,7 @@
 import { createMemo, createSignal, Show } from "solid-js"
 import { List } from "@opencode-ai/ui/list"
 import { Popover } from "@opencode-ai/ui/popover"
+import { useLanguage } from "@/context/language"
 import { cn } from "@/lib/utils"
 import type { FilterOption } from "../../lib/types"
 
@@ -24,6 +25,7 @@ function normalize(items: Props["options"]) {
 }
 
 export function SearchCreateSelect(props: Props) {
+  const language = useLanguage()
   const [open, setOpen] = createSignal(false)
   const [query, setQuery] = createSignal("")
   const items = createMemo(() => normalize(props.options))
@@ -61,7 +63,7 @@ export function SearchCreateSelect(props: Props) {
             <path d="m20 20-3.5-3.5" />
           </svg>
           <span class={cn("truncate", props.value ? "text-[var(--native-foreground)]" : "text-[var(--native-dim)]")}>
-            {props.value || props.placeholder || "Search and select"}
+            {props.value || props.placeholder || language.t("kanban.search.searchAndSelect")}
           </span>
           <Show when={props.clearable && props.value}>
             <button
@@ -73,7 +75,7 @@ export function SearchCreateSelect(props: Props) {
                 setQuery("")
                 setOpen(false)
               }}
-              aria-label="Clear selection"
+              aria-label={language.t("kanban.aria.clearSelection")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
                 <path d="M18 6 6 18" />
@@ -86,8 +88,8 @@ export function SearchCreateSelect(props: Props) {
     >
       <List
         class="max-h-[22rem] [&_[data-slot=list-scroll]]:max-h-[18rem] [&_[data-slot=list-item]]:w-full [&_[data-slot=list-item]]:rounded-md [&_[data-slot=list-item]]:px-3 [&_[data-slot=list-item]]:py-2 [&_[data-slot=list-item]]:text-left [&_[data-slot=list-item]]:text-sm [&_[data-slot=list-item][data-active=true]]:bg-[var(--native-primary-soft)] [&_[data-slot=list-item][data-active=true]]:text-[var(--native-primary)]"
-        search={{ placeholder: props.placeholder ?? "Search...", autofocus: true }}
-        emptyMessage={props.loading ? "Loading..." : (props.emptyMessage ?? "No options")}
+        search={{ placeholder: props.placeholder ?? language.t("kanban.search.searchPlaceholder"), autofocus: true }}
+        emptyMessage={props.loading ? language.t("kanban.misc.loading") : (props.emptyMessage ?? language.t("kanban.search.noOptions"))}
         key={(item) => item.value}
         items={items}
         current={current()}
@@ -105,7 +107,7 @@ export function SearchCreateSelect(props: Props) {
               class="mt-2 flex w-full items-center justify-between rounded-md border border-dashed border-[color:color-mix(in_oklab,var(--native-primary)_28%,transparent)] px-3 py-2 text-left text-sm text-[var(--native-primary)] transition-colors hover:bg-[var(--native-primary-soft)]"
               onClick={commitCreate}
             >
-              <span>Create</span>
+              <span>{language.t("kanban.action.create")}</span>
               <span class="truncate font-medium">{query().trim()}</span>
             </button>
           ),

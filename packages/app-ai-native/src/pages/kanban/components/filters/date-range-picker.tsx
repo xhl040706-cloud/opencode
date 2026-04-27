@@ -1,6 +1,7 @@
 import { DatePicker, parseDate, type DateValue } from "@ark-ui/solid/date-picker"
 import { createEffect, createMemo, createSignal, For, Index, Show } from "solid-js"
 import { Popover } from "@opencode-ai/ui/popover"
+import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { dateShortcuts, detectShortcut, displayDateRange, formatDay, hasRange, normalizeDateRange, shortcutRange } from "../../lib/date-range"
@@ -50,8 +51,8 @@ function monthViewLabel(value: { start: { year: number }; end: { year: number } 
   return value.start.year === value.end.year ? String(value.start.year) : `${value.start.year} - ${value.end.year}`
 }
 
-function yearViewLabel(value: { start?: number; end?: number }) {
-  if (value.start == null || value.end == null) return "Select year"
+function yearViewLabel(value: { start?: number; end?: number }, t: (key: string) => string) {
+  if (value.start == null || value.end == null) return t("kanban.date.selectYear")
   return `${value.start} - ${value.end}`
 }
 
@@ -65,11 +66,12 @@ function later(fn: () => void) {
 }
 
 export function DateRangePicker(props: Props) {
+  const language = useLanguage()
   const [open, setOpen] = createSignal(false)
   const [start, setStart] = createSignal("")
   const [end, setEnd] = createSignal("")
   const [pick, setPick] = createSignal<DateValue[]>([])
-  const label = createMemo(() => displayDateRange(props.value, props.placeholder ?? "Select date range"))
+  const label = createMemo(() => displayDateRange(props.value, props.placeholder ?? language.t("kanban.filter.selectDateRange")))
   const filled = createMemo(() => hasRange(props.value))
   const active = createMemo(() => detectShortcut([start(), end()]))
   const syncFromRange = (value?: DateRangeValue) => {
@@ -132,7 +134,7 @@ export function DateRangePicker(props: Props) {
               e.stopPropagation()
               clear()
             }}
-            aria-label="Clear date range"
+            aria-label={language.t("kanban.aria.clearDateRange")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
               <path d="M18 6 6 18" />
@@ -153,7 +155,7 @@ export function DateRangePicker(props: Props) {
             type: "button",
             class:
               "inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)]",
-            "aria-label": "Open date range picker",
+            "aria-label": language.t("kanban.aria.openDateRangePicker"),
           }}
           class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-0 shadow-[var(--native-shadow-lg)] [&_[data-slot=popover-body]]:p-0"
           style={{
@@ -319,7 +321,7 @@ export function DateRangePicker(props: Props) {
                         <>
                           <DatePicker.ViewControl class="flex items-center justify-between gap-2">
                             <DatePicker.PrevTrigger class={nav}>{left()}</DatePicker.PrevTrigger>
-                            <DatePicker.ViewTrigger class={view}>{yearViewLabel(api().getDecade())}</DatePicker.ViewTrigger>
+                            <DatePicker.ViewTrigger class={view}>{yearViewLabel(api().getDecade(), language.t)}</DatePicker.ViewTrigger>
                             <DatePicker.NextTrigger class={nav}>{right()}</DatePicker.NextTrigger>
                           </DatePicker.ViewControl>
 
@@ -350,7 +352,7 @@ export function DateRangePicker(props: Props) {
               <div class="flex items-center justify-end gap-2 border-t border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3">
                 <Show when={props.clearable}>
                   <Button variant="ghost" size="sm" onClick={clear}>
-                    Clear
+                    {language.t("kanban.action.clear")}
                   </Button>
                 </Show>
                 <Button
@@ -361,7 +363,7 @@ export function DateRangePicker(props: Props) {
                     handleOpenChange(false)
                   }}
                 >
-                  Close
+                  {language.t("kanban.action.close")}
                 </Button>
               </div>
             </div>

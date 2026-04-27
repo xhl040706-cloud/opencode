@@ -2073,5 +2073,41 @@ export const dict = {
   "kanban.label.repos": "Repos",
   "kanban.label.tasks": "Tasks",
 
+  "common.apply": "Apply",
+  "common.all": "All",
+
+  "kanban.tag.collapsed": "Collapsed",
+  "kanban.tag.expandTitle": "Expand {{label}}",
+
+  "kanban.date.selectYear": "Select year",
+  "kanban.action.clear": "Clear",
+  "kanban.action.close": "Close",
+  "kanban.aria.clearDateRange": "Clear date range",
+  "kanban.aria.openDateRangePicker": "Open date range picker",
+
+  "kanban.search.noMatchingValues": "No matching values",
+  "kanban.search.searchAndSelect": "Search and select",
+  "kanban.aria.clearSelection": "Clear selection",
+  "kanban.search.searchPlaceholder": "Search...",
+  "kanban.search.noOptions": "No options",
+  "kanban.action.create": "Create",
+
+  "kanban.filter.title": "Filter: {{label}}",
+  "kanban.filter.description": "Render filter panel based on column type.",
+  "kanban.filter.keyword": "Keyword",
+  "kanban.filter.enterKeyword": "Enter keyword...",
+  "kanban.filter.selectOrEnter": "Select or enter...",
+  "kanban.filter.min": "Min",
+  "kanban.filter.max": "Max",
+
+  "kanban.empty.noData": "No data",
+  "kanban.aria.filterLabel": "Filter {{label}}",
+  "kanban.pagination.showing": "Showing {{from}} - {{to}} of {{total}}",
+  "kanban.pagination.perPage": "per page",
+
+  "kanban.filter.filters": "Filters:",
+  "kanban.aria.removeLabel": "Remove {{label}}",
+  "kanban.action.clearAll": "Clear all",
+
   "kanban.misc.loading": "Loading...",
 }

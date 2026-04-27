@@ -35,7 +35,7 @@ export function DimensionSelect(props: Props) {
       clearable
       loading={keys.loading()}
       placeholder={props.placeholder ?? language.t("common.search.placeholder")}
-      emptyMessage="No matching values"
+      emptyMessage={language.t("kanban.search.noMatchingValues")}
     />
   )
 }

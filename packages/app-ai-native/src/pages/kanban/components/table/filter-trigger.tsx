@@ -1,3 +1,4 @@
+import { useLanguage } from "@/context/language"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -8,6 +9,7 @@ type Props = {
 }
 
 export function FilterTrigger(props: Props) {
+  const language = useLanguage()
   return (
     <button
       type="button"
@@ -18,7 +20,7 @@ export function FilterTrigger(props: Props) {
           : "text-[var(--native-dim)] hover:bg-[color:color-mix(in_oklab,var(--native-border)_14%,transparent)] hover:text-[var(--native-foreground)]",
       )}
       onClick={props.onClick}
-      aria-label={`Filter ${props.label}`}
+      aria-label={language.t("kanban.aria.filterLabel", { label: props.label })}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-3.5 w-3.5">
         <path d="M4 6h16" />

@@ -2,6 +2,7 @@ import type { JSX } from "solid-js"
 import { For, Show } from "solid-js"
 import { Popover } from "@opencode-ai/ui/popover"
 import { Icon } from "@opencode-ai/ui/icon"
+import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
@@ -52,6 +53,7 @@ function rangePages(page: number, totalPages: number) {
 }
 
 export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
+  const language = useLanguage()
   const pages = () => Math.max(1, Math.ceil(props.total / props.pageSize))
   const sizes = () => props.pageSizeOptions?.length ? props.pageSizeOptions : [10, 25, 50, 100]
   const visiblePages = () => rangePages(props.page, pages())
@@ -69,8 +71,8 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
         onClearAll={props.controller.clearAll}
       />
 
-      <Show when={props.rows.length > 0 || !props.loading} fallback={<div class="px-4 py-8 text-sm text-[var(--native-muted)]">Loading...</div>}>
-        <Show when={props.rows.length > 0} fallback={<div class="px-4 py-10 text-center text-sm text-[var(--native-muted)]">{props.emptyText ?? "No data"}</div>}>
+      <Show when={props.rows.length > 0 || !props.loading} fallback={<div class="px-4 py-8 text-sm text-[var(--native-muted)]">{language.t("kanban.misc.loading")}</div>}>
+        <Show when={props.rows.length > 0} fallback={<div class="px-4 py-10 text-center text-sm text-[var(--native-muted)]">{props.emptyText ?? language.t("kanban.empty.noData")}</div>}>
           <div class="relative">
             <Show when={showOverlay()}>
               <div class="absolute inset-0 z-10 flex items-center justify-center bg-[color:color-mix(in_oklab,var(--native-panel)_70%,transparent)] backdrop-blur-[4px]">
@@ -107,7 +109,7 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
                                   ? "bg-[var(--native-primary-soft)] text-[var(--native-primary)]"
                                   : "text-[var(--native-dim)] hover:bg-[color:color-mix(in_oklab,var(--native-border)_14%,transparent)] hover:text-[var(--native-foreground)]",
                               ),
-                              "aria-label": `Filter ${column.label}`,
+                              "aria-label": language.t("kanban.aria.filterLabel", { label: column.label }),
                             }}
                             trigger={
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-3.5 w-3.5">
@@ -156,13 +158,13 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
 
       <div class="flex flex-col gap-3 border-t border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div class="text-[0.8125rem] leading-[1.55] text-[var(--native-muted)]">
-          <Show when={props.total > 0} fallback="No data">
-            Showing {from()} - {to()} of {props.total}
+          <Show when={props.total > 0} fallback={language.t("kanban.empty.noData")}>
+            {language.t("kanban.pagination.showing", { from: from(), to: to(), total: props.total })}
           </Show>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <label class="flex items-center gap-2">
-            <span class="text-[0.8125rem] text-[var(--native-muted)]">per page</span>
+            <span class="text-[0.8125rem] text-[var(--native-muted)]">{language.t("kanban.pagination.perPage")}</span>
             <span class="relative inline-flex items-center">
               <select
                 class="h-8 min-w-[4.5rem] appearance-none rounded-md border border-input bg-transparent pr-9 pl-3 text-[0.8125rem] text-[var(--native-foreground)]"
