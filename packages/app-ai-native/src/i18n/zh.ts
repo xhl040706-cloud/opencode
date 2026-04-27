@@ -2045,5 +2045,41 @@ export const dict = {
   "kanban.label.repos": "Repos",
   "kanban.label.tasks": "Tasks",
 
+  "common.apply": "应用",
+  "common.all": "全部",
+
+  "kanban.tag.collapsed": "已折叠",
+  "kanban.tag.expandTitle": "展开 {{label}}",
+
+  "kanban.date.selectYear": "选择年份",
+  "kanban.action.clear": "清除",
+  "kanban.action.close": "关闭",
+  "kanban.aria.clearDateRange": "清除日期范围",
+  "kanban.aria.openDateRangePicker": "打开日期选择器",
+
+  "kanban.search.noMatchingValues": "无匹配值",
+  "kanban.search.searchAndSelect": "搜索并选择",
+  "kanban.aria.clearSelection": "清除选择",
+  "kanban.search.searchPlaceholder": "搜索...",
+  "kanban.search.noOptions": "无选项",
+  "kanban.action.create": "创建",
+
+  "kanban.filter.title": "筛选: {{label}}",
+  "kanban.filter.description": "根据列类型渲染筛选面板。",
+  "kanban.filter.keyword": "关键词",
+  "kanban.filter.enterKeyword": "输入关键词...",
+  "kanban.filter.selectOrEnter": "选择或输入...",
+  "kanban.filter.min": "最小值",
+  "kanban.filter.max": "最大值",
+
+  "kanban.empty.noData": "暂无数据",
+  "kanban.aria.filterLabel": "筛选 {{label}}",
+  "kanban.pagination.showing": "显示 {{from}} - {{to}}，共 {{total}} 条",
+  "kanban.pagination.perPage": "每页",
+
+  "kanban.filter.filters": "筛选:",
+  "kanban.aria.removeLabel": "移除 {{label}}",
+  "kanban.action.clearAll": "清除全部",
+
   "kanban.misc.loading": "加载中...",
 } satisfies Partial<Record<Keys | "store.home.filters.searchTag" | "store.home.filters.tagLimitHint" | "store.home.table.toggleColumns" | "store.console.capabilities.backToHome" | "store.console.capabilities.searchPlaceholder" | "store.security.riskLevel", string>>

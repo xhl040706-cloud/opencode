@@ -1,6 +1,7 @@
 import { DatePicker, parseDate, type DateValue } from "@ark-ui/solid/date-picker"
 import { ChevronLeft, ChevronRight } from "lucide-solid"
 import { createEffect, createMemo, createSignal, For, Index, Show } from "solid-js"
+import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { dateShortcuts, detectShortcut, formatDay, normalizeDateRange, shortcutRange } from "../../lib/date-range"
@@ -19,8 +20,8 @@ function monthViewLabel(value: { start: { year: number }; end: { year: number } 
   return value.start.year === value.end.year ? String(value.start.year) : `${value.start.year} - ${value.end.year}`
 }
 
-function yearViewLabel(value: { start?: number; end?: number }) {
-  if (value.start == null || value.end == null) return "Select year"
+function yearViewLabel(value: { start?: number; end?: number }, t: (key: string) => string) {
+  if (value.start == null || value.end == null) return t("kanban.date.selectYear")
   return `${value.start} - ${value.end}`
 }
 
@@ -50,6 +51,7 @@ function monthLabel(value: { year: number; month: number }) {
 }
 
 export function DateRangePanel(props: Props) {
+  const language = useLanguage()
   const [start, setStart] = createSignal("")
   const [end, setEnd] = createSignal("")
   const [pick, setPick] = createSignal<DateValue[]>([])
@@ -248,7 +250,7 @@ export function DateRangePanel(props: Props) {
                     <>
                       <DatePicker.ViewControl class="flex items-center justify-between gap-2">
                         <DatePicker.PrevTrigger class={nav}><ChevronLeft class="size-4" /></DatePicker.PrevTrigger>
-                        <DatePicker.ViewTrigger class={view}>{yearViewLabel(api().getDecade())}</DatePicker.ViewTrigger>
+                        <DatePicker.ViewTrigger class={view}>{yearViewLabel(api().getDecade(), language.t)}</DatePicker.ViewTrigger>
                         <DatePicker.NextTrigger class={nav}><ChevronRight class="size-4" /></DatePicker.NextTrigger>
                       </DatePicker.ViewControl>
 
@@ -281,11 +283,11 @@ export function DateRangePanel(props: Props) {
       <div class="flex items-center justify-end gap-2 border-t border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3">
           <Show when={props.clearable}>
             <Button variant="ghost" size="sm" onClick={clear}>
-              Clear
+              {language.t("kanban.action.clear")}
             </Button>
           </Show>
           <Button variant="outline" size="sm" onClick={() => props.onClose?.()}>
-            Close
+            {language.t("kanban.action.close")}
           </Button>
       </div>
     </div>

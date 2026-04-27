@@ -32,7 +32,7 @@ export function OrgCascadeSelect(props: Props) {
               disabled={item.disabled}
               onChange={(e) => void cascade.setLevel(item.level, e.currentTarget.value)}
             >
-              <option value="">All</option>
+              <option value="">{t("common.all")}</option>
               <For each={item.options}>
                 {(option) => <option value={option}>{option}</option>}
               </For>
