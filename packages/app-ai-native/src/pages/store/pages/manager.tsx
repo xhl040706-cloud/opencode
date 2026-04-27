@@ -93,6 +93,12 @@ export default function StoreManagerPage() {
     Persist.global("store.manager.table.columns", ["store.manager.table.columns.v1"]),
     createStore({ visible: DEFAULT_VISIBLE_COLUMNS }),
   )
+  let searchInputRef: HTMLInputElement | undefined
+  let searchSelectionStart: number | null = null
+  let searchSelectionEnd: number | null = null
+  let allowSearchRefocusUntil = 0
+  let pendingBlurRefocusTimer: ReturnType<typeof setTimeout> | undefined
+  let searchFocusRecoveryTimer: ReturnType<typeof setTimeout> | undefined
 
   const userId = createMemo(() => auth.user()?.id ?? auth.user()?.subjectId ?? auth.user()?.sub ?? "")
   const detailOpen = createMemo(() => !!selectedItemId.value)
@@ -145,12 +151,62 @@ export default function StoreManagerPage() {
   onCleanup(() => {
     clearTimeout(detailContentTimer)
     clearTimeout(searchTimer)
+    clearTimeout(pendingBlurRefocusTimer)
+    clearTimeout(searchFocusRecoveryTimer)
   })
 
   const formatDate = (iso?: string) => formatStoreDate(language.locale(), iso)
   const favoriteIconColor = (favorited?: boolean, itemType?: string) => favorited ? (STORE_TYPES.find((entry) => entry.value === itemType)?.color ?? "var(--native-primary)") : "var(--native-muted)"
   const creatorInfo = (value: string) => creatorInfoMap()?.[value]
   const typeLabel = (value: string) => language.t(typeKey(value))
+  const captureSearchSelection = () => {
+    if (!searchInputRef) return
+    searchSelectionStart = searchInputRef.selectionStart
+    searchSelectionEnd = searchInputRef.selectionEnd
+  }
+  const restoreSearchFocus = () => {
+    if (!searchInputRef) return
+    searchInputRef.focus({ preventScroll: true })
+    if (searchSelectionStart === null || searchSelectionEnd === null) return
+    try {
+      searchInputRef.setSelectionRange(searchSelectionStart, searchSelectionEnd)
+    }
+    catch {
+      // Ignore inputs that do not support selection restoration.
+    }
+  }
+  const bindSearchInputRef = (el: HTMLInputElement) => {
+    searchInputRef = el
+    if (Date.now() > allowSearchRefocusUntil) return
+    queueMicrotask(() => {
+      if (searchInputRef !== el) return
+      if (document.activeElement && document.activeElement !== document.body && document.activeElement !== el) return
+      restoreSearchFocus()
+      scheduleSearchFocusRecovery("ref-bind")
+    })
+  }
+  const scheduleSearchFocusRecovery = (reason: string, attempts = 8) => {
+    clearTimeout(searchFocusRecoveryTimer)
+    const tick = (remaining: number) => {
+      if (!searchInputRef || Date.now() > allowSearchRefocusUntil) return
+      const active = document.activeElement
+      const focused = active === searchInputRef
+      if (focused) return
+      restoreSearchFocus()
+      if (document.activeElement === searchInputRef || remaining <= 1) return
+      searchFocusRecoveryTimer = setTimeout(() => tick(remaining - 1), 50)
+    }
+    searchFocusRecoveryTimer = setTimeout(() => tick(attempts), 0)
+  }
+  const restoreSearchFocusIfNeeded = () => {
+    if (!searchInputRef || Date.now() > allowSearchRefocusUntil) return
+    requestAnimationFrame(() => {
+      if (!searchInputRef) return
+      if (document.activeElement && document.activeElement !== document.body && document.activeElement !== searchInputRef) return
+      restoreSearchFocus()
+      scheduleSearchFocusRecovery("restoreIfNeeded")
+    })
+  }
 
   const buildListParams = () => ({
     type: state.appliedTypeFilters.length === 1 ? state.appliedTypeFilters[0] : undefined,
@@ -182,6 +238,7 @@ export default function StoreManagerPage() {
     }
     finally {
       setState("loadingItems", false)
+      restoreSearchFocusIfNeeded()
     }
   }
 
@@ -202,6 +259,7 @@ export default function StoreManagerPage() {
     }
     finally {
       setState("favoritedLoading", false)
+      restoreSearchFocusIfNeeded()
     }
   }
 
@@ -359,23 +417,34 @@ export default function StoreManagerPage() {
   }
 
   const handleSearchInput = (value: string) => {
+    allowSearchRefocusUntil = Date.now() + 3000
     setState("search", value)
+    captureSearchSelection()
     clearTimeout(searchTimer)
     searchTimer = setTimeout(() => {
       setState("debouncedSearch", value.trim())
       if (state.tab === "created") setState("itemPage", 1)
       else setState("favoritedPage", 1)
       refreshActiveTab()
+      requestAnimationFrame(() => restoreSearchFocus())
+      pendingBlurRefocusTimer = setTimeout(() => restoreSearchFocus(), 0)
+      scheduleSearchFocusRecovery("debounce")
     }, 300)
   }
 
   const clearSearchInput = () => {
     clearTimeout(searchTimer)
+    clearTimeout(pendingBlurRefocusTimer)
+    allowSearchRefocusUntil = Date.now() + 3000
+    searchSelectionStart = 0
+    searchSelectionEnd = 0
     setState("search", "")
     setState("debouncedSearch", "")
     if (state.tab === "created") setState("itemPage", 1)
     else setState("favoritedPage", 1)
     refreshActiveTab()
+    requestAnimationFrame(() => restoreSearchFocus())
+    scheduleSearchFocusRecovery("clear")
   }
 
   const switchTab = (tab: TabKey) => {
@@ -748,11 +817,22 @@ export default function StoreManagerPage() {
                   </svg>
                 </div>
                 <input
+                  ref={bindSearchInputRef}
                   type="text"
                   inputmode="search"
                   placeholder={language.t("store.console.capabilities.searchPlaceholder")}
                   value={state.search}
                   onInput={(e) => handleSearchInput(e.currentTarget.value)}
+                  onBlur={(e) => {
+                    if (e.relatedTarget || Date.now() > allowSearchRefocusUntil) return
+                    clearTimeout(pendingBlurRefocusTimer)
+                    pendingBlurRefocusTimer = setTimeout(() => {
+                      if (!searchInputRef) return
+                      if (document.activeElement && document.activeElement !== document.body && document.activeElement !== searchInputRef) return
+                      restoreSearchFocus()
+                      scheduleSearchFocusRecovery("blur")
+                    }, 0)
+                  }}
                   class="h-12 w-full rounded-full border border-[color:color-mix(in_srgb,var(--native-border)_58%,transparent)] bg-[var(--native-panel)] pr-12 pl-11 text-base !text-[var(--native-foreground)] caret-[var(--native-primary)] placeholder:text-[color:color-mix(in_srgb,var(--native-muted)_72%,white)] shadow-[var(--native-shadow-sm)] focus-visible:border-2 focus-visible:border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] focus-visible:!text-[var(--native-foreground)] focus-visible:placeholder:text-[color:color-mix(in_srgb,var(--native-muted)_36%,white)] focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
                 <Show when={state.search.length > 0}>
