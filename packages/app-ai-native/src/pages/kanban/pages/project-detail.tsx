@@ -385,13 +385,13 @@ export default function KanbanProjectDetail() {
                           <TableHeader>
                             <TableRow>
                               <TableHead class="min-w-[100px]">{language.t("kanban.table.user")}</TableHead>
-                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.taskCount")}</TableHead>
-                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.commitCount")}</TableHead>
-                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.codeLines")}</TableHead>
-                              <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.taskTraditionalEst")}</TableHead>
-                              <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.taskActualTime")}</TableHead>
-                              <TableHead class="min-w-[90px] text-center">{language.t("kanban.table.taskEfficiency")}</TableHead>
-                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.cost")}</TableHead>
+                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.taskCount")}</TableHead>
+                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.commitCount")}</TableHead>
+                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.codeLines")}</TableHead>
+                              <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskTraditionalEst")}</TableHead>
+                              <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskActualTime")}</TableHead>
+                              <TableHead class="min-w-[90px] text-left">{language.t("kanban.table.taskEfficiency")}</TableHead>
+                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.cost")}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -399,13 +399,13 @@ export default function KanbanProjectDetail() {
                               {(row) => (
                                 <TableRow>
                                   <TableCell>{row.user_name}</TableCell>
-                                  <TableCell class="text-right tabular-nums">{row.task_count}</TableCell>
-                                  <TableCell class="text-right tabular-nums">{row.commit_count}</TableCell>
-                                  <TableCell class="text-right tabular-nums">{row.commit_diff_lines.toLocaleString()}</TableCell>
-                                  <TableCell class="text-right">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
-                                  <TableCell class="text-right">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
-                                  <TableCell class="text-center">{row.task_efficiency_ratio > 0 ? formatPercent(row.task_efficiency_ratio) : "-"}</TableCell>
-                                  <TableCell class="text-right tabular-nums">{row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
+                                  <TableCell class="text-left tabular-nums">{row.task_count}</TableCell>
+                                  <TableCell class="text-left tabular-nums">{row.commit_count}</TableCell>
+                                  <TableCell class="text-left tabular-nums">{row.commit_diff_lines.toLocaleString()}</TableCell>
+                                  <TableCell class="text-left">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
+                                  <TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
+                                  <TableCell class="text-left">{row.task_efficiency_ratio > 0 ? formatPercent(row.task_efficiency_ratio) : "-"}</TableCell>
+                                  <TableCell class="text-left tabular-nums">{row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
                                 </TableRow>
                               )}
                             </For>
@@ -428,7 +428,7 @@ export default function KanbanProjectDetail() {
                           <TableHead class="min-w-[100px]">{language.t("kanban.table.branch")}</TableHead>
                           <TableHead class="min-w-[140px]">{language.t("kanban.table.startTime")}</TableHead>
                           <TableHead class="min-w-[140px]">{language.t("kanban.table.endTime")}</TableHead>
-                          <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.action")}</TableHead>
+                          <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.action")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -443,7 +443,7 @@ export default function KanbanProjectDetail() {
                               <TableCell>{row.repo_branch || "-"}</TableCell>
                               <TableCell>{formatLocalTime(row.start_time)}</TableCell>
                               <TableCell>{formatLocalTime(row.end_time)}</TableCell>
-                              <TableCell class="text-right">
+                              <TableCell class="text-left">
                                 <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveRepo(index())}>{language.t("common.delete")}</button>
                               </TableCell>
                             </TableRow>
@@ -466,11 +466,11 @@ export default function KanbanProjectDetail() {
                           <TableHead class="min-w-[100px]">{language.t("kanban.table.taskId")}</TableHead>
                           <TableHead class="min-w-[90px]">{language.t("kanban.table.user")}</TableHead>
                           <TableHead class="min-w-[140px]">{language.t("kanban.table.startTime")}</TableHead>
-                          <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.traditionalEst")}</TableHead>
-                          <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.actualTime")}</TableHead>
-                          <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.silicaContent")}</TableHead>
-                          <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.cost")}</TableHead>
-                          <TableHead class="min-w-[80px] text-center">{language.t("kanban.table.action")}</TableHead>
+                          <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.traditionalEst")}</TableHead>
+                          <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.actualTime")}</TableHead>
+                          <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.silicaContent")}</TableHead>
+                          <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.cost")}</TableHead>
+                          <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.action")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -482,11 +482,11 @@ export default function KanbanProjectDetail() {
                               </TableCell>
                               <TableCell>{row.user_name || "-"}</TableCell>
                               <TableCell>{formatLocalTime(row.start_time)}</TableCell>
-                              <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t)}</TableCell>
-                              <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t)}</TableCell>
-                              <TableCell class="text-right tabular-nums">{row.silica ?? 1.0}</TableCell>
-                              <TableCell class="text-right tabular-nums">{row.cost != null && row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
-                              <TableCell class="text-center">
+                              <TableCell class="text-left">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t)}</TableCell>
+                              <TableCell class="text-left">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t)}</TableCell>
+                              <TableCell class="text-left tabular-nums">{row.silica ?? 1.0}</TableCell>
+                              <TableCell class="text-left tabular-nums">{row.cost != null && row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
+                              <TableCell class="text-left">
                                 <button type="button" class="mr-2 text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleUpdateSilica(row.task_id ?? "", row.silica ?? 1.0)}>{language.t("common.edit")}</button>
                                 <button type="button" class="text-sm text-[var(--native-critical,#b24b3b)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => void handleRemoveTask(row.task_id ?? "")}>{language.t("common.delete")}</button>
                               </TableCell>
@@ -512,10 +512,10 @@ export default function KanbanProjectDetail() {
                               <TableHead class="min-w-[90px]">{language.t("kanban.table.user")}</TableHead>
                               <TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead>
                               <TableHead class="min-w-[180px]">{language.t("kanban.table.comment")}</TableHead>
-                              <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.codeLines")}</TableHead>
-                              <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.traditionalEst")}</TableHead>
-                              <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.actualTime")}</TableHead>
-                              <TableHead class="min-w-[80px] text-center">{language.t("kanban.table.silicaContent")}</TableHead>
+                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.codeLines")}</TableHead>
+                              <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.traditionalEst")}</TableHead>
+                              <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.actualTime")}</TableHead>
+                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.silicaContent")}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -528,10 +528,10 @@ export default function KanbanProjectDetail() {
                                   <TableCell>{row.user_name || "-"}</TableCell>
                                   <TableCell>{formatLocalTime(row.commit_time)}</TableCell>
                                   <TableCell>{row.comment || "-"}</TableCell>
-                                  <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
-                                  <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes, language.t)}</TableCell>
-                                  <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes, language.t)}</TableCell>
-                                  <TableCell class="text-center">{row.silica != null ? `${row.silica.toFixed(1)}%` : "-"}</TableCell>
+                                  <TableCell class="text-left tabular-nums">{row.diff_lines ?? "-"}</TableCell>
+                                  <TableCell class="text-left">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes, language.t)}</TableCell>
+                                  <TableCell class="text-left">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes, language.t)}</TableCell>
+                                  <TableCell class="text-left">{row.silica != null ? `${row.silica.toFixed(1)}%` : "-"}</TableCell>
                                 </TableRow>
                               )}
                             </For>

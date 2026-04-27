@@ -143,11 +143,11 @@ export default function KanbanOrgList() {
       prop: "user_count",
       label: language.t("kanban.metric.memberCount"),
       minWidth: 90,
-      align: "right",
+      align: "left",
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
         return (row.user_count ?? 0) > 0 ? (
-          <button type="button" class="text-right text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/user?${routeQuery(scope)}`)}>
+          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/user?${routeQuery(scope)}`)}>
             {row.user_count}
           </button>
         ) : <span>0</span>
@@ -158,38 +158,38 @@ export default function KanbanOrgList() {
       prop: "task_count",
       label: language.t("kanban.table.taskCount"),
       minWidth: 90,
-      align: "right",
+      align: "left",
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
         return (row.task_count ?? 0) > 0 ? (
-          <button type="button" class="text-right text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/task?${routeQuery(scope)}`)}>
+          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/task?${routeQuery(scope)}`)}>
             {row.task_count}
           </button>
         ) : <span>0</span>
       },
       filter: { type: "number" },
     },
-    { prop: "task_diff_lines", label: language.t("kanban.metric.taskCodeAmount"), minWidth: 110, align: "right", filter: { type: "number" } },
-    { prop: "task_efficiency_ratio", label: language.t("kanban.table.taskEfficiencyRatio"), minWidth: 120, align: "center", render: (row) => <RatioPill value={row.task_efficiency_ratio} />, filter: { type: "number" } },
+    { prop: "task_diff_lines", label: language.t("kanban.metric.taskCodeAmount"), minWidth: 110, align: "left", filter: { type: "number" } },
+    { prop: "task_efficiency_ratio", label: language.t("kanban.table.taskEfficiencyRatio"), minWidth: 120, align: "left", render: (row) => <RatioPill value={row.task_efficiency_ratio} />, filter: { type: "number" } },
     {
       prop: "commit_count",
       label: language.t("kanban.table.commitCount"),
       minWidth: 100,
-      align: "right",
+      align: "left",
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
         return (row.commit_count ?? 0) > 0 ? (
-          <button type="button" class="text-right text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/commit?${routeQuery(scope)}`)}>
+          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/commit?${routeQuery(scope)}`)}>
             {row.commit_count}
           </button>
         ) : <span>0</span>
       },
       filter: { type: "number" },
     },
-    { prop: "commit_diff_lines", label: language.t("kanban.metric.commitCodeAmount"), minWidth: 120, align: "right", filter: { type: "number" } },
-    { prop: "commit_efficiency_ratio", label: language.t("kanban.table.commitEfficiencyRatio"), minWidth: 130, align: "center", render: (row) => <RatioPill value={row.commit_efficiency_ratio} />, filter: { type: "number" } },
-    { prop: "total_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "right", display: (row) => (row.total_tokens ?? 0) > 0 ? (row.total_tokens ?? 0).toLocaleString() : "-", filter: { type: "number" } },
-    { prop: "total_cost", label: language.t("kanban.metric.totalCost"), minWidth: 100, align: "right", display: (row) => fmtCost(row.total_cost), filter: { type: "number" } },
+    { prop: "commit_diff_lines", label: language.t("kanban.metric.commitCodeAmount"), minWidth: 120, align: "left", filter: { type: "number" } },
+    { prop: "commit_efficiency_ratio", label: language.t("kanban.table.commitEfficiencyRatio"), minWidth: 130, align: "left", render: (row) => <RatioPill value={row.commit_efficiency_ratio} />, filter: { type: "number" } },
+    { prop: "total_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "left", display: (row) => (row.total_tokens ?? 0) > 0 ? (row.total_tokens ?? 0).toLocaleString() : "-", filter: { type: "number" } },
+    { prop: "total_cost", label: language.t("kanban.metric.totalCost"), minWidth: 100, align: "left", display: (row) => fmtCost(row.total_cost), filter: { type: "number" } },
   ])
 
   const table = useTableFilters<OrgAggregateRow>({

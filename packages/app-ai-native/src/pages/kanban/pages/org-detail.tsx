@@ -232,14 +232,14 @@ export default function KanbanOrgDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead class="min-w-[140px]">{language.t("kanban.table.userName")}</TableHead>
-                  <TableHead class="min-w-[120px] text-right">{language.t("kanban.table.commitCodeLines")}</TableHead>
-                  <TableHead class="min-w-[130px] text-right">{language.t("kanban.table.commitActualTime")}</TableHead>
-                  <TableHead class="min-w-[120px] text-center">{language.t("kanban.table.commitEfficiency")}</TableHead>
-                  <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.taskCodeLines")}</TableHead>
-                  <TableHead class="min-w-[120px] text-right">{language.t("kanban.table.taskActualTime")}</TableHead>
-                  <TableHead class="min-w-[110px] text-center">{language.t("kanban.table.taskEfficiency")}</TableHead>
-                  <TableHead class="min-w-[120px] text-right">{language.t("kanban.table.tokensConsumed")}</TableHead>
-                  <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.cost")}</TableHead>
+                  <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.commitCodeLines")}</TableHead>
+                  <TableHead class="min-w-[130px] text-left">{language.t("kanban.table.commitActualTime")}</TableHead>
+                  <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.commitEfficiency")}</TableHead>
+                  <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskCodeLines")}</TableHead>
+                  <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.taskActualTime")}</TableHead>
+                  <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskEfficiency")}</TableHead>
+                  <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead>
+                  <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.cost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -251,14 +251,14 @@ export default function KanbanOrgDetail() {
                       navigate(`/kanban/user/${encodeURIComponent(txt)}?${queryOf(dateRange(), granularity(), org()).toString()}`)
                     }}>
                       <TableCell>{row.user_name || row.user_id || "-"}</TableCell>
-                      <TableCell class="text-right tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
-                      <TableCell class="text-right">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
-                      <TableCell class="text-center"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
-                      <TableCell class="text-right tabular-nums">{row.task_diff_lines ?? 0}</TableCell>
-                      <TableCell class="text-right">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
-                      <TableCell class="text-center"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
-                      <TableCell class="text-right tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell>
-                      <TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell>
+                      <TableCell class="text-left tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
+                      <TableCell class="text-left">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
+                      <TableCell class="text-left"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
+                      <TableCell class="text-left tabular-nums">{row.task_diff_lines ?? 0}</TableCell>
+                      <TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
+                      <TableCell class="text-left"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
+                      <TableCell class="text-left tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell>
+                      <TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell>
                     </TableRow>
                   )}
                 </For>
@@ -272,10 +272,10 @@ export default function KanbanOrgDetail() {
             <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.commitList")}</div>
             <div class="overflow-auto">
               <Table>
-                <TableHeader><TableRow><TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead><TableHead class="min-w-[80px] text-right">{language.t("kanban.table.taskCount")}</TableHead><TableHead class="min-w-[90px] text-right">{language.t("kanban.table.codeLines")}</TableHead><TableHead class="min-w-[110px] text-right">{language.t("kanban.table.actualTime")}</TableHead><TableHead class="min-w-[150px] text-right">{language.t("kanban.table.traditionalEst")}</TableHead><TableHead class="min-w-[100px] text-center">{language.t("kanban.table.efficiencyRatio")}</TableHead><TableHead class="min-w-[120px] text-right">{language.t("kanban.table.tokensConsumed")}</TableHead><TableHead class="min-w-[100px] text-right">{language.t("kanban.table.cost")}</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead><TableHead class="min-w-[80px] text-left">{language.t("kanban.table.taskCount")}</TableHead><TableHead class="min-w-[90px] text-left">{language.t("kanban.table.codeLines")}</TableHead><TableHead class="min-w-[110px] text-left">{language.t("kanban.table.actualTime")}</TableHead><TableHead class="min-w-[150px] text-left">{language.t("kanban.table.traditionalEst")}</TableHead><TableHead class="min-w-[100px] text-left">{language.t("kanban.table.efficiencyRatio")}</TableHead><TableHead class="min-w-[120px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead><TableHead class="min-w-[100px] text-left">{language.t("kanban.table.cost")}</TableHead></TableRow></TableHeader>
                 <TableBody>
                   <For each={commits()}>
-                    {(row) => <TableRow><TableCell>{row.period_label || row.period_key || "-"}</TableCell><TableCell class="text-right tabular-nums">{row.task_count ?? 0}</TableCell><TableCell class="text-right tabular-nums">{row.commit_diff_lines ?? 0}</TableCell><TableCell class="text-right">{formatDuration(row.commit_real_minutes, language.t)}</TableCell><TableCell class="text-right">{formatDuration(row.commit_ancient_minutes, language.t)}</TableCell><TableCell class="text-center"><RatioPill value={row.commit_efficiency_ratio} /></TableCell><TableCell class="text-right tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell><TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell></TableRow>}
+                    {(row) => <TableRow><TableCell>{row.period_label || row.period_key || "-"}</TableCell><TableCell class="text-left tabular-nums">{row.task_count ?? 0}</TableCell><TableCell class="text-left tabular-nums">{row.commit_diff_lines ?? 0}</TableCell><TableCell class="text-left">{formatDuration(row.commit_real_minutes, language.t)}</TableCell><TableCell class="text-left">{formatDuration(row.commit_ancient_minutes, language.t)}</TableCell><TableCell class="text-left"><RatioPill value={row.commit_efficiency_ratio} /></TableCell><TableCell class="text-left tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell><TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell></TableRow>}
                   </For>
                 </TableBody>
               </Table>
@@ -286,10 +286,10 @@ export default function KanbanOrgDetail() {
             <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.taskList")}</div>
             <div class="overflow-auto">
               <Table>
-                <TableHeader><TableRow><TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead><TableHead class="min-w-[90px] text-right">{language.t("kanban.table.commitCount")}</TableHead><TableHead class="min-w-[90px] text-right">{language.t("kanban.table.codeLines")}</TableHead><TableHead class="min-w-[110px] text-right">{language.t("kanban.table.actualTime")}</TableHead><TableHead class="min-w-[150px] text-right">{language.t("kanban.table.traditionalEst")}</TableHead><TableHead class="min-w-[100px] text-center">{language.t("kanban.table.efficiencyRatio")}</TableHead><TableHead class="min-w-[120px] text-right">{language.t("kanban.table.tokensConsumed")}</TableHead><TableHead class="min-w-[100px] text-right">{language.t("kanban.table.cost")}</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead><TableHead class="min-w-[90px] text-left">{language.t("kanban.table.commitCount")}</TableHead><TableHead class="min-w-[90px] text-left">{language.t("kanban.table.codeLines")}</TableHead><TableHead class="min-w-[110px] text-left">{language.t("kanban.table.actualTime")}</TableHead><TableHead class="min-w-[150px] text-left">{language.t("kanban.table.traditionalEst")}</TableHead><TableHead class="min-w-[100px] text-left">{language.t("kanban.table.efficiencyRatio")}</TableHead><TableHead class="min-w-[120px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead><TableHead class="min-w-[100px] text-left">{language.t("kanban.table.cost")}</TableHead></TableRow></TableHeader>
                 <TableBody>
                   <For each={tasks()}>
-                    {(row) => <TableRow><TableCell>{row.period_label || row.period_key || "-"}</TableCell><TableCell class="text-right tabular-nums">{row.commit_count ?? 0}</TableCell><TableCell class="text-right tabular-nums">{row.task_diff_lines ?? 0}</TableCell><TableCell class="text-right">{formatDuration(row.task_real_minutes, language.t)}</TableCell><TableCell class="text-right">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell><TableCell class="text-center"><RatioPill value={row.task_efficiency_ratio} /></TableCell><TableCell class="text-right tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell><TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell></TableRow>}
+                    {(row) => <TableRow><TableCell>{row.period_label || row.period_key || "-"}</TableCell><TableCell class="text-left tabular-nums">{row.commit_count ?? 0}</TableCell><TableCell class="text-left tabular-nums">{row.task_diff_lines ?? 0}</TableCell><TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell><TableCell class="text-left">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell><TableCell class="text-left"><RatioPill value={row.task_efficiency_ratio} /></TableCell><TableCell class="text-left tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell><TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell></TableRow>}
                   </For>
                 </TableBody>
               </Table>

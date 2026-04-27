@@ -213,56 +213,56 @@ export default function KanbanProjectList() {
           ? <span class="font-medium text-[var(--native-success)]">{language.t("kanban.status.ongoing")}</span>
           : <span>{row._end_time_fmt}</span>,
     },
-    { prop: "user_count", label: language.t("kanban.table.peopleCount"), minWidth: 80, align: "right", filter: { type: "number" } },
-    { prop: "repo_count", label: language.t("kanban.table.repoCount"), minWidth: 90, align: "right", filter: { type: "number" } },
-    { prop: "task_count", label: language.t("kanban.table.taskCount"), minWidth: 90, align: "right", filter: { type: "number" } },
+    { prop: "user_count", label: language.t("kanban.table.peopleCount"), minWidth: 80, align: "left", filter: { type: "number" } },
+    { prop: "repo_count", label: language.t("kanban.table.repoCount"), minWidth: 90, align: "left", filter: { type: "number" } },
+    { prop: "task_count", label: language.t("kanban.table.taskCount"), minWidth: 90, align: "left", filter: { type: "number" } },
     {
       prop: "total_code_lines",
       label: language.t("kanban.table.generatedCode"),
       minWidth: 110,
-      align: "right",
+      align: "left",
       display: (row) => row.total_code_lines && row.total_code_lines > 0 ? row.total_code_lines.toLocaleString() + " " + language.t("kanban.repo.lines") : "-",
     },
     {
       prop: "actual_lines_per_day",
       label: language.t("kanban.table.actualLinesPerDay"),
       minWidth: 130,
-      align: "right",
+      align: "left",
       display: (row) => row.actual_lines_per_day != null ? Math.round(row.actual_lines_per_day).toLocaleString() + " " + language.t("kanban.unit.linesPerManDay") : "-",
     },
     {
       prop: "cost",
       label: language.t("kanban.table.cost"),
       minWidth: 100,
-      align: "right",
+      align: "left",
       display: (row) => fmtCost(row.cost),
     },
     {
       prop: "project_real_lead_minutes",
       label: language.t("kanban.table.projectCycle"),
       minWidth: 120,
-      align: "right",
+      align: "left",
       display: (row) => formatDuration(row.project_real_lead_minutes_manual ?? row.project_real_lead_minutes, language.t),
     },
     {
       prop: "project_ancient_minutes",
       label: language.t("kanban.table.traditionalEst"),
       minWidth: 130,
-      align: "right",
+      align: "left",
       display: (row) => formatDuration(row.project_ancient_minutes_manual ?? row.project_ancient_minutes, language.t),
     },
     {
       prop: "project_real_process_minutes",
       label: language.t("kanban.table.actualTime"),
       minWidth: 120,
-      align: "right",
+      align: "left",
       display: (row) => formatDuration(row.project_real_process_minutes_manual ?? row.project_real_process_minutes, language.t),
     },
     {
       prop: "efficiency_ratio",
       label: language.t("kanban.table.efficiencyRatio"),
       minWidth: 110,
-      align: "center",
+      align: "left",
       render: (row) =>
         row.efficiency_ratio != null
           ? (
@@ -282,7 +282,7 @@ export default function KanbanProjectList() {
       prop: "_actions",
       label: language.t("kanban.table.action"),
       width: 80,
-      align: "center",
+      align: "left",
       render: (row) => (
         <button
           type="button"
