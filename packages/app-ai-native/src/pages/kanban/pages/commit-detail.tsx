@@ -261,14 +261,14 @@ export default function KanbanCommitDetail() {
                       <TableHead class="min-w-[140px]">{language.t("kanban.table.taskId")}</TableHead>
                       <TableHead class="min-w-[100px]">{language.t("kanban.table.user")}</TableHead>
                       <TableHead class="min-w-[160px]">{language.t("kanban.table.startTime")}</TableHead>
-                      <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.codeLines")}</TableHead>
-                      <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.actualTime")}</TableHead>
-                      <TableHead class="min-w-[110px] text-center">{language.t("kanban.table.silicaContent")}</TableHead>
-                      <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.cost")}</TableHead>
+                      <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.codeLines")}</TableHead>
+                      <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.actualTime")}</TableHead>
+                      <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.silicaContent")}</TableHead>
+                      <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.cost")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <Show when={tasks().length > 0} fallback={<TableRow><TableCell colspan={7} class="py-10 text-center text-sm text-[var(--native-muted)]">{language.t("kanban.empty.noRelatedTasks")}</TableCell></TableRow>}>
+                    <Show when={tasks().length > 0} fallback={<TableRow><TableCell colspan={7} class="py-10 text-left text-sm text-[var(--native-muted)]">{language.t("kanban.empty.noRelatedTasks")}</TableCell></TableRow>}>
                       <For each={tasks()}>
                         {(row) => (
                           <TableRow>
@@ -279,14 +279,14 @@ export default function KanbanCommitDetail() {
                             </TableCell>
                             <TableCell>{row.user_name || "-"}</TableCell>
                             <TableCell>{formatLocalTime(row.start_time)}</TableCell>
-                            <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
-                            <TableCell class="text-right">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
-                            <TableCell class="text-center">
+                            <TableCell class="text-left tabular-nums">{row.diff_lines ?? "-"}</TableCell>
+                            <TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
+                            <TableCell class="text-left">
                               <div class="inline-flex min-w-[4.5rem] items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--native-primary)_22%,transparent)] bg-[color:color-mix(in_oklab,var(--native-primary)_10%,var(--native-panel))] px-2 py-1 text-xs font-medium text-[var(--native-foreground)]">
                                 {row.silica == null ? "-" : `${(row.silica * 100).toFixed(1)}%`}
                               </div>
                             </TableCell>
-                            <TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell>
+                            <TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell>
                           </TableRow>
                         )}
                       </For>

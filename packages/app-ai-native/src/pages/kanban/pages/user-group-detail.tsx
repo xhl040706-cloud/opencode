@@ -156,12 +156,12 @@ export default function KanbanUserGroupDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead class="min-w-[150px]">{language.t("kanban.table.userName")}</TableHead>
-                  <TableHead class="min-w-[100px] text-right">{language.t("kanban.label.activeDays")}</TableHead>
-                  <TableHead class="min-w-[90px] text-right">{language.t("kanban.table.taskCount")}</TableHead>
-                  <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.commitCount")}</TableHead>
-                  <TableHead class="min-w-[110px] text-center">{language.t("kanban.table.taskEfficiency")}</TableHead>
-                  <TableHead class="min-w-[120px] text-center">{language.t("kanban.table.commitEfficiency")}</TableHead>
-                  <TableHead class="min-w-[100px] text-right">{language.t("kanban.table.cost")}</TableHead>
+                  <TableHead class="min-w-[100px] text-left">{language.t("kanban.label.activeDays")}</TableHead>
+                  <TableHead class="min-w-[90px] text-left">{language.t("kanban.table.taskCount")}</TableHead>
+                  <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.commitCount")}</TableHead>
+                  <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskEfficiency")}</TableHead>
+                  <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.commitEfficiency")}</TableHead>
+                  <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.cost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -173,12 +173,12 @@ export default function KanbanUserGroupDetail() {
                       navigate(`/kanban/user/${encodeURIComponent(txt)}?${routeQuery()}`)
                     }}>
                       <TableCell>{row.user_name || row.user_id || "-"}</TableCell>
-                      <TableCell class="text-right tabular-nums">{row.day_count ?? "-"}</TableCell>
-                      <TableCell class="text-right tabular-nums">{row.task_count ?? "-"}</TableCell>
-                      <TableCell class="text-right tabular-nums">{row.commit_count ?? "-"}</TableCell>
-                      <TableCell class="text-center"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
-                      <TableCell class="text-center"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
-                      <TableCell class="text-right tabular-nums">{fmtCost(row.cost)}</TableCell>
+                      <TableCell class="text-left tabular-nums">{row.day_count ?? "-"}</TableCell>
+                      <TableCell class="text-left tabular-nums">{row.task_count ?? "-"}</TableCell>
+                      <TableCell class="text-left tabular-nums">{row.commit_count ?? "-"}</TableCell>
+                      <TableCell class="text-left"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
+                      <TableCell class="text-left"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
+                      <TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell>
                     </TableRow>
                   )}
                 </For>

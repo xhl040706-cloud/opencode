@@ -163,9 +163,9 @@ export default function KanbanWorkDirDetail() {
                             <TableHead class="min-w-[120px]">{language.t("kanban.table.commitId")}</TableHead>
                             <TableHead class="min-w-[150px]">{language.t("kanban.label.submitter")}</TableHead>
                             <TableHead class="min-w-[160px]">{language.t("kanban.label.commitTime")}</TableHead>
-                            <TableHead class="min-w-[80px] text-right">{language.t("kanban.label.diffLines")}</TableHead>
-                            <TableHead class="min-w-[110px] text-center">{language.t("kanban.table.silicaContent")}</TableHead>
-                            <TableHead class="min-w-[90px] text-right">{language.t("kanban.label.relatedTaskCount")}</TableHead>
+                            <TableHead class="min-w-[80px] text-left">{language.t("kanban.label.diffLines")}</TableHead>
+                            <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.silicaContent")}</TableHead>
+                            <TableHead class="min-w-[90px] text-left">{language.t("kanban.label.relatedTaskCount")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -176,13 +176,13 @@ export default function KanbanWorkDirDetail() {
                                   <TableCell>{shortId(row.commit_id)}</TableCell>
                                   <TableCell>{row.git_user_name || "-"}</TableCell>
                                   <TableCell>{formatLocalTime(row.commit_time)}</TableCell>
-                                  <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
-                                  <TableCell class="text-center">
+                                  <TableCell class="text-left tabular-nums">{row.diff_lines ?? "-"}</TableCell>
+                                  <TableCell class="text-left">
                                     <Show when={row.silica != null} fallback={"-"}>
                                       <SilicaBar value={row.silica!} />
                                     </Show>
                                   </TableCell>
-                                  <TableCell class="text-right tabular-nums">
+                                  <TableCell class="text-left tabular-nums">
                                     {row.matched_tasks?.length ?? 0}
                                   </TableCell>
                                 </TableRow>
@@ -204,7 +204,7 @@ export default function KanbanWorkDirDetail() {
                                                 <TableRow>
                                                   <TableHead class="min-w-[160px]">{language.t("kanban.table.taskId")}</TableHead>
                                                   <TableHead class="min-w-[100px]">{language.t("kanban.table.user")}</TableHead>
-                                                  <TableHead class="min-w-[100px] text-center">{language.t("kanban.label.silicaRatio")}</TableHead>
+                                                  <TableHead class="min-w-[100px] text-left">{language.t("kanban.label.silicaRatio")}</TableHead>
                                                 </TableRow>
                                               </TableHeader>
                                               <TableBody>
@@ -217,7 +217,7 @@ export default function KanbanWorkDirDetail() {
                                                         </A>
                                                       </TableCell>
                                                       <TableCell>{task.user_name || "-"}</TableCell>
-                                                      <TableCell class="text-center">
+                                                      <TableCell class="text-left">
                                                         <Show when={task.silica != null} fallback={"-"}>
                                                           <SilicaBar value={task.silica!} />
                                                         </Show>
@@ -256,8 +256,8 @@ export default function KanbanWorkDirDetail() {
                         <TableHeader>
                           <TableRow>
                             <TableHead class="min-w-[150px]">{language.t("kanban.table.userName")}</TableHead>
-                            <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.taskCount")}</TableHead>
-                            <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.commitCount")}</TableHead>
+                            <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.taskCount")}</TableHead>
+                            <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.commitCount")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -269,8 +269,8 @@ export default function KanbanWorkDirDetail() {
                                     {row.user_name || row.user_id}
                                   </A>
                                 </TableCell>
-                                <TableCell class="text-right tabular-nums">{row.task_count}</TableCell>
-                                <TableCell class="text-right tabular-nums">{row.commit_count}</TableCell>
+                                <TableCell class="text-left tabular-nums">{row.task_count}</TableCell>
+                                <TableCell class="text-left tabular-nums">{row.commit_count}</TableCell>
                               </TableRow>
                             )}
                           </For>
@@ -325,7 +325,7 @@ function SilicaChartSection(props: { entries: WorkDirSilicaEntry[] }) {
                     }}
                   />
                 </div>
-                <span class="w-[50px] shrink-0 text-right text-xs tabular-nums text-[var(--native-foreground)]">
+                <span class="w-[50px] shrink-0 text-left text-xs tabular-nums text-[var(--native-foreground)]">
                   {((entry.silica ?? 0) * 100).toFixed(1)}%
                 </span>
               </div>

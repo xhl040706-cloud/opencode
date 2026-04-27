@@ -322,12 +322,12 @@ export default function KanbanRepoDetail() {
                           <TableHead class="min-w-[150px]">{language.t("kanban.table.time")}</TableHead>
                           <TableHead class="min-w-[90px]">{language.t("kanban.table.user")}</TableHead>
                           <TableHead class="min-w-[220px]">{language.t("kanban.table.description")}</TableHead>
-                          <TableHead class="min-w-[90px] text-right">{language.t("kanban.metric.codeLines")}</TableHead>
-                          <TableHead class="min-w-[100px] text-right">{language.t("kanban.metric.actualTime")}</TableHead>
-                          <TableHead class="min-w-[140px] text-right">{language.t("kanban.metric.traditionalEst")}</TableHead>
-                          <TableHead class="min-w-[90px] text-center">{language.t("kanban.table.silica")}</TableHead>
-                          <TableHead class="min-w-[90px] text-center">{language.t("kanban.metric.efficiencyRatio")}</TableHead>
-                          <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.tokensConsumed")}</TableHead>
+                          <TableHead class="min-w-[90px] text-left">{language.t("kanban.metric.codeLines")}</TableHead>
+                          <TableHead class="min-w-[100px] text-left">{language.t("kanban.metric.actualTime")}</TableHead>
+                          <TableHead class="min-w-[140px] text-left">{language.t("kanban.metric.traditionalEst")}</TableHead>
+                          <TableHead class="min-w-[90px] text-left">{language.t("kanban.table.silica")}</TableHead>
+                          <TableHead class="min-w-[90px] text-left">{language.t("kanban.metric.efficiencyRatio")}</TableHead>
+                          <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -338,12 +338,12 @@ export default function KanbanRepoDetail() {
                               <TableCell>{formatLocalTime(row.commit_time)}</TableCell>
                               <TableCell>{row.git_user_name || "-"}</TableCell>
                               <TableCell>{row.comment || "-"}</TableCell>
-                              <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
-                              <TableCell class="text-right">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes, language.t)}</TableCell>
-                              <TableCell class="text-right">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes, language.t)}</TableCell>
-                              <TableCell class="text-center"><RatioPill value={row.silica} digits={1} /></TableCell>
-                              <TableCell class="text-center"><RatioPill value={commitEffRatio(row)} /></TableCell>
-                              <TableCell class="text-right tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>
+                              <TableCell class="text-left tabular-nums">{row.diff_lines ?? "-"}</TableCell>
+                              <TableCell class="text-left">{formatDuration(row.commit_real_minutes_manual ?? row.commit_real_minutes, language.t)}</TableCell>
+                              <TableCell class="text-left">{formatDuration(row.commit_ancient_minutes_manual ?? row.commit_ancient_minutes, language.t)}</TableCell>
+                              <TableCell class="text-left"><RatioPill value={row.silica} digits={1} /></TableCell>
+                              <TableCell class="text-left"><RatioPill value={commitEffRatio(row)} /></TableCell>
+                              <TableCell class="text-left tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>
                             </TableRow>
                           )}
                         </For>
@@ -365,12 +365,12 @@ export default function KanbanRepoDetail() {
                             <TableHead class="min-w-[150px]">{language.t("kanban.table.time")}</TableHead>
                             <TableHead class="min-w-[90px]">{language.t("kanban.table.user")}</TableHead>
                             <TableHead class="min-w-[220px]">{language.t("kanban.table.description")}</TableHead>
-                            <TableHead class="min-w-[90px] text-right">{language.t("kanban.metric.codeLines")}</TableHead>
-                            <TableHead class="min-w-[100px] text-right">{language.t("kanban.metric.actualTime")}</TableHead>
-                            <TableHead class="min-w-[140px] text-right">{language.t("kanban.metric.traditionalEst")}</TableHead>
-                            <TableHead class="min-w-[90px] text-center">{language.t("kanban.metric.efficiencyRatio")}</TableHead>
-                            <TableHead class="min-w-[80px] text-right">{language.t("kanban.table.cost")}</TableHead>
-                            <TableHead class="min-w-[110px] text-right">{language.t("kanban.table.tokensConsumed")}</TableHead>
+                            <TableHead class="min-w-[90px] text-left">{language.t("kanban.metric.codeLines")}</TableHead>
+                            <TableHead class="min-w-[100px] text-left">{language.t("kanban.metric.actualTime")}</TableHead>
+                            <TableHead class="min-w-[140px] text-left">{language.t("kanban.metric.traditionalEst")}</TableHead>
+                            <TableHead class="min-w-[90px] text-left">{language.t("kanban.metric.efficiencyRatio")}</TableHead>
+                            <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.cost")}</TableHead>
+                            <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -381,12 +381,12 @@ export default function KanbanRepoDetail() {
                                 <TableCell>{formatLocalTime(row.start_time)}</TableCell>
                                 <TableCell>{row.user_name || "-"}</TableCell>
                                 <TableCell>{row.title || "-"}</TableCell>
-                                <TableCell class="text-right tabular-nums">{row.diff_lines ?? "-"}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t)}</TableCell>
-                                <TableCell class="text-right">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t)}</TableCell>
-                                <TableCell class="text-center"><RatioPill value={taskEffRatio(row)} /></TableCell>
-                                <TableCell class="text-right tabular-nums">{row.cost != null && row.cost > 0 ? row.cost.toFixed(2) : "-"}</TableCell>
-                                <TableCell class="text-right tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>
+                                <TableCell class="text-left tabular-nums">{row.diff_lines ?? "-"}</TableCell>
+                                <TableCell class="text-left">{formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t)}</TableCell>
+                                <TableCell class="text-left">{formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t)}</TableCell>
+                                <TableCell class="text-left"><RatioPill value={taskEffRatio(row)} /></TableCell>
+                                <TableCell class="text-left tabular-nums">{row.cost != null && row.cost > 0 ? row.cost.toFixed(2) : "-"}</TableCell>
+                                <TableCell class="text-left tabular-nums">{((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-"}</TableCell>
                               </TableRow>
                             )}
                           </For>

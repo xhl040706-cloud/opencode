@@ -126,7 +126,7 @@ export default function KanbanTaskList() {
       prop: "_select",
       label: language.t("kanban.table.select"),
       minWidth: 72,
-      align: "center",
+      align: "left",
       render: (row) => {
         const id = row.task_id?.trim()
         return <input type="checkbox" class="h-4 w-4 accent-[var(--native-primary)]" checked={!!id && state.selectedIds.includes(id)} disabled={!id} onChange={(e) => {
@@ -172,12 +172,12 @@ export default function KanbanTaskList() {
       filter: { type: "multi-select" },
     },
     { prop: "title", label: language.t("kanban.table.description"), minWidth: 220, filter: { type: "text" } },
-    { prop: "diff_lines", label: language.t("kanban.table.codeLines"), minWidth: 90, align: "right", filter: { type: "number" } },
-    { prop: "task_real_minutes", label: language.t("kanban.table.actualTime"), minWidth: 110, align: "right", display: (row) => formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t), filter: { type: "number", valueGetter: (row) => row.task_real_minutes_manual ?? row.task_real_minutes } },
-    { prop: "task_ancient_minutes", label: language.t("kanban.table.traditionalEst"), minWidth: 160, align: "right", display: (row) => formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t), filter: { type: "number", valueGetter: (row) => row.task_ancient_minutes_manual ?? row.task_ancient_minutes } },
-    { prop: "efficiency_ratio", label: language.t("kanban.table.efficiencyRatio"), minWidth: 100, align: "right", display: (row) => formatPercent(row.efficiency_ratio), filter: { type: "number" } },
-    { prop: "_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "right", display: (row) => ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-", filter: { type: "number", valueGetter: (row) => (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0) } },
-    { prop: "cost", label: language.t("kanban.table.cost"), minWidth: 100, align: "right", display: (row) => fmtCost(row.cost), filter: { type: "number" } }
+    { prop: "diff_lines", label: language.t("kanban.table.codeLines"), minWidth: 90, align: "left", filter: { type: "number" } },
+    { prop: "task_real_minutes", label: language.t("kanban.table.actualTime"), minWidth: 110, align: "left", display: (row) => formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t), filter: { type: "number", valueGetter: (row) => row.task_real_minutes_manual ?? row.task_real_minutes } },
+    { prop: "task_ancient_minutes", label: language.t("kanban.table.traditionalEst"), minWidth: 160, align: "left", display: (row) => formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t), filter: { type: "number", valueGetter: (row) => row.task_ancient_minutes_manual ?? row.task_ancient_minutes } },
+    { prop: "efficiency_ratio", label: language.t("kanban.table.efficiencyRatio"), minWidth: 100, align: "left", display: (row) => formatPercent(row.efficiency_ratio), filter: { type: "number" } },
+    { prop: "_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "left", display: (row) => ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-", filter: { type: "number", valueGetter: (row) => (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0) } },
+    { prop: "cost", label: language.t("kanban.table.cost"), minWidth: 100, align: "left", display: (row) => fmtCost(row.cost), filter: { type: "number" } }
   ])
 
   const table = useTableFilters<TaskRow>({
