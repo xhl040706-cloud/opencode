@@ -65,7 +65,7 @@ export default function DashboardCapabilities() {
     if (state.loadingItems) return
     setState("loadingItems", true)
     try {
-      const res = await itemApi.listMy(userId(), {
+      const res = await itemApi.listMy({
         type: type === "all" ? undefined : type,
         page,
         pageSize: PAGE_SIZE,
@@ -102,7 +102,7 @@ export default function DashboardCapabilities() {
     loaded = true
     void loadItems()
     void loadFavorited()
-    void repoApi.listMy(userId()).then((res) => setState("repos", res.repositories ?? []))
+    void repoApi.listMy().then((res) => setState("repos", res.repositories ?? []))
   })
 
   const totalPages = createMemo(() => Math.max(1, Math.ceil(state.totalItems / PAGE_SIZE)))
@@ -309,7 +309,7 @@ export default function DashboardCapabilities() {
               <Button
                 type="button"
                 size="sm"
-                  onClick={() => { window.location.href = getLoginUrl("/console/capabilities") }}
+                  onClick={() => { window.location.href = getLoginUrl("/store/manager") }}
                 >
                   {language.t("store.console.login")}
                 </Button>
