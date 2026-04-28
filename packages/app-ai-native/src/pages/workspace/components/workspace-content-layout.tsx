@@ -12,6 +12,7 @@ import { useFile } from "@/context/file"
 import { useDeviceProject } from "@/context/device-project"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
+import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
 import { DeviceSessionProvider } from "@/context/device-session"
 import { DeviceSessionTab } from "./device-session-tab"
 import { TerminalTab } from "./terminal-tab"
@@ -36,8 +37,39 @@ let newTerminalCounter = 0
 
 const SESSION_TAB_ICON = "bubble-5"
 
+function hasPendingInteraction(
+  sessions: { id: string; parentID?: string }[],
+  questions: Record<string, unknown[]>,
+  permissions: Record<string, unknown[]>,
+  sessionID?: string,
+): boolean {
+  if (!sessionID) return false
+  const treeIds = sessionTreeIDs(sessions as any, sessionID)
+  return treeIds.some((id) => (questions[id]?.length ?? 0) > 0 || (permissions[id]?.length ?? 0) > 0)
+}
+
 function TabIcon(props: { tab: ContentTab }) {
   return <Icon name={props.tab.icon as any ?? "file-tree"} size="small" class="shrink-0 text-text-weak" />
+}
+
+function PendingInteractionIcon() {
+  return (
+    <div class="shrink-0 flex items-center justify-center w-4 h-4 animate-bell" style={{ "transform-origin": "top center" }}>
+      <Icon name="bell" size="small" style={{ color: "#ffa000" }} />
+    </div>
+  )
+}
+
+function WorkingIcon(props: { class?: string; classList?: Record<string, boolean>; title?: string }) {
+  return (
+    <div class="shrink-0 flex items-center justify-center w-4 h-4">
+      <div
+        class="size-3 rounded-full border border-t-transparent animate-spin"
+        classList={props.classList}
+        title={props.title}
+      />
+    </div>
+  )
 }
 
 function SessionTabIcon(props: { tab: ContentTab }) {
@@ -51,16 +83,21 @@ function SessionTabIcon(props: { tab: ContentTab }) {
     const t = status()?.type
     return t === "busy" || t === "retry"
   })
+  const pending = createMemo(() => {
+    const id = props.tab.meta?.sessionID as string | undefined
+    return hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, id)
+  })
 
   return (
     <Show
-      when={working()}
-      fallback={<TabIcon tab={props.tab} />}
+      when={pending()}
+      fallback={
+        <Show when={working()} fallback={<TabIcon tab={props.tab} />}>
+          <WorkingIcon title={status()?.type === "retry" ? "retry" : "busy"} />
+        </Show>
+      }
     >
-      <div
-        class="size-3 shrink-0 rounded-full border border-t-transparent animate-spin border-native-primary"
-        title={status()?.type === "retry" ? "retry" : "busy"}
-      />
+      <PendingInteractionIcon />
     </Show>
   )
 }
@@ -480,11 +517,11 @@ function ContentSidebar(props: { directory: string }) {
                                           }}
                                           onClick={() => openSession(session)}
                                         >
-                                          <Show
-                                            when={isWorking(session.id)}
-                                          >
-                                            <div
-                                              class="size-3 shrink-0 rounded-full border border-t-transparent animate-spin"
+                                          <Show when={hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id)}>
+                                            <PendingInteractionIcon />
+                                          </Show>
+                                          <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && isWorking(session.id)}>
+                                            <WorkingIcon
                                               classList={{
                                                 "border-native-primary": isActive(),
                                                 "border-native-dim": !isActive(),

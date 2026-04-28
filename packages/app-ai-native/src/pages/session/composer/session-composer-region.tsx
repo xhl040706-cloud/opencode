@@ -39,6 +39,7 @@ export function SessionComposerRegion(props: {
   countMaskHeight?: number
   countWidthDuration?: number
   hideAttachButton?: boolean
+  hidePrompt?: boolean
 }) {
   const params = useParams()
   const prompt = usePrompt()
@@ -167,7 +168,7 @@ export function SessionComposerRegion(props: {
           )}
         </Show>
 
-        <Show when={!props.state.blocked()}>
+        <Show when={!props.state.blocked() && !props.hidePrompt}>
           <Show
             when={prompt.ready()}
             fallback={

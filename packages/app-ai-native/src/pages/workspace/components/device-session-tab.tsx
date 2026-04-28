@@ -120,8 +120,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const [phase, setPhase] = createStore<Record<string, "loading" | "ready" | "error">>({})
   const [loadedDiffs, setLoadedDiffs] = createStore<FileDiff[]>([])
   const [loadedTodos, setLoadedTodos] = createStore<Todo[]>([])
-  const [loadedPermissions, setLoadedPermissions] = createStore<Record<string, PermissionRequest[]>>({})
-  const [loadedQuestions, setLoadedQuestions] = createStore<Record<string, QuestionRequest[]>>({})
 
   createEffect((prev: string[]) => {
     const stack = viewingStack()
@@ -143,8 +141,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
         }
         setLoadedDiffs(reconcile([] as FileDiff[], { key: "file" }))
         setLoadedTodos(reconcile([] as Todo[], { key: "id" }))
-        setLoadedPermissions(reconcile({} as Record<string, PermissionRequest[]>))
-        setLoadedQuestions(reconcile({} as Record<string, QuestionRequest[]>))
       })
     }
     return currentIds
@@ -212,16 +208,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const effectiveTodos = createMemo(() => {
     if (viewingSessionID()) return loadedTodos as unknown as Todo[]
     return session.data.todos
-  })
-
-  const effectivePermissions = createMemo(() => {
-    if (viewingSessionID()) return loadedPermissions as Record<string, PermissionRequest[]>
-    return session.data.permissions
-  })
-
-  const effectiveQuestions = createMemo(() => {
-    if (viewingSessionID()) return loadedQuestions as Record<string, QuestionRequest[]>
-    return session.data.questions
   })
 
   createEffect(on(currentSessionID, async (id) => {
@@ -335,58 +321,10 @@ export function DeviceSessionTab(props: { tabId: string }) {
           if (props.diff) setLoadedDiffs(reconcile(props.diff, { key: "file" }))
           break
         }
+        case "session.todo":
         case "todo.updated": {
           const props = payload.properties as { todos?: Todo[] }
           if (props.todos) setLoadedTodos(reconcile(props.todos, { key: "id" }))
-          break
-        }
-        case "permission.asked": {
-          const perm = payload.properties as PermissionRequest
-          if (perm?.id) {
-            const sid = perm.sessionID
-            setLoadedPermissions(sid, produce((draft: PermissionRequest[]) => {
-              if (!draft.some((p) => p.id === perm.id)) {
-                draft.push(perm)
-              }
-            }))
-          }
-          break
-        }
-        case "permission.replied": {
-          const props = payload.properties as { sessionID?: string; requestID?: string }
-          const sid = props?.sessionID
-          const rid = props?.requestID
-          if (sid && rid) {
-            setLoadedPermissions(sid, produce((draft: PermissionRequest[]) => {
-              const idx = draft.findIndex((p) => p.id === rid)
-              if (idx !== -1) draft.splice(idx, 1)
-            }))
-          }
-          break
-        }
-        case "question.asked": {
-          const q = payload.properties as QuestionRequest
-          if (q?.id) {
-            const sid = q.sessionID
-            setLoadedQuestions(sid, produce((draft: QuestionRequest[]) => {
-              if (!draft.some((r) => r.id === q.id)) {
-                draft.push(q)
-              }
-            }))
-          }
-          break
-        }
-        case "question.replied":
-        case "question.rejected": {
-          const props = payload.properties as { sessionID?: string; requestID?: string }
-          const sid = props?.sessionID
-          const rid = props?.requestID
-          if (sid && rid) {
-            setLoadedQuestions(sid, produce((draft: QuestionRequest[]) => {
-              const idx = draft.findIndex((r) => r.id === rid)
-              if (idx !== -1) draft.splice(idx, 1)
-            }))
-          }
           break
         }
       }
@@ -433,8 +371,8 @@ export function DeviceSessionTab(props: { tabId: string }) {
     } as Record<string, SessionStatus>,
     session_diff: { [currentSessionID() ?? ""]: effectiveDiffs() } as Record<string, FileDiff[]>,
     todo: { [currentSessionID() ?? ""]: effectiveTodos() } as Record<string, Todo[]>,
-    permission: effectivePermissions(),
-    question: effectiveQuestions(),
+    permission: workspace.data.permissions,
+    question: workspace.data.questions,
     mcp: {} as Record<string, any>,
     lsp: [] as any[],
     vcs: workspace.data.vcs,
@@ -909,14 +847,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
                           </Show>
                         </div>
 
-                        <Show
-                          when={workspace.agentAvailable()}
-                          fallback={
-                            <div class="shrink-0 w-full pb-3 flex justify-center items-center">
-                              <span class="text-12-regular text-text-weak">{language.t("workspace.device.offline")}</span>
-                            </div>
-                          }
-                        >
+                        <Show when={workspace.agentAvailable()}>
                           <SessionComposerRegion
                             state={composer}
                             ready={true}
@@ -930,7 +861,13 @@ export function DeviceSessionTab(props: { tabId: string }) {
                             onResponseSubmit={resumeScroll}
                             setPromptDockRef={(el) => { promptDock = el }}
                             hideAttachButton
+                            hidePrompt={!!viewingSessionID()}
                           />
+                        </Show>
+                        <Show when={!workspace.agentAvailable()}>
+                          <div class="shrink-0 w-full pb-3 flex justify-center items-center">
+                            <span class="text-12-regular text-text-weak">{language.t("workspace.device.offline")}</span>
+                          </div>
                         </Show>
                       </div>
                     </div>
