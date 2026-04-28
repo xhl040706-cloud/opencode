@@ -281,7 +281,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       const commandName = cmdName.slice(1)
       const commands = sync.data.command.length > 0 ? sync.data.command : await sync.command.load()
       const customCommand = commands.find((c) => c.name === commandName || c.aliases?.includes(commandName))
-      if (customCommand && customCommand.scope === "prompt") {
+      if (customCommand && (customCommand.scope === "prompt" || !customCommand.scope)) {
         clearInput()
         conversation
           .sessionCommand({
