@@ -2,7 +2,7 @@ import { createContext, useContext, type ParentProps } from "solid-js"
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
-import type { Session, Command, Agent, VcsInfo } from "@opencode-ai/sdk/v2/client"
+import type { Session, Command, Agent, VcsInfo, SessionStatus } from "@opencode-ai/sdk/v2/client"
 import type { ProviderCapabilitiesResponse } from "./global-sync/types"
 
 type WorkspaceData = {
@@ -10,6 +10,7 @@ type WorkspaceData = {
   agent: Agent[]
   command: Command[]
   session: Session[]
+  sessionStatus: Record<string, SessionStatus>
   sessionTotal: number
   vcs: VcsInfo | undefined
   provider: ProviderCapabilitiesResponse
@@ -31,6 +32,7 @@ type DeviceWorkspaceValue = {
     get: (id: string) => Session | undefined
     fetch(count?: number): Promise<void>
     archive(id: string): Promise<void>
+    setStatus(id: string, status: SessionStatus | undefined): void
   }
   command: {
     load(): Promise<Command[]>
@@ -60,6 +62,7 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
     agent: [],
     command: [],
     session: [],
+    sessionStatus: {},
     sessionTotal: 0,
     vcs: undefined,
     provider: { connected: [] } as ProviderCapabilitiesResponse,
@@ -92,10 +95,11 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
         return
       }
 
-      const [agentsRes, commandsRes, sessionsRes, vcsRes, providersRes] = await Promise.all([
+      const [agentsRes, commandsRes, sessionsRes, sessionStatusRes, vcsRes, providersRes] = await Promise.all([
         device.client.agent.sessionModes().catch(() => undefined),
         device.client.agent.commands().catch(() => undefined),
         device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory }).catch(() => undefined),
+        device.client.conversation.status().catch(() => undefined),
         device.client.runtime.vcs().catch(() => undefined),
         device.client.agent.models().catch(() => undefined),
       ])
@@ -105,6 +109,7 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
         setStore("command", reconcile((commandsRes as Command[]) ?? [], { key: "name" }))
         const sessions = (sessionsRes as Session[]) ?? []
         setStore("session", reconcile(sessions.filter((s) => !!s?.id).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)), { key: "id" }))
+        setStore("sessionStatus", reconcile((sessionStatusRes as Record<string, SessionStatus>) ?? {}))
         setStore("sessionTotal", sessions.length)
         setStore("vcs", vcsRes as VcsInfo | undefined)
         const providerData = (providersRes as ProviderCapabilitiesResponse) ?? { connected: [] }
@@ -148,13 +153,28 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
 
   const getSession = (id: string) => store.session.find((s) => s.id === id)
 
+  const setSessionStatus = (id: string, status: SessionStatus | undefined) => {
+    if (!id) return
+    if (!status || status.type === "idle") {
+      setStore("sessionStatus", produce((draft) => {
+        delete draft[id]
+      }))
+      return
+    }
+    setStore("sessionStatus", id, reconcile(status))
+  }
+
   const fetchSessions = async (count = 10) => {
     if (!store.agentAvailable) return
     try {
-      const result = await device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory })
+      const [result, statusResult] = await Promise.all([
+        device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory }),
+        device.client.conversation.status().catch(() => undefined),
+      ])
       const sessions = (result as Session[]) ?? []
       batch(() => {
         setStore("session", reconcile(sessions.filter((s) => !!s?.id).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)), { key: "id" }))
+        setStore("sessionStatus", reconcile((statusResult as Record<string, SessionStatus>) ?? {}))
         setStore("sessionTotal", sessions.length)
       })
     } catch {}
@@ -168,6 +188,7 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
         const idx = draft.findIndex((s) => s.id === id)
         if (idx !== -1) draft.splice(idx, 1)
       }))
+      setSessionStatus(id, undefined)
     } catch {}
   }
 
@@ -248,6 +269,14 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
                     const idx = draft.findIndex((s) => s.id === id)
                     if (idx !== -1) draft.splice(idx, 1)
                   }))
+                  setSessionStatus(id, undefined)
+                  break
+                }
+                case "session.status": {
+                  const props = payload.properties as { sessionID?: string; status?: SessionStatus }
+                  const id = props?.sessionID ?? payload.sessionID
+                  if (!id || !props?.status) break
+                  setSessionStatus(id, props.status)
                   break
                 }
               }
@@ -287,6 +316,7 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
       get: getSession,
       fetch: fetchSessions,
       archive: archiveSession,
+      setStatus: setSessionStatus,
     },
     command: { load: loadCommands },
     vcs: { load: loadVcs },

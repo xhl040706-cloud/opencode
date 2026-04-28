@@ -60,6 +60,7 @@ export function useDeviceSession() {
 export { DeviceSessionContext }
 
 const MESSAGE_PAGE_SIZE = 50
+const idle: SessionStatus = { type: "idle" }
 
 export function group<T extends { id: string; sessionID: string }>(input: T[]) {
   return input.reduce<Record<string, T[]>>((acc, item) => {
@@ -132,6 +133,15 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
 
   createEffect(() => {
     if (sid()) void syncSession()
+  })
+
+  createEffect(() => {
+    const id = sid()
+    if (!id) {
+      setStore("status", undefined)
+      return
+    }
+    setStore("status", workspace.data.sessionStatus[id] ?? idle)
   })
 
   createEffect(() => {
@@ -296,11 +306,6 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
             const existing = draft[field] as string | undefined
             ;(draft[field] as string) = (existing ?? "") + props.delta
           }))
-          break
-        }
-        case "session.status": {
-          const status = (payload.properties as { status?: SessionStatus })?.status ?? payload.properties as SessionStatus
-          setStore("status", status as SessionStatus)
           break
         }
         case "session.diff": {

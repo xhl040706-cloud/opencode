@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Match, onMount, Show, Switch, createEffect, on, onCleanup, untrack } from "solid-js"
+import { createMemo, createSignal, For, Match, onMount, Show, Switch, createEffect, on, untrack } from "solid-js"
 import { useParams, useSearchParams } from "@solidjs/router"
 import { Toast } from "@opencode-ai/ui/toast"
 import { IconButton } from "@opencode-ai/ui/icon-button"
@@ -34,8 +34,35 @@ let newSessionCounter = 0
 
 let newTerminalCounter = 0
 
+const SESSION_TAB_ICON = "bubble-5"
+
 function TabIcon(props: { tab: ContentTab }) {
   return <Icon name={props.tab.icon as any ?? "file-tree"} size="small" class="shrink-0 text-text-weak" />
+}
+
+function SessionTabIcon(props: { tab: ContentTab }) {
+  const dw = useDeviceWorkspace()
+  const status = createMemo(() => {
+    const id = props.tab.meta?.sessionID as string | undefined
+    if (!id) return undefined
+    return dw.data.sessionStatus[id]
+  })
+  const working = createMemo(() => {
+    const t = status()?.type
+    return t === "busy" || t === "retry"
+  })
+
+  return (
+    <Show
+      when={working()}
+      fallback={<TabIcon tab={props.tab} />}
+    >
+      <div
+        class="size-3 shrink-0 rounded-full border border-t-transparent animate-spin border-native-primary"
+        title={status()?.type === "retry" ? "retry" : "busy"}
+      />
+    </Show>
+  )
 }
 
 function TabContent(props: { tab: ContentTab }) {
@@ -96,7 +123,9 @@ function ContentTabPanel() {
                     value={tab.id}
                     class="group h-full min-w-[100px] max-w-[180px] !bg-background-weak !border-b-0 has-[[data-selected]]:!bg-background-base has-[[data-selected]]:!border-b has-[[data-selected]]:before:absolute has-[[data-selected]]:before:top-0 has-[[data-selected]]:before:left-0 has-[[data-selected]]:before:right-0 has-[[data-selected]]:before:h-[2px] has-[[data-selected]]:before:bg-icon-strong-base [&>[data-slot=tabs-trigger]]:h-full [&>[data-slot=tabs-trigger]]:w-full [&>[data-slot=tabs-trigger]]:px-2 [&>[data-slot=tabs-trigger]]:gap-1.5 flex items-center gap-1.5 text-13-regular text-text-weak hover:text-text-base has-[[data-selected]]:text-text-base transition-colors relative"
                   >
-                    <TabIcon tab={tab} />
+                    <Show when={tab.kind === "session"} fallback={<TabIcon tab={tab} />}>
+                      <SessionTabIcon tab={tab} />
+                    </Show>
                     <span class="truncate flex-1 min-w-0">{tab.title}</span>
                     <button
                       class="flex items-center justify-center h-full w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -194,7 +223,6 @@ function ContentSidebar(props: { directory: string }) {
   const [unstagedFiles, setUnstagedFiles] = createSignal<DiffFileEntry[]>([])
   const [diffBranch, setDiffBranch] = createSignal<string>("")
   const [diffLoading, setDiffLoading] = createSignal(false)
-  const [statusMap, setStatusMap] = createSignal<Record<string, { type: string }>>({})
   const [diffGroupsCollapsed, setDiffGroupsCollapsed] = createSignal<Record<string, boolean>>({})
 
   const sortedSessions = createMemo(() => {
@@ -226,7 +254,7 @@ function ContentSidebar(props: { directory: string }) {
   })
 
   const isWorking = (id: string) => {
-    const s = statusMap()[id]
+    const s = dw.data.sessionStatus[id]
     return s?.type === "busy" || s?.type === "retry"
   }
 
@@ -235,7 +263,7 @@ function ContentSidebar(props: { directory: string }) {
       kind: "session",
       key: session.id,
       title: session.title || language.t("command.session.new"),
-      icon: "bubble-5",
+      icon: SESSION_TAB_ICON,
       meta: { sessionID: session.id },
     })
   }
@@ -252,25 +280,6 @@ function ContentSidebar(props: { directory: string }) {
       .map((tab) => tab.id)
     if (ids.length === 0) return
     ids.forEach(tabStore.close)
-  })
-
-  createEffect(() => {
-    const unsub = dw.subscribe((payload) => {
-      if (payload.type === "session.status") {
-        const props = payload.properties as { sessionID: string; status: { type: string } }
-        if (!props?.sessionID) return
-        if (props.status.type === "idle") {
-          setStatusMap((prev) => {
-            const next = { ...prev }
-            delete next[props.sessionID]
-            return next
-          })
-        } else {
-          setStatusMap((prev) => ({ ...prev, [props.sessionID]: props.status }))
-        }
-      }
-    })
-    onCleanup(unsub)
   })
 
   const loadDiff = async () => {
@@ -352,7 +361,7 @@ function ContentSidebar(props: { directory: string }) {
                 kind: "session",
                 key: `new-${newSessionCounter}`,
                 title: language.t("command.session.new"),
-                icon: "bubble-5",
+                icon: SESSION_TAB_ICON,
                 meta: { sessionID: undefined },
               })
             }}
@@ -666,7 +675,7 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
       kind: "session",
       key: sid,
       title: session?.title || language.t("command.session.new"),
-      icon: "message",
+      icon: SESSION_TAB_ICON,
       meta: { sessionID: sid },
     })
   }

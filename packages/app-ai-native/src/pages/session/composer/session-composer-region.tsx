@@ -38,6 +38,7 @@ export function SessionComposerRegion(props: {
   countMask?: number
   countMaskHeight?: number
   countWidthDuration?: number
+  hideAttachButton?: boolean
 }) {
   const params = useParams()
   const prompt = usePrompt()
@@ -222,6 +223,7 @@ export function SessionComposerRegion(props: {
                 newSessionWorktree={props.newSessionWorktree}
                 onNewSessionWorktreeReset={props.onNewSessionWorktreeReset}
                 onSubmit={props.onSubmit}
+                hideAttachButton={props.hideAttachButton}
               />
             </div>
           </Show>

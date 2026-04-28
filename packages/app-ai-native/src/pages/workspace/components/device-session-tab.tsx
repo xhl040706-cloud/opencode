@@ -118,7 +118,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const [loadedMessages, setLoadedMessages] = createStore<Record<string, Message[]>>({})
   const [loadedParts, setLoadedParts] = createStore<Record<string, Part[]>>({})
   const [phase, setPhase] = createStore<Record<string, "loading" | "ready" | "error">>({})
-  const [loadedStatus, setLoadedStatus] = createSignal<SessionStatus | undefined>()
   const [loadedDiffs, setLoadedDiffs] = createStore<FileDiff[]>([])
   const [loadedTodos, setLoadedTodos] = createStore<Todo[]>([])
   const [loadedPermissions, setLoadedPermissions] = createStore<Record<string, PermissionRequest[]>>({})
@@ -146,7 +145,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
         setLoadedTodos(reconcile([] as Todo[], { key: "id" }))
         setLoadedPermissions(reconcile({} as Record<string, PermissionRequest[]>))
         setLoadedQuestions(reconcile({} as Record<string, QuestionRequest[]>))
-        setLoadedStatus(undefined)
       })
     }
     return currentIds
@@ -196,7 +194,8 @@ export function DeviceSessionTab(props: { tabId: string }) {
   })
 
   const effectiveStatus = createMemo(() => {
-    if (viewingSessionID()) return loadedStatus() ?? { type: "idle" } as SessionStatus
+    const cid = currentSessionID()
+    if (cid) return workspace.data.sessionStatus[cid] ?? { type: "idle" } as SessionStatus
     return session.data.status
   })
 
@@ -236,19 +235,18 @@ export function DeviceSessionTab(props: { tabId: string }) {
       setLoadedParts(produce((draft: Record<string, Part[]>) => {
         for (const mid of mids) delete draft[mid]
       }))
-      setLoadedStatus(undefined)
       setPhase(id, "loading")
     })
-    const [sessionRes, messagesRes] = await Promise.allSettled([
-      device.client.conversation.get(id),
+    const messagesRes = await Promise.allSettled([
       device.client.conversation.messages(id, { limit: 50 }),
     ])
     if (currentSessionID() !== id) return
-    if (messagesRes.status !== "fulfilled") {
+    const messagesResult = messagesRes[0]
+    if (messagesResult?.status !== "fulfilled") {
       setPhase(id, "error")
       return
     }
-    const raw = Array.isArray(messagesRes.value) ? messagesRes.value : []
+    const raw = Array.isArray(messagesResult.value) ? messagesResult.value : []
     const msgs: Message[] = []
     batch(() => {
       for (const item of raw as any[]) {
@@ -259,9 +257,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
         }
       }
       setLoadedMessages(id, reconcile(msgs, { key: "id" }))
-      if (sessionRes.status === "fulfilled" && sessionRes.value) {
-        setLoadedStatus({ type: "idle" } as SessionStatus)
-      }
       setPhase(id, "ready")
     })
   }))
@@ -333,11 +328,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
             const existing = draft[field] as string | undefined
             ;(draft[field] as string) = (existing ?? "") + d.delta
           }))
-          break
-        }
-        case "session.status": {
-          const status = (payload.properties as { status?: SessionStatus })?.status ?? payload.properties as SessionStatus
-          setLoadedStatus(status as SessionStatus)
           break
         }
         case "session.diff": {
@@ -435,7 +425,12 @@ export function DeviceSessionTab(props: { tabId: string }) {
     path: { directory: device.directory } as Path,
     session: workspace.data.session,
     sessionTotal: workspace.data.sessionTotal,
-    session_status: { [currentSessionID() ?? ""]: effectiveStatus(), "": effectiveStatus(), undefined: effectiveStatus() } as Record<string, SessionStatus>,
+    session_status: {
+      ...workspace.data.sessionStatus,
+      ...(currentSessionID() ? { [currentSessionID()!]: effectiveStatus() } : {}),
+      "": effectiveStatus(),
+      undefined: effectiveStatus(),
+    } as Record<string, SessionStatus>,
     session_diff: { [currentSessionID() ?? ""]: effectiveDiffs() } as Record<string, FileDiff[]>,
     todo: { [currentSessionID() ?? ""]: effectiveTodos() } as Record<string, Todo[]>,
     permission: effectivePermissions(),
@@ -451,7 +446,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const syncSet = (...args: any[]) => {
     if (!viewingSessionID()) return
     if (args[0] === "session_status" && args[1]) {
-      setLoadedStatus(args[2] as SessionStatus)
+      workspace.session.setStatus(args[1] as string, args[2] as SessionStatus | undefined)
     }
     if (args[0] === "todo" && args[1]) {
       setLoadedTodos(reconcile(args[2] as Todo[] ?? [], { key: "id" }))
@@ -934,6 +929,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
                             }}
                             onResponseSubmit={resumeScroll}
                             setPromptDockRef={(el) => { promptDock = el }}
+                            hideAttachButton
                           />
                         </Show>
                       </div>

@@ -63,6 +63,7 @@ interface PromptInputProps {
   newSessionWorktree?: string
   onNewSessionWorktreeReset?: () => void
   onSubmit?: () => void
+  hideAttachButton?: boolean
 }
 
 const EXAMPLES = [
@@ -1253,6 +1254,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
               }}
             >
+              <Show when={!props.hideAttachButton}>
               <TooltipKeybind
                 placement="top"
                 title={language.t("prompt.action.attachFile")}
@@ -1276,6 +1278,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   <Icon name="plus" class="size-4.5" />
                 </Button>
               </TooltipKeybind>
+              </Show>
 
               <Tooltip
                 placement="top"
