@@ -568,7 +568,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         description: cmd.description,
         keybind: cmd.keybind,
         scope: cmd.scope,
-        type: cmd.scope === "prompt" ? ("custom" as const) : ("builtin" as const),
+        type: cmd.scope === "prompt" || !cmd.scope ? ("custom" as const) : ("builtin" as const),
         source: cmd.source as SlashCommand["source"],
       }))
   })
@@ -577,7 +577,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     if (!cmd) return
     closePopover()
 
-    if (cmd.scope === "prompt") {
+    if (cmd.scope === "prompt" || !cmd.scope) {
       const text = `/${cmd.trigger} `
       setEditorText(text)
       prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
