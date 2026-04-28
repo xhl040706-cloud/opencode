@@ -35,7 +35,7 @@ const TAG_COLOR_BY_CLASS = {
 let highlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined
 
 export function getInstallCommand(item: CapabilityItem) {
-  const registry = item.registry?.name || "public"
+  const registry = item.repoName || "public"
   return `cs plugin add ${item.itemType} ${registry}/${item.slug}`
 }
 
