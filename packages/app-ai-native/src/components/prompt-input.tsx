@@ -36,6 +36,7 @@ import { useCommand } from "@/context/command"
 import { Persist, persisted } from "@/utils/persist"
 import { usePermission } from "@/context/permission"
 import { useLanguage } from "@/context/language"
+import { useSlashActions } from "@/pages/session/slash-actions"
 import { usePlatform } from "@/context/platform"
 import { createTextFragment, getCursorPosition, setCursorPosition, setRangeEdge } from "./prompt-input/editor-dom"
 import { createPromptAttachments, ACCEPTED_FILE_TYPES } from "./prompt-input/attachments"
@@ -109,6 +110,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const permission = usePermission()
   const language = useLanguage()
   const platform = usePlatform()
+  const slashActions = useSlashActions()
   let editorRef!: HTMLDivElement
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
@@ -557,34 +559,25 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
-    const builtin = command.options
-      .filter((opt) => !opt.disabled && !opt.id.startsWith("suggested.") && opt.slash)
-      .map((opt) => ({
-        id: opt.id,
-        trigger: opt.slash!,
-        title: opt.title,
-        description: opt.description,
-        keybind: opt.keybind,
-        type: "builtin" as const,
+    return sync.data.command
+      .filter((cmd) => cmd.scope !== "tui-only")
+      .map((cmd) => ({
+        id: `cmd.${cmd.name}`,
+        trigger: cmd.name,
+        title: cmd.title || cmd.name,
+        description: cmd.description,
+        keybind: cmd.keybind,
+        scope: cmd.scope,
+        type: cmd.scope === "prompt" ? ("custom" as const) : ("builtin" as const),
+        source: cmd.source as SlashCommand["source"],
       }))
-
-    const custom = sync.data.command.map((cmd) => ({
-      id: `custom.${cmd.name}`,
-      trigger: cmd.name,
-      title: cmd.name,
-      description: cmd.description,
-      type: "custom" as const,
-      source: cmd.source as SlashCommand["source"],
-    }))
-
-    return [...custom, ...builtin]
   })
 
   const handleSlashSelect = (cmd: SlashCommand | undefined) => {
     if (!cmd) return
     closePopover()
 
-    if (cmd.type === "custom") {
+    if (cmd.scope === "prompt") {
       const text = `/${cmd.trigger} `
       setEditorText(text)
       prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
@@ -594,7 +587,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     clearEditor()
     prompt.set([{ type: "text", content: "", start: 0, end: 0 }], 0)
-    command.trigger(cmd.id, "slash")
+    slashActions.execute(cmd.trigger)
   }
 
   const {

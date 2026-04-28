@@ -60,7 +60,7 @@ export function deviceAdapter(client: DeviceClient): ConversationAdapter {
     sessionCommand: (input) => wrap(client.conversation.command(input.sessionID, input)),
     sessionPromptAsync: (input) => wrap(client.conversation.promptAsync(input.sessionID, input)),
     worktreeCreate: () => Promise.resolve(undefined),
-    commands: () => wrap(client.agent.commands()),
+    commands: () => client.transport.get<Array<{ name: string; aliases?: string[]; title?: string; description?: string; scope?: string; category?: string; keybind?: string; source?: string; template?: string; subtask?: boolean; hints?: string[] }>>("/api/v1/agents/commands").then((data) => ({ data: data ?? [] })),
     vcs: () => wrap(client.runtime.vcs()),
     permissions: () => wrap(client.permission.list()),
     questions: () => wrap(client.question.list()),
@@ -96,7 +96,14 @@ export function sdkAdapter(sdk: any): ConversationAdapter {
     sessionPromptAsync: (input: { sessionID: string } & Record<string, unknown>) =>
       wrap(sdk.conversation.promptAsync(input.sessionID, input)),
     worktreeCreate: (directory: string) => sdk.raw.worktree.create({ directory }),
-    commands: () => wrap(sdk.runtime.commands()),
+    commands: () => {
+      const baseUrl = (sdk as any).client?.baseUrl ?? ""
+      const headers = (sdk as any).client?.headers ?? {}
+      const url = `${baseUrl.replace(/\/$/, "")}/agents/commands`
+      return globalThis.fetch(url, { headers, method: "GET" })
+        .then((r: Response) => r.json())
+        .then((body: any) => ({ data: Array.isArray(body) ? body : body?.data?.commands ?? [] }))
+    },
     vcs: (directory: string) => wrap(sdk.runtime.vcs(directory)),
     permissions: () => wrap(sdk.permission.list()),
     questions: () => wrap(sdk.question.list()),
