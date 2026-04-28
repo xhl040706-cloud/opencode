@@ -2007,10 +2007,15 @@ export type VcsInfo = {
 
 export type Command = {
   name: string
+  aliases?: string[]
+  title?: string
   description?: string
+  scope?: string
+  category?: string
+  keybind?: string
+  source?: "command" | "mcp" | "skill"
   agent?: string
   model?: string
-  source?: "command" | "mcp" | "skill"
   template: string
   subtask?: boolean
   hints: Array<string>

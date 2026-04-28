@@ -362,6 +362,7 @@ export function Session() {
       keybind: "session_share",
       category: "Session",
       enabled: sync.data.config.share !== "disabled",
+      scope: "shared",
       slash: {
         name: "share",
       },
@@ -395,6 +396,7 @@ export function Session() {
       value: "session.rename",
       keybind: "session_rename",
       category: "Session",
+      scope: "shared",
       slash: {
         name: "rename",
       },
@@ -407,6 +409,7 @@ export function Session() {
       value: "session.timeline",
       keybind: "session_timeline",
       category: "Session",
+      scope: "shared",
       slash: {
         name: "timeline",
       },
@@ -430,6 +433,7 @@ export function Session() {
       value: "session.fork",
       keybind: "session_fork",
       category: "Session",
+      scope: "shared",
       slash: {
         name: "fork",
       },
@@ -452,6 +456,7 @@ export function Session() {
       value: "session.compact",
       keybind: "session_compact",
       category: "Session",
+      scope: "shared",
       slash: {
         name: "compact",
         aliases: ["summarize"],
@@ -480,6 +485,7 @@ export function Session() {
       keybind: "session_unshare",
       category: "Session",
       enabled: !!session()?.share?.url,
+      scope: "shared",
       slash: {
         name: "unshare",
       },
@@ -503,6 +509,7 @@ export function Session() {
       value: "session.undo",
       keybind: "messages_undo",
       category: "Session",
+      scope: "shared",
       slash: {
         name: "undo",
       },
@@ -542,6 +549,7 @@ export function Session() {
       keybind: "messages_redo",
       category: "Session",
       enabled: !!session()?.revert?.messageID,
+      scope: "shared",
       slash: {
         name: "redo",
       },
@@ -591,6 +599,7 @@ export function Session() {
       title: showTimestamps() ? "Hide timestamps" : "Show timestamps",
       value: "session.toggle.timestamps",
       category: "Session",
+      scope: "shared",
       slash: {
         name: "timestamps",
         aliases: ["toggle-timestamps"],
@@ -605,6 +614,7 @@ export function Session() {
       value: "session.toggle.thinking",
       keybind: "display_thinking",
       category: "Session",
+      scope: "shared",
       slash: {
         name: "thinking",
         aliases: ["toggle-thinking"],
