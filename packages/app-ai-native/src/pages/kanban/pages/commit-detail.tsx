@@ -205,7 +205,7 @@ export default function KanbanCommitDetail() {
                   <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.user")}</div>
                   <div class="mt-1 text-sm text-[var(--native-foreground)]">
                     <Show when={commit().user_id?.trim()} fallback={text(commit().user_name)}>
-                      <button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/user/${encodeURIComponent(commit().user_id!.trim())}`)}>
+                      <button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(`/kanban/user/${encodeURIComponent(commit().user_id!.trim())}`)}>
                         {commit().user_name || commit().user_id}
                       </button>
                     </Show>
@@ -218,7 +218,7 @@ export default function KanbanCommitDetail() {
                     <Show when={commit().repo_addr?.trim()} fallback={repoLabel()}>
                       <button
                         type="button"
-                        class="text-left break-all text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]"
+                        class="text-left break-all text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
                         onClick={() => navigate(commit().repo_branch?.trim() ? `/kanban/repo/${encodeURIComponent(commit().repo_addr!.trim())}/${encodeURIComponent(commit().repo_branch!.trim())}` : `/kanban/repo/${encodeURIComponent(commit().repo_addr!.trim())}`)}
                       >
                         {repoLabel()}
@@ -273,7 +273,7 @@ export default function KanbanCommitDetail() {
                         {(row) => (
                           <TableRow>
                             <TableCell>
-                              <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/task/${encodeURIComponent(row.task_id || "")}`)}>
+                              <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(`/kanban/task/${encodeURIComponent(row.task_id || "")}`)}>
                                 {row.task_id || "-"}
                               </button>
                             </TableCell>

@@ -106,7 +106,7 @@ export default function KanbanCommitList() {
       minWidth: 110,
       render: (row) => {
         const id = row.commit_id?.trim()
-        return id ? <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/commit/${encodeURIComponent(id)}?${routeQuery()}`)}>{shortId(id, 8)}</button> : <span>-</span>
+        return id ? <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(`/kanban/commit/${encodeURIComponent(id)}?${routeQuery()}`)}>{shortId(id, 8)}</button> : <span>-</span>
       },
     },
     {
@@ -126,7 +126,7 @@ export default function KanbanCommitList() {
       render: (row) => {
         const txt = row.org_display?.trim()
         if (!txt) return <span>-</span>
-        return <button type="button" class="block max-w-[18rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" title={txt} onClick={() => {
+        return <button type="button" class="block max-w-[18rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" title={txt} onClick={() => {
           const path = [row.org1, row.org2, row.org3, row.org4].filter(Boolean).join("/")
           if (!path) return
           navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}`)
@@ -139,7 +139,7 @@ export default function KanbanCommitList() {
       minWidth: 110,
       render: (row) => {
         const txt = row.user_name?.trim() || row.user_id?.trim()
-        return txt ? <button type="button" class="block max-w-[12rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" title={txt} onClick={() => {
+        return txt ? <button type="button" class="block max-w-[12rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" title={txt} onClick={() => {
           const id = row.user_id?.trim() || txt
           navigate(`/kanban/user/${encodeURIComponent(id)}?${routeQuery()}`)
         }}>{txt}</button> : <span>-</span>

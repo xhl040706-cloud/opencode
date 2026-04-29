@@ -286,7 +286,7 @@ export default function KanbanTaskDetail() {
                     <div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.user")}</div>
                     <div class="mt-1 text-sm text-[var(--native-foreground)]">
                       <Show when={task().user_id?.trim()} fallback={text(task().user_name)}>
-                        <button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/user/${encodeURIComponent(task().user_id!.trim())}`)}>
+                        <button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(`/kanban/user/${encodeURIComponent(task().user_id!.trim())}`)}>
                           {task().user_name || task().user_id}
                         </button>
                       </Show>
@@ -298,7 +298,7 @@ export default function KanbanTaskDetail() {
                       <Show when={task().repo_addr?.trim()} fallback={repoLabel()}>
                         <button
                           type="button"
-                          class="text-left break-all text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]"
+                          class="text-left break-all text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
                           onClick={() => navigate(task().repo_branch?.trim() ? `/kanban/repo/${encodeURIComponent(task().repo_addr!.trim())}/${encodeURIComponent(task().repo_branch!.trim())}` : `/kanban/repo/${encodeURIComponent(task().repo_addr!.trim())}`)}
                         >
                           {repoLabel()}
@@ -306,7 +306,7 @@ export default function KanbanTaskDetail() {
                       </Show>
                     </div>
                   </div>
-                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.workDir")}</div><div class="mt-1 break-all text-sm text-[var(--native-foreground)]"><Show when={task().work_dir_id?.trim()} fallback={text(task().work_dir)}><button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate("/kanban/workdir/" + encodeURIComponent(task().work_dir_id!.trim()) + "?fromTaskId=" + encodeURIComponent(task().task_id!.trim()))}>{task().work_dir || task().work_dir_id}</button></Show></div></div>
+                  <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.workDir")}</div><div class="mt-1 break-all text-sm text-[var(--native-foreground)]"><Show when={task().work_dir_id?.trim()} fallback={text(task().work_dir)}><button type="button" class="text-left text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate("/kanban/workdir/" + encodeURIComponent(task().work_dir_id!.trim()) + "?fromTaskId=" + encodeURIComponent(task().task_id!.trim()))}>{task().work_dir || task().work_dir_id}</button></Show></div></div>
                   <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.startTime")}</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{formatLocalTime(task().start_time)}</div></div>
                   <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.endTime")}</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{formatLocalTime(task().end_time)}</div></div>
                   <div><div class="text-[11px] uppercase tracking-[0.12em] text-[var(--native-dim)]">{language.t("kanban.label.system")}</div><div class="mt-1 text-sm text-[var(--native-foreground)]">{text([task().client_os, task().client_os_version].filter(Boolean).join(" "))}</div></div>

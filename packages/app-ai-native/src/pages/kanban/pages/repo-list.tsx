@@ -1,4 +1,4 @@
-import { A, useNavigate, useSearchParams } from "@solidjs/router"
+import { useNavigate, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, on } from "solid-js"
 import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
@@ -53,14 +53,14 @@ export default function KanbanRepoList() {
         const href = detailHref(row)
         if (!addr || !href) return <span>-</span>
         return (
-          <A
-            href={href}
-            class="block max-w-[24rem] truncate text-left text-sm text-[var(--native-primary)] underline-offset-2 transition-colors hover:text-[var(--native-foreground)] hover:underline"
+          <button
+            type="button"
+            class="block max-w-[24rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
             title={addr}
-            onClick={(event) => event.stopPropagation()}
+            onClick={() => navigate(href)}
           >
             {addr}
-          </A>
+          </button>
         )
       },
       filter: { type: "text" },
@@ -225,11 +225,6 @@ export default function KanbanRepoList() {
           onPageSizeChange={(size) => {
             setState("pageSize", size)
             setState("page", 1)
-          }}
-          onRowClick={(row) => {
-            const href = detailHref(row)
-            if (!href) return
-            navigate(href)
           }}
         />
       </div>
