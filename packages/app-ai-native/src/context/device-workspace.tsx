@@ -2,6 +2,7 @@ import { createContext, useContext, type ParentProps } from "solid-js"
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
+import { syncSummary, clearSummary } from "./workspace-summary-store"
 import type { Session, Command, Agent, VcsInfo, SessionStatus, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 import type { ProviderCapabilitiesResponse } from "./global-sync/types"
 
@@ -69,7 +70,7 @@ export function useDeviceWorkspace() {
 
 export { DeviceWorkspaceContext }
 
-export function DeviceWorkspaceProvider(props: ParentProps) {
+export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: string }>) {
   const device = useDeviceSDK()
 
   const [store, setStore] = createStore<WorkspaceData>({
@@ -140,6 +141,14 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
         setStore("questions", reconcile(groupBy(Array.isArray(questionsRes) ? questionsRes : [])))
         setStore("permissions", reconcile(groupBy(Array.isArray(permsRes) ? permsRes : [])))
         setStore("status", "ready")
+        if (props.workspaceId) {
+          syncSummary(props.workspaceId, {
+            vcs: vcsRes as VcsInfo | undefined,
+            sessionStatus: (sessionStatusRes as Record<string, SessionStatus>) ?? {},
+            questions: groupBy(Array.isArray(questionsRes) ? questionsRes : []),
+            permissions: groupBy(Array.isArray(permsRes) ? permsRes : []),
+          })
+        }
       })
     } catch {
       setStore("status", "unavailable")
@@ -375,6 +384,22 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
                   removePermission(props?.sessionID ?? "", props?.requestID ?? "")
                   break
                 }
+                case "vcs.branch.updated": {
+                  const props = payload.properties as { branch?: string }
+                  if (props?.branch == null) break
+                  const prev = store.vcs
+                  if (prev?.branch === props.branch) break
+                  setStore("vcs", { ...prev, branch: props.branch })
+                  break
+                }
+              }
+              if (props.workspaceId) {
+                syncSummary(props.workspaceId, {
+                  vcs: store.vcs,
+                  sessionStatus: store.sessionStatus,
+                  questions: store.questions,
+                  permissions: store.permissions,
+                })
               }
               dispatch(payload)
             })
@@ -394,6 +419,7 @@ export function DeviceWorkspaceProvider(props: ParentProps) {
   onCleanup(() => {
     streamAbort?.abort()
     streamAbort = undefined
+    if (props.workspaceId) clearSummary(props.workspaceId)
   })
 
   const projectValue = createMemo(() => ({
