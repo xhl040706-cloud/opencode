@@ -168,7 +168,7 @@ async function generateBuiltinSkills(
   for (const resource of downloadedResources) {
     const config = BUILTIN_RESOURCES[resource.name]
     if (config?.type === "skill" && resource.commitSha) {
-      versionEntries.push(`  "${resource.name}": "${resource.commitSha}"`)
+      versionEntries.push(`  "${resource.name}": "${resource.commitSha}",`)
     }
   }
 
@@ -303,7 +303,7 @@ async function generateBuiltinAgents(
       agentEntries.push("  },")
 
       if (resource.commitSha) {
-        versionEntries.push(`  "${resource.name}": "${resource.commitSha}"`)
+        versionEntries.push(`  "${resource.name}": "${resource.commitSha}",`)
       }
     } catch (err) {
       throw new Error(`Failed to parse agent ${resource.name}: ${err}`)
