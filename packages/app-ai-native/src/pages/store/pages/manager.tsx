@@ -226,9 +226,7 @@ export default function StoreManagerPage() {
     setState("loadingItems", true)
     try {
       const res = await itemApi.listMy(buildListParams())
-      setState("items", res.items ?? [])
-      setState("totalItems", res.total ?? 0)
-      setState("createdLoaded", true)
+      setState({ items: res.items ?? [], totalItems: res.total ?? 0, createdLoaded: true })
     }
     catch (error) {
       showToast({
@@ -247,9 +245,7 @@ export default function StoreManagerPage() {
     setState("favoritedLoading", true)
     try {
       const res = await itemApi.list({ ...buildListParams(), favorited: true })
-      setState("favoritedItems", res.items ?? [])
-      setState("favoritedTotal", res.total ?? 0)
-      setState("favoritedLoaded", true)
+      setState({ favoritedItems: res.items ?? [], favoritedTotal: res.total ?? 0, favoritedLoaded: true })
     }
     catch (error) {
       showToast({
@@ -892,8 +888,16 @@ export default function StoreManagerPage() {
 
           <section class={cn(sx.section, "flex min-h-0 flex-col px-2 sm:px-3")}>
             <div class={cn(sx.tableShell, "flex min-h-0 flex-col")}>
-              <Show when={!activeLoading()} fallback={<div class={sx.state}>{language.t(state.tab === "created" ? "store.console.capabilities.loading" : "store.console.capabilities.favorited.loading")}</div>}>
+              <Show when={state.createdLoaded || state.favoritedLoaded}>
+                <Show when={activeLoading()}>
+                  <div class={sx.overlay}>
+                    <div class={sx.spinner} />
+                  </div>
+                </Show>
                 <TableContent />
+              </Show>
+              <Show when={!state.createdLoaded && !state.favoritedLoaded}>
+                <div class={sx.state}>{language.t(state.tab === "created" ? "store.console.capabilities.loading" : "store.console.capabilities.favorited.loading")}</div>
               </Show>
             </div>
 
