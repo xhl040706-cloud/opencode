@@ -738,6 +738,7 @@ export default function StoreManagerPage() {
             tagLimitHint: language.t("store.home.filters.tagLimitHint"),
           }}
           emptyMessage={language.t(state.tab === "created" ? "store.console.capabilities.empty" : "store.console.capabilities.favorited.empty")}
+          maxVisibleRows={PAGE_SIZE}
           renderActions={(item) => (
             <div class="flex items-center justify-end gap-1">
               <button
@@ -781,7 +782,7 @@ export default function StoreManagerPage() {
           </div>
         }
       >
-        <div class="flex h-full min-h-0 w-full flex-1 flex-col gap-4 max-[1280px]:gap-3">
+        <div class="flex h-full min-h-0 w-full flex-1 flex-col">
           <header class="relative overflow-hidden bg-[linear-gradient(135deg,color-mix(in_srgb,var(--native-primary)_2%,white),color-mix(in_srgb,var(--native-primary)_10%,var(--native-panel))_62%,color-mix(in_srgb,var(--native-primary)_14%,var(--native-panel)))] before:pointer-events-none before:absolute before:right-[-10%] before:top-[-60%] before:h-[340px] before:w-[340px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--native-primary)_8%,transparent),transparent_70%)] before:content-['']">
             <div class="relative flex flex-row items-center justify-between gap-4 px-5 py-3 lg:gap-6">
               <div class="min-w-0 flex flex-1 items-center gap-4">
@@ -810,8 +811,9 @@ export default function StoreManagerPage() {
             </div>
           </header>
 
-          <section class={sx.section}>
-            <div class="mx-auto mt-1 flex w-full max-w-[64rem] items-center gap-3 max-[768px]:flex-col max-[768px]:items-stretch max-[640px]:gap-2">
+          <div class="flex w-full flex-1 items-center justify-center">
+            <section class={sx.section}>
+              <div class="mx-auto flex w-full max-w-[64rem] items-center gap-3 px-4 max-[768px]:flex-col max-[768px]:items-stretch max-[640px]:gap-2">
               <div class="relative min-w-0 flex-1 rounded-full transition-shadow hover:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))] focus-within:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))]">
                 <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-4 text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
@@ -886,9 +888,10 @@ export default function StoreManagerPage() {
               </div>
             </div>
           </section>
+          </div>
 
-          <section class={cn(sx.section, "flex min-h-0 flex-1 flex-col p-2 sm:p-3")}>
-            <div class={cn(sx.tableShell, "flex min-h-0 flex-1 flex-col")}>
+          <section class={cn(sx.section, "flex min-h-0 flex-col px-2 sm:px-3")}>
+            <div class={cn(sx.tableShell, "flex min-h-0 flex-col")}>
               <Show when={!activeLoading()} fallback={<div class={sx.state}>{language.t(state.tab === "created" ? "store.console.capabilities.loading" : "store.console.capabilities.favorited.loading")}</div>}>
                 <TableContent />
               </Show>
