@@ -208,7 +208,7 @@ export default function KanbanRepoDetail() {
               const next = details.value[0]
               navigate(detailHref(next || undefined))
             }}
-            positioning={{ sameWidth: true }}
+            positioning={{ fitViewport: true, sameWidth: true }}
           >
             <SelectControl>
               <SelectTrigger class="flex h-10 min-w-[12rem] shrink-0">
@@ -217,7 +217,7 @@ export default function KanbanRepoDetail() {
               </SelectTrigger>
             </SelectControl>
             <SelectPositioner>
-              <SelectContent>
+              <SelectContent class="max-h-[min(20rem,calc(var(--available-height)-1rem))] overflow-y-auto">
                 <SelectList>
                   <For each={branchItems().items}>
                     {(item) => (
