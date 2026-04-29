@@ -69,9 +69,9 @@ export function deviceAdapter(client: DeviceClient): ConversationAdapter {
     questions: () => wrap(client.question.list()),
     questionReply: (id, answers) => wrap(client.question.reply(id, { answers })),
     questionReject: (id) => wrap(client.question.reject(id)),
-    favoriteList: () => client.transport.get("/api/v1/global/favorite/skills").then((data) => ({ data: data ?? [] })),
-    favoriteLoad: (slug) => client.transport.post(`/api/v1/global/favorite/skills/${slug}/load`).then((data) => ({ data })),
-    favoriteUnload: (slug) => client.transport.post(`/api/v1/global/favorite/skills/${slug}/unload`).then((data) => ({ data })),
+    favoriteList: () => client.transport.get("/api/v1/agents/favorites").then((data) => ({ data: data ?? [] })),
+    favoriteLoad: (slug) => client.transport.post(`/api/v1/agents/favorites/${slug}/load`).then((data) => ({ data })),
+    favoriteUnload: (slug) => client.transport.post(`/api/v1/agents/favorites/${slug}/unload`).then((data) => ({ data })),
   }
 }
 
@@ -118,16 +118,16 @@ export function sdkAdapter(sdk: any): ConversationAdapter {
     questionReject: (requestID: string) => wrap(sdk.question.reject(requestID)),
     favoriteList: () =>
       sdk.transport
-        .get("/api/v1/global/favorite/skills")
+        .get("/api/v1/agents/favorites")
         .then((data: unknown) => ({ data: (data as unknown[] | null | undefined) ?? [] })),
     favoriteLoad: (slug: string) =>
       sdk.transport
-        .post(`/api/v1/global/favorite/skills/${slug}/load`)
+        .post(`/api/v1/agents/favorites/${slug}/load`)
         .then((data) => ({ data }))
         .catch(() => ({ data: undefined })),
     favoriteUnload: (slug: string) =>
       sdk.transport
-        .post(`/api/v1/global/favorite/skills/${slug}/unload`)
+        .post(`/api/v1/agents/favorites/${slug}/unload`)
         .then((data) => ({ data }))
         .catch(() => ({ data: undefined })),
   }
