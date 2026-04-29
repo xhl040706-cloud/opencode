@@ -92,6 +92,11 @@ export const DialogFavorites: Component = () => {
         title: language.t(action === "load" ? "command.favorites.enabled" : "command.favorites.disabled", { name: slug }),
         variant: "success",
       })
+      setItems((prev) =>
+        prev.map((item) =>
+          item.slug === slug ? { ...item, status: action === "load" ? "Active" : "Unloaded" } : item,
+        ),
+      )
       sync.set("command", [])
       await sync.command.load()
       await fetchFavorites()
