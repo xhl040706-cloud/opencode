@@ -16,7 +16,6 @@ import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { useDeviceSession } from "@/context/device-session"
 import { useDeviceLocal } from "@/context/device-local"
-import { useDeviceProject } from "@/context/device-project"
 import { deviceAdapter, ConversationAdapterContext } from "@/context/device-adapter"
 import { useLanguage } from "@/context/language"
 import { useFile } from "@/context/file"
@@ -107,7 +106,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const workspace = useDeviceWorkspace()
   const session = useDeviceSession()
   const local = useDeviceLocal()
-  const project = useDeviceProject()
   const language = useLanguage()
   const file = useFile()
   const tabStore = useContentTabs()

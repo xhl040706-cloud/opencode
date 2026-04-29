@@ -8,7 +8,6 @@ import { DeviceSDKContext } from "@/context/device-sdk"
 import { DeviceInitGate } from "@/context/device-init"
 import { DeviceFileProvider } from "@/context/device-file"
 import { DeviceTerminalProvider } from "@/context/device-terminal"
-import { DeviceProjectProvider } from "@/context/device-project"
 import { DeviceWorkspaceProvider } from "@/context/device-workspace"
 import { DeviceLocalProvider } from "@/context/device-local"
 import { DirectoryContext } from "@/context/directory"
@@ -233,7 +232,6 @@ export function DeviceInterface(props: ParentProps<{ directory: string; deviceLa
           <DirectoryContext.Provider value={() => props.directory}>
             <DeviceSDKProvider directory={props.directory}>
               <DeviceWorkspaceProvider>
-                <DeviceProjectProvider>
                   <DeviceFileProvider>
                     <DeviceTerminalProvider>
                       <DeviceLocalProvider>
@@ -241,7 +239,6 @@ export function DeviceInterface(props: ParentProps<{ directory: string; deviceLa
                       </DeviceLocalProvider>
                     </DeviceTerminalProvider>
                   </DeviceFileProvider>
-                </DeviceProjectProvider>
               </DeviceWorkspaceProvider>
             </DeviceSDKProvider>
           </DirectoryContext.Provider>
