@@ -56,6 +56,7 @@ export type FileReadData = {
 
 export type DeviceClient = {
   baseUrl: string
+  directory?: string
   transport: ReturnType<typeof createDeviceTransport>
   raw: OpencodeClient
   getConfig(): { baseUrl: string }
@@ -146,6 +147,7 @@ export function createDeviceClient(opts: ClientOpts): DeviceClient {
 
   return {
     baseUrl: opts.baseUrl,
+    directory: opts.directory,
     transport: http,
     raw: sdk as OpencodeClient,
     getConfig() {

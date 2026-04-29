@@ -15,6 +15,7 @@ import { FileProvider } from "@/context/file"
 import { GlobalSDKProvider } from "@/context/global-sdk"
 import { GlobalSyncProvider } from "@/context/global-sync"
 import { HighlightsProvider } from "@/context/highlights"
+import { ItemFilterOptionsProvider } from "@/context/item-filter-options"
 import { LanguageProvider, useLanguage } from "@/context/language"
 import { LayoutProvider } from "@/context/layout"
 import { ModelsProvider } from "@/context/models"
@@ -36,6 +37,7 @@ const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
 const StoreLayout = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreLayout })))
 const StoreHome = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreHome })))
+const StoreManager = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreManager })))
 const Loading = () => <div class="size-full" />
 
 const HomeRoute = () => <Navigate href="/store" />
@@ -43,6 +45,12 @@ const HomeRoute = () => <Navigate href="/store" />
 const StoreHomeRoute = () => (
   <Suspense fallback={<Loading />}>
     <StoreHome />
+  </Suspense>
+)
+
+const StoreManagerRoute = () => (
+  <Suspense fallback={<Loading />}>
+    <StoreManager />
   </Suspense>
 )
 
@@ -64,18 +72,17 @@ function UiI18nBridge(props: ParentProps) {
 }
 
 function FixedExperienceGuards(props: ParentProps) {
-  const language = useLanguage()
   const theme = useTheme()
 
   createEffect(() => {
-    // TODO: 后续支持设置页后，移除这里的强制覆盖，改回用户可配置。
-    if (language.locale() !== "zh") {
-      language.setLocale("zh")
-    }
-
     // TODO: 后续支持主题切换后，移除这里的强制覆盖，改回用户可配置。
     if (theme.themeId() !== "vercel") {
       theme.setTheme("vercel")
+    }
+
+    // TODO: 后续支持配色方案切换后，移除这里的强制覆盖，改回用户可配置。
+    if (theme.colorScheme() !== "light") {
+      theme.setColorScheme("light")
     }
   })
 
@@ -149,7 +156,9 @@ export function AppBaseProviders(props: ParentProps) {
                   <DialogProvider>
                     <MarkedProviderWithNativeParser>
                       <FileComponentProvider component={File}>
-                        <AuthProvider>{props.children}</AuthProvider>
+                        <AuthProvider>
+                          <ItemFilterOptionsProvider>{props.children}</ItemFilterOptionsProvider>
+                        </AuthProvider>
                       </FileComponentProvider>
                     </MarkedProviderWithNativeParser>
                   </DialogProvider>
@@ -190,6 +199,7 @@ export function AppInterface(props: {
               <Route path="/" component={HomeRoute} />
               <Route path="/store" component={StoreLayout}>
                 <Route path="/" component={StoreHomeRoute} />
+                <Route path="manager" component={StoreManagerRoute} />
               </Route>
             </Dynamic>
           </GlobalSyncProvider>

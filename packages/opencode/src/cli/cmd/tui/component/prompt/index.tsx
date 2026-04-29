@@ -283,6 +283,7 @@ export function Prompt(props: PromptProps) {
         category: "Session",
         keybind: "editor_open",
         value: "prompt.editor",
+        scope: "tui-only",
         slash: {
           name: "editor",
         },
@@ -369,6 +370,7 @@ export function Prompt(props: PromptProps) {
         title: "Skills",
         value: "prompt.skills",
         category: "Prompt",
+        scope: "shared",
         slash: {
           name: "skills",
         },

@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Match, onMount, Show, Switch, createEffect, on, onCleanup, untrack } from "solid-js"
+import { createMemo, createSignal, For, Match, onMount, onCleanup, Show, Switch, createEffect, untrack } from "solid-js"
 import { useParams, useSearchParams } from "@solidjs/router"
 import { Toast } from "@opencode-ai/ui/toast"
 import { IconButton } from "@opencode-ai/ui/icon-button"
@@ -6,18 +6,17 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Tabs } from "@opencode-ai/ui/tabs"
-import { Collapsible } from "@opencode-ai/ui/collapsible"
 import { useLanguage } from "@/context/language"
 import { useFile } from "@/context/file"
-import { useDeviceProject } from "@/context/device-project"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
+import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
 import { DeviceSessionProvider } from "@/context/device-session"
 import { DeviceSessionTab } from "./device-session-tab"
 import { TerminalTab } from "./terminal-tab"
 import { useDeviceTerminal } from "@/context/device-terminal"
 import { ContentTabContext, useContentTabs, type ContentTab } from "@/context/content-tabs"
-import { useDeviceLayout } from "./device-interface"
+import { useLayout } from "@/context/layout"
 import { FilePreviewTab } from "./file-preview-tab"
 import { DiffPreviewTab } from "./diff-preview-tab"
 import { workspaceKey } from "@/pages/layout/helpers"
@@ -34,8 +33,71 @@ let newSessionCounter = 0
 
 let newTerminalCounter = 0
 
+const SESSION_TAB_ICON = "bubble-5"
+
+function hasPendingInteraction(
+  sessions: { id: string; parentID?: string }[],
+  questions: Record<string, unknown[]>,
+  permissions: Record<string, unknown[]>,
+  sessionID?: string,
+): boolean {
+  if (!sessionID) return false
+  const treeIds = sessionTreeIDs(sessions as any, sessionID)
+  return treeIds.some((id) => (questions[id]?.length ?? 0) > 0 || (permissions[id]?.length ?? 0) > 0)
+}
+
 function TabIcon(props: { tab: ContentTab }) {
   return <Icon name={props.tab.icon as any ?? "file-tree"} size="small" class="shrink-0 text-text-weak" />
+}
+
+function PendingInteractionIcon() {
+  return (
+    <div class="shrink-0 flex items-center justify-center w-4 h-4 animate-bell" style={{ "transform-origin": "top center" }}>
+      <Icon name="bell" size="small" style={{ color: "#ffa000" }} />
+    </div>
+  )
+}
+
+function WorkingIcon(props: { class?: string; classList?: Record<string, boolean>; title?: string }) {
+  return (
+    <div class="shrink-0 flex items-center justify-center w-4 h-4">
+      <div
+        class="size-3 rounded-full border border-t-transparent animate-spin"
+        classList={props.classList}
+        title={props.title}
+      />
+    </div>
+  )
+}
+
+function SessionTabIcon(props: { tab: ContentTab }) {
+  const dw = useDeviceWorkspace()
+  const status = createMemo(() => {
+    const id = props.tab.meta?.sessionID as string | undefined
+    if (!id) return undefined
+    return dw.data.sessionStatus[id]
+  })
+  const working = createMemo(() => {
+    const t = status()?.type
+    return t === "busy" || t === "retry"
+  })
+  const pending = createMemo(() => {
+    const id = props.tab.meta?.sessionID as string | undefined
+    return hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, id)
+  })
+
+  return (
+    <Show
+      when={pending()}
+      fallback={
+        <Show when={working()} fallback={<TabIcon tab={props.tab} />}>
+          <WorkingIcon title={status()?.type === "retry" ? "retry" : "busy"} />
+        </Show>
+      }
+    >
+      <PendingInteractionIcon />
+    </Show>
+  )
 }
 
 function TabContent(props: { tab: ContentTab }) {
@@ -63,6 +125,7 @@ function ContentTabPanel() {
   const tabStore = useContentTabs()
   const terminal = useDeviceTerminal()
   const language = useLanguage()
+  const layout = useLayout()
 
   const closeTab = (id: string) => {
     const tab = tabStore.tabs().find((t) => t.id === id)
@@ -78,8 +141,21 @@ function ContentTabPanel() {
       <Show
         when={tabStore.tabs().length > 0}
         fallback={
-          <div class="flex-1 h-full flex items-center justify-center text-text-weak text-14-regular">
-            {language.t("workspace.content.selectFileOrSession")}
+          <div class="flex-1 h-full flex items-center justify-center text-text-weak text-12-regular">
+            <div class="flex flex-col gap-1.5">
+              <div class="flex items-center justify-between gap-8">
+                <span>{language.t("workspace.content.shortcut.newSession")}</span>
+                <span class="flex items-center gap-0.5"><code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">Alt</code>+<code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">N</code></span>
+              </div>
+              <div class="flex items-center justify-between gap-8">
+                <span>{language.t("workspace.content.shortcut.newTerminal")}</span>
+                <span class="flex items-center gap-0.5"><code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">Alt</code>+<code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">T</code></span>
+              </div>
+              <div class="flex items-center justify-between gap-8">
+                <span>{language.t("workspace.content.shortcut.toggleSidebar")}</span>
+                <span class="flex items-center gap-0.5"><code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">Alt</code>+<code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">M</code></span>
+              </div>
+            </div>
           </div>
         }
       >
@@ -88,15 +164,28 @@ function ContentTabPanel() {
           onChange={tabStore.activate}
           class="h-full flex flex-col"
         >
-          <div class="h-[41px] shrink-0 flex items-center  border-b pr-2">
-            <Tabs.List class="flex-1 min-w-0 h-full [&::after]:border-b-0 overflow-x-auto scrollbar-none" onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY }}>
+          <div class="h-[41px] shrink-0 flex items-center border-b">
+            <div class="shrink-0 flex items-center px-2">
+              <Tooltip value={language.t(layout.fileTree.opened() ? "workspace.sidebar.collapse" : "workspace.sidebar.expand")} placement="bottom">
+                <IconButton
+                  icon={layout.fileTree.opened() ? "chevron-left" : "chevron-right"}
+                  variant="ghost"
+                  iconSize="small"
+                  onClick={layout.fileTree.toggle}
+                  aria-label={language.t(layout.fileTree.opened() ? "workspace.sidebar.collapse" : "workspace.sidebar.expand")}
+                />
+              </Tooltip>
+            </div>
+            <Tabs.List class="flex-1 min-w-0 h-full border-l [&::after]:border-b-0 overflow-x-auto scrollbar-none" onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY }}>
               <For each={tabStore.tabs()}>
                 {(tab) => (
                   <Tabs.Trigger
                     value={tab.id}
                     class="group h-full min-w-[100px] max-w-[180px] !bg-background-weak !border-b-0 has-[[data-selected]]:!bg-background-base has-[[data-selected]]:!border-b has-[[data-selected]]:before:absolute has-[[data-selected]]:before:top-0 has-[[data-selected]]:before:left-0 has-[[data-selected]]:before:right-0 has-[[data-selected]]:before:h-[2px] has-[[data-selected]]:before:bg-icon-strong-base [&>[data-slot=tabs-trigger]]:h-full [&>[data-slot=tabs-trigger]]:w-full [&>[data-slot=tabs-trigger]]:px-2 [&>[data-slot=tabs-trigger]]:gap-1.5 flex items-center gap-1.5 text-13-regular text-text-weak hover:text-text-base has-[[data-selected]]:text-text-base transition-colors relative"
                   >
-                    <TabIcon tab={tab} />
+                    <Show when={tab.kind === "session"} fallback={<TabIcon tab={tab} />}>
+                      <SessionTabIcon tab={tab} />
+                    </Show>
                     <span class="truncate flex-1 min-w-0">{tab.title}</span>
                     <button
                       class="flex items-center justify-center h-full w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -111,7 +200,7 @@ function ContentTabPanel() {
                 )}
               </For>
             </Tabs.List>
-            <div class="shrink-0 flex items-center px-1">
+            <div class="shrink-0 flex items-center px-2">
               <Tooltip value={language.t("workspace.content.closeAll")} placement="bottom">
                 <IconButton
                   icon="trash"
@@ -174,7 +263,7 @@ const SECTION_HEADER_HEIGHT = 32
 
 function ContentSidebar(props: { directory: string }) {
   const language = useLanguage()
-  const dl = useDeviceLayout()
+  const dl = useLayout()
   const tabStore = useContentTabs()
   const terminal = useDeviceTerminal()
   const sdk = useDeviceSDK()
@@ -194,7 +283,6 @@ function ContentSidebar(props: { directory: string }) {
   const [unstagedFiles, setUnstagedFiles] = createSignal<DiffFileEntry[]>([])
   const [diffBranch, setDiffBranch] = createSignal<string>("")
   const [diffLoading, setDiffLoading] = createSignal(false)
-  const [statusMap, setStatusMap] = createSignal<Record<string, { type: string }>>({})
   const [diffGroupsCollapsed, setDiffGroupsCollapsed] = createSignal<Record<string, boolean>>({})
 
   const sortedSessions = createMemo(() => {
@@ -226,7 +314,7 @@ function ContentSidebar(props: { directory: string }) {
   })
 
   const isWorking = (id: string) => {
-    const s = statusMap()[id]
+    const s = dw.data.sessionStatus[id]
     return s?.type === "busy" || s?.type === "retry"
   }
 
@@ -235,7 +323,7 @@ function ContentSidebar(props: { directory: string }) {
       kind: "session",
       key: session.id,
       title: session.title || language.t("command.session.new"),
-      icon: "bubble-5",
+      icon: SESSION_TAB_ICON,
       meta: { sessionID: session.id },
     })
   }
@@ -252,25 +340,6 @@ function ContentSidebar(props: { directory: string }) {
       .map((tab) => tab.id)
     if (ids.length === 0) return
     ids.forEach(tabStore.close)
-  })
-
-  createEffect(() => {
-    const unsub = dw.subscribe((payload) => {
-      if (payload.type === "session.status") {
-        const props = payload.properties as { sessionID: string; status: { type: string } }
-        if (!props?.sessionID) return
-        if (props.status.type === "idle") {
-          setStatusMap((prev) => {
-            const next = { ...prev }
-            delete next[props.sessionID]
-            return next
-          })
-        } else {
-          setStatusMap((prev) => ({ ...prev, [props.sessionID]: props.status }))
-        }
-      }
-    })
-    onCleanup(unsub)
   })
 
   const loadDiff = async () => {
@@ -352,7 +421,7 @@ function ContentSidebar(props: { directory: string }) {
                 kind: "session",
                 key: `new-${newSessionCounter}`,
                 title: language.t("command.session.new"),
-                icon: "bubble-5",
+                icon: SESSION_TAB_ICON,
                 meta: { sessionID: undefined },
               })
             }}
@@ -471,11 +540,11 @@ function ContentSidebar(props: { directory: string }) {
                                           }}
                                           onClick={() => openSession(session)}
                                         >
-                                          <Show
-                                            when={isWorking(session.id)}
-                                          >
-                                            <div
-                                              class="size-3 shrink-0 rounded-full border border-t-transparent animate-spin"
+                                          <Show when={hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id)}>
+                                            <PendingInteractionIcon />
+                                          </Show>
+                                          <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && isWorking(session.id)}>
+                                            <WorkingIcon
                                               classList={{
                                                 "border-native-primary": isActive(),
                                                 "border-native-dim": !isActive(),
@@ -631,8 +700,9 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
   const [searchParams, setSearchParams] = useSearchParams<{ session?: string }>()
   const language = useLanguage()
   const tabStore = useContentTabs()
-  const dl = useDeviceLayout()
+  const dl = useLayout()
   const ws = useDeviceWorkspace()
+  const terminal = useDeviceTerminal()
   const active = createMemo(() => params.workspaceID === props.workspaceId)
   const [done, setDone] = createSignal<string | undefined>()
 
@@ -640,6 +710,57 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
   const directory = createMemo(() => {
     if (!props.directory) return ""
     return workspaceKey(props.directory)
+  })
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.target instanceof HTMLElement && (e.target.isContentEditable || e.target.closest("input, textarea, select"))) return
+    if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+    if (e.key === "m") {
+      e.preventDefault()
+      e.stopPropagation()
+      dl.fileTree.toggle()
+    } else if (e.key === "n") {
+      e.preventDefault()
+      e.stopPropagation()
+      newSessionCounter++
+      tabStore.open({
+        kind: "session",
+        key: `new-${newSessionCounter}`,
+        title: language.t("command.session.new"),
+        icon: SESSION_TAB_ICON,
+        meta: { sessionID: undefined },
+      })
+    } else if (e.key === "t") {
+      e.preventDefault()
+      e.stopPropagation()
+      newTerminalCounter++
+      const pendingKey = `pending-${newTerminalCounter}`
+      tabStore.open({
+        kind: "terminal",
+        key: pendingKey,
+        title: language.t("command.terminal.new"),
+        icon: "terminal",
+        meta: { sessionId: undefined },
+      })
+      terminal.new().then((sessionId) => {
+        if (!sessionId) {
+          tabStore.close(tabStore.makeTabId("terminal", pendingKey))
+          return
+        }
+        tabStore.replace(tabStore.makeTabId("terminal", pendingKey), {
+          kind: "terminal",
+          key: sessionId,
+          title: `Terminal`,
+          icon: "terminal",
+          meta: { sessionId },
+        })
+      })
+    }
+  }
+
+  onMount(() => {
+    document.addEventListener("keydown", handleKeyDown, true)
+    onCleanup(() => document.removeEventListener("keydown", handleKeyDown, true))
   })
 
   const syncUrlFromTab = (id: string | undefined) => {
@@ -666,7 +787,7 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
       kind: "session",
       key: sid,
       title: session?.title || language.t("command.session.new"),
-      icon: "message",
+      icon: SESSION_TAB_ICON,
       meta: { sessionID: sid },
     })
   }
@@ -696,11 +817,11 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
       fallback={<div class="size-full" />}
     >
       <div class="flex h-full w-full min-h-0">
-        <Show when={dl.fileTree.opened()}>
-          <div
-            class="shrink-0 h-full relative"
-            style={{ width: `${dl.fileTree.width()}px` }}
-          >
+        <div
+          class="shrink-0 h-full overflow-hidden transition-[width] duration-200"
+          style={{ width: dl.fileTree.opened() ? `${dl.fileTree.width()}px` : "0px" }}
+        >
+          <div class="h-full relative" style={{ width: `${dl.fileTree.width()}px` }}>
             <ContentSidebar directory={directory()!} />
             <ResizeHandle
               direction="horizontal"
@@ -712,7 +833,7 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
               onCollapse={dl.fileTree.close}
             />
           </div>
-        </Show>
+        </div>
 
         <div class="flex-1 min-w-0 h-full flex flex-col">
           <ContentTabPanel />

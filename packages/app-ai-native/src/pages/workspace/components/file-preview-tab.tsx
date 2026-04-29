@@ -3,6 +3,7 @@ import { Dynamic } from "solid-js/web"
 import { ScrollView } from "@opencode-ai/ui/scroll-view"
 import { useFileComponent } from "@opencode-ai/ui/context/file"
 import { Markdown } from "@opencode-ai/ui/markdown"
+import "@/styles/vscode-markdown.css"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { Button } from "@/components/ui/button"
@@ -173,7 +174,7 @@ export function FilePreviewTab(props: { tab: ContentTab }) {
 
   const renderMarkdown = (source: string) => (
     <div class="px-6 py-4 max-w-none">
-      <Markdown text={source} class="text-14-regular" />
+      <Markdown text={source} class="vscode-markdown text-14-regular" />
     </div>
   )
 
