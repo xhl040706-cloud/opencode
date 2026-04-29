@@ -168,7 +168,7 @@ async function generateBuiltinSkills(
   for (const resource of downloadedResources) {
     const config = BUILTIN_RESOURCES[resource.name]
     if (config?.type === "skill" && resource.commitSha) {
-      versionEntries.push(`  "${resource.name}": "${resource.commitSha}",`)
+      versionEntries.push(`  "${resource.name}": "${resource.commitSha}"`)
     }
   }
 
@@ -303,7 +303,7 @@ async function generateBuiltinAgents(
       agentEntries.push("  },")
 
       if (resource.commitSha) {
-        versionEntries.push(`  "${resource.name}": "${resource.commitSha}",`)
+        versionEntries.push(`  "${resource.name}": "${resource.commitSha}"`)
       }
     } catch (err) {
       throw new Error(`Failed to parse agent ${resource.name}: ${err}`)
@@ -314,10 +314,12 @@ async function generateBuiltinAgents(
   outLines.push(...agentEntries)
   outLines.push("}")
   outLines.push("")
-  outLines.push("export const AGENT_VERSIONS: Record<string, string> = {")
-  outLines.push(...versionEntries)
-  outLines.push("}")
-  outLines.push("")
+  if (versionEntries.length > 0) {
+    outLines.push("export const AGENT_VERSIONS: Record<string, string> = {")
+    outLines.push(versionEntries.join(",\n"))
+    outLines.push("}")
+    outLines.push("")
+  }
 
   await fs.writeFile(builtinAgentsFile, outLines.join("\n"), "utf-8")
   console.log(`✓ Generated ${builtinAgentsFile}`)
