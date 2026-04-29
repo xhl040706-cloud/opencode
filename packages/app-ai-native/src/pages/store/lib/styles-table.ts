@@ -1,5 +1,5 @@
 export const table = {
-  tableShell: "relative min-h-[420px] overflow-hidden rounded-[0.375rem] border border-[color:color-mix(in_oklab,var(--native-border)_38%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_76%,var(--native-bg-subtle))] sm:min-h-[480px]",
+  tableShell: "relative overflow-hidden rounded-[0.375rem] border border-[color:color-mix(in_oklab,var(--native-border)_38%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_76%,var(--native-bg-subtle))]",
   state: "px-4 py-12 text-center text-[var(--native-muted)]",
   overlay: "absolute inset-0 z-10 flex items-center justify-center bg-[color:color-mix(in_oklab,var(--native-panel)_70%,transparent)] backdrop-blur-[4px]",
   spinner: "h-8 w-8 animate-spin rounded-full border-[3px] border-[color:color-mix(in_srgb,var(--native-border)_30%,transparent)] border-t-[var(--native-primary)]",
@@ -26,7 +26,7 @@ export const table = {
   sortUpOn: "border-b-[var(--native-primary)]",
   sortDown: "h-0 w-0 border-l-[4px] border-r-[4px] border-t-[5px] border-l-transparent border-r-transparent border-t-[color:color-mix(in_srgb,var(--native-dim)_40%,transparent)] transition-[border-color]",
   sortDownOn: "border-t-[var(--native-primary)]",
-  pager: "flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+  pager: "flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4",
   pagerSum: "text-[0.8125rem] leading-[1.55] text-[var(--native-muted)]",
   pagerActs: "flex flex-wrap items-center justify-end gap-2",
   page: "inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]",

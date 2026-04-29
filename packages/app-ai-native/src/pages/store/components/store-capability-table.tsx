@@ -58,7 +58,7 @@ export const DEFAULT_VISIBLE_COLUMNS: Record<TableColumnKey, boolean> = {
   experienceScore: true,
   favorite: true,
   updated: true,
-  action: true,
+  action: false,
 }
 
 export function buildStoreTableColumnOptions(t: (key: string) => string) {
@@ -573,7 +573,7 @@ function TagCell(props: { tags?: ItemTag[], appliedTagFilters: string[], onTagCl
 function ColumnToggleMenu(props: {
   columnOptions: { key: TableColumnKey, label: string }[]
   isColumnVisible: (key: TableColumnKey) => boolean
-  onToggleColumnVisibility: (key: Exclude<TableColumnKey, "action">) => void
+  onToggleColumnVisibility: (key: TableColumnKey) => void
   label: string
 }) {
   return (
@@ -595,10 +595,7 @@ function ColumnToggleMenu(props: {
           {(column) => (
             <DropdownMenuCheckboxItem
               checked={props.isColumnVisible(column.key)}
-              disabled={column.key === "action"}
-              onChange={() => {
-                if (column.key !== "action") props.onToggleColumnVisibility(column.key)
-              }}
+              onChange={() => props.onToggleColumnVisibility(column.key)}
             >
               {column.label}
             </DropdownMenuCheckboxItem>
@@ -653,7 +650,7 @@ export function StoreCapabilityTable(props: {
   rows: CapabilityItem[]
   visibleColumns: Record<TableColumnKey, boolean>
   columnOptions: { key: TableColumnKey, label: string }[]
-  onToggleColumnVisibility: (key: Exclude<TableColumnKey, "action">) => void
+  onToggleColumnVisibility: (key: TableColumnKey) => void
   sort: { by?: ItemSort, order?: ItemOrder }
   onSortChange: (by: ItemSort) => void
   onRowClick: (item: CapabilityItem) => void
@@ -663,6 +660,7 @@ export function StoreCapabilityTable(props: {
   sourceUrl: (value?: string) => string | undefined
   securityLabel: (value: SecurityFilterValue, option?: unknown) => string
   favoriteIconColor: (favorited?: boolean, itemType?: string) => string
+  onToggleFavorite?: (item: CapabilityItem) => void
   formatDate: (iso?: string) => string
   formatSourceMetric: (value?: number, source?: string) => string
   formatCompact: (value: number) => string
@@ -737,6 +735,8 @@ export function StoreCapabilityTable(props: {
     source: string
     experienceScore: string
     favoriteCount: string
+    favorite: string
+    unfavorite: string
     updated: string
     action: string
     toggleColumns: string
@@ -752,6 +752,7 @@ export function StoreCapabilityTable(props: {
   emptyMessage: string
   renderActions: (item: CapabilityItem) => JSX.Element
   typeLabel?: (value: string) => string
+  maxVisibleRows?: number
 }) {
   const isColumnVisible = (key: TableColumnKey) => props.visibleColumns[key]
   const stickyHeadClass = "sticky top-0 z-10 bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))]"
@@ -762,9 +763,17 @@ export function StoreCapabilityTable(props: {
   }
   const visibleColumnCount = createMemo(() => Object.values(props.visibleColumns).filter(Boolean).length)
 
+  let scrollRef: HTMLDivElement | undefined
+
+  const tableMaxHeight = createMemo(() => {
+    const max = props.maxVisibleRows
+    if (!max) return undefined
+    return `calc(2.5rem + 3.9375rem * ${max} + 1px)`
+  })
+
   return (
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div class="min-h-0 flex-1 overflow-auto">
+      <div ref={scrollRef} class="min-h-0 flex-1 overflow-auto" style={tableMaxHeight() != null ? { "max-height": tableMaxHeight(), "min-height": tableMaxHeight() } : undefined}>
         <table class="w-full table-fixed caption-bottom text-sm text-[0.8125rem]">
           <thead class={cn("[&_tr]:border-b [&_tr]:border-border", sx.thead)}>
             <tr class={stickyHeadRowClass}>
@@ -918,16 +927,18 @@ export function StoreCapabilityTable(props: {
                   </button>
                 </th>
               </Show>
-              <th class={cn("h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0", sx.th, sx.colAction, stickyHeadClass, "text-right")}>
-                <div class="flex items-center justify-end gap-2">
-                  <span>{props.labels.action}</span>
-                  <ColumnToggleMenu
-                    columnOptions={props.columnOptions}
-                    isColumnVisible={isColumnVisible}
-                    onToggleColumnVisibility={props.onToggleColumnVisibility}
-                    label={props.labels.toggleColumns}
-                  />
-                </div>
+              <Show when={isColumnVisible("action")}>
+                <th class={cn("h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0", sx.th, sx.colAction, stickyHeadClass, "text-right")}>
+                  {props.labels.action}
+                </th>
+              </Show>
+              <th class={cn("h-10 w-8 min-w-8 px-1 align-middle", stickyHeadClass)}>
+                <ColumnToggleMenu
+                  columnOptions={props.columnOptions}
+                  isColumnVisible={isColumnVisible}
+                  onToggleColumnVisibility={props.onToggleColumnVisibility}
+                  label={props.labels.toggleColumns}
+                />
               </th>
             </tr>
           </thead>
@@ -1001,7 +1012,18 @@ export function StoreCapabilityTable(props: {
                 <Show when={isColumnVisible("favorite")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colFavorite, sx.mut)}>
                     <div class="inline-flex h-4 items-center justify-center gap-1.5 align-middle">
-                      <LocalIcon name={item.favorited ? "star-filled" : "star"} size="small" style={{ color: props.favoriteIconColor(item.favorited, item.itemType) }} />
+                      <button
+                        type="button"
+                        class="inline-flex size-6 items-center justify-center rounded-full transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] active:bg-[color:color-mix(in_oklab,var(--native-foreground)_16%,transparent)]]"
+                        disabled={!props.onToggleFavorite}
+                        title={item.favorited ? props.labels.unfavorite : props.labels.favorite}
+                        onClick={(e: MouseEvent) => {
+                          e.stopPropagation()
+                          props.onToggleFavorite?.(item)
+                        }}
+                      >
+                        <LocalIcon name={item.favorited ? "star-filled" : "star"} size="small" style={{ color: props.favoriteIconColor(item.favorited, item.itemType) }} />
+                      </button>
                       <span class="inline-flex h-4 items-center leading-4" title={(item.favoriteCount ?? 0).toLocaleString()}>
                         {props.formatCompact(item.favoriteCount ?? 0)}
                       </span>
@@ -1013,9 +1035,12 @@ export function StoreCapabilityTable(props: {
                     {props.formatDate(item.updatedAt)}
                   </td>
                 </Show>
-                    <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colAction, "text-right")} onClick={(e: MouseEvent) => e.stopPropagation()}>
-                      {props.renderActions(item)}
-                    </td>
+                <Show when={isColumnVisible("action")}>
+                  <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colAction, "text-right")} onClick={(e: MouseEvent) => e.stopPropagation()}>
+                    {props.renderActions(item)}
+                  </td>
+                </Show>
+                <td class="w-8 min-w-8 px-1"></td>
                   </tr>
                 )}
               </For>
