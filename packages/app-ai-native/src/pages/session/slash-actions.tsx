@@ -11,6 +11,8 @@ import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { DialogSelectFile } from "@/components/dialog-select-file"
 import { DialogSelectModel } from "@/components/dialog-select-model"
 import { DialogSelectMcp } from "@/components/dialog-select-mcp"
+import { DialogSelectAgent } from "@/components/dialog-select-agent"
+import { DialogSelectVariant } from "@/components/dialog-select-variant"
 import { DialogSelectProvider } from "@/components/dialog-select-provider"
 import { DialogFork } from "@/components/dialog-fork"
 import { DialogSessionRename } from "@/components/dialog-session-rename"
@@ -61,7 +63,7 @@ export function useSlashActions() {
         break
       }
       case "agents": {
-        local.agent.move(1)
+        dialog.show(() => <DialogSelectAgent />)
         break
       }
       case "mcps": {
@@ -69,7 +71,7 @@ export function useSlashActions() {
         break
       }
       case "variants": {
-        local.model.variant.cycle()
+        dialog.show(() => <DialogSelectVariant />)
         break
       }
       case "connect": {
@@ -292,8 +294,7 @@ export function useSlashActions() {
         break
       }
       case "terminal": {
-        // Terminal toggle is session-scoped and not directly accessible from layout context
-        showToast({ title: language.t("command.terminal.toggle") })
+        layout.view(sessionID() ?? "").terminal.toggle()
         break
       }
       default: {
