@@ -517,7 +517,7 @@ export default function StoreManagerPage() {
     refreshActiveTab()
   }
 
-  const toggleColumnVisibility = (key: Exclude<TableColumnKey, "action">) => {
+  const toggleColumnVisibility = (key: TableColumnKey) => {
     setColumnPrefs("visible", key, (current) => !current)
   }
 
@@ -612,6 +612,7 @@ export default function StoreManagerPage() {
           sourceUrl={(value) => itemFilterOptions.sourceUrl(value)}
           securityLabel={(value, option) => itemFilterOptions.securityRiskGroupLabel(value, option as Parameters<typeof itemFilterOptions.securityRiskGroupLabel>[1])}
           favoriteIconColor={favoriteIconColor}
+          onToggleFavorite={(item) => void toggleRowFavorite(item)}
           formatDate={formatDate}
           formatSourceMetric={formatSourceMetric}
           formatCompact={formatCompact}
@@ -722,6 +723,8 @@ export default function StoreManagerPage() {
             source: language.t("store.home.table.source"),
             experienceScore: language.t("store.home.table.experienceScore"),
             favoriteCount: language.t("store.home.table.favoriteCount"),
+            favorite: language.t("store.detail.favorite"),
+            unfavorite: language.t("store.detail.unfavorite"),
             updated: language.t("store.detail.updated"),
             action: language.t("store.home.table.action"),
             toggleColumns: language.t("store.home.table.toggleColumns"),
@@ -778,7 +781,7 @@ export default function StoreManagerPage() {
           </div>
         }
       >
-        <div class="flex h-full min-h-0 w-full flex-1 flex-col gap-6 max-[1280px]:gap-5">
+        <div class="flex h-full min-h-0 w-full flex-1 flex-col gap-4 max-[1280px]:gap-3">
           <header class="relative overflow-hidden bg-[linear-gradient(135deg,color-mix(in_srgb,var(--native-primary)_2%,white),color-mix(in_srgb,var(--native-primary)_10%,var(--native-panel))_62%,color-mix(in_srgb,var(--native-primary)_14%,var(--native-panel)))] before:pointer-events-none before:absolute before:right-[-10%] before:top-[-60%] before:h-[340px] before:w-[340px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--native-primary)_8%,transparent),transparent_70%)] before:content-['']">
             <div class="relative flex flex-row items-center justify-between gap-4 px-5 py-3 lg:gap-6">
               <div class="min-w-0 flex flex-1 items-center gap-4">
@@ -808,7 +811,7 @@ export default function StoreManagerPage() {
           </header>
 
           <section class={sx.section}>
-            <div class="mx-auto mt-4 flex w-full max-w-[64rem] items-center gap-3 max-[768px]:flex-col max-[768px]:items-stretch max-[640px]:gap-2">
+            <div class="mx-auto mt-1 flex w-full max-w-[64rem] items-center gap-3 max-[768px]:flex-col max-[768px]:items-stretch max-[640px]:gap-2">
               <div class="relative min-w-0 flex-1 rounded-full transition-shadow hover:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))] focus-within:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))]">
                 <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-4 text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
@@ -884,7 +887,7 @@ export default function StoreManagerPage() {
             </div>
           </section>
 
-          <section class={cn(sx.section, "flex min-h-0 flex-1 flex-col p-3 sm:p-4")}>
+          <section class={cn(sx.section, "flex min-h-0 flex-1 flex-col p-2 sm:p-3")}>
             <div class={cn(sx.tableShell, "flex min-h-0 flex-1 flex-col")}>
               <Show when={!activeLoading()} fallback={<div class={sx.state}>{language.t(state.tab === "created" ? "store.console.capabilities.loading" : "store.console.capabilities.favorited.loading")}</div>}>
                 <TableContent />

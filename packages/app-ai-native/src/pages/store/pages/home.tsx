@@ -95,7 +95,7 @@ export default function Home() {
   const formatDate = (iso?: string) => formatStoreDate(language.locale(), iso)
 
   let searchTimer: ReturnType<typeof setTimeout> | undefined
-  const toggleColumnVisibility = (key: Exclude<TableColumnKey, "action">) => {
+  const toggleColumnVisibility = (key: TableColumnKey) => {
     setColumnPrefs("visible", key, (current) => !current)
   }
   const captureSearchSelection = () => {
@@ -487,7 +487,7 @@ export default function Home() {
   })
 
   return (
-    <div class="flex h-full min-h-0 w-full flex-1 flex-col gap-6 max-[1280px]:gap-5">
+    <div class="flex h-full min-h-0 w-full flex-1 flex-col gap-4 max-[1280px]:gap-3">
       <Show
         when={isTypeListMode()}
         fallback={
@@ -580,17 +580,18 @@ export default function Home() {
               </div>
             </header>
 
-            <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-6 max-[1280px]:gap-5">
-              <SearchControls />
+            <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div class="flex w-full flex-1 items-center justify-center">
+                <SearchControls />
+              </div>
 
-              {/* Home mode content shell */}
               <ContentShell />
             </div>
           </>
         }
       >
         {/* ═══ TYPE LIST MODE ═══ */}
-        <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-6 max-[1280px]:gap-5">
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 max-[1280px]:gap-3">
           {/* Type Hero Header */}
           <header class="relative flex flex-col gap-5 overflow-hidden rounded-[1.25rem] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[linear-gradient(135deg,var(--native-panel),color-mix(in_srgb,var(--tp-accent)_5%,var(--native-panel)))] px-7 py-6 before:pointer-events-none before:absolute before:right-[-5%] before:top-[-40%] before:h-[280px] before:w-[280px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--tp-accent)_8%,transparent),transparent_70%)] before:content-[''] lg:flex-row lg:items-center lg:justify-between" style={{ "--tp-accent": typeMeta().color }}>
             <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[var(--native-radius-lg)] bg-[color-mix(in_srgb,var(--tp-accent)_10%,transparent)]">
@@ -689,7 +690,7 @@ export default function Home() {
   function SearchControls() {
     return (
       <section class={sx.section}>
-        <div class="mx-auto mt-4 flex w-full max-w-[64rem] items-center gap-3 max-[640px]:gap-2">
+        <div class="mx-auto flex w-full max-w-[64rem] items-center gap-3 px-4 max-[640px]:gap-2">
           <div class="relative min-w-0 flex-1 rounded-full transition-shadow hover:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))] focus-within:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))]">
             <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-4 text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
               <svg
@@ -755,7 +756,7 @@ export default function Home() {
 
   function ContentShell() {
     return (
-      <section class={cn(sx.section, "flex min-h-0 flex-1 flex-col p-3 sm:p-4")}>
+      <section class={cn(sx.section, "flex min-h-0 flex-col px-2 sm:px-3")} >
         <div class={cn(sx.tableShell, "flex min-h-0 flex-1 flex-col")}>
           <Show
             when={!showError()}
@@ -789,6 +790,7 @@ export default function Home() {
                 sourceUrl={(value) => itemFilterOptions.sourceUrl(value)}
                 securityLabel={(value, option) => itemFilterOptions.securityRiskGroupLabel(value, option as Parameters<typeof itemFilterOptions.securityRiskGroupLabel>[1])}
                 favoriteIconColor={favoriteIconColor}
+                onToggleFavorite={(item) => void toggleRowFavorite(item)}
                 formatDate={formatDate}
                 formatSourceMetric={formatSourceMetric}
                 formatCompact={formatCompact}
@@ -876,6 +878,8 @@ export default function Home() {
                   source: language.t("store.home.table.source"),
                   experienceScore: language.t("store.home.table.experienceScore"),
                   favoriteCount: language.t("store.home.table.favoriteCount"),
+                  favorite: language.t("store.detail.favorite"),
+                  unfavorite: language.t("store.detail.unfavorite"),
                   updated: language.t("store.detail.updated"),
                   action: language.t("store.home.table.action"),
                   toggleColumns: language.t("store.home.table.toggleColumns"),
@@ -889,6 +893,7 @@ export default function Home() {
                   tagLimitHint: language.t("store.home.filters.tagLimitHint"),
                 }}
                 emptyMessage={language.t("store.home.emptyCategory")}
+                maxVisibleRows={PAGE_SIZE}
                 renderActions={(item) => (
                   <div class="flex items-center justify-end gap-1">
                     <Show when={canEditItem(item)}>
