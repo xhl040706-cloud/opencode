@@ -407,3 +407,67 @@
 .animate-bell {
   animation: bell-ring 1.5s ease-in-out infinite;
 }
+
+@keyframes slideFromBottom {
+  from { transform: translateY(40px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideFromTop {
+  from { transform: translateY(-40px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.ws-enter,
+.ws-leave {
+  will-change: transform, opacity;
+}
+
+.ws-enter {
+  animation-duration: 360ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: forwards;
+}
+
+.ws-leave {
+  animation-duration: 360ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: forwards;
+  pointer-events: none;
+}
+
+.ws-enter-from-bottom {
+  animation-name: wsSlideInFromBottom;
+}
+
+.ws-enter-from-top {
+  animation-name: wsSlideInFromTop;
+}
+
+.ws-leave-to-top {
+  animation-name: wsSlideOutToTop;
+}
+
+.ws-leave-to-bottom {
+  animation-name: wsSlideOutToBottom;
+}
+
+@keyframes wsSlideInFromBottom {
+  from { transform: translateY(30%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes wsSlideInFromTop {
+  from { transform: translateY(-30%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes wsSlideOutToTop {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-30%); opacity: 0; }
+}
+
+@keyframes wsSlideOutToBottom {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(30%); opacity: 0; }
+}
