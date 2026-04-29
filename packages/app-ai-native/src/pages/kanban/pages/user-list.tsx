@@ -122,7 +122,7 @@ export default function KanbanUserList() {
       render: (row) => {
         const txt = row.org_display?.trim()
         if (!txt) return <span>-</span>
-        return <button type="button" class="block max-w-[18rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" title={txt} onClick={() => {
+        return <button type="button" class="block max-w-[18rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" title={txt} onClick={() => {
           const path = [row.org1, row.org2, row.org3, row.org4].filter(Boolean).join("/")
           if (!path) return
           navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}`)
@@ -135,7 +135,7 @@ export default function KanbanUserList() {
       minWidth: 140,
       render: (row) => {
         const txt = row.user_name?.trim() || row.user_id?.trim()
-        return txt ? <button type="button" class="block max-w-[12rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" title={txt} onClick={() => {
+        return txt ? <button type="button" class="block max-w-[12rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" title={txt} onClick={() => {
           const id = row.user_id?.trim()
           if (!id) return
           navigate(`/kanban/user/${encodeURIComponent(id)}?${routeQuery()}`)

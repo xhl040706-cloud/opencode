@@ -365,7 +365,7 @@ export default function KanbanUserDetail() {
                       return (
                         <TableRow>
                           <TableCell>{row.period_label || row.period_key || "-"}</TableCell>
-                          <TableCell class="text-left tabular-nums">{(row.task_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(link())}>{row.task_count}</button> : 0}</TableCell>
+                          <TableCell class="text-left tabular-nums">{(row.task_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(link())}>{row.task_count}</button> : 0}</TableCell>
                           <TableCell class="text-left tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
                           <TableCell class="text-left">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
                           <TableCell class="text-left">{formatDuration(row.commit_ancient_minutes, language.t)}</TableCell>
@@ -416,7 +416,7 @@ export default function KanbanUserDetail() {
                       return (
                         <TableRow>
                           <TableCell>{row.period_label || row.period_key || "-"}</TableCell>
-                          <TableCell class="text-left tabular-nums">{(row.commit_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(link())}>{row.commit_count}</button> : 0}</TableCell>
+                          <TableCell class="text-left tabular-nums">{(row.commit_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(link())}>{row.commit_count}</button> : 0}</TableCell>
                           <TableCell class="text-left tabular-nums">{row.task_diff_lines ?? 0}</TableCell>
                           <TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
                           <TableCell class="text-left">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>

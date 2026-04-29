@@ -1805,7 +1805,7 @@ export const dict = {
   "kanban.metric.efficiencyRatio": "提效比",
   "kanban.table.taskId": "Task ID",
   "kanban.table.commitId": "Commit ID",
-  "kanban.table.silica": "Silica",
+  "kanban.table.silica": "硅含量",
   "kanban.table.repository": "仓库",
   "kanban.table.taskEfficiencyRatio": "Task 提效比",
   "kanban.table.commitEfficiencyRatio": "Commit 提效比",

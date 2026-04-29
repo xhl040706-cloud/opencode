@@ -245,12 +245,20 @@ export default function KanbanOrgDetail() {
               <TableBody>
                 <For each={members()}>
                   {(row) => (
-                    <TableRow class="cursor-pointer" onClick={() => {
-                      const txt = row.user_id?.trim()
-                      if (!txt) return
-                      navigate(`/kanban/user/${encodeURIComponent(txt)}?${queryOf(dateRange(), granularity(), org()).toString()}`)
-                    }}>
-                      <TableCell>{row.user_name || row.user_id || "-"}</TableCell>
+                    <TableRow>
+                      <TableCell>
+                        <button
+                          type="button"
+                          class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
+                          onClick={() => {
+                            const txt = row.user_id?.trim()
+                            if (!txt) return
+                            navigate(`/kanban/user/${encodeURIComponent(txt)}?${queryOf(dateRange(), granularity(), org()).toString()}`)
+                          }}
+                        >
+                          {row.user_name || row.user_id || "-"}
+                        </button>
+                      </TableCell>
                       <TableCell class="text-left tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
                       <TableCell class="text-left">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
                       <TableCell class="text-left"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>

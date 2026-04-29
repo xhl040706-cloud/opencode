@@ -1,4 +1,5 @@
-import { A, useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import Back from "../components/back"
 import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
@@ -196,10 +197,7 @@ export default function KanbanRepoDetail() {
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <header class="flex w-full flex-col gap-3">
-        <A href={listHref()} class="inline-flex items-center gap-2 text-sm text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]">
-          <span>←</span>
-          <span>{language.t("kanban.repo.backToList")}</span>
-        </A>
+        <Back href={listHref()} label={language.t("kanban.repo.backToList")} />
         <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.repo.detailTitle")}</h1>
 
         <div class="flex min-w-0 flex-nowrap items-center justify-end gap-3 overflow-x-auto">

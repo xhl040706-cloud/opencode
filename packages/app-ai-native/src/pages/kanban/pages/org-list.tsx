@@ -134,7 +134,7 @@ export default function KanbanOrgList() {
         const path = orgPath(scope)
         if (!txt) return <span>-</span>
         return path ? (
-          <button type="button" class="block max-w-[18rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" title={txt} onClick={() => navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery(scope)}`)}>
+          <button type="button" class="block max-w-[18rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" title={txt} onClick={() => navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery(scope)}`)}>
             {txt}
           </button>
         ) : <span class="block max-w-[18rem] truncate" title={txt}>{txt}</span>
@@ -149,7 +149,7 @@ export default function KanbanOrgList() {
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
         return (row.user_count ?? 0) > 0 ? (
-          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/user?${routeQuery(scope)}`)}>
+          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(`/kanban/user?${routeQuery(scope)}`)}>
             {row.user_count}
           </button>
         ) : <span>0</span>
@@ -164,7 +164,7 @@ export default function KanbanOrgList() {
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
         return (row.task_count ?? 0) > 0 ? (
-          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/task?${routeQuery(scope)}`)}>
+          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(`/kanban/task?${routeQuery(scope)}`)}>
             {row.task_count}
           </button>
         ) : <span>0</span>
@@ -181,7 +181,7 @@ export default function KanbanOrgList() {
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
         return (row.commit_count ?? 0) > 0 ? (
-          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" onClick={() => navigate(`/kanban/commit?${routeQuery(scope)}`)}>
+          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(`/kanban/commit?${routeQuery(scope)}`)}>
             {row.commit_count}
           </button>
         ) : <span>0</span>

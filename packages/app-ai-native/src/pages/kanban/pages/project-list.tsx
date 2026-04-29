@@ -204,7 +204,7 @@ export default function KanbanProjectList() {
       filter: { type: "text" },
       render: (row) => {
         const txt = row.name?.trim()
-        return txt ? <button type="button" class="block max-w-[18rem] truncate text-left font-semibold text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)]" title={txt} onClick={(e) => { e.stopPropagation(); if (row.project_id) navigate(`/kanban/project/${encodeURIComponent(row.project_id)}`) }}>{txt}</button> : <span>-</span>
+        return txt ? <button type="button" class="block max-w-[18rem] truncate text-left font-semibold text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" title={txt} onClick={(e) => { e.stopPropagation(); if (row.project_id) navigate(`/kanban/project/${encodeURIComponent(row.project_id)}`) }}>{txt}</button> : <span>-</span>
       },
     },
     {
