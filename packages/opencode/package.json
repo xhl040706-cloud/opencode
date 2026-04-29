@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "version": "3.0.29",
+  "version": "3.0.30",
   "name": "@costrict/cs",
   "type": "module",
   "license": "MIT",
