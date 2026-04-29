@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Match, onMount, Show, Switch, createEffect, on, untrack } from "solid-js"
+import { createMemo, createSignal, For, Match, onMount, onCleanup, Show, Switch, createEffect, untrack } from "solid-js"
 import { useParams, useSearchParams } from "@solidjs/router"
 import { Toast } from "@opencode-ai/ui/toast"
 import { IconButton } from "@opencode-ai/ui/icon-button"
@@ -6,10 +6,8 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Tabs } from "@opencode-ai/ui/tabs"
-import { Collapsible } from "@opencode-ai/ui/collapsible"
 import { useLanguage } from "@/context/language"
 import { useFile } from "@/context/file"
-import { useDeviceProject } from "@/context/device-project"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
@@ -18,7 +16,7 @@ import { DeviceSessionTab } from "./device-session-tab"
 import { TerminalTab } from "./terminal-tab"
 import { useDeviceTerminal } from "@/context/device-terminal"
 import { ContentTabContext, useContentTabs, type ContentTab } from "@/context/content-tabs"
-import { useDeviceLayout } from "./device-interface"
+import { useLayout } from "@/context/layout"
 import { FilePreviewTab } from "./file-preview-tab"
 import { DiffPreviewTab } from "./diff-preview-tab"
 import { workspaceKey } from "@/pages/layout/helpers"
@@ -127,6 +125,7 @@ function ContentTabPanel() {
   const tabStore = useContentTabs()
   const terminal = useDeviceTerminal()
   const language = useLanguage()
+  const layout = useLayout()
 
   const closeTab = (id: string) => {
     const tab = tabStore.tabs().find((t) => t.id === id)
@@ -142,8 +141,21 @@ function ContentTabPanel() {
       <Show
         when={tabStore.tabs().length > 0}
         fallback={
-          <div class="flex-1 h-full flex items-center justify-center text-text-weak text-14-regular">
-            {language.t("workspace.content.selectFileOrSession")}
+          <div class="flex-1 h-full flex items-center justify-center text-text-weak text-12-regular">
+            <div class="flex flex-col gap-1.5">
+              <div class="flex items-center justify-between gap-8">
+                <span>{language.t("workspace.content.shortcut.newSession")}</span>
+                <span class="flex items-center gap-0.5"><code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">Alt</code>+<code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">N</code></span>
+              </div>
+              <div class="flex items-center justify-between gap-8">
+                <span>{language.t("workspace.content.shortcut.newTerminal")}</span>
+                <span class="flex items-center gap-0.5"><code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">Alt</code>+<code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">T</code></span>
+              </div>
+              <div class="flex items-center justify-between gap-8">
+                <span>{language.t("workspace.content.shortcut.toggleSidebar")}</span>
+                <span class="flex items-center gap-0.5"><code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">Alt</code>+<code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">M</code></span>
+              </div>
+            </div>
           </div>
         }
       >
@@ -152,8 +164,19 @@ function ContentTabPanel() {
           onChange={tabStore.activate}
           class="h-full flex flex-col"
         >
-          <div class="h-[41px] shrink-0 flex items-center  border-b pr-2">
-            <Tabs.List class="flex-1 min-w-0 h-full [&::after]:border-b-0 overflow-x-auto scrollbar-none" onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY }}>
+          <div class="h-[41px] shrink-0 flex items-center border-b">
+            <div class="shrink-0 flex items-center px-2">
+              <Tooltip value={language.t(layout.fileTree.opened() ? "workspace.sidebar.collapse" : "workspace.sidebar.expand")} placement="bottom">
+                <IconButton
+                  icon={layout.fileTree.opened() ? "chevron-left" : "chevron-right"}
+                  variant="ghost"
+                  iconSize="small"
+                  onClick={layout.fileTree.toggle}
+                  aria-label={language.t(layout.fileTree.opened() ? "workspace.sidebar.collapse" : "workspace.sidebar.expand")}
+                />
+              </Tooltip>
+            </div>
+            <Tabs.List class="flex-1 min-w-0 h-full border-l [&::after]:border-b-0 overflow-x-auto scrollbar-none" onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY }}>
               <For each={tabStore.tabs()}>
                 {(tab) => (
                   <Tabs.Trigger
@@ -177,7 +200,7 @@ function ContentTabPanel() {
                 )}
               </For>
             </Tabs.List>
-            <div class="shrink-0 flex items-center px-1">
+            <div class="shrink-0 flex items-center px-2">
               <Tooltip value={language.t("workspace.content.closeAll")} placement="bottom">
                 <IconButton
                   icon="trash"
@@ -240,7 +263,7 @@ const SECTION_HEADER_HEIGHT = 32
 
 function ContentSidebar(props: { directory: string }) {
   const language = useLanguage()
-  const dl = useDeviceLayout()
+  const dl = useLayout()
   const tabStore = useContentTabs()
   const terminal = useDeviceTerminal()
   const sdk = useDeviceSDK()
@@ -677,8 +700,9 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
   const [searchParams, setSearchParams] = useSearchParams<{ session?: string }>()
   const language = useLanguage()
   const tabStore = useContentTabs()
-  const dl = useDeviceLayout()
+  const dl = useLayout()
   const ws = useDeviceWorkspace()
+  const terminal = useDeviceTerminal()
   const active = createMemo(() => params.workspaceID === props.workspaceId)
   const [done, setDone] = createSignal<string | undefined>()
 
@@ -686,6 +710,57 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
   const directory = createMemo(() => {
     if (!props.directory) return ""
     return workspaceKey(props.directory)
+  })
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.target instanceof HTMLElement && (e.target.isContentEditable || e.target.closest("input, textarea, select"))) return
+    if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+    if (e.key === "m") {
+      e.preventDefault()
+      e.stopPropagation()
+      dl.fileTree.toggle()
+    } else if (e.key === "n") {
+      e.preventDefault()
+      e.stopPropagation()
+      newSessionCounter++
+      tabStore.open({
+        kind: "session",
+        key: `new-${newSessionCounter}`,
+        title: language.t("command.session.new"),
+        icon: SESSION_TAB_ICON,
+        meta: { sessionID: undefined },
+      })
+    } else if (e.key === "t") {
+      e.preventDefault()
+      e.stopPropagation()
+      newTerminalCounter++
+      const pendingKey = `pending-${newTerminalCounter}`
+      tabStore.open({
+        kind: "terminal",
+        key: pendingKey,
+        title: language.t("command.terminal.new"),
+        icon: "terminal",
+        meta: { sessionId: undefined },
+      })
+      terminal.new().then((sessionId) => {
+        if (!sessionId) {
+          tabStore.close(tabStore.makeTabId("terminal", pendingKey))
+          return
+        }
+        tabStore.replace(tabStore.makeTabId("terminal", pendingKey), {
+          kind: "terminal",
+          key: sessionId,
+          title: `Terminal`,
+          icon: "terminal",
+          meta: { sessionId },
+        })
+      })
+    }
+  }
+
+  onMount(() => {
+    document.addEventListener("keydown", handleKeyDown, true)
+    onCleanup(() => document.removeEventListener("keydown", handleKeyDown, true))
   })
 
   const syncUrlFromTab = (id: string | undefined) => {
@@ -742,11 +817,11 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
       fallback={<div class="size-full" />}
     >
       <div class="flex h-full w-full min-h-0">
-        <Show when={dl.fileTree.opened()}>
-          <div
-            class="shrink-0 h-full relative"
-            style={{ width: `${dl.fileTree.width()}px` }}
-          >
+        <div
+          class="shrink-0 h-full overflow-hidden transition-[width] duration-200"
+          style={{ width: dl.fileTree.opened() ? `${dl.fileTree.width()}px` : "0px" }}
+        >
+          <div class="h-full relative" style={{ width: `${dl.fileTree.width()}px` }}>
             <ContentSidebar directory={directory()!} />
             <ResizeHandle
               direction="horizontal"
@@ -758,7 +833,7 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
               onCollapse={dl.fileTree.close}
             />
           </div>
-        </Show>
+        </div>
 
         <div class="flex-1 min-w-0 h-full flex flex-col">
           <ContentTabPanel />
