@@ -117,7 +117,7 @@ async function cloneAndCopy(
   }
 
   for (const [name, config] of Object.entries(BUILTIN_RESOURCES)) {
-    const outputDir = path.join(bundledReviewDir, name)
+    const outputDir = path.join(bundledReviewDir, config.type === "skill" ? "skills" : "agents", name)
     const srcDir = path.join(cloneDir, config.subdir)
 
     await fs.rm(outputDir, { recursive: true, force: true })
@@ -150,7 +150,7 @@ async function generateBuiltinSkills(
   let fileIdx = 0
 
   for (const skillName of skillNames) {
-    const skillDir = path.join(bundledReviewDir, skillName)
+    const skillDir = path.join(bundledReviewDir, "skills", skillName)
     const files = await walk(skillDir)
     const fileEntries: string[] = []
     for (const file of files) {
@@ -277,7 +277,7 @@ async function generateBuiltinAgents(
     const config = BUILTIN_RESOURCES[resource.name]
     if (!config || config.type !== "agent") continue
 
-    const agentMdPath = path.join(bundledReviewDir, resource.name, config.outputFile!)
+    const agentMdPath = path.join(bundledReviewDir, "agents", resource.name, config.outputFile!)
     try {
       const content = await fs.readFile(agentMdPath, "utf-8")
       const { frontmatter, content: systemPrompt } = parseFrontmatter(content)
@@ -338,7 +338,7 @@ async function generateBuiltinReview() {
   for (const [name, config] of Object.entries(BUILTIN_RESOURCES)) {
     const targetFile = config.type === "skill" ? builtinSkillsFile : builtinAgentsFile
     const cachedSha = await readCachedSha(name, targetFile)
-    const outputDir = path.join(bundledReviewDir, name)
+    const outputDir = path.join(bundledReviewDir, config.type === "skill" ? "skills" : "agents", name)
     const hasCachedFiles = (await walk(outputDir)).length > 0
 
     if (cachedSha !== remoteSha || !hasCachedFiles) {
@@ -363,7 +363,7 @@ async function generateBuiltinReview() {
       console.error(`  ✗ Download failed: ${err}`)
       // Check which resources have usable cache
       for (const [name, config] of Object.entries(BUILTIN_RESOURCES)) {
-        const outputDir = path.join(bundledReviewDir, name)
+        const outputDir = path.join(bundledReviewDir, config.type === "skill" ? "skills" : "agents", name)
         const cached = await walk(outputDir)
         if (cached.length > 0) {
           console.warn(`  ⚠ Using cache for "${config.displayName || name}"`)
