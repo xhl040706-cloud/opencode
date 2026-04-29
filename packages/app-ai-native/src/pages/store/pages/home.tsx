@@ -487,7 +487,7 @@ export default function Home() {
   })
 
   return (
-    <div class="flex h-full min-h-0 w-full flex-1 flex-col gap-4 max-[1280px]:gap-3">
+    <div class="flex h-full min-h-0 w-full flex-1 flex-col">
       <Show
         when={isTypeListMode()}
         fallback={
