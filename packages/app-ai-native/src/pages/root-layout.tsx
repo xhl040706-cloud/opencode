@@ -2,7 +2,9 @@ import { type JSX, type ParentProps, Show } from "solid-js"
 import { useLocation, useNavigate } from "@solidjs/router"
 import { Gauge } from "lucide-solid"
 import { Icon } from "@opencode-ai/ui/icon"
+import { IconButton } from "@opencode-ai/ui/icon-button"
 import { RadioGroup } from "@opencode-ai/ui/radio-group"
+import { showToast } from "@opencode-ai/ui/toast"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import AvatarDisplay from "@/components/avatar-display"
@@ -47,6 +49,23 @@ function UserButton() {
   const language = useLanguage()
   const displayName = () => user()?.name || user()?.preferred_username || user()?.email || ""
   const username = () => user()?.preferred_username || user()?.email || user()?.name || ""
+  const subjectId = () => user()?.subjectId || user()?.id || ""
+
+  const copySubjectId = () => {
+    const id = subjectId()
+    if (!id) return
+    navigator.clipboard
+      .writeText(id)
+      .then(() => {
+        showToast({
+          variant: "success",
+          title: "Copied",
+          description: id,
+        })
+      })
+      .catch(() => {})
+  }
+
   const languageOptions: Locale[] = ["zh", "en"]
 
   return (
@@ -84,6 +103,21 @@ function UserButton() {
                 @{username()}
               </p>
             </div>
+            <div class="px-3 py-1.5 flex items-center justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <p class="text-11-medium text-text-weak">{language.t("sidebar.user.subjectId")}</p>
+                <p class="text-11-regular text-text-weak truncate" title={subjectId()}>
+                  {subjectId()}
+                </p>
+              </div>
+              <IconButton
+                icon="copy"
+                variant="ghost"
+                class="shrink-0"
+                onClick={copySubjectId}
+                aria-label={language.t("sidebar.user.copySubjectId")}
+              />
+            </div>
             <DropdownMenu.Separator class="my-0 mx-0" />
             <div class="px-3 py-2 flex items-center justify-between gap-3">
               <span class="text-12-medium leading-none text-text-strong">{language.t("sidebar.user.language")}</span>
@@ -99,6 +133,9 @@ function UserButton() {
               />
             </div>
             <DropdownMenu.Separator class="my-0 mx-0" />
+            <DropdownMenu.Item onSelect={() => window.open("/credit/manager/?tab=usage", "_blank")}>
+              <DropdownMenu.ItemLabel>{language.t("sidebar.user.creditUsage")}</DropdownMenu.ItemLabel>
+            </DropdownMenu.Item>
             <DropdownMenu.Item onSelect={logout}>
               <DropdownMenu.ItemLabel>{language.t("sidebar.user.signOut")}</DropdownMenu.ItemLabel>
             </DropdownMenu.Item>
