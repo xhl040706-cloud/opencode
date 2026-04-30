@@ -5,6 +5,7 @@
  * src/costrict/review/skill/builtin.ts and src/costrict/review/agent/builtin.ts
  *
  * Uses git SSH transport (git ls-remote + git clone).
+ * Reads index.json manifest to discover resources and their per-locale paths.
  * Compares remote commit SHA with cached version and skips download if unchanged.
  *
  * Usage: bun run script/generate-review-builtin.ts
@@ -22,36 +23,9 @@ const bundledReviewDir = path.resolve(__dirname, "../bundled-review")
 const builtinSkillsFile = path.resolve(__dirname, "../src/costrict/review/skill/builtin.ts")
 const builtinAgentsFile = path.resolve(__dirname, "../src/costrict/review/agent/builtin.ts")
 
-type ResourceConfig = {
-  subdir: string
-  type: "skill" | "agent"
-  outputFile?: string
-  displayName?: string
-}
-
-const BUILTIN_RESOURCES: Record<string, ResourceConfig> = {
-  "security-review": {
-    subdir: "skills/security-review",
-    type: "skill",
-    displayName: "Security Review Skill",
-  },
-  "review": {
-    subdir: "skills/review",
-    type: "skill",
-    displayName: "Review Skill",
-  },
-  "costrict-reviewer": {
-    subdir: "agents/CostrictReviewer",
-    type: "agent",
-    outputFile: "CostrictReviewer.md",
-    displayName: "Costrict Reviewer Agent",
-  },
-  "costrict-validator": {
-    subdir: "agents/CostrictValidator",
-    type: "agent",
-    outputFile: "CostrictValidator.md",
-    displayName: "Costrict Validator Agent",
-  },
+type IndexJson = {
+  agents: Array<{ name: string; path: Record<string, string> }>
+  skills: Array<{ name: string; path: Record<string, string> }>
 }
 
 const REPO = "zgsm-ai/costrict-review"
@@ -75,10 +49,10 @@ function lsRemoteSha(): string | null {
   return sha.length >= 40 ? sha : null
 }
 
-async function readCachedSha(name: string, targetFile: string): Promise<string | null> {
+async function readCachedSha(targetFile: string): Promise<string | null> {
   try {
     const content = await fs.readFile(targetFile, "utf-8")
-    const match = content.match(new RegExp(`^\\s*["']${name}["']\\s*:\\s*["']([a-f0-9]{40})["']`, "m"))
+    const match = content.match(/\b([a-f0-9]{40})\b/)
     return match ? match[1] : null
   } catch {
     return null
@@ -104,72 +78,136 @@ async function walk(dir: string, base = ""): Promise<string[]> {
   }
 }
 
-type DownloadResult = { name: string; commitSha: string | null }
+async function readIndexJson(cloneDir: string): Promise<IndexJson> {
+  const raw = await fs.readFile(path.join(cloneDir, "index.json"), "utf-8")
+  return JSON.parse(raw) as IndexJson
+}
 
+/**
+ * Discover all locales from index.json entries.
+ */
+function collectLocales(index: IndexJson): string[] {
+  const localeSet = new Set<string>()
+  for (const skill of index.skills) {
+    for (const locale of Object.keys(skill.path)) localeSet.add(locale)
+  }
+  for (const agent of index.agents) {
+    for (const locale of Object.keys(agent.path)) localeSet.add(locale)
+  }
+  return [...localeSet].sort()
+}
+
+/**
+ * Clone repo and copy each locale's resources into bundled-review/{locale}/...
+ * Mirrors the source repo directory layout: {locale}/skills/... and {locale}/agents/...
+ */
 async function cloneAndCopy(
   cloneDir: string,
+  index: IndexJson,
 ): Promise<void> {
-  console.log(`   git clone --depth 1 ${CLONE_URL}`)
-  await fs.rm(cloneDir, { recursive: true, force: true })
-  const cloneResult = git("clone", "--depth", "1", "--branch", BRANCH, CLONE_URL, cloneDir)
-  if (!cloneResult.ok) {
-    throw new Error(`git clone failed: ${cloneResult.stderr}`)
-  }
+  const locales = collectLocales(index)
 
-  for (const [name, config] of Object.entries(BUILTIN_RESOURCES)) {
-    const outputDir = path.join(bundledReviewDir, config.type === "skill" ? "skills" : "agents", name)
-    const srcDir = path.join(cloneDir, config.subdir)
+  for (const locale of locales) {
+    const outputLocaleDir = path.join(bundledReviewDir, locale)
 
-    await fs.rm(outputDir, { recursive: true, force: true })
-    await fs.cp(srcDir, outputDir, { recursive: true })
+    // Collect all skill dirs for this locale, stripping the locale prefix from the path
+    const skillPaths = index.skills
+      .map(s => s.path[locale])
+      .filter(Boolean)
 
-    const requiredFile = config.outputFile
-      ? path.join(outputDir, config.outputFile)
-      : path.join(outputDir, "SKILL.md")
-    try {
-      await fs.access(requiredFile)
-    } catch {
-      throw new Error(`${config.type === "skill" ? "Skill" : "Agent"} "${name}" missing ${config.outputFile || "SKILL.md"}`)
+    for (const skillMdPath of skillPaths) {
+      const srcDir = path.join(cloneDir, path.dirname(skillMdPath))
+      // Strip locale prefix: "en/skills/review" -> "skills/review"
+      const relativeDir = skillMdPath.startsWith(`${locale}/`)
+        ? skillMdPath.slice(locale.length + 1).replace(/\/[^/]*$/, "")
+        : path.dirname(skillMdPath)
+      const outputDir = path.join(outputLocaleDir, relativeDir)
+
+      await fs.rm(outputDir, { recursive: true, force: true })
+      await fs.cp(srcDir, outputDir, { recursive: true })
+
+      const skillMd = path.join(outputDir, "SKILL.md")
+      try {
+        await fs.access(skillMd)
+      } catch {
+        throw new Error(`Skill (${locale}) missing SKILL.md at ${skillMdPath}`)
+      }
+
+      const skillName = path.basename(srcDir)
+      const fileCount = (await walk(outputDir)).length
+      console.log(`   ✓ ${locale}/skills/${skillName}: ${fileCount} files`)
     }
 
-    const fileCount = (await walk(outputDir)).length
-    console.log(`   ✓ ${config.displayName || name}: ${fileCount} files`)
+    // Copy agent files for this locale
+    const agentEntries = index.agents
+      .map(a => ({ name: a.name, filePath: a.path[locale] }))
+      .filter(e => e.filePath)
+
+    for (const { name, filePath } of agentEntries) {
+      const srcFile = path.join(cloneDir, filePath)
+      const outputDir = path.join(outputLocaleDir, "agents")
+      await fs.mkdir(outputDir, { recursive: true })
+      await fs.cp(srcFile, path.join(outputDir, path.basename(filePath)))
+
+      const filename = path.basename(filePath)
+      try {
+        await fs.access(path.join(outputDir, filename))
+      } catch {
+        throw new Error(`Agent "${name}" (${locale}) missing at ${filePath}`)
+      }
+
+      console.log(`   ✓ ${locale}/agents/${filename}`)
+    }
   }
 
   await fs.rm(cloneDir, { recursive: true, force: true })
 }
 
 async function generateBuiltinSkills(
-  downloadedResources: DownloadResult[],
+  commitSha: string,
 ): Promise<void> {
-  const skillNames = Object.entries(BUILTIN_RESOURCES)
-    .filter(([_, config]) => config.type === "skill")
-    .map(([name]) => name)
-  const imports: string[] = []
-  const skillEntries: string[] = []
-  let fileIdx = 0
-
-  for (const skillName of skillNames) {
-    const skillDir = path.join(bundledReviewDir, "skills", skillName)
-    const files = await walk(skillDir)
-    const fileEntries: string[] = []
-    for (const file of files) {
-      const varName = `SKILL_FILE_${fileIdx++}`
-      const filePath = path.join(skillDir, file)
-      const content = await fs.readFile(filePath, "utf-8")
-      const normalizedPath = file.replaceAll("\\", "/")
-      imports.push(`const ${varName} = ${JSON.stringify(content)}`)
-      fileEntries.push(`  "${normalizedPath}": ${varName}`)
+  const localeEntries = await fs.readdir(bundledReviewDir).catch(() => [] as string[])
+  const locales: string[] = []
+  for (const l of localeEntries) {
+    if ((await fs.stat(path.join(bundledReviewDir, l)).catch(() => null))?.isDirectory()) {
+      locales.push(l)
     }
-    skillEntries.push(`  "${skillName}": {\n${fileEntries.join(",\n")}\n  }`)
   }
 
-  const versionEntries: string[] = []
-  for (const resource of downloadedResources) {
-    const config = BUILTIN_RESOURCES[resource.name]
-    if (config?.type === "skill" && resource.commitSha) {
-      versionEntries.push(`  "${resource.name}": "${resource.commitSha}"`)
+  const allSkillNames: string[] = []
+  const localeSet = new Set(locales)
+
+  // Discover skill names from first locale (all locales have the same skills)
+  for (const locale of locales) {
+    const skillsDir = path.join(bundledReviewDir, locale, "skills")
+    const entries = await fs.readdir(skillsDir).catch(() => [] as string[])
+    for (const name of entries) {
+      if (!allSkillNames.includes(name)) allSkillNames.push(name)
     }
+    break
+  }
+
+  const imports: string[] = []
+  const localeSkillEntries: string[] = []
+  let fileIdx = 0
+
+  for (const locale of [...localeSet].sort()) {
+    const skillEntries: string[] = []
+    for (const skillName of allSkillNames) {
+      const skillDir = path.join(bundledReviewDir, locale, "skills", skillName)
+      const files = await walk(skillDir)
+      const fileEntries: string[] = []
+      for (const file of files) {
+        const varName = `SKILL_FILE_${fileIdx++}`
+        const filePath = path.join(skillDir, file)
+        const content = await fs.readFile(filePath, "utf-8")
+        const normalizedPath = file.replaceAll("\\", "/")
+        imports.push(`const ${varName} = ${JSON.stringify(content)}`)
+        fileEntries.push(`  "${normalizedPath}": ${varName}`)
+      }
+      skillEntries.push(`  "${skillName}": {\n${fileEntries.join(",\n")}\n  }`)
+    }
+    localeSkillEntries.push(`  "${locale}": {\n${skillEntries.join(",\n")}\n  }`)
   }
 
   const content = `// This file is auto-generated by script/generate-review-builtin.ts
@@ -180,29 +218,33 @@ import { join, dirname } from "path"
 
 ${imports.join("\n")}
 
-const SKILL_FILES: Record<string, Record<string, string>> = {
-${skillEntries.join(",\n")}
+const SKILL_FILES: Record<string, Record<string, Record<string, string>>> = {
+${localeSkillEntries.join(",\n")}
 }
 
 const SKILL_VERSIONS: Record<string, string> = {
-${versionEntries.join(",\n")}
+${allSkillNames.map(n => `  "${n}": "${commitSha}"`).join(",\n")}
 }
 
 export function listBuiltinSkills(): string[] {
-  return ${JSON.stringify(skillNames)}
+  return ${JSON.stringify(allSkillNames)}
 }
 
 export function getBuiltinSkillVersion(skillName: string): string | undefined {
   return SKILL_VERSIONS[skillName]
 }
 
-export function listSkillFiles(skillName: string): string[] {
-  return Object.keys(SKILL_FILES[skillName] || {})
+export function listSkillFiles(skillName: string, locale: string): string[] {
+  return Object.keys(SKILL_FILES[locale]?.[skillName] || {})
 }
 
-export async function extractBundledSkill(skillName: string, targetDir: string): Promise<void> {
+export async function extractBundledSkill(skillName: string, targetDir: string, locale: string): Promise<void> {
+  const localeData = SKILL_FILES[locale]
+  if (!localeData) {
+    throw new Error(\`Locale not found: \${locale}\`)
+  }
 
-  const skillFiles = SKILL_FILES[skillName]
+  const skillFiles = localeData[skillName]
   if (!skillFiles) {
     throw new Error(\`Skill not found: \${skillName}\`)
   }
@@ -219,109 +261,71 @@ export async function extractBundledSkill(skillName: string, targetDir: string):
   console.log(`\n✓ Generated ${builtinSkillsFile}`)
 }
 
-function parseFrontmatter(content: string): { frontmatter: Record<string, unknown>; content: string } {
-  const match = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/)
-  if (!match) return { frontmatter: {}, content }
-  const frontmatter: Record<string, unknown> = {}
-  const lines = match[1].split("\n")
-  let currentKey: string | null = null
-  let isArray = false
-
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
-    if (trimmed.startsWith(":")) {
-      if (currentKey) frontmatter[currentKey] = (frontmatter[currentKey] || "") + trimmed.substring(1).trim()
-    } else if (trimmed.startsWith("-")) {
-      isArray = true
-      if (currentKey) {
-        const value = trimmed.substring(1).trim().replace(/^["']|["']$/g, "")
-        if (!Array.isArray(frontmatter[currentKey])) frontmatter[currentKey] = []
-        ;(frontmatter[currentKey] as string[]).push(value)
-      }
-    } else if (trimmed.includes(":")) {
-      const [key, ...valueParts] = trimmed.split(":")
-      currentKey = key.trim()
-      const value = valueParts.join(":").trim()
-      if (value.startsWith('"') || value.startsWith("'")) {
-        frontmatter[currentKey] = value.slice(1, -1)
-      } else if (value === "true" || value === "false") {
-        frontmatter[currentKey] = value === "true"
-      } else if (!isNaN(Number(value))) {
-        frontmatter[currentKey] = Number(value)
-      } else if (value) {
-        frontmatter[currentKey] = value
-      }
-      isArray = false
-    } else if (currentKey && isArray) {
-      const value = trimmed.replace(/^["']|["']$/g, "")
-      ;(frontmatter[currentKey] as string[]).push(value)
+async function generateBuiltinAgents(
+  commitSha: string,
+): Promise<void> {
+  const localeEntries = await fs.readdir(bundledReviewDir).catch(() => [] as string[])
+  const locales: string[] = []
+  for (const l of localeEntries) {
+    if ((await fs.stat(path.join(bundledReviewDir, l)).catch(() => null))?.isDirectory()) {
+      locales.push(l)
     }
   }
-  return { frontmatter, content: match[2] }
+
+  // Discover agent names from first locale's agents dir
+  const allAgentNames: string[] = []
+  for (const locale of locales) {
+    const agentsDir = path.join(bundledReviewDir, locale, "agents")
+    const entries = await fs.readdir(agentsDir).catch(() => [] as string[])
+    for (const name of entries) {
+      if (!allAgentNames.includes(name)) allAgentNames.push(name)
+    }
+    break
+  }
+
+  const imports: string[] = []
+  const agentEntries: string[] = []
+  let fileIdx = 0
+
+  for (const agentName of allAgentNames) {
+    const localeEntries: string[] = []
+    for (const locale of [...locales].sort()) {
+      const agentFile = path.join(bundledReviewDir, locale, "agents", agentName)
+      try {
+        const content = await fs.readFile(agentFile, "utf-8")
+        const varName = `REVIEW_AGENT_${fileIdx++}`
+        imports.push(`const ${varName} = ${JSON.stringify(content)}`)
+        localeEntries.push(`"${locale}": ${varName}`)
+      } catch {
+        // Agent file not found for this locale, skip
+      }
+    }
+    if (localeEntries.length > 0) {
+      const agentKey = agentName.replace(/\.md$/, "")
+      agentEntries.push(`  "${agentKey}": { locales: { ${localeEntries.join(", ")} } }`)
+    }
+  }
+
+  const content = `// This file is auto-generated by script/generate-review-builtin.ts
+// Do not edit manually
+// Agents are downloaded from zgsm-ai/costrict-review repository
+
+${imports.join("\n")}
+
+export type ReviewAgentEntry = {
+  locales: Record<string, string>
 }
 
-async function generateBuiltinAgents(
-  downloadedResources: DownloadResult[],
-): Promise<void> {
-  const outLines: string[] = [
-    "// This file is auto-generated by script/generate-review-builtin.ts",
-    "// Do not edit manually",
-    "// Agents are downloaded from zgsm-ai/costrict-review repository",
-    "",
-  ]
+export const BUILTIN_AGENTS: Record<string, ReviewAgentEntry> = {
+${agentEntries.join(",\n")}
+}
 
-  const agentEntries: string[] = []
-  const versionEntries: string[] = []
+export const AGENT_VERSIONS: Record<string, string> = {
+${allAgentNames.map(n => `  "${n.replace(/\.md$/, "")}": "${commitSha}"`).join(",\n")}
+}
+`
 
-  for (const resource of downloadedResources) {
-    const config = BUILTIN_RESOURCES[resource.name]
-    if (!config || config.type !== "agent") continue
-
-    const agentMdPath = path.join(bundledReviewDir, "agents", resource.name, config.outputFile!)
-    try {
-      const content = await fs.readFile(agentMdPath, "utf-8")
-      const { frontmatter, content: systemPrompt } = parseFrontmatter(content)
-
-      const agentName = (frontmatter.name as string) || resource.name
-      const description = (frontmatter.description as string) || ""
-      const tools = Array.isArray(frontmatter.tools) ? frontmatter.tools as string[] : []
-      const color = (frontmatter.color as string) || "blue"
-      const model = (frontmatter.model as string) || "inherit"
-      const permissionMode = (frontmatter.permissionMode as string) || "auto"
-
-      agentEntries.push(`  '${agentName}': {`)
-      agentEntries.push(`    agentType: '${agentName}',`)
-      agentEntries.push(`    whenToUse: ${JSON.stringify(description)},`)
-      agentEntries.push(`    tools: ${JSON.stringify(tools)},`)
-      agentEntries.push(`    color: '${color}',`)
-      agentEntries.push(`    model: '${model}',`)
-      agentEntries.push(`    permissionMode: '${permissionMode}',`)
-      agentEntries.push(`    getSystemPrompt: () => ${JSON.stringify(systemPrompt.trim())},`)
-      agentEntries.push(`    source: 'built-in' as const,`)
-      agentEntries.push(`    baseDir: 'built-in' as const,`)
-      agentEntries.push("  },")
-
-      if (resource.commitSha) {
-        versionEntries.push(`  "${resource.name}": "${resource.commitSha}"`)
-      }
-    } catch (err) {
-      throw new Error(`Failed to parse agent ${resource.name}: ${err}`)
-    }
-  }
-
-  outLines.push("export const BUILTIN_AGENTS = {")
-  outLines.push(...agentEntries)
-  outLines.push("}")
-  outLines.push("")
-  if (versionEntries.length > 0) {
-    outLines.push("export const AGENT_VERSIONS: Record<string, string> = {")
-    outLines.push(versionEntries.join(",\n"))
-    outLines.push("}")
-    outLines.push("")
-  }
-
-  await fs.writeFile(builtinAgentsFile, outLines.join("\n"), "utf-8")
+  await fs.writeFile(builtinAgentsFile, content, "utf-8")
   console.log(`✓ Generated ${builtinAgentsFile}`)
 }
 
@@ -336,62 +340,45 @@ async function generateBuiltinReview() {
   }
   console.log(`Remote commit: ${remoteSha.slice(0, 7)}`)
 
-  // Check if any resource needs updating
-  let needsUpdate = false
-  for (const [name, config] of Object.entries(BUILTIN_RESOURCES)) {
-    const targetFile = config.type === "skill" ? builtinSkillsFile : builtinAgentsFile
-    const cachedSha = await readCachedSha(name, targetFile)
-    const outputDir = path.join(bundledReviewDir, config.type === "skill" ? "skills" : "agents", name)
-    const hasCachedFiles = (await walk(outputDir)).length > 0
+  const cachedSha = await readCachedSha(builtinSkillsFile)
+  const hasCachedFiles = (await walk(bundledReviewDir)).length > 0
 
-    if (cachedSha !== remoteSha || !hasCachedFiles) {
-      if (cachedSha) {
-        console.log(`${config.displayName || name}: cached ${cachedSha.slice(0, 7)} → remote ${remoteSha.slice(0, 7)}, updating`)
-      }
-      needsUpdate = true
+  let commitSha = remoteSha
+
+  if (cachedSha === remoteSha && hasCachedFiles) {
+    console.log("✓ All resources up to date, skipping download")
+  } else {
+    if (cachedSha) {
+      console.log(`Cached ${cachedSha.slice(0, 7)} → remote ${remoteSha.slice(0, 7)}, updating`)
     }
-  }
-
-  const downloadedResources: DownloadResult[] = []
-
-  if (needsUpdate) {
     const cloneDir = path.join(bundledReviewDir, ".clone")
     try {
-      await cloneAndCopy(cloneDir)
-      for (const name of Object.keys(BUILTIN_RESOURCES)) {
-        downloadedResources.push({ name, commitSha: remoteSha })
+      console.log(`   git clone --depth 1 ${CLONE_URL}`)
+      await fs.rm(cloneDir, { recursive: true, force: true })
+      const cloneResult = git("clone", "--depth", "1", "--branch", BRANCH, CLONE_URL, cloneDir)
+      if (!cloneResult.ok) {
+        throw new Error(`git clone failed: ${cloneResult.stderr}`)
       }
+      const index = await readIndexJson(cloneDir)
+      await cloneAndCopy(cloneDir, index)
       console.log(`\n✓ All resources updated (commit ${remoteSha.slice(0, 7)})`)
     } catch (err) {
       console.error(`  ✗ Download failed: ${err}`)
-      // Check which resources have usable cache
-      for (const [name, config] of Object.entries(BUILTIN_RESOURCES)) {
-        const outputDir = path.join(bundledReviewDir, config.type === "skill" ? "skills" : "agents", name)
-        const cached = await walk(outputDir)
-        if (cached.length > 0) {
-          console.warn(`  ⚠ Using cache for "${config.displayName || name}"`)
-          const targetFile = config.type === "skill" ? builtinSkillsFile : builtinAgentsFile
-          const cachedSha = await readCachedSha(name, targetFile)
-          downloadedResources.push({ name, commitSha: cachedSha })
-        } else {
-          throw new Error(`Download failed and no cache for "${config.displayName || name}"`)
-        }
+      if (!hasCachedFiles) {
+        throw new Error(`Download failed and no cache available`)
       }
+      console.warn(`  ⚠ Using cached resources`)
+      commitSha = cachedSha ?? remoteSha
     } finally {
       await fs.rm(cloneDir, { recursive: true, force: true }).catch(() => {})
-    }
-  } else {
-    console.log("✓ All resources up to date, skipping download")
-    for (const name of Object.keys(BUILTIN_RESOURCES)) {
-      downloadedResources.push({ name, commitSha: remoteSha })
     }
   }
 
   console.log(`✓ Bundled review directory: ${bundledReviewDir}`)
 
-  await generateBuiltinSkills(downloadedResources)
+  await generateBuiltinSkills(commitSha)
 
-  await generateBuiltinAgents(downloadedResources)
+  await generateBuiltinAgents(commitSha)
 
   console.log("\n💡 Run 'bun run build' to compile the extension\n")
 }
