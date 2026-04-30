@@ -662,6 +662,7 @@ export const dict = {
   "sidebar.user.copySubjectId": "复制平台ID",
   "sidebar.user.signIn": "登录",
   "sidebar.user.signOut": "退出登录",
+  "sidebar.user.creditUsage": "额度用量",
   "sidebar.user.console": "控制台",
   "sidebar.store": "知识中心",
   "sidebar.workspace": "工作空间",

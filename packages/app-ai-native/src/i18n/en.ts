@@ -1190,6 +1190,7 @@ export const dict = {
   "sidebar.user.copySubjectId": "Copy Platform ID",
   "sidebar.user.signIn": "Sign In",
   "sidebar.user.signOut": "Sign Out",
+  "sidebar.user.creditUsage": "Credit Usage",
   "sidebar.user.console": "Console",
   "sidebar.store": "Skill Store",
   "sidebar.kanban": "Kanban",
