@@ -23,6 +23,7 @@ export type DiffData = {
   branch: string
   stagedFiles: DiffFileEntry[]
   unstagedFiles: DiffFileEntry[]
+  untrackedFiles?: DiffFileEntry[]
 }
 
 export type DiffContentData = {

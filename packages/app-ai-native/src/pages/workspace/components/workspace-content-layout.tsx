@@ -3,12 +3,13 @@ import { useParams, useSearchParams } from "@solidjs/router"
 import { Toast } from "@opencode-ai/ui/toast"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Icon } from "@opencode-ai/ui/icon"
+import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Tabs } from "@opencode-ai/ui/tabs"
 import { useLanguage } from "@/context/language"
 import { useFile } from "@/context/file"
-import { useDeviceSDK } from "@/context/device-sdk"
+import { useDiff, useTreePolling } from "@/context/device-file"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
 import { DeviceSessionProvider } from "@/context/device-session"
@@ -23,7 +24,6 @@ import { workspaceKey } from "@/pages/layout/helpers"
 import { shouldRestore, activeSession } from "./workspace-content-layout-sync"
 import FileTree from "@/components/file-tree"
 import type { FileNode } from "@opencode-ai/sdk/v2"
-import type { DiffFileEntry } from "@/client/device-client"
 import type { Session } from "@opencode-ai/sdk/v2/client"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
 import { useWorkspace } from "../context"
@@ -46,8 +46,46 @@ function hasPendingInteraction(
   return treeIds.some((id) => (questions[id]?.length ?? 0) > 0 || (permissions[id]?.length ?? 0) > 0)
 }
 
+function DiffStatusBadge(props: { status: string }) {
+  const label = () => {
+    switch (props.status) {
+      case "modified": return "M"
+      case "deleted": return "D"
+      case "renamed": return "R"
+      case "untracked": return "?"
+      default: return "?"
+    }
+  }
+  const bg = () => {
+    switch (props.status) {
+      case "modified": return "hsl(25 95% 53%)"
+      case "deleted": return "hsl(0 84% 60%)"
+      case "renamed": return "hsl(199 89% 48%)"
+      case "untracked": return "hsl(220 9% 60%)"
+      default: return "hsl(220 9% 60%)"
+    }
+  }
+  return (
+    <span
+      class="shrink-0 w-4 h-4 flex items-center justify-center text-[10px] rounded-[3px]"
+      style={{ "background-color": bg(), color: "#ffffff", "font-weight": 700 }}
+    >
+      {label()}
+    </span>
+  )
+}
+
 function TabIcon(props: { tab: ContentTab }) {
-  return <Icon name={props.tab.icon as any ?? "file-tree"} size="small" class="shrink-0 text-text-weak" />
+  return (() => {
+    if (props.tab.kind === "diff") {
+      return <DiffStatusBadge status={(props.tab.meta as any)?.status ?? "modified"} />
+    }
+    if (props.tab.kind === "file") {
+      const path = (props.tab.meta as any)?.path as string | undefined
+      return <FileIcon node={{ path: path ?? "", type: "file" }} class="size-4 shrink-0" />
+    }
+    return <Icon name={props.tab.icon as any ?? "file-tree"} size="small" class="shrink-0 text-text-weak" />
+  })()
 }
 
 function PendingInteractionIcon() {
@@ -141,19 +179,19 @@ function ContentTabPanel() {
       <Show
         when={tabStore.tabs().length > 0}
         fallback={
-          <div class="flex-1 h-full flex items-center justify-center text-text-weak text-12-regular">
-            <div class="flex flex-col gap-1.5">
+          <div class="flex-1 h-full flex items-center justify-center vscode-markdown">
+            <div class="flex flex-col gap-1.5" style={{ "min-width": "280px" }}>
               <div class="flex items-center justify-between gap-8">
                 <span>{language.t("workspace.content.shortcut.newSession")}</span>
-                <span class="flex items-center gap-0.5"><code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">Alt</code>+<code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">N</code></span>
+                <span class="flex items-center gap-0.5"><code>Alt</code>+<code>N</code></span>
               </div>
               <div class="flex items-center justify-between gap-8">
                 <span>{language.t("workspace.content.shortcut.newTerminal")}</span>
-                <span class="flex items-center gap-0.5"><code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">Alt</code>+<code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">T</code></span>
+                <span class="flex items-center gap-0.5"><code>Alt</code>+<code>T</code></span>
               </div>
               <div class="flex items-center justify-between gap-8">
                 <span>{language.t("workspace.content.shortcut.toggleSidebar")}</span>
-                <span class="flex items-center gap-0.5"><code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">Alt</code>+<code class="px-1 py-0.5 rounded bg-background-weak border border-border-base text-11-regular">M</code></span>
+                <span class="flex items-center gap-0.5"><code>Alt</code>+<code>M</code></span>
               </div>
             </div>
           </div>
@@ -181,14 +219,14 @@ function ContentTabPanel() {
                 {(tab) => (
                   <Tabs.Trigger
                     value={tab.id}
-                    class="group h-full min-w-[100px] max-w-[180px] !bg-background-weak !border-b-0 has-[[data-selected]]:!bg-background-base has-[[data-selected]]:!border-b has-[[data-selected]]:before:absolute has-[[data-selected]]:before:top-0 has-[[data-selected]]:before:left-0 has-[[data-selected]]:before:right-0 has-[[data-selected]]:before:h-[2px] has-[[data-selected]]:before:bg-icon-strong-base [&>[data-slot=tabs-trigger]]:h-full [&>[data-slot=tabs-trigger]]:w-full [&>[data-slot=tabs-trigger]]:px-2 [&>[data-slot=tabs-trigger]]:gap-1.5 flex items-center gap-1.5 text-13-regular text-text-weak hover:text-text-base has-[[data-selected]]:text-text-base transition-colors relative"
+                    class="group h-full w-[160px] shrink-0 !bg-background-weak !border-b-0 has-[[data-selected]]:!bg-background-base has-[[data-selected]]:!border-b has-[[data-selected]]:before:absolute has-[[data-selected]]:before:top-0 has-[[data-selected]]:before:left-0 has-[[data-selected]]:before:right-0 has-[[data-selected]]:before:h-[2px] has-[[data-selected]]:before:bg-icon-strong-base [&>[data-slot=tabs-trigger]]:h-full [&>[data-slot=tabs-trigger]]:w-full [&>[data-slot=tabs-trigger]]:px-2 [&>[data-slot=tabs-trigger]]:gap-1.5 [&>[data-slot=tabs-trigger]]:justify-start flex items-center gap-1.5 text-13-regular text-text-weak hover:text-text-base has-[[data-selected]]:text-text-base transition-colors relative"
                   >
                     <Show when={tab.kind === "session"} fallback={<TabIcon tab={tab} />}>
                       <SessionTabIcon tab={tab} />
                     </Show>
-                    <span class="truncate flex-1 min-w-0">{tab.title}</span>
+                    <span class="truncate flex-1 min-w-0 text-left">{tab.title}</span>
                     <button
-                      class="flex items-center justify-center h-full w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      class="flex items-center justify-center h-full w-0 overflow-hidden group-hover:w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-[width,opacity]"
                       onClick={(e) => {
                         e.stopPropagation()
                         closeTab(tab.id)
@@ -258,7 +296,6 @@ function FileTreeWithTabs(props: { path: string }) {
 
 type SidebarSection = "sessions" | "files" | "diffs"
 
-const SECTION_MIN_HEIGHT = 120
 const SECTION_HEADER_HEIGHT = 32
 
 function ContentSidebar(props: { directory: string }) {
@@ -266,23 +303,15 @@ function ContentSidebar(props: { directory: string }) {
   const dl = useLayout()
   const tabStore = useContentTabs()
   const terminal = useDeviceTerminal()
-  const sdk = useDeviceSDK()
   const dw = useDeviceWorkspace()
   const work = useWorkspace()
+  const diff = useDiff()
+  const treePolling = useTreePolling()
   const [expanded, setExpanded] = createSignal<Record<SidebarSection, boolean>>({
     sessions: true,
     files: false,
     diffs: false,
   })
-  const [heights, setHeights] = createSignal<Record<SidebarSection, number>>({
-    sessions: SECTION_MIN_HEIGHT,
-    files: 300,
-    diffs: SECTION_MIN_HEIGHT,
-  })
-  const [stagedFiles, setStagedFiles] = createSignal<DiffFileEntry[]>([])
-  const [unstagedFiles, setUnstagedFiles] = createSignal<DiffFileEntry[]>([])
-  const [diffBranch, setDiffBranch] = createSignal<string>("")
-  const [diffLoading, setDiffLoading] = createSignal(false)
   const [diffGroupsCollapsed, setDiffGroupsCollapsed] = createSignal<Record<string, boolean>>({})
 
   const sortedSessions = createMemo(() => {
@@ -342,43 +371,33 @@ function ContentSidebar(props: { directory: string }) {
     ids.forEach(tabStore.close)
   })
 
-  const loadDiff = async () => {
-    if (diffLoading()) return
-    setDiffLoading(true)
-    try {
-      const result = await sdk.client.runtime.diff()
-      if (result) {
-        setStagedFiles(result.stagedFiles ?? [])
-        setUnstagedFiles(result.unstagedFiles ?? [])
-        setDiffBranch(result.branch ?? "")
-      }
-    } catch {
-      setStagedFiles([])
-      setUnstagedFiles([])
-    } finally {
-      setDiffLoading(false)
-    }
-  }
-
   createEffect(() => {
-    if (expanded().diffs) untrack(() => loadDiff())
+    if (expanded().files) treePolling.start()
+    else treePolling.stop()
   })
 
-  const statusColor = (status: string) => {
+  createEffect(() => {
+    if (expanded().diffs) diff.scheduler.start()
+    else diff.scheduler.stop()
+  })
+
+  const statusLabel = (status: string) => {
     switch (status) {
-      case "modified": return "text-warning"
-      case "deleted": return "text-danger"
-      case "renamed": return "text-info"
-      default: return "text-text-weak"
+      case "modified": return "M"
+      case "deleted": return "D"
+      case "renamed": return "R"
+      case "untracked": return "?"
+      default: return "?"
     }
   }
 
-  const statusIcon = (status: string) => {
+  const statusBadgeStyle = (status: string) => {
     switch (status) {
-      case "modified": return "pencil-line"
-      case "deleted": return "trash"
-      case "renamed": return "arrow-right"
-      default: return "file-tree"
+      case "modified": return { "background-color": "hsl(25 95% 53%)" }
+      case "deleted": return { "background-color": "hsl(0 84% 60%)" }
+      case "renamed": return { "background-color": "hsl(199 89% 48%)" }
+      case "untracked": return { "background-color": "hsl(220 9% 60%)" }
+      default: return { "background-color": "hsl(220 9% 60%)" }
     }
   }
 
@@ -467,35 +486,18 @@ function ContentSidebar(props: { directory: string }) {
         <For each={sections()}>
           {(section, idx) => {
             const isOpen = createMemo(() => expanded()[section.key])
-            const isFirstExpanded = createMemo(() => {
-              if (!isOpen()) return false
-              const keys: SidebarSection[] = ["sessions", "files", "diffs"]
-              for (const k of keys) {
-                if (expanded()[k]) return k === section.key
-              }
-              return false
-            })
 
             return (
               <div
                 class="flex flex-col min-h-0 relative"
                 classList={{
-                  "flex-1": isFirstExpanded(),
-                  "shrink-0": isOpen() && !isFirstExpanded(),
+                  "flex-1": isOpen(),
+                  "shrink-0": !isOpen(),
                 }}
                 style={{
-                  height: isOpen() && !isFirstExpanded() ? `${heights()[section.key]}px` : undefined,
+                  height: !isOpen() ? `${SECTION_HEADER_HEIGHT}px` : undefined,
                 }}
               >
-                <Show when={isOpen() && !isFirstExpanded()}>
-                  <ResizeHandle
-                    direction="vertical"
-                    size={heights()[section.key]}
-                    min={SECTION_MIN_HEIGHT}
-                    max={800}
-                    onResize={(h: number) => setHeights((prev) => ({ ...prev, [section.key]: h }))}
-                  />
-                </Show>
                 <button
                   class="shrink-0 flex items-center gap-1.5 w-full px-2 text-12-regular text-text-weak hover:text-text-base hover:bg-background-stronger transition-colors cursor-pointer border-b"
                   style={{ height: `${SECTION_HEADER_HEIGHT}px` }}
@@ -512,7 +514,7 @@ function ContentSidebar(props: { directory: string }) {
                   </Show>
                 </button>
                 <Show when={isOpen()}>
-                  <div class="flex-1 min-h-0 overflow-y-auto">
+                  <div class="flex-1 min-h-0 overflow-y-auto thin-scrollbar">
                     <Show when={section.key === "sessions"}>
                       <Show when={dw.data.status === "loading"} fallback={
                         <Show when={sessionGroups().length > 0} fallback={
@@ -533,7 +535,7 @@ function ContentSidebar(props: { directory: string }) {
                                       })
                                       return (
                                         <div
-                                          class="group/s flex items-center gap-2 h-10 px-1.5 text-12-regular rounded-md cursor-pointer transition-colors duration-150"
+                                          class="group/s flex items-center gap-1.5 h-9 px-1.5 text-12-regular rounded-md cursor-pointer transition-colors duration-150"
                                           classList={{
                                             "bg-native-primary-soft text-native-foreground": isActive(),
                                             "text-native-muted hover:bg-native-hover hover:text-native-foreground": !isActive(),
@@ -553,7 +555,7 @@ function ContentSidebar(props: { directory: string }) {
                                           </Show>
                                           <span class="truncate flex-1 min-w-0">{session.title || language.t("command.session.new")}</span>
                                           <button
-                                            class="shrink-0 size-5 flex items-center justify-center rounded opacity-0 group-hover/s:opacity-100 transition-opacity duration-150 hover:bg-native-active"
+                                            class="shrink-0 size-5 flex items-center justify-center rounded opacity-0 group-hover/s:opacity-100 transition-[width,opacity] duration-150 w-0 overflow-hidden group-hover/s:w-5 hover:bg-native-active"
                                             onClick={(e) => {
                                               e.stopPropagation()
                                               archiveSession(session)
@@ -582,55 +584,50 @@ function ContentSidebar(props: { directory: string }) {
                       </div>
                     </Show>
                     <Show when={section.key === "diffs"}>
-                      <Show when={!diffLoading()} fallback={
-                        <div class="px-3 py-2 text-12-regular text-text-weak">
-                          {language.t("common.loading")}{language.t("common.loading.ellipsis")}
-                        </div>
-                      }>
-                        <Show when={stagedFiles().length > 0 || unstagedFiles().length > 0} fallback={
+                        <Show when={diff.state().stagedFiles.length > 0 || diff.state().unstagedFiles.length > 0 || diff.state().untrackedFiles.length > 0 || diff.state().loading} fallback={
                           <div class="px-3 py-2 text-12-regular text-text-weak">
                             {language.t("session.review.noChanges")}
                           </div>
                         }>
-                          <div class="px-2 py-1">
-                            <Show when={diffBranch()}>
-                              <div class="px-1 pb-1 text-11-regular text-text-weak flex items-center gap-1">
+                          <div class="px-0 py-0.5">
+                            <Show when={diff.state().branch}>
+                              <div class="px-1.5 pb-1 text-11-regular text-text-weak flex items-center gap-1">
                                 <Icon name="branch" size="small" class="shrink-0" />
-                                <span class="truncate">{diffBranch()}</span>
+                                <span class="truncate">{diff.state().branch}</span>
                               </div>
                             </Show>
-                            <Show when={stagedFiles().length > 0}>
+                            <Show when={diff.state().stagedFiles.length > 0}>
                               <div
                                 class="px-1.5 pt-1.5 pb-0.5 flex items-center gap-1 text-[11px] font-[600] text-native-muted tracking-wide uppercase cursor-pointer hover:text-native-foreground transition-colors"
                                 onClick={() => setDiffGroupsCollapsed((prev) => ({ ...prev, staged: !prev.staged }))}
                               >
                                 <Icon name={diffGroupsCollapsed().staged ? "chevron-right" : "chevron-down"} size="small" class="shrink-0" />
                                 {language.t("workspace.content.diff.staged")}
-                                <span class="ml-auto text-11-regular tabular-nums">{stagedFiles().length}</span>
+                                <span class="ml-auto text-11-regular tabular-nums">{diff.state().stagedFiles.length}</span>
                               </div>
                               <Show when={!diffGroupsCollapsed().staged}>
-                                <For each={stagedFiles()}>
+                                <For each={diff.state().stagedFiles}>
                                   {(file) => (
-                                    <div class="flex items-center gap-1.5 h-10 px-1.5 text-12-regular hover:bg-native-hover rounded-md cursor-pointer transition-colors duration-150 group/diff"
+                                    <div class="flex items-center gap-1.5 h-6 px-1.5 text-12-regular hover:bg-native-hover rounded-md cursor-pointer transition-colors duration-150 group/diff"
                                       onClick={() => {
                                         tabStore.open({
                                           kind: "diff",
                                           key: `staged:${file.path}`,
                                           title: getFilename(file.path),
-                                          icon: statusIcon(file.status) as string,
+                                          icon: "file-tree",
                                           meta: { path: file.path, status: file.status, staged: true },
                                         })
                                       }}
                                     >
-                                      <Icon name={statusIcon(file.status) as any} size="small" class={`shrink-0 ${statusColor(file.status)}`} />
+                                  <span class="shrink-0 w-4 h-4 flex items-center justify-center text-[10px] rounded-[3px]" style={{ ...statusBadgeStyle(file.status), color: "#ffffff", "font-weight": 700 }}>{statusLabel(file.status)}</span>
                                       <span class="truncate flex-1 min-w-0">{file.path}</span>
                                       <Show when={file.additions > 0 || file.deletions > 0}>
                                         <span class="shrink-0 text-11-regular tabular-nums flex items-center gap-0.5">
                                           <Show when={file.additions > 0}>
-                                            <span class="text-success">+{file.additions}</span>
+                                            <span style={{ color: "hsl(160 84% 39%)" }}>+{file.additions}</span>
                                           </Show>
                                           <Show when={file.deletions > 0}>
-                                            <span class="text-danger">-{file.deletions}</span>
+                                            <span style={{ color: "hsl(0 84% 45%)" }}>-{file.deletions}</span>
                                           </Show>
                                         </span>
                                       </Show>
@@ -639,38 +636,78 @@ function ContentSidebar(props: { directory: string }) {
                                 </For>
                               </Show>
                             </Show>
-                            <Show when={unstagedFiles().length > 0}>
+                            <Show when={diff.state().unstagedFiles.length > 0}>
                               <div
                                 class="px-1.5 pt-1.5 pb-0.5 flex items-center gap-1 text-[11px] font-[600] text-native-muted tracking-wide uppercase cursor-pointer hover:text-native-foreground transition-colors"
                                 onClick={() => setDiffGroupsCollapsed((prev) => ({ ...prev, unstaged: !prev.unstaged }))}
                               >
                                 <Icon name={diffGroupsCollapsed().unstaged ? "chevron-right" : "chevron-down"} size="small" class="shrink-0" />
                                 {language.t("workspace.content.diff.unstaged")}
-                                <span class="ml-auto text-11-regular tabular-nums">{unstagedFiles().length}</span>
+                                <span class="ml-auto text-11-regular tabular-nums">{diff.state().unstagedFiles.length}</span>
                               </div>
                               <Show when={!diffGroupsCollapsed().unstaged}>
-                                <For each={unstagedFiles()}>
+                                <For each={diff.state().unstagedFiles}>
                                   {(file) => (
-                                    <div class="flex items-center gap-1.5 h-10 px-1.5 text-12-regular hover:bg-native-hover rounded-md cursor-pointer transition-colors duration-150 group/diff"
+                                    <div class="flex items-center gap-1.5 h-6 px-1.5 text-12-regular hover:bg-native-hover rounded-md cursor-pointer transition-colors duration-150 group/diff"
                                       onClick={() => {
                                         tabStore.open({
                                           kind: "diff",
                                           key: `unstaged:${file.path}`,
                                           title: getFilename(file.path),
-                                          icon: statusIcon(file.status) as string,
+                                          icon: "file-tree",
                                           meta: { path: file.path, status: file.status, staged: false },
                                         })
                                       }}
                                     >
-                                      <Icon name={statusIcon(file.status) as any} size="small" class={`shrink-0 ${statusColor(file.status)}`} />
+                                      <span class="shrink-0 w-4 h-4 flex items-center justify-center text-[10px] rounded-[3px]" style={{ ...statusBadgeStyle(file.status), color: "#ffffff", "font-weight": 700 }}>{statusLabel(file.status)}</span>
                                       <span class="truncate flex-1 min-w-0">{file.path}</span>
                                       <Show when={file.additions > 0 || file.deletions > 0}>
                                         <span class="shrink-0 text-11-regular tabular-nums flex items-center gap-0.5">
                                           <Show when={file.additions > 0}>
-                                            <span class="text-success">+{file.additions}</span>
+                                            <span style={{ color: "hsl(160 84% 39%)" }}>+{file.additions}</span>
                                           </Show>
                                           <Show when={file.deletions > 0}>
-                                            <span class="text-danger">-{file.deletions}</span>
+                                            <span style={{ color: "hsl(0 84% 45%)" }}>-{file.deletions}</span>
+                                          </Show>
+                                        </span>
+                                      </Show>
+                                    </div>
+                                  )}
+                                </For>
+                              </Show>
+                            </Show>
+                            <Show when={diff.state().untrackedFiles.length > 0}>
+                              <div
+                                class="px-1.5 pt-1.5 pb-0.5 flex items-center gap-1 text-[11px] font-[600] text-native-muted tracking-wide uppercase cursor-pointer hover:text-native-foreground transition-colors"
+                                onClick={() => setDiffGroupsCollapsed((prev) => ({ ...prev, untracked: !prev.untracked }))}
+                              >
+                                <Icon name={diffGroupsCollapsed().untracked ? "chevron-right" : "chevron-down"} size="small" class="shrink-0" />
+                                {language.t("workspace.content.diff.untracked")}
+                                <span class="ml-auto text-11-regular tabular-nums">{diff.state().untrackedFiles.length}</span>
+                              </div>
+                              <Show when={!diffGroupsCollapsed().untracked}>
+                                <For each={diff.state().untrackedFiles}>
+                                  {(file) => (
+                                    <div class="flex items-center gap-1.5 h-6 px-1.5 text-12-regular hover:bg-native-hover rounded-md cursor-pointer transition-colors duration-150 group/diff"
+                                      onClick={() => {
+                                        tabStore.open({
+                                          kind: "diff",
+                                          key: `untracked:${file.path}`,
+                                          title: getFilename(file.path),
+                                          icon: "file-tree",
+                                          meta: { path: file.path, status: file.status, staged: false },
+                                        })
+                                      }}
+                                    >
+                                      <span class="shrink-0 w-4 h-4 flex items-center justify-center text-[10px] rounded-[3px]" style={{ ...statusBadgeStyle(file.status), color: "#ffffff", "font-weight": 700 }}>{statusLabel(file.status)}</span>
+                                      <span class="truncate flex-1 min-w-0">{file.path}</span>
+                                      <Show when={file.additions > 0 || file.deletions > 0}>
+                                        <span class="shrink-0 text-11-regular tabular-nums flex items-center gap-0.5">
+                                          <Show when={file.additions > 0}>
+                                            <span style={{ color: "hsl(160 84% 39%)" }}>+{file.additions}</span>
+                                          </Show>
+                                          <Show when={file.deletions > 0}>
+                                            <span style={{ color: "hsl(0 84% 45%)" }}>-{file.deletions}</span>
                                           </Show>
                                         </span>
                                       </Show>
@@ -681,7 +718,6 @@ function ContentSidebar(props: { directory: string }) {
                             </Show>
                           </div>
                         </Show>
-                      </Show>
                     </Show>
                   </div>
                 </Show>

@@ -5,6 +5,7 @@ import { List } from "@opencode-ai/ui/list"
 import { Switch } from "@opencode-ai/ui/switch"
 import { useLanguage } from "@/context/language"
 import { useConversationAdapter } from "@/context/device-adapter"
+import { useSync } from "@/context/sync"
 import { showToast } from "@opencode-ai/ui/toast"
 
 type FavoriteItem = {
@@ -58,6 +59,7 @@ export const DialogFavorites: Component = () => {
   const dialog = useDialog()
   const language = useLanguage()
   const api = useConversationAdapter()
+  const sync = useSync()
 
   const [items, setItems] = createSignal<FavoriteItem[]>([])
   const [loading, setLoading] = createSignal(false)
@@ -90,6 +92,13 @@ export const DialogFavorites: Component = () => {
         title: language.t(action === "load" ? "command.favorites.enabled" : "command.favorites.disabled", { name: slug }),
         variant: "success",
       })
+      setItems((prev) =>
+        prev.map((item) =>
+          item.slug === slug ? { ...item, status: action === "load" ? "Active" : "Unloaded" } : item,
+        ),
+      )
+      sync.set("command", [])
+      await sync.command.load()
       await fetchFavorites()
     } catch (e) {
       showToast({

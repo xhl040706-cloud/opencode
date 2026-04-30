@@ -971,6 +971,7 @@ export const dict = {
 
   "toast.file.loadFailed.title": "Failed to load file",
   "toast.file.listFailed.title": "Failed to list files",
+  "file.preview.binaryUnsupported": "Preview not supported for non-text files",
 
   "toast.context.noLineSelection.title": "No line selection",
   "toast.context.noLineSelection.description": "Select a line range in a file tab first.",
@@ -1689,6 +1690,7 @@ export const dict = {
   "workspace.content.section.changes": "Changes",
   "workspace.content.diff.staged": "Staged",
   "workspace.content.diff.unstaged": "Unstaged",
+  "workspace.content.diff.untracked": "Untracked",
   "workspace.content.newSession": "New session",
   "workspace.content.emptyState": "Select a file or start a session",
   "workspace.content.shortcut.newSession": "New session",
@@ -1697,6 +1699,7 @@ export const dict = {
   "command.content.sidebar.toggle": "Toggle content sidebar",
   "workspace.sidebar.expand": "Expand sidebar",
   "workspace.sidebar.collapse": "Collapse sidebar",
+  "workspace.sidebar.notGitRepo": "Not a git repository",
   "workspace.content.comingSoon": "Coming soon",
   "workspace.content.viewPreview": "Preview",
   "workspace.content.viewSource": "Source",
