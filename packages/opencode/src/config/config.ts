@@ -1,5 +1,6 @@
 import { Log } from "../util/log"
 import { BUILTIN_AGENTS, type AgentEntry } from "../costrict/agent/builtin"
+import { BUILTIN_AGENTS as REVIEW_BUILTIN_AGENTS, type ReviewAgentEntry } from "../costrict/review/agent/builtin"
 import path from "path"
 import { pathToFileURL } from "url"
 import os from "os"
@@ -269,7 +270,7 @@ export namespace Config {
     return result
   }
 
-  async function resolveBuiltinContent(entry: AgentEntry, locale: string): Promise<string | undefined> {
+  async function resolveBuiltinContent(entry: AgentEntry | ReviewAgentEntry, locale: string): Promise<string | undefined> {
     return entry.locales[locale] ?? Object.values(entry.locales)[0]
   }
 
@@ -277,8 +278,13 @@ export namespace Config {
     const result: Record<string, Agent> = {}
     const lang = locale ?? "zh-CN"
 
+    const allBuiltinAgents: Record<string, AgentEntry | ReviewAgentEntry> = {
+      ...BUILTIN_AGENTS,
+      ...REVIEW_BUILTIN_AGENTS,
+    }
+
     // Load built-in agents from imported modules
-    for (const [filename, entry] of Object.entries(BUILTIN_AGENTS)) {
+    for (const [filename, entry] of Object.entries(allBuiltinAgents)) {
       try {
         const content = await resolveBuiltinContent(entry, lang)
         if (!content) continue

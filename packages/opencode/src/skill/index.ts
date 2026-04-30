@@ -144,9 +144,13 @@ export namespace Skill {
     directory: string,
     worktree: string,
   ) {
+    // Get config early for locale
+    const cfg = yield* config.get()
+    const locale = cfg.promptLanguage ?? "zh-CN"
+
     // Initialize CoStrict builtin skills to cache directory on first run
     yield* Effect.tryPromise({
-      try: () => CoStrictReview.Extension.initializeBuiltinSkills(),
+      try: () => CoStrictReview.Extension.initializeBuiltinSkills(locale),
       catch: (err) => err,
     }).pipe(
       Effect.catch((err) => {
@@ -182,7 +186,6 @@ export namespace Skill {
       yield* scan(state, bus, costrictSkillsDir, SKILL_PATTERN, { scope: "builtin" })
     }
 
-    const cfg = yield* config.get()
     for (const item of cfg.skills?.paths ?? []) {
       const expanded = item.startsWith("~/") ? path.join(os.homedir(), item.slice(2)) : item
       const dir = path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)

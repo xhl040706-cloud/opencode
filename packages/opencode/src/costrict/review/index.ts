@@ -7,4 +7,4 @@
 
 export * as Extension from "./extension"
 export * as SkillBuiltin from "./skill/builtin"
-export { BUILTIN_AGENTS, AGENT_VERSIONS } from "./agent/builtin"
+export { BUILTIN_AGENTS, AGENT_VERSIONS, type ReviewAgentEntry } from "./agent/builtin"
