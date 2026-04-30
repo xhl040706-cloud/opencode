@@ -104,8 +104,15 @@ export const deviceFileApi = {
   getConfig: (deviceId: string): Promise<RuntimeConfig> =>
     client(deviceId).runtime.config(),
 
-  getDefaultPath: async (deviceId: string): Promise<string> => {
-    const res = await client(deviceId).runtime.path() as { home?: string; directory?: string } | null
-    return res?.directory || res?.home || "/"
-  },
+  getDefaultPath: (() => {
+    const cache = new Map<string, string>()
+    return async (deviceId: string): Promise<string> => {
+      const hit = cache.get(deviceId)
+      if (hit) return hit
+      const res = await client(deviceId).runtime.path() as { home?: string; directory?: string } | null
+      const p = res?.directory || res?.home || "/"
+      cache.set(deviceId, p)
+      return p
+    }
+  })(),
 }

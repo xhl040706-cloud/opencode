@@ -1,5 +1,12 @@
 import { env } from "@/lib/env"
-import type { Device, ListDevicesResponse, UpdateDeviceRequest } from "@/pages/workspace/types"
+import type {
+  Device,
+  DeviceCommandAck,
+  DeviceCommandRequest,
+  ListDevicesResponse,
+  UpdateCheckResponse,
+  UpdateDeviceRequest,
+} from "@/pages/workspace/types"
 
 // In dev the Vite proxy forwards /api/* to the real backend.
 // Set VITE_API_URL only for standalone mode (packages/store dev server on port 3002).
@@ -1097,4 +1104,15 @@ export const channelApi = {
     apiFetch<{ status: string; token?: string }>(
       `/api/channels/wechat/login/status?qrcode=${encodeURIComponent(qrcode)}`,
     ),
+}
+
+export const updateApi = {
+  check: (platform: string, version: string) =>
+    apiFetch<UpdateCheckResponse>(`/api/updates/check?platform=${encodeURIComponent(platform)}&version=${encodeURIComponent(version)}`),
+
+  sendCommand: (deviceId: string, cmd: DeviceCommandRequest) =>
+    apiFetch<DeviceCommandAck>(`/cloud/device/${deviceId}/proxy/api/v1/commands`, {
+      method: "POST",
+      body: JSON.stringify(cmd),
+    }),
 }

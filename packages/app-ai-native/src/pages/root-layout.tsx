@@ -80,7 +80,7 @@ function UserButton() {
               <p class="text-13-medium text-text-strong truncate" title={displayName()}>
                 {displayName()}
               </p>
-              <p class="text-11-regular text-text-weak mt-0.5 truncate" title={`@${username()}`}>
+              <p class="text-[10px] text-text-weak mt-0.5 truncate" title={`@${username()}`}>
                 @{username()}
               </p>
             </div>

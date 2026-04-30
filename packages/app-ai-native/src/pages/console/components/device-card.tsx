@@ -1,15 +1,18 @@
 import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { showToast } from "@opencode-ai/ui/toast"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { cn } from "@/lib/utils"
 import { sx } from "@/pages/store/lib/styles"
-import type { UpdateDeviceRequest, Device } from "@/pages/workspace/types"
+import type { UpdateCheckResponse, UpdateDeviceRequest, Device } from "@/pages/workspace/types"
 import { DeviceEditDialog } from "./device-edit-dialog"
-import { Button } from "@/components/ui/button"
+import { DeviceUpgradeDialog } from "./device-upgrade-dialog"
 
 type DeviceCardProps = {
   device: Device
+  updateInfo?: UpdateCheckResponse
+  onUpgrade: (deviceId: string) => Promise<void>
   onUpdate: (payload: { deviceId: string; data: UpdateDeviceRequest }) => Promise<void> | void
 }
 
@@ -32,8 +35,22 @@ export function DeviceCard(props: DeviceCardProps) {
     ))
   }
 
+  const handleUpgrade = () => {
+    const info = props.updateInfo
+    if (!info) return
+    dialog.show(() => (
+      <DeviceUpgradeDialog
+        deviceName={props.device.displayName}
+        currentVersion={props.device.version}
+        update={info}
+        onConfirm={() => props.onUpgrade(props.device.deviceId)}
+      />
+    ))
+  }
+
   const sp = () => statusProps(props.device.status)
   const labels = () => props.device.label?.split(",").map((l) => l.trim()).filter(Boolean) ?? []
+  const hasUpgrade = () => props.updateInfo?.can_update && props.device.status === "online"
 
   return (
     <div class={sx.dashCard}>
@@ -76,17 +93,28 @@ export function DeviceCard(props: DeviceCardProps) {
         </div>
       </Show>
 
-      <div class={sx.dashFoot}>
-        <Button
-          variant="ghost"
-          size="sm"
+      <div class={cn(sx.dashFoot, "gap-1 [&>button]:cursor-pointer")}>
+        <Show when={hasUpgrade()}>
+          <button
+            type="button"
+            class="flex h-7 w-7 items-center justify-center rounded-md cursor-pointer transition-colors hover:opacity-80"
+            style={{ background: "#ff9800" }}
+            aria-label={language.t("store.devices.upgrade.button")}
+            title={language.t("store.devices.upgrade.available", { version: props.updateInfo!.version })}
+            onClick={handleUpgrade}
+          >
+            <Icon name="cloud-upload" size="small" style={{ color: "white" }} />
+          </button>
+        </Show>
+        <button
           type="button"
+          class="flex h-7 w-7 items-center justify-center rounded-md cursor-pointer text-[var(--native-muted)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-foreground)]"
           aria-label={language.t("common.edit")}
           title={language.t("common.edit")}
           onClick={handleEdit}
         >
           <Icon name="edit" size="small" />
-        </Button>
+        </button>
       </div>
     </div>
   )
