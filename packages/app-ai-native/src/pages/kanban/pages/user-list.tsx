@@ -214,28 +214,74 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.taskCount"),
       minWidth: 90,
       align: "left",
-      filter: { type: "number" },
+      render: (row) => {
+        const count = row.task_count ?? 0
+        if (count <= 0) return <span>{count}</span>
+        const next = rangeQuery(state.dateRange)
+        const q = searchQuery([
+          ["startDate", next.startDate],
+          ["endDate", next.endDate],
+          ["granularity", state.granularity],
+          ["org1", row.org1],
+          ["org2", row.org2],
+          ["org3", row.org3],
+          ["org4", row.org4],
+        ]).toString()
+        return (
+          <button
+            type="button"
+            class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
+            onClick={() => navigate(`/kanban/task?${q}`)}
+          >
+            {count}
+          </button>
+        )
+      },
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
     {
       prop: "commit_count",
       label: language.t("kanban.table.commitCount"),
       minWidth: 100,
       align: "left",
-      filter: { type: "number" },
+      render: (row) => {
+        const count = row.commit_count ?? 0
+        if (count <= 0) return <span>{count}</span>
+        const next = rangeQuery(state.dateRange)
+        const q = searchQuery([
+          ["startDate", next.startDate],
+          ["endDate", next.endDate],
+          ["granularity", state.granularity],
+          ["org1", row.org1],
+          ["org2", row.org2],
+          ["org3", row.org3],
+          ["org4", row.org4],
+        ]).toString()
+        return (
+          <button
+            type="button"
+            class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
+            onClick={() => navigate(`/kanban/commit?${q}`)}
+          >
+            {count}
+          </button>
+        )
+      },
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
     {
       prop: "task_diff_lines",
       label: language.t("kanban.table.taskCodeLines"),
       minWidth: 110,
       align: "left",
-      filter: { type: "number" },
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
     },
     {
       prop: "commit_diff_lines",
       label: language.t("kanban.table.commitCodeLines"),
       minWidth: 120,
       align: "left",
-      filter: { type: "number" },
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
     },
     {
       prop: "task_real_minutes",
@@ -243,7 +289,7 @@ export default function KanbanUserList() {
       minWidth: 120,
       align: "left",
       display: (row) => formatDuration(row.task_real_minutes, language.t),
-      filter: { type: "number" },
+      filter: { type: "number", valueGetter: (row) => (row.task_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
     {
       prop: "commit_real_minutes",
@@ -251,7 +297,7 @@ export default function KanbanUserList() {
       minWidth: 130,
       align: "left",
       display: (row) => formatDuration(row.commit_real_minutes, language.t),
-      filter: { type: "number" },
+      filter: { type: "number", valueGetter: (row) => (row.commit_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
     {
       prop: "task_efficiency_ratio",
@@ -259,7 +305,7 @@ export default function KanbanUserList() {
       minWidth: 110,
       align: "left",
       render: (row) => <RatioPill value={row.task_efficiency_ratio} />,
-      filter: { type: "number" },
+      filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] },
     },
     {
       prop: "commit_efficiency_ratio",
@@ -267,7 +313,7 @@ export default function KanbanUserList() {
       minWidth: 120,
       align: "left",
       render: (row) => <RatioPill value={row.commit_efficiency_ratio} />,
-      filter: { type: "number" },
+      filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] },
     },
     {
       prop: "_tokens",
@@ -278,7 +324,7 @@ export default function KanbanUserList() {
         const total = (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)
         return total > 0 ? total.toLocaleString() : "-"
       },
-      filter: { type: "number", valueGetter: (row) => (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0) },
+      filter: { type: "number", valueGetter: (row) => (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0), shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 10k", value: { min: 10000 } }, { label: "> 100k", value: { min: 100000 } }] },
     },
     {
       prop: "cost",
@@ -289,7 +335,7 @@ export default function KanbanUserList() {
         row.cost == null || row.cost === 0
           ? "-"
           : `¥${row.cost.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`,
-      filter: { type: "number" },
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] },
     },
   ])
 
