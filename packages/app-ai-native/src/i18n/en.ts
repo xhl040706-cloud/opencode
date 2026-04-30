@@ -1186,6 +1186,8 @@ export const dict = {
   "sidebar.help": "Help",
   "sidebar.user.menu": "User menu",
   "sidebar.user.language": "Language",
+  "sidebar.user.subjectId": "Platform ID",
+  "sidebar.user.copySubjectId": "Copy Platform ID",
   "sidebar.user.signIn": "Sign In",
   "sidebar.user.signOut": "Sign Out",
   "sidebar.user.console": "Console",

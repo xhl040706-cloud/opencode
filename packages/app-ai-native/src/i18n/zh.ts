@@ -658,6 +658,8 @@ export const dict = {
   "sidebar.help": "帮助",
   "sidebar.user.menu": "用户菜单",
   "sidebar.user.language": "语言",
+  "sidebar.user.subjectId": "平台ID",
+  "sidebar.user.copySubjectId": "复制平台ID",
   "sidebar.user.signIn": "登录",
   "sidebar.user.signOut": "退出登录",
   "sidebar.user.console": "控制台",
