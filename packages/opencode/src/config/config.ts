@@ -296,9 +296,9 @@ export namespace Config {
           name: filename,
           ...(md.data as Record<string, any>),
           prompt: md.content.trim(),
-          model_prompts: entry.models
+          model_prompts: "models" in entry && entry.models
             ? Object.fromEntries(
-                await Promise.all(Object.entries(entry.models).map(async ([family, body]) => [family, body.trim()])),
+                await Promise.all(Object.entries(entry.models).map(async ([family, body]: [string, string]) => [family, body.trim()])),
               )
             : undefined,
         }
