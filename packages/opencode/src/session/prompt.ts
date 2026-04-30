@@ -1647,7 +1647,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           ? [
               {
                 type: "subtask" as const,
-                agent: agent.name,
+                agent: cmd.agent ?? agent.name,
                 description: cmd.description ?? "",
                 command: input.command,
                 model: { providerID: taskModel.providerID, modelID: taskModel.modelID },
@@ -1656,7 +1656,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
             ]
           : [...templateParts, ...(input.parts ?? [])]
 
-        const userAgent = isSubtask ? (input.agent ?? (yield* agents.defaultAgent())) : agentName
+        const userAgent = isSubtask ? (input.agent ?? (yield* agents.defaultAgent())) : (cmd.agent ?? agentName)
         const userModel = isSubtask
           ? input.model
             ? Provider.parseModel(input.model)

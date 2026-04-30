@@ -9,6 +9,7 @@ import { MCP } from "../mcp"
 import { Skill } from "../skill"
 
 import { CostrictCommand } from "../costrict/command"
+import { PRIMARY_REVIEW_AGENT } from "../costrict/review/agent/builtin"
 import { LearningCommands } from "../costrict/command/learning"
 import { getCommands as getTddCommands } from "../plugin/tdd/commands"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
@@ -97,17 +98,17 @@ export namespace Command {
           hints: hints(PROMPT_INITIALIZE),
         }
         const lang = cfg.promptLanguage ?? "zh-CN"
+        const reviewAgent = PRIMARY_REVIEW_AGENT
         commands[Default.REVIEW] = {
           name: Default.REVIEW,
           description: "review code for defects, security vulnerabilities, memory issues, and logic errors",
           source: "command",
+          agent: reviewAgent,
           get template() {
             return CostrictCommand.get("review", lang)
           },
-          subtask: true,
           hints: hints(CostrictCommand.get("review", lang)),
         }
-
         commands[Default.PROJECT_WIKI] = {
           name: Default.PROJECT_WIKI,
           description: "generate comprehensive project wiki documentation",

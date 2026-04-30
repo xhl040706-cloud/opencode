@@ -296,6 +296,8 @@ async function generateBuiltinAgents(
   const imports: string[] = []
   const agentEntries: string[] = []
   let fileIdx = 0
+  let primaryAgent = ""
+  let subAgent = ""
 
   for (const agentName of allAgentNames) {
     const localeEntries: string[] = []
@@ -306,6 +308,10 @@ async function generateBuiltinAgents(
         const varName = `REVIEW_AGENT_${fileIdx++}`
         imports.push(`const ${varName} = ${JSON.stringify(content)}`)
         localeEntries.push(`"${locale}": ${varName}`)
+
+        const agentKey = agentName.replace(/\.md$/, "")
+        if (content.includes("mode: primary")) primaryAgent = agentKey
+        if (content.includes("mode: subagent")) subAgent = agentKey
       } catch {
         // Agent file not found for this locale, skip
       }
@@ -333,6 +339,9 @@ ${agentEntries.join(",\n")}
 export const AGENT_VERSIONS: Record<string, string> = {
 ${allAgentNames.map(n => `  "${n.replace(/\.md$/, "")}": "${commitSha}"`).join(",\n")}
 }
+
+export const PRIMARY_REVIEW_AGENT = ${JSON.stringify(primaryAgent)}
+export const SUB_REVIEW_AGENT = ${JSON.stringify(subAgent)}
 `
 
   await fs.writeFile(builtinAgentsFile, content, "utf-8")

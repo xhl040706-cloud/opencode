@@ -1,10 +1,5 @@
 # Code Review
 
-Please use the CostrictReviewer agent to perform the code review task.
-
-The agent is responsible for:
-- Performing full code review with static defect, security vulnerability, logical defect, and memory issue detection
-- Supporting branch diff, file, and directory review modes
-- Generating structured review reports
+Please perform a code review on: $ARGUMENTS
 
 Please respond and write all files in English throughout the entire process.
