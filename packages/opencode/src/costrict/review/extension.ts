@@ -58,9 +58,9 @@ async function getInstalledVersion(skillDir: string): Promise<string | null> {
  * Returns true if:
  * - Directory doesn't exist
  * - .version file doesn't exist or can't be read
- * - Version doesn't match builtin version
+ * - Version or locale doesn't match
  */
-async function needsUpdate(skillDir: string, skillName: string): Promise<boolean> {
+async function needsUpdate(skillDir: string, skillName: string, locale: string): Promise<boolean> {
   const builtinVersion = await Builtin.getBuiltinSkillVersion(skillName)
   if (!builtinVersion) {
     log.debug("no builtin version found, assuming update needed", { name: skillName })
@@ -68,13 +68,14 @@ async function needsUpdate(skillDir: string, skillName: string): Promise<boolean
   }
 
   const installedVersion = await getInstalledVersion(skillDir)
-  return installedVersion !== builtinVersion
+  const expectedVersion = `${builtinVersion}:${locale}`
+  return installedVersion !== expectedVersion
 }
 
 /**
- * Write .version file to track installed skill version
+ * Write .version file to track installed skill version and locale
  */
-async function writeVersionFile(skillDir: string, skillName: string): Promise<void> {
+async function writeVersionFile(skillDir: string, skillName: string, locale: string): Promise<void> {
   const builtinVersion = await Builtin.getBuiltinSkillVersion(skillName)
   if (!builtinVersion) {
     log.warn("no builtin version to write", { name: skillName })
@@ -82,8 +83,8 @@ async function writeVersionFile(skillDir: string, skillName: string): Promise<vo
   }
 
   const versionFilePath = getVersionFilePath(skillDir)
-  await writeFile(versionFilePath, builtinVersion, "utf-8")
-  log.debug("wrote version file", { name: skillName, version: builtinVersion.slice(0, 7) })
+  await writeFile(versionFilePath, `${builtinVersion}:${locale}`, "utf-8")
+  log.debug("wrote version file", { name: skillName, locale, version: builtinVersion.slice(0, 7) })
 }
 
 /**
@@ -97,7 +98,7 @@ async function writeVersionFile(skillDir: string, skillName: string): Promise<vo
  *
  * To force update, delete the .version file or entire skill directory.
  */
-export async function initializeBuiltinSkills(): Promise<void> {
+export async function initializeBuiltinSkills(locale: string = "zh-CN"): Promise<void> {
   const cacheDir = getSkillCacheDir()
 
   // Get list of builtin skills
@@ -111,15 +112,16 @@ export async function initializeBuiltinSkills(): Promise<void> {
     let builtinVersion: string | undefined
 
     if (dirExists) {
-      const updateNeeded = await needsUpdate(skillDir, name)
+      const updateNeeded = await needsUpdate(skillDir, name, locale)
       if (!updateNeeded) {
-        log.debug("builtin skill up to date", { name })
+        log.debug("builtin skill up to date", { name, locale })
         continue
       }
 
       builtinVersion = await Builtin.getBuiltinSkillVersion(name)
-      log.info("builtin skill version changed, replacing with new version", {
+      log.info("builtin skill version or locale changed, replacing", {
         name,
+        locale,
         version: builtinVersion?.slice(0, 7) ?? "unknown",
       })
 
@@ -139,22 +141,21 @@ export async function initializeBuiltinSkills(): Promise<void> {
     }
 
     // Extract skill from bundled/embedded source to cache directory
-    await Builtin.extractBundledSkill(name, skillDir)
+    await Builtin.extractBundledSkill(name, skillDir, locale)
 
     // Write .version file to track installed version
-    await writeVersionFile(skillDir, name)
+    await writeVersionFile(skillDir, name, locale)
 
-    // Count files
-    const fileCount = await Builtin.listSkillFiles(name)
+    const skillFiles = await Builtin.listSkillFiles(name, locale)
 
-    // Get version if not already fetched
     if (!builtinVersion) {
       builtinVersion = await Builtin.getBuiltinSkillVersion(name)
     }
 
     log.info("initialized builtin skill", {
       name,
-      fileCount: fileCount.length,
+      locale,
+      fileCount: skillFiles.length,
       version: builtinVersion?.slice(0, 7) ?? "unknown",
     })
   }
