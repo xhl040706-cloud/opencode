@@ -53,7 +53,7 @@ export function createDeviceTransport(opts: TransportOpts) {
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        ...(dir ? { "X-Workspace-Directory": dir } : {}),
+        ...(dir ? { "X-Workspace-Directory": encodeURIComponent(dir) } : {}),
         ...opts.headers,
       },
       signal: input?.signal ?? opts.signal,
