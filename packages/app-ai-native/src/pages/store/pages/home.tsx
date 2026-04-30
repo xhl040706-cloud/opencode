@@ -581,11 +581,13 @@ export default function Home() {
             </header>
 
             <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div class="flex w-full flex-1 items-center justify-center">
+              <div class="flex w-full shrink-0 items-center justify-center py-4">
                 <SearchControls />
               </div>
 
-              <ContentShell />
+              <div class="flex min-h-0 flex-1 flex-col">
+                <ContentShell />
+              </div>
             </div>
           </>
         }

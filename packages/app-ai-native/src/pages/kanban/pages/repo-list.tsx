@@ -77,14 +77,28 @@ export default function KanbanRepoList() {
       label: language.t("kanban.table.commitCount"),
       minWidth: 110,
       align: "left",
-      filter: { type: "number" },
+      filter: {
+        type: "number",
+        shortcuts: [
+          { label: "> 0", value: { min: 1 } },
+          { label: "> 50", value: { min: 50 } },
+          { label: "> 100", value: { min: 100 } },
+        ],
+      },
     },
     {
       prop: "task_count",
       label: language.t("kanban.table.taskCount"),
       minWidth: 110,
       align: "left",
-      filter: { type: "number" },
+      filter: {
+        type: "number",
+        shortcuts: [
+          { label: "> 0", value: { min: 1 } },
+          { label: "> 50", value: { min: 50 } },
+          { label: "> 100", value: { min: 100 } },
+        ],
+      },
     },
     {
       prop: "sum_ancient_minutes",
@@ -92,7 +106,15 @@ export default function KanbanRepoList() {
       minWidth: 150,
       align: "left",
       display: (row) => formatDuration(row.sum_ancient_minutes, language.t),
-      filter: { type: "number" },
+      filter: {
+        type: "number",
+        valueGetter: (row) => (row.sum_ancient_minutes ?? 0) / 480,
+        shortcuts: [
+          { label: "> 0", value: { min: 0.1 } },
+          { label: "> 30d", value: { min: 30 } },
+          { label: "> 50d", value: { min: 50 } },
+        ],
+      },
     },
     {
       prop: "sum_real_minutes",
@@ -100,7 +122,15 @@ export default function KanbanRepoList() {
       minWidth: 130,
       align: "left",
       display: (row) => formatDuration(row.sum_real_minutes, language.t),
-      filter: { type: "number" },
+      filter: {
+        type: "number",
+        valueGetter: (row) => (row.sum_real_minutes ?? 0) / 480,
+        shortcuts: [
+          { label: "> 0", value: { min: 0.1 } },
+          { label: "> 30d", value: { min: 30 } },
+          { label: "> 50d", value: { min: 50 } },
+        ],
+      },
     },
     {
       prop: "efficiency_ratio",

@@ -773,7 +773,7 @@ export function StoreCapabilityTable(props: {
 
   return (
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div ref={scrollRef} class="min-h-0 flex-1 overflow-auto" style={tableMaxHeight() != null ? { "max-height": tableMaxHeight(), "min-height": tableMaxHeight() } : undefined}>
+      <div ref={scrollRef} class="min-h-0 flex-1 overflow-auto" style={tableMaxHeight() != null ? { "max-height": tableMaxHeight() } : undefined}>
         <table class="w-full table-fixed caption-bottom text-sm text-[0.8125rem]">
           <thead class={cn("[&_tr]:border-b [&_tr]:border-border", sx.thead)}>
             <tr class={stickyHeadRowClass}>

@@ -154,7 +154,7 @@ export default function KanbanOrgList() {
           </button>
         ) : <span>0</span>
       },
-      filter: { type: "number" },
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
     {
       prop: "task_count",
@@ -169,10 +169,10 @@ export default function KanbanOrgList() {
           </button>
         ) : <span>0</span>
       },
-      filter: { type: "number" },
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
-    { prop: "task_diff_lines", label: language.t("kanban.metric.taskCodeAmount"), minWidth: 110, align: "left", filter: { type: "number" } },
-    { prop: "task_efficiency_ratio", label: language.t("kanban.table.taskEfficiencyRatio"), minWidth: 120, align: "left", render: (row) => <RatioPill value={row.task_efficiency_ratio} />, filter: { type: "number" } },
+    { prop: "task_diff_lines", label: language.t("kanban.metric.taskCodeAmount"), minWidth: 110, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
+    { prop: "task_efficiency_ratio", label: language.t("kanban.table.taskEfficiencyRatio"), minWidth: 120, align: "left", render: (row) => <RatioPill value={row.task_efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
     {
       prop: "commit_count",
       label: language.t("kanban.table.commitCount"),
@@ -186,12 +186,12 @@ export default function KanbanOrgList() {
           </button>
         ) : <span>0</span>
       },
-      filter: { type: "number" },
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
-    { prop: "commit_diff_lines", label: language.t("kanban.metric.commitCodeAmount"), minWidth: 120, align: "left", filter: { type: "number" } },
-    { prop: "commit_efficiency_ratio", label: language.t("kanban.table.commitEfficiencyRatio"), minWidth: 130, align: "left", render: (row) => <RatioPill value={row.commit_efficiency_ratio} />, filter: { type: "number" } },
-    { prop: "total_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "left", display: (row) => (row.total_tokens ?? 0) > 0 ? (row.total_tokens ?? 0).toLocaleString() : "-", filter: { type: "number" } },
-    { prop: "total_cost", label: language.t("kanban.metric.totalCost"), minWidth: 100, align: "left", display: (row) => fmtCost(row.total_cost), filter: { type: "number" } },
+    { prop: "commit_diff_lines", label: language.t("kanban.metric.commitCodeAmount"), minWidth: 120, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
+    { prop: "commit_efficiency_ratio", label: language.t("kanban.table.commitEfficiencyRatio"), minWidth: 130, align: "left", render: (row) => <RatioPill value={row.commit_efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
+    { prop: "total_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "left", display: (row) => (row.total_tokens ?? 0) > 0 ? (row.total_tokens ?? 0).toLocaleString() : "-", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 10k", value: { min: 10000 } }, { label: "> 100k", value: { min: 100000 } }] } },
+    { prop: "total_cost", label: language.t("kanban.metric.totalCost"), minWidth: 100, align: "left", display: (row) => fmtCost(row.total_cost), filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] } },
   ])
 
   const table = useTableFilters<OrgAggregateRow>({
