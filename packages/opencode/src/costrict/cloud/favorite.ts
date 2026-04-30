@@ -586,6 +586,25 @@ export async function listFavoriteItems(type?: FavoriteItemType): Promise<Favori
     })
   }
 
+  // Fallback: when cloud fetch returned nothing, show locally installed items
+  if (result.length === 0) {
+    for (const [slug, record] of Object.entries(state.items)) {
+      if (type && record.itemType !== type) continue
+      if (seen.has(slug)) continue
+      seen.add(slug)
+      result.push({
+        id: record.id,
+        slug: record.slug,
+        name: record.name,
+        description: "",
+        itemType: record.itemType,
+        content: "",
+        status: deriveStatus(record, activeSkillPaths, activeAgentNames, activeCommandNames, activeMcpNames),
+        localPath: record.localPath,
+      })
+    }
+  }
+
   return result.sort((a, b) => a.name.localeCompare(b.name))
 }
 
