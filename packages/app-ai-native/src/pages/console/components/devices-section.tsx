@@ -118,6 +118,32 @@ export function DevicesSection() {
     }
   }
 
+  const handleDelete = async (deviceId: string) => {
+    const current = devices() ?? []
+    acts.mutate((items) => (items ?? []).filter((d) => d.deviceId !== deviceId))
+    try {
+      await deviceManagementService.remove(deviceId)
+      setUpgrades((prev) => {
+        const next = { ...prev }
+        delete next[deviceId]
+        return next
+      })
+      showToast({
+        variant: "success",
+        icon: "circle-check",
+        title: language.t("store.devices.deregister.toast.success"),
+      })
+    } catch (error) {
+      acts.mutate(() => current)
+      showToast({
+        variant: "error",
+        icon: "circle-x",
+        title: language.t("store.devices.deregister.toast.failed"),
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
   return (
     <section class="rounded-[1.25rem] border border-[color:color-mix(in_oklab,var(--native-border)_42%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_84%,var(--native-bg-subtle))] p-3 shadow-[var(--native-shadow-sm)] sm:p-4">
       <div class="mb-3.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -166,6 +192,7 @@ export function DevicesSection() {
                   device={device}
                   updateInfo={upgrades()[device.deviceId]}
                   onUpgrade={handleUpgrade}
+                  onDelete={handleDelete}
                   onUpdate={handleUpdateDevice}
                 />
               )}

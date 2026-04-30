@@ -444,6 +444,14 @@ export const deviceApi = {
     return { device: normalizeDevice(res.device) }
   },
 
+  async remove(deviceId: string) {
+    const res = await fetch(`${API_BASE}/api/devices/${deviceId}`, { method: "DELETE" })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }))
+      throw new Error(err.error || err.message || `Request failed: ${res.status}`)
+    }
+  },
+
   async listByWorkspace(workspaceId: string, page = 1, pageSize = 20) {
     const res = await apiFetch<{
       devices?: DeviceResponse[]

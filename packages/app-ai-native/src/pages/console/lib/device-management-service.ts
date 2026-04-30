@@ -24,4 +24,8 @@ export const deviceManagementService = {
   sendCommand(deviceId: string, cmd: DeviceCommandRequest): Promise<DeviceCommandAck> {
     return updateApi.sendCommand(deviceId, cmd)
   },
+
+  remove(deviceId: string): Promise<void> {
+    return deviceApi.remove(deviceId)
+  },
 }

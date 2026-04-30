@@ -1,11 +1,11 @@
 import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { showToast } from "@opencode-ai/ui/toast"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { cn } from "@/lib/utils"
 import { sx } from "@/pages/store/lib/styles"
 import type { UpdateCheckResponse, UpdateDeviceRequest, Device } from "@/pages/workspace/types"
+import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
 import { DeviceEditDialog } from "./device-edit-dialog"
 import { DeviceUpgradeDialog } from "./device-upgrade-dialog"
 
@@ -13,6 +13,7 @@ type DeviceCardProps = {
   device: Device
   updateInfo?: UpdateCheckResponse
   onUpgrade: (deviceId: string) => Promise<void>
+  onDelete: (deviceId: string) => Promise<void>
   onUpdate: (payload: { deviceId: string; data: UpdateDeviceRequest }) => Promise<void> | void
 }
 
@@ -44,6 +45,17 @@ export function DeviceCard(props: DeviceCardProps) {
         currentVersion={props.device.version}
         update={info}
         onConfirm={() => props.onUpgrade(props.device.deviceId)}
+      />
+    ))
+  }
+
+  const handleDelete = () => {
+    dialog.show(() => (
+      <ConfirmDialog
+        title={language.t("store.devices.deregister.dialog.title")}
+        description={language.t("store.devices.deregister.dialog.description", { device: props.device.displayName })}
+        confirm={language.t("store.devices.deregister.button")}
+        onConfirm={() => props.onDelete(props.device.deviceId)}
       />
     ))
   }
@@ -114,6 +126,24 @@ export function DeviceCard(props: DeviceCardProps) {
           onClick={handleEdit}
         >
           <Icon name="edit" size="small" />
+        </button>
+        <button
+          type="button"
+          class="flex h-7 w-7 items-center justify-center rounded-md cursor-pointer text-[var(--native-muted)] transition-colors"
+          style={{ "background-color": "transparent" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "rgba(239,68,68,0.08)"
+            e.currentTarget.querySelector("svg")?.style.setProperty("color", "#ef4444")
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = ""
+            e.currentTarget.querySelector("svg")?.style.removeProperty("color")
+          }}
+          aria-label={language.t("store.devices.deregister.button")}
+          title={language.t("store.devices.deregister.button")}
+          onClick={handleDelete}
+        >
+          <Icon name="trash" size="small" />
         </button>
       </div>
     </div>
