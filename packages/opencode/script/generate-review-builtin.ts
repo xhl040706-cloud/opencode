@@ -107,6 +107,16 @@ async function cloneAndCopy(
 ): Promise<void> {
   const locales = collectLocales(index)
 
+  // Clean stale locale directories before copying to remove skills/agents
+  // that were removed from index.json (skip .clone work directory)
+  for (const entry of await fs.readdir(bundledReviewDir).catch(() => [] as string[])) {
+    if (entry === ".clone") continue
+    const entryPath = path.join(bundledReviewDir, entry)
+    if ((await fs.stat(entryPath).catch(() => null))?.isDirectory()) {
+      await fs.rm(entryPath, { recursive: true, force: true })
+    }
+  }
+
   for (const locale of locales) {
     const outputLocaleDir = path.join(bundledReviewDir, locale)
 
