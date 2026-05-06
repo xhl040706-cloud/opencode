@@ -31,7 +31,7 @@ import { Log } from "../../src/util/log"
 import * as CrossSpawnSpawner from "../../src/effect/cross-spawn-spawner"
 import { provideTmpdirInstance, provideTmpdirServer } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
-import { reply, TestLLMServer } from "../lib/llm-server"
+import { TestLLMServer } from "../lib/llm-server"
 
 Log.init({ print: false })
 
@@ -462,7 +462,7 @@ it.live("loop continues when finish is stop but assistant has tool parts", () =>
         noReply: true,
         parts: [{ type: "text", text: "hello" }],
       })
-      yield* llm.push(reply().tool("first", { value: "first" }).stop())
+      yield* llm.tool("first", { value: "first" })
       yield* llm.text("second")
 
       const result = yield* prompt.loop({ sessionID: session.id })

@@ -23,35 +23,34 @@ const TYPE_LABEL: Record<string, string> = {
   mcp: "MCP",
 }
 
-function Status(props: { status: FavoriteItem["status"]; itemType: string; loading: boolean }) {
+function Status(props: { status: FavoriteItem["status"]; loading: boolean }) {
   const { theme } = useTheme()
   if (props.loading) {
     return <span style={{ fg: theme.textMuted }}>... Loading</span>
   }
-  const typeTag = TYPE_LABEL[props.itemType] ?? props.itemType
   switch (props.status) {
     case "Active":
       return (
         <span style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>
-          ✓ Active · {typeTag}
+          ✓ Active
         </span>
       )
     case "Downloaded":
       return (
         <span style={{ fg: theme.info }}>
-          ↓ Downloaded · {typeTag}
+          ↓ Downloaded
         </span>
       )
     case "Unloaded":
       return (
         <span style={{ fg: theme.textMuted }}>
-          ○ Unloaded · {typeTag}
+          ○ Unloaded
         </span>
       )
     case "Cloud":
       return (
         <span style={{ fg: theme.textMuted }}>
-          ☁ Cloud · {typeTag}
+          ☁ Cloud
         </span>
       )
   }
@@ -145,9 +144,8 @@ export function DialogFavorite() {
     }
     return items().map((item) => ({
       value: item.slug,
-      title: item.name,
-      description: item.description,
-      footer: <Status status={item.status} itemType={item.itemType} loading={loadingSlug === item.slug} />,
+      title: item.slug,
+      footer: <Status status={item.status} loading={loadingSlug === item.slug} />,
       category: TYPE_LABEL[item.itemType] ?? item.itemType,
     }))
   })
