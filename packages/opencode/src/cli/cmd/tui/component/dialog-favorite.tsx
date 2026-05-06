@@ -92,11 +92,21 @@ export function DialogFavorite() {
         const body = await res.json().catch(() => ({ error: "Request failed" }))
         throw new Error((body as { error?: string }).error || "Request failed")
       }
-      toast.show({
-        variant: "success",
-        message: `${action} ${slug} successfully`,
-        duration: 3000,
-      })
+      const body = (await res.json().catch(() => ({}))) as { needsConfig?: boolean; guidance?: string }
+      if (body.needsConfig && body.guidance) {
+        // MCP downloaded but needs manual config editing — show guidance instead of error
+        toast.show({
+          variant: "info",
+          message: `${action} ${slug}: downloaded, but manual configuration needed.\n\n${body.guidance}`,
+          duration: 15000,
+        })
+      } else {
+        toast.show({
+          variant: "success",
+          message: `${action} ${slug} successfully`,
+          duration: 3000,
+        })
+      }
       await fetchFavorites()
     } catch (e) {
       toast.show({
