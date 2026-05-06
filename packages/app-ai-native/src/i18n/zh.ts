@@ -1464,6 +1464,18 @@ export const dict = {
   "workspace.device.offlineHint": "设备离线，无法创建工作空间",
   "workspace.device.upgradeHint": "可升级到 v{{version}}",
 
+  "workspace.init.checking": "正在检查工作空间状态...",
+  "workspace.init.initializing": "工作空间初始化中",
+  "workspace.init.error": "检查工作空间状态失败，正在重试...",
+  "workspace.init.agent.waiting": "Agent：等待启动",
+  "workspace.init.agent.connecting": "Agent：连接中...",
+  "workspace.init.agent.connected": "Agent：已连接",
+  "workspace.init.agent.disconnected": "Agent：连接断开",
+  "workspace.init.agent.error": "Agent：异常",
+  "workspace.init.prewarm.progress": "缓存预热：进行中",
+  "workspace.init.prewarm.done": "缓存预热：已完成",
+  "workspace.init.prewarm.failed": "缓存预热：失败",
+
   "workspace.directory.title": "选择工作目录",
   "workspace.directory.pathLabel": "工作目录路径",
   "workspace.directory.pathPlaceholder": "输入路径，如 /home/user/project 或 D:/project",

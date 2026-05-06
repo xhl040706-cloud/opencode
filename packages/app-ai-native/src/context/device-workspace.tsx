@@ -113,9 +113,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
         return
       }
 
-      const [agentsRes, commandsRes, sessionsRes, sessionStatusRes, vcsRes, providersRes, allSessionsRes, permsRes, questionsRes] = await Promise.all([
+      const [agentsRes, sessionsRes, sessionStatusRes, vcsRes, providersRes, allSessionsRes, permsRes, questionsRes] = await Promise.all([
         device.client.agent.sessionModes().catch(() => undefined),
-        device.client.agent.commands().catch(() => undefined),
         device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory }).catch(() => undefined),
         device.client.conversation.status().catch(() => undefined),
         device.client.runtime.vcs().catch(() => undefined),
@@ -127,7 +126,6 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
 
       batch(() => {
         setStore("agent", reconcile((agentsRes as Agent[]) ?? [], { key: "name" }))
-        setStore("command", reconcile((commandsRes as Command[]) ?? [], { key: "name" }))
         const rootSessions = (sessionsRes as Session[]) ?? []
         const allSessions = (allSessionsRes as Session[]) ?? []
         const children = allSessions.filter((s) => !!s?.id && !!s.parentID)

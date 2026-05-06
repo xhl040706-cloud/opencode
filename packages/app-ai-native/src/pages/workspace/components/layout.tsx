@@ -21,6 +21,7 @@ import { createSdkForServer } from "@/utils/server"
 import { DeviceClientContext } from "@/context/device-client"
 import { DeviceSDKContext } from "@/context/device-sdk"
 import { DeviceInitGate } from "@/context/device-init"
+import { WorkspaceInitGate } from "@/context/workspace-init-gate"
 import { DeviceFileProvider } from "@/context/device-file"
 import { DeviceTerminalProvider } from "@/context/device-terminal"
 import { DeviceWorkspaceProvider } from "@/context/device-workspace"
@@ -395,7 +396,8 @@ function WorkspaceContentInstance(props: { workspaceId: string; directory: strin
       <DeviceInitGate>
         <DeviceLayoutProvider deviceLayout={dl}>
           <DirectoryContext.Provider value={() => props.directory}>
-            <DeviceWorkspaceProvider workspaceId={props.workspaceId}>
+            <WorkspaceInitGate>
+              <DeviceWorkspaceProvider workspaceId={props.workspaceId}>
                 <DeviceFileProvider>
                   <DeviceTerminalProvider>
                     <DeviceLocalProvider>
@@ -406,6 +408,7 @@ function WorkspaceContentInstance(props: { workspaceId: string; directory: strin
                   </DeviceTerminalProvider>
                 </DeviceFileProvider>
             </DeviceWorkspaceProvider>
+            </WorkspaceInitGate>
           </DirectoryContext.Provider>
         </DeviceLayoutProvider>
       </DeviceInitGate>

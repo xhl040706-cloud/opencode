@@ -1692,6 +1692,18 @@ export const dict = {
   "workspace.device.offlineHint": "Device offline, cannot create workspace",
   "workspace.device.upgradeHint": "Upgrade available: v{{version}}",
 
+  "workspace.init.checking": "Checking workspace status...",
+  "workspace.init.initializing": "Workspace is initializing",
+  "workspace.init.error": "Failed to check workspace status, retrying...",
+  "workspace.init.agent.waiting": "Agent: waiting to start",
+  "workspace.init.agent.connecting": "Agent: connecting...",
+  "workspace.init.agent.connected": "Agent: connected",
+  "workspace.init.agent.disconnected": "Agent: disconnected",
+  "workspace.init.agent.error": "Agent: error",
+  "workspace.init.prewarm.progress": "Cache warming: in progress",
+  "workspace.init.prewarm.done": "Cache warming: completed",
+  "workspace.init.prewarm.failed": "Cache warming: failed",
+
   "workspace.directory.title": "Select Working Directory",
   "workspace.directory.pathLabel": "Directory path",
   "workspace.directory.pathPlaceholder": "Enter path, e.g. /home/user/project or D:/project",

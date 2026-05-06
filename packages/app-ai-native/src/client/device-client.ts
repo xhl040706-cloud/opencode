@@ -32,6 +32,25 @@ export type DiffContentData = {
   after?: string
 }
 
+export type InitStatusAgent = {
+  state: string
+  healthy: boolean
+}
+
+export type InitStatusPrewarm = {
+  status: string
+  started_at?: string
+  finished_at?: string
+  error?: string
+}
+
+export type InitStatusData = {
+  directory: string
+  ready: boolean
+  agent: InitStatusAgent
+  prewarm: InitStatusPrewarm
+}
+
 export type RuntimeConfig = {
   allow_absolute_paths: boolean
   max_list_depth: number
@@ -77,6 +96,7 @@ export type DeviceClient = {
     findFiles: (query: string, dirs: "true" | "false") => Promise<unknown>
     diff: (input?: { staged?: boolean; stat?: boolean; path?: string }) => Promise<DiffData | undefined>
     diffContent: (input?: { staged?: boolean; path?: string }) => Promise<DiffContentData | undefined>
+    initStatus: () => Promise<InitStatusData | undefined>
     dispose: () => Promise<unknown>
   }
   agent: {
@@ -194,6 +214,7 @@ export function createDeviceClient(opts: ClientOpts): DeviceClient {
     diffContent: (input?: { staged?: boolean; path?: string }) =>
       http.get<DiffContentData>("/api/v1/runtime/diff/content", input as Record<string, string | number | boolean | undefined>),
       dispose: () => http.post("/api/v1/runtime/dispose"),
+      initStatus: () => http.get<InitStatusData>("/api/v1/runtime/init-status"),
     },
     agent: {
       list: () => http.get("/api/v1/agents"),
