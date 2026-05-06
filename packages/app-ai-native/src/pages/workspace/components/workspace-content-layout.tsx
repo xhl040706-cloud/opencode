@@ -132,12 +132,21 @@ function SessionTabIcon(props: { tab: ContentTab }) {
     return hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, id)
   })
 
+  const tabStore = useContentTabs()
+  const isActiveTab = createMemo(() => tabStore.activeId() === props.tab.id)
+
   return (
     <Show
       when={pending()}
       fallback={
         <Show when={working()} fallback={<TabIcon tab={props.tab} />}>
-          <WorkingIcon title={status()?.type === "retry" ? "retry" : "busy"} />
+          <WorkingIcon
+            title={status()?.type === "retry" ? "retry" : "busy"}
+            classList={{
+              "border-native-primary": isActiveTab(),
+              "border-native-dim": !isActiveTab(),
+            }}
+          />
         </Show>
       }
     >
