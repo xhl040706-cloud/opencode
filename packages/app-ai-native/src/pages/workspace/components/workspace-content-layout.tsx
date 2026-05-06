@@ -354,6 +354,11 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   }
 
   const openSession = (session: Session) => {
+    const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === session.id)
+    if (existing) {
+      tabStore.activate(existing.id)
+      return
+    }
     tabStore.open({
       kind: "session",
       key: session.id,
