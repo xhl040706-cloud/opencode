@@ -400,7 +400,7 @@ function WorkspaceContentInstance(props: { workspaceId: string; directory: strin
               <DeviceWorkspaceProvider workspaceId={props.workspaceId}>
                 <DeviceFileProvider>
                   <DeviceTerminalProvider>
-                    <DeviceLocalProvider>
+                    <DeviceLocalProvider workspaceId={props.workspaceId}>
                       <ContentTabContext.Provider value={tabStore}>
                         <WorkspaceContentLayout workspaceId={props.workspaceId} directory={props.directory} />
                       </ContentTabContext.Provider>
