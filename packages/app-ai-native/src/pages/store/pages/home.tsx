@@ -550,7 +550,7 @@ export default function Home() {
                       onClick={() => navigate("/store/manager")}
                     >
                       <Icon name="sliders" class="size-4" style={{ color: "#ffffff" }} />
-                      <span class="text-sm font-medium leading-none !text-white" style={{ color: "#ffffff" }}>{language.t("store.console.capabilities.title")}</span>
+                      <span class="text-sm font-medium leading-none !text-white" style={{ color: "#ffffff" }}>{language.t("store.console.capabilities.manage")}</span>
                     </button>
                   </Tooltip>
                   <Tooltip value={language.t("store.console.capabilities.create")} placement="bottom">

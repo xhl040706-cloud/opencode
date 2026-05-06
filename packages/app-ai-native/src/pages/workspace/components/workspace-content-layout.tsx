@@ -313,6 +313,7 @@ function ContentSidebar(props: { directory: string }) {
     diffs: false,
   })
   const [diffGroupsCollapsed, setDiffGroupsCollapsed] = createSignal<Record<string, boolean>>({})
+  const [sessionGroupsCollapsed, setSessionGroupsCollapsed] = createSignal<Record<string, boolean>>({ older: true })
 
   const sortedSessions = createMemo(() => {
     const sessions = dw.data.session
@@ -524,51 +525,62 @@ function ContentSidebar(props: { directory: string }) {
                         }>
                           <div class="px-1.5 py-1">
                             <For each={sessionGroups()}>
-                              {(group) => (
-                                <>
-                                  <div class="px-1.5 pt-1.5 pb-0.5 text-[12px] font-[600] text-native-muted tracking-wide uppercase">{group.label}</div>
-                                  <For each={group.sessions}>
-                                    {(session) => {
-                                      const isActive = createMemo(() => {
-                                        const active = tabStore.active()
-                                        return active?.kind === "session" && active?.meta?.sessionID === session.id
-                                      })
-                                      return (
-                                        <div
-                                          class="group/s flex items-center gap-1.5 h-9 px-1.5 text-12-regular rounded-md cursor-pointer transition-colors duration-150"
-                                          classList={{
-                                            "bg-native-primary-soft text-native-foreground": isActive(),
-                                            "text-native-muted hover:bg-native-hover hover:text-native-foreground": !isActive(),
-                                          }}
-                                          onClick={() => openSession(session)}
-                                        >
-                                          <Show when={hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id)}>
-                                            <PendingInteractionIcon />
-                                          </Show>
-                                          <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && isWorking(session.id)}>
-                                            <WorkingIcon
+                              {(group) => {
+                                const collapsed = createMemo(() => !!sessionGroupsCollapsed()[group.key])
+                                return (
+                                  <>
+                                    <button
+                                      class="flex items-center gap-1 w-full px-1.5 pt-1.5 pb-0.5 text-[12px] font-[600] text-native-muted tracking-wide uppercase cursor-pointer hover:text-native-foreground transition-colors"
+                                      onClick={() => setSessionGroupsCollapsed((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
+                                    >
+                                      <Icon name={collapsed() ? "chevron-right" : "chevron-down"} size="small" class="shrink-0" />
+                                      <span class="truncate">{group.label}</span>
+                                    </button>
+                                    <Show when={!collapsed()}>
+                                      <For each={group.sessions}>
+                                        {(session) => {
+                                          const isActive = createMemo(() => {
+                                            const active = tabStore.active()
+                                            return active?.kind === "session" && active?.meta?.sessionID === session.id
+                                          })
+                                          return (
+                                            <div
+                                              class="group/s flex items-center gap-1.5 h-9 px-1.5 text-12-regular rounded-md cursor-pointer transition-colors duration-150"
                                               classList={{
-                                                "border-native-primary": isActive(),
-                                                "border-native-dim": !isActive(),
+                                                "bg-native-primary-soft text-native-foreground": isActive(),
+                                                "text-native-muted hover:bg-native-hover hover:text-native-foreground": !isActive(),
                                               }}
-                                            />
-                                          </Show>
-                                          <span class="truncate flex-1 min-w-0">{session.title || language.t("command.session.new")}</span>
-                                          <button
-                                            class="shrink-0 size-5 flex items-center justify-center rounded opacity-0 group-hover/s:opacity-100 transition-[width,opacity] duration-150 w-0 overflow-hidden group-hover/s:w-5 hover:bg-native-active"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              archiveSession(session)
-                                            }}
-                                          >
-                                            <Icon name="archive" size="small" class="text-native-dim" />
-                                          </button>
-                                        </div>
-                                      )
-                                    }}
-                                  </For>
-                                </>
-                              )}
+                                              onClick={() => openSession(session)}
+                                            >
+                                              <Show when={hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id)}>
+                                                <PendingInteractionIcon />
+                                              </Show>
+                                              <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && isWorking(session.id)}>
+                                                <WorkingIcon
+                                                  classList={{
+                                                    "border-native-primary": isActive(),
+                                                    "border-native-dim": !isActive(),
+                                                  }}
+                                                />
+                                              </Show>
+                                              <span class="truncate flex-1 min-w-0">{session.title || language.t("command.session.new")}</span>
+                                              <button
+                                                class="shrink-0 size-5 flex items-center justify-center rounded opacity-0 group-hover/s:opacity-100 transition-[width,opacity] duration-150 w-0 overflow-hidden group-hover/s:w-5 hover:bg-native-active"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  archiveSession(session)
+                                                }}
+                                              >
+                                                <Icon name="archive" size="small" class="text-native-dim" />
+                                              </button>
+                                            </div>
+                                          )
+                                        }}
+                                      </For>
+                                    </Show>
+                                  </>
+                                )
+                              }}
                             </For>
                           </div>
                         </Show>

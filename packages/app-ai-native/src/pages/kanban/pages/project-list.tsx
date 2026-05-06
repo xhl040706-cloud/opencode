@@ -222,9 +222,9 @@ export default function KanbanProjectList() {
           ? <span class="font-medium text-[var(--native-success)]">{language.t("kanban.status.ongoing")}</span>
           : <span>{row._end_time_fmt}</span>,
     },
-    { prop: "user_count", label: language.t("kanban.table.peopleCount"), minWidth: 80, align: "left", filter: { type: "number" } },
-    { prop: "repo_count", label: language.t("kanban.table.repoCount"), minWidth: 90, align: "left", filter: { type: "number" } },
-    { prop: "task_count", label: language.t("kanban.table.taskCount"), minWidth: 90, align: "left", filter: { type: "number" } },
+    { prop: "user_count", label: language.t("kanban.table.peopleCount"), minWidth: 80, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] } },
+    { prop: "repo_count", label: language.t("kanban.table.repoCount"), minWidth: 90, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] } },
+    { prop: "task_count", label: language.t("kanban.table.taskCount"), minWidth: 90, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] } },
     {
       prop: "total_code_lines",
       label: language.t("kanban.table.generatedCode"),
@@ -252,6 +252,7 @@ export default function KanbanProjectList() {
       minWidth: 120,
       align: "left",
       display: (row) => formatDuration(row.project_real_lead_minutes_manual ?? row.project_real_lead_minutes, language.t),
+      filter: { type: "number", valueGetter: (row) => ((row.project_real_lead_minutes_manual ?? row.project_real_lead_minutes) ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
     {
       prop: "project_ancient_minutes",
@@ -259,6 +260,7 @@ export default function KanbanProjectList() {
       minWidth: 130,
       align: "left",
       display: (row) => formatDuration(row.project_ancient_minutes_manual ?? row.project_ancient_minutes, language.t),
+      filter: { type: "number", valueGetter: (row) => ((row.project_ancient_minutes_manual ?? row.project_ancient_minutes) ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
     {
       prop: "project_real_process_minutes",
@@ -266,6 +268,7 @@ export default function KanbanProjectList() {
       minWidth: 120,
       align: "left",
       display: (row) => formatDuration(row.project_real_process_minutes_manual ?? row.project_real_process_minutes, language.t),
+      filter: { type: "number", valueGetter: (row) => ((row.project_real_process_minutes_manual ?? row.project_real_process_minutes) ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
     {
       prop: "efficiency_ratio",
