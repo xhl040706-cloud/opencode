@@ -14,6 +14,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MY_SSH_PRIVATE_KEY }}
+
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
