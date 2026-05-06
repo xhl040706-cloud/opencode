@@ -24,7 +24,12 @@ const builtinSkillsFile = path.resolve(__dirname, "../src/costrict/review/skill/
 const builtinAgentsFile = path.resolve(__dirname, "../src/costrict/review/agent/builtin.ts")
 
 type IndexJson = {
-  agents: Array<{ name: string; path: Record<string, string> }>
+  agents: Array<{
+    name: string
+    path: Record<string, string>
+    opencode?: Record<string, unknown>
+    claudecode?: Record<string, unknown>
+  }>
   skills: Array<{ name: string; path: Record<string, string> }>
 }
 
@@ -98,6 +103,20 @@ function collectLocales(index: IndexJson): string[] {
 }
 
 /**
+ * Merge index.json opencode fields into the markdown frontmatter.
+ */
+import matter from "gray-matter"
+
+function mergeOpencodeFrontmatter(
+  mdContent: string,
+  opencodeFields: Record<string, unknown>,
+): string {
+  const md = matter(mdContent)
+  const merged = { ...md.data, ...opencodeFields }
+  return matter.stringify(md.content, merged)
+}
+
+/**
  * Clone repo and copy each locale's resources into bundled-review/{locale}/...
  * Mirrors the source repo directory layout: {locale}/skills/... and {locale}/agents/...
  */
@@ -148,20 +167,29 @@ async function cloneAndCopy(
       console.log(`   ✓ ${locale}/skills/${skillName}: ${fileCount} files`)
     }
 
-    // Copy agent files for this locale
+    // Copy agent files for this locale, merging opencode frontmatter from index.json
     const agentEntries = index.agents
-      .map(a => ({ name: a.name, filePath: a.path[locale] }))
+      .map(a => ({ name: a.name, filePath: a.path[locale], opencode: a.opencode }))
       .filter(e => e.filePath)
 
-    for (const { name, filePath } of agentEntries) {
+    for (const { name, filePath, opencode } of agentEntries) {
       const srcFile = path.join(cloneDir, filePath)
       const outputDir = path.join(outputLocaleDir, "agents")
       await fs.mkdir(outputDir, { recursive: true })
-      await fs.cp(srcFile, path.join(outputDir, path.basename(filePath)))
 
       const filename = path.basename(filePath)
+      const destFile = path.join(outputDir, filename)
+
+      if (opencode) {
+        const rawContent = await fs.readFile(srcFile, "utf-8")
+        const merged = mergeOpencodeFrontmatter(rawContent, opencode)
+        await fs.writeFile(destFile, merged, "utf-8")
+      } else {
+        await fs.cp(srcFile, destFile)
+      }
+
       try {
-        await fs.access(path.join(outputDir, filename))
+        await fs.access(destFile)
       } catch {
         throw new Error(`Agent "${name}" (${locale}) missing at ${filePath}`)
       }
