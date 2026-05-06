@@ -420,7 +420,10 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   }
 
   const toggle = (section: SidebarSection) => {
-    setExpanded((prev) => ({ ...prev, [section]: !prev[section] }))
+    setExpanded((prev) => {
+      if (prev[section]) return { sessions: false, files: false, diffs: false }
+      return { sessions: section === "sessions", files: section === "files", diffs: section === "diffs" }
+    })
   }
 
   const expandedCount = createMemo(() =>
