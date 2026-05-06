@@ -20,5 +20,8 @@ jobs:
       - name: Generate builtin agents
         run: bun run --cwd packages/opencode build:builtin-agents
 
+      - name: Generate builtin review agents
+        run: bun run --cwd packages/opencode build:builtin-review
+
       - name: Run typecheck
         run: bun typecheck
