@@ -328,18 +328,6 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                     </Show>
                   </div>
                 </div>
-                {/* <div class="flex w-[70%] max-w-full items-center gap-2 rounded-lg px-4 py-2" style="background-color: var(--native-surface-strong)">
-                  <div class="thin-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto">
-                    <code class="select-all whitespace-nowrap text-12-mono text-text-weak">{getInstallCommand(data())}</code>
-                  </div>
-                  <button
-                    onClick={copy}
-                    class="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-text-weak transition-all duration-150 hover:bg-bg-muted hover:text-text-strong"
-                    title={language.t("store.itemCard.copyInstall")}
-                  >
-                    <Icon name={copied() ? "check-small" : "copy"} size="small" class={copied() ? "text-green-500" : ""} />
-                  </button>
-                </div> */}
               </div>
             </div>
 

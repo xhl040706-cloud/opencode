@@ -132,12 +132,21 @@ function SessionTabIcon(props: { tab: ContentTab }) {
     return hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, id)
   })
 
+  const tabStore = useContentTabs()
+  const isActiveTab = createMemo(() => tabStore.activeId() === props.tab.id)
+
   return (
     <Show
       when={pending()}
       fallback={
         <Show when={working()} fallback={<TabIcon tab={props.tab} />}>
-          <WorkingIcon title={status()?.type === "retry" ? "retry" : "busy"} />
+          <WorkingIcon
+            title={status()?.type === "retry" ? "retry" : "busy"}
+            classList={{
+              "border-native-primary": isActiveTab(),
+              "border-native-dim": !isActiveTab(),
+            }}
+          />
         </Show>
       }
     >
@@ -354,6 +363,11 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   }
 
   const openSession = (session: Session) => {
+    const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === session.id)
+    if (existing) {
+      tabStore.activate(existing.id)
+      return
+    }
     tabStore.open({
       kind: "session",
       key: session.id,
@@ -415,7 +429,10 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   }
 
   const toggle = (section: SidebarSection) => {
-    setExpanded((prev) => ({ ...prev, [section]: !prev[section] }))
+    setExpanded((prev) => {
+      if (prev[section]) return { sessions: false, files: false, diffs: false }
+      return { sessions: section === "sessions", files: section === "files", diffs: section === "diffs" }
+    })
   }
 
   const expandedCount = createMemo(() =>

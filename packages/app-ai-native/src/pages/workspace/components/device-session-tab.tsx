@@ -250,8 +250,14 @@ export function DeviceSessionTab(props: { tabId: string }) {
       const info = (payload.properties as { info?: Session })?.info ?? payload.properties as Session
       if (info?.id && !createdSessionID() && !session.sessionID()) {
         setCreatedSessionID(info.id)
-        tabStore.updateMeta(props.tabId, { sessionID: info.id })
-        if (info.title) tabStore.setTitle(props.tabId, info.title)
+        const current = tabStore.tabs().find((t) => t.id === props.tabId)
+        tabStore.replace(props.tabId, {
+          kind: "session",
+          key: info.id,
+          title: info.title ?? current?.title ?? language.t("command.session.new"),
+          icon: current?.icon ?? "message",
+          meta: { sessionID: info.id },
+        })
       }
     }
 
