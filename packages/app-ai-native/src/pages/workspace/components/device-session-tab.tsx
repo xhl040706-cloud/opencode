@@ -611,6 +611,33 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const messages = createMemo(() => effectiveMessages())
   const messagesReady = createMemo(() => true)
 
+  const enrichedMessages = createMemo(() => {
+    const raw = effectiveMessages()
+    if (!raw || raw.length === 0) return raw ?? []
+    const userIDs = new Set<string>()
+    for (const m of raw) {
+      if (m.role === "user") userIDs.add(m.id)
+    }
+    const orphans = new Map<string, any>()
+    for (const m of raw) {
+      if (m.role === "assistant" && m.parentID && !userIDs.has(m.parentID) && !orphans.has(m.parentID)) {
+        orphans.set(m.parentID, {
+          id: m.parentID,
+          sessionID: currentSessionID() ?? "",
+          role: "user",
+          time: { created: m.time?.created ?? 0 },
+        })
+      }
+    }
+    if (orphans.size === 0) return raw
+    const enriched = [...raw]
+    for (const s of [...orphans.values()]) {
+      const idx = enriched.findIndex((m) => m.role === "assistant" && m.parentID === s.id)
+      if (idx >= 0) enriched.splice(idx, 0, s)
+    }
+    return enriched
+  })
+
   createEffect(on(currentSessionID, () => setSnap(true), { defer: true }))
 
   createEffect(() => {
@@ -626,7 +653,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
   })
 
   const userMessages = createMemo(
-    () => messages().filter((m) => m.role === "user") as any[],
+    () => enrichedMessages().filter((m) => m.role === "user") as any[],
     emptyMessages as any[],
   )
 
@@ -665,7 +692,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
       provider: workspace.data.provider,
       agent: workspace.data.agent,
       agentRuntimes: [] as unknown[],
-      command: workspace.data.command,
+    command: workspace.data.command ?? [],
       path: { directory: device.directory } as Path,
       session: workspace.data.session,
       sessionTotal: workspace.data.sessionTotal,
@@ -699,10 +726,16 @@ export function DeviceSessionTab(props: { tabId: string }) {
     todo: { set: () => {} },
   }
 
-  const dataProps = createMemo(() => ({
-    ...syncStore(),
-    provider: legacyProvider(workspace.data.provider),
-  }))
+  const dataProps = createMemo(() => {
+    const base = syncStore()
+    if (!base) return undefined
+    const cid = currentSessionID()
+    return {
+      ...base,
+      message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() },
+      provider: legacyProvider(workspace.data.provider),
+    }
+  })
 
   return (
     <ConversationAdapterContext.Provider value={adapter() as any}>
@@ -715,7 +748,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
               <PermissionContext.Provider value={permissionValue as any}>
                 <CommandContext.Provider value={commandValue as any}>
                 <SettingsContext.Provider value={settingsValue as any}>
-                  <DataProvider data={dataProps()} directory={device.directory}
+                  <DataProvider data={dataProps()!} directory={device.directory}
                     onNavigateToSession={(id: string) => {
                       const s = workspace.data.session.find((s) => s.id === id)
                       const name = s?.title ?? id.slice(0, 8)
