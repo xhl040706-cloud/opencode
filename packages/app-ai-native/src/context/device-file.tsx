@@ -159,7 +159,7 @@ export function DeviceFileProvider(props: ParentProps) {
           refreshDir: (d) => void tree.listDir(d, { force: true }),
         },
       )
-      if (!diff.state().loading) {
+      if (diffScheduler.active && !diff.state().loading) {
         void diff.load()
         diffScheduler.touch()
       }
@@ -179,7 +179,7 @@ export function DeviceFileProvider(props: ParentProps) {
           void load(normalized, { force: true })
         }
       }
-      if (!diff.state().loading) {
+      if (diffScheduler.active && !diff.state().loading) {
         void diff.load()
         diffScheduler.touch()
       }
@@ -188,7 +188,7 @@ export function DeviceFileProvider(props: ParentProps) {
     }
 
     if (type === "session.diff") {
-      if (!diff.state().loading) {
+      if (diffScheduler.active && !diff.state().loading) {
         void diff.load()
         diffScheduler.touch()
       }

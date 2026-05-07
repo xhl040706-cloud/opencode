@@ -28,11 +28,14 @@ export function syncSummary(
   const hasPendingInteraction =
     Object.values(data.questions).some((q) => q.length > 0) ||
     Object.values(data.permissions).some((p) => p.length > 0)
-  setSummaries(id, {
+  const next = {
     branch: data.vcs?.branch,
     hasActiveSession,
     hasPendingInteraction,
-  })
+  }
+  const prev = summaries[id]
+  if (prev && prev.branch === next.branch && prev.hasActiveSession === next.hasActiveSession && prev.hasPendingInteraction === next.hasPendingInteraction) return
+  setSummaries(id, next)
 }
 
 export function clearSummary(id: string) {

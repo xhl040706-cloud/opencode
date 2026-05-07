@@ -17,6 +17,7 @@ import { useDeviceWorkspace } from "@/context/device-workspace"
 import { useDeviceSession } from "@/context/device-session"
 import { useDeviceLocal } from "@/context/device-local"
 import { deviceAdapter, ConversationAdapterContext } from "@/context/device-adapter"
+import { useDiff } from "@/context/device-file"
 import { useLanguage } from "@/context/language"
 import { useFile } from "@/context/file"
 import { SyncContext } from "@/context/sync"
@@ -112,6 +113,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const local = useDeviceLocal()
   const language = useLanguage()
   const file = useFile()
+  const diffCtx = useDiff()
   const tabStore = useContentTabs()
   const dialog = useDialog()
 
@@ -472,7 +474,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
         }
       },
       async sync(id: string) { await session.sync() },
-      async diff(id: string) { await session.diff() },
+      async diff(id: string) { if (diffCtx.scheduler.active) await session.diff() },
       async todo(id: string) { await session.todo() },
       history: {
         more(id: string) { return session.history.more() },
