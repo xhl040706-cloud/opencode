@@ -4,10 +4,10 @@ export type DeviceStatus = "online" | "offline" | ""
 // 设备模型 - 匹配 server 接口
 export interface Device {
   id: string
-  deviceId: string        // 设备唯一标识
-  displayName: string     // 显示名称
-  platform: string        // 平台类型
-  version: string         // 版本号
+  deviceId: string
+  displayName: string
+  platform: string
+  version: string
   userId: string
   workspaceId?: string
   status: DeviceStatus
@@ -16,6 +16,8 @@ export interface Device {
   tokenRotatedAt?: string
   lastConnectedAt?: string
   lastSeenAt?: string
+  canUpdate?: boolean
+  latestVersion?: string
   createdAt: string
   updatedAt: string
 }

@@ -2,40 +2,18 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
-import type { Device, DeviceCommandAck, DeviceCommandRequest, UpdateCheckResponse, UpdateDeviceRequest } from "@/pages/workspace/types"
+import type { Device, UpdateDeviceRequest } from "@/pages/workspace/types"
 import { DeviceCard } from "./device-card"
 import { deviceManagementService } from "../lib/device-management-service"
 
 export function DevicesSection() {
   const language = useLanguage()
   const [deviceSearch, setDeviceSearch] = createSignal("")
-  const [upgrades, setUpgrades] = createSignal<Record<string, UpdateCheckResponse>>({})
 
   const [devices, acts] = createResource(async () => {
     const list = await deviceManagementService.list()
-    checkUpdates(list)
     return list
   })
-
-  const checkUpdates = (list: Device[]) => {
-    const online = list.filter((d) => d.status === "online" && d.platform && d.version)
-    if (online.length === 0) return
-
-    Promise.allSettled(
-      online.map(async (d) => {
-        const info = await deviceManagementService.checkUpdate(d.platform, d.version)
-        return [d.deviceId, info] as const
-      }),
-    ).then((results) => {
-      const map: Record<string, UpdateCheckResponse> = {}
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value[1].can_update) {
-          map[r.value[0]] = r.value[1]
-        }
-      }
-      setUpgrades((prev) => ({ ...prev, ...map }))
-    })
-  }
 
   const filteredDevices = createMemo(() => {
     const search = deviceSearch().toLowerCase().trim()
@@ -123,11 +101,6 @@ export function DevicesSection() {
     acts.mutate((items) => (items ?? []).filter((d) => d.deviceId !== deviceId))
     try {
       await deviceManagementService.remove(deviceId)
-      setUpgrades((prev) => {
-        const next = { ...prev }
-        delete next[deviceId]
-        return next
-      })
       showToast({
         variant: "success",
         icon: "circle-check",
@@ -189,12 +162,11 @@ export function DevicesSection() {
             <For each={filteredDevices()}>
               {(device) => (
                 <DeviceCard
-                  device={device}
-                  updateInfo={upgrades()[device.deviceId]}
-                  onUpgrade={handleUpgrade}
-                  onDelete={handleDelete}
-                  onUpdate={handleUpdateDevice}
-                />
+                   device={device}
+                   onUpgrade={handleUpgrade}
+                   onDelete={handleDelete}
+                   onUpdate={handleUpdateDevice}
+                 />
               )}
             </For>
           </div>

@@ -319,6 +319,8 @@ type DeviceResponse = Partial<Device> & {
   tokenRotatedAt?: string | null
   lastConnectedAt?: string | null
   lastSeenAt?: string | null
+  canUpdate?: boolean | null
+  latestVersion?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -375,6 +377,8 @@ function normalizeDevice(device: DeviceResponse): Device {
     tokenRotatedAt: device.tokenRotatedAt ?? undefined,
     lastConnectedAt: device.lastConnectedAt ?? undefined,
     lastSeenAt: device.lastSeenAt ?? undefined,
+    canUpdate: device.canUpdate ?? undefined,
+    latestVersion: device.latestVersion ?? undefined,
     createdAt: device.createdAt ?? "",
     updatedAt: device.updatedAt ?? "",
   }

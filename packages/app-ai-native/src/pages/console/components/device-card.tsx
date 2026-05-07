@@ -5,13 +5,13 @@ import { useLanguage } from "@/context/language"
 import { cn } from "@/lib/utils"
 import { sx } from "@/pages/store/lib/styles"
 import type { UpdateCheckResponse, UpdateDeviceRequest, Device } from "@/pages/workspace/types"
+import { deviceManagementService } from "@/pages/console/lib/device-management-service"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
 import { DeviceEditDialog } from "./device-edit-dialog"
 import { DeviceUpgradeDialog } from "./device-upgrade-dialog"
 
 type DeviceCardProps = {
   device: Device
-  updateInfo?: UpdateCheckResponse
   onUpgrade: (deviceId: string) => Promise<void>
   onDelete: (deviceId: string) => Promise<void>
   onUpdate: (payload: { deviceId: string; data: UpdateDeviceRequest }) => Promise<void> | void
@@ -36,15 +36,21 @@ export function DeviceCard(props: DeviceCardProps) {
     ))
   }
 
-  const handleUpgrade = () => {
-    const info = props.updateInfo
-    if (!info) return
+  const handleUpgrade = async () => {
+    const d = props.device
+    if (!d.canUpdate || !d.platform || !d.version || d.status !== "online") return
+    let info: UpdateCheckResponse
+    try {
+      info = await deviceManagementService.checkUpdate(d.platform, d.version)
+    } catch {
+      info = { can_update: true, version: d.latestVersion ?? "", changelog: "", download_url: "", sha256: "", force: false, min_client_version: "", release_date: "", size: 0 }
+    }
     dialog.show(() => (
       <DeviceUpgradeDialog
-        deviceName={props.device.displayName}
-        currentVersion={props.device.version}
+        deviceName={d.displayName}
+        currentVersion={d.version}
         update={info}
-        onConfirm={() => props.onUpgrade(props.device.deviceId)}
+        onConfirm={() => props.onUpgrade(d.deviceId)}
       />
     ))
   }
@@ -62,7 +68,7 @@ export function DeviceCard(props: DeviceCardProps) {
 
   const sp = () => statusProps(props.device.status)
   const labels = () => props.device.label?.split(",").map((l) => l.trim()).filter(Boolean) ?? []
-  const hasUpgrade = () => props.updateInfo?.can_update && props.device.status === "online"
+  const hasUpgrade = () => props.device.canUpdate && props.device.status === "online"
 
   return (
     <div class={sx.dashCard}>
@@ -112,7 +118,7 @@ export function DeviceCard(props: DeviceCardProps) {
             class="flex h-7 w-7 items-center justify-center rounded-md cursor-pointer transition-colors hover:opacity-80"
             style={{ background: "#ff9800" }}
             aria-label={language.t("store.devices.upgrade.button")}
-            title={language.t("store.devices.upgrade.available", { version: props.updateInfo!.version })}
+            title={language.t("store.devices.upgrade.available", { version: props.device.latestVersion ?? "" })}
             onClick={handleUpgrade}
           >
             <Icon name="cloud-upload" size="small" style={{ color: "white" }} />
