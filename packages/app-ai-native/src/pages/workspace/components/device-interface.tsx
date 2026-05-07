@@ -52,7 +52,6 @@ function DeviceLayoutProvider(props: ParentProps<{ deviceLayout: ReturnType<type
 
   const value = {
     ready: () => true,
-    deviceMode: true as boolean,
     handoff: {
       tabs: () => undefined,
       setTabs() {},

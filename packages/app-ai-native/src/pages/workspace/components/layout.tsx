@@ -10,7 +10,6 @@ import { WorkspaceSidebar } from "./workspace-sidebar"
 import { WorkspaceProvider, useWorkspace, type WorkspaceContextValue } from "../context"
 import { ServerConnection, ServerProvider, useServer } from "@/context/server"
 import { useAuth } from "@/context/auth"
-import { AppInterface } from "@/app-interface"
 import { WorkspaceContentLayout } from "./workspace-content-layout"
 import { getProxyUrl } from "../lib/url"
 import { ActiveWorkspaceProvider, useActiveWorkspace } from "../active-workspace"
@@ -462,7 +461,6 @@ function DeviceLayoutProvider(props: ParentProps<{ deviceLayout: ReturnType<type
   const dl = props.deviceLayout
   const value = {
     ready: () => true,
-    deviceMode: true as boolean,
     handoff: { tabs: () => undefined, setTabs() {}, clearTabs() {} },
     projects: { list: () => [], open() {}, close() {}, expand() {}, collapse() {}, move() {} },
     sidebar: { opened: () => false, open() {}, close() {}, toggle() {}, width: () => 280, resize() {}, workspaces: () => () => false, setWorkspaces() {}, toggleWorkspaces() {} },

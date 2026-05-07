@@ -2,12 +2,10 @@ import type { Message, Session } from "@opencode-ai/sdk/v2/client"
 import { showToast } from "@opencode-ai/ui/toast"
 import { base64Encode } from "@opencode-ai/util/encode"
 import { useNavigate, useParams } from "@solidjs/router"
-import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import type { Accessor } from "solid-js"
 import type { FileSelection } from "@/context/file"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
-import { useLayout } from "@/context/layout"
 import { useLocal } from "@/context/local"
 import { usePermission } from "@/context/permission"
 import { type ImageAttachmentPart, type Prompt, usePrompt } from "@/context/prompt"
@@ -58,14 +56,12 @@ type CommentItem = {
 export function createPromptSubmit(input: PromptSubmitInput) {
   const navigate = useNavigate()
   const params = useParams()
-  const { navigateToSession } = useWorkspaceNavigate()
   const sdk = useSDK()
   const sync = useSync()
   const globalSync = useGlobalSync()
   const local = useLocal()
   const permission = usePermission()
   const prompt = usePrompt()
-  const layout = useLayout()
   const language = useLanguage()
   const deviceAdapter = useConversationAdapter()
 
@@ -79,16 +75,10 @@ export function createPromptSubmit(input: PromptSubmitInput) {
   }
 
   const abort = async () => {
-    const sessionID = params.id || (layout.deviceMode && (sync as any).currentSessionID?.())
+    const sessionID = params.id || (sync as any).currentSessionID?.()
     if (!sessionID) return Promise.resolve()
 
-    if (!layout.deviceMode) {
-      globalSync.todo.set(sessionID, [])
-      const [, setStore] = globalSync.child(sdk.directory)
-      setStore("todo", sessionID, [])
-    } else {
-      sync.set("todo", sessionID, [])
-    }
+    sync.set("todo", sessionID, [])
 
     const queued = pending.get(sessionID)
     if (queued) {
@@ -150,7 +140,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     const projectDirectory = sdk.directory
     const existingSession = input.info() as Session | undefined
-    const deviceCurrentSession = layout.deviceMode && !params.id && (sync as any).currentSessionID?.()
+    const deviceCurrentSession = !params.id && (sync as any).currentSessionID?.()
       ? sync.session.get((sync as any).currentSessionID())
       : undefined
     const currentSession = existingSession ?? deviceCurrentSession
@@ -216,9 +206,6 @@ export function createPromptSubmit(input: PromptSubmitInput) {
         })) as Session | undefined
         if (session) {
         if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
-        if (!layout.deviceMode) {
-          navigateToSession(session.id, {})
-        }
       }
     }
     if (!session) {

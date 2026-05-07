@@ -1,4 +1,4 @@
-export { AppBaseProviders, AppInterface } from "./app"
+export { AppBaseProviders } from "./app"
 export { useCommand } from "./context/command"
 export { type DisplayBackend, type Platform, PlatformProvider } from "./context/platform"
 export { ServerConnection } from "./context/server"

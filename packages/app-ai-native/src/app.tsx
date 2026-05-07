@@ -7,54 +7,36 @@ import { MarkedProvider } from "@opencode-ai/ui/context/marked"
 import { Font } from "@opencode-ai/ui/font"
 import { ThemeProvider } from "@opencode-ai/ui/theme"
 import { MetaProvider } from "@solidjs/meta"
-import { BaseRouterProps, Navigate, Route, Router } from "@solidjs/router"
-import { Component, createEffect, ErrorBoundary, type JSX, lazy, type ParentProps, Show, Suspense } from "solid-js"
-import { CommandProvider } from "@/context/command"
-import { CommentsProvider } from "@/context/comments"
-import { FileProvider } from "@/context/file"
-import { GlobalSDKProvider } from "@/context/global-sdk"
-import { GlobalSyncProvider } from "@/context/global-sync"
-import { HighlightsProvider } from "@/context/highlights"
-import { ItemFilterOptionsProvider } from "@/context/item-filter-options"
-import { LanguageProvider, useLanguage } from "@/context/language"
-import { LayoutProvider } from "@/context/layout"
-import { ModelsProvider } from "@/context/models"
-import { NotificationProvider } from "@/context/notification"
-import { PermissionProvider } from "@/context/permission"
-import { usePlatform } from "@/context/platform"
-import { PromptProvider } from "@/context/prompt"
-import { type ServerConnection, ServerProvider, useServer } from "@/context/server"
-import { SettingsProvider } from "@/context/settings"
+import { Navigate } from "@solidjs/router"
+import { createEffect, ErrorBoundary, type ParentProps, lazy, Suspense } from "solid-js"
 import { TerminalProvider } from "@/context/terminal"
+import { FileProvider } from "@/context/file"
+import { PromptProvider } from "@/context/prompt"
+import { CommentsProvider } from "@/context/comments"
+import { usePlatform } from "@/context/platform"
+import { useLanguage } from "@/context/language"
+import { LanguageProvider } from "@/context/language"
+import { SettingsProvider } from "@/context/settings"
 import { AuthProvider } from "@/context/auth"
-import DirectoryLayout from "@/pages/directory-layout"
-import Layout from "@/pages/layout"
+import { ItemFilterOptionsProvider } from "@/context/item-filter-options"
 import { ErrorPage } from "./pages/error"
-import { Dynamic } from "solid-js/web"
 import { useTheme } from "@opencode-ai/ui/theme"
 
-const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
-const StoreLayout = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreLayout })))
-const StoreHome = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreHome })))
-const StoreManager = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreManager })))
+
 const Loading = () => <div class="size-full" />
 
-const HomeRoute = () => <Navigate href="/store" />
-
-const StoreHomeRoute = () => (
-  <Suspense fallback={<Loading />}>
-    <StoreHome />
-  </Suspense>
-)
-
-const StoreManagerRoute = () => (
-  <Suspense fallback={<Loading />}>
-    <StoreManager />
-  </Suspense>
-)
-
-const StoreDashboardRoute = () => <Navigate href="/store/dashboard/repositories" />
+function SessionProviders(props: ParentProps) {
+  return (
+    <TerminalProvider>
+      <FileProvider>
+        <PromptProvider>
+          <CommentsProvider>{props.children}</CommentsProvider>
+        </PromptProvider>
+      </FileProvider>
+    </TerminalProvider>
+  )
+}
 
 export const SessionRoute = () => (
   <SessionProviders>
@@ -75,12 +57,10 @@ function FixedExperienceGuards(props: ParentProps) {
   const theme = useTheme()
 
   createEffect(() => {
-    // TODO: 后续支持主题切换后，移除这里的强制覆盖，改回用户可配置。
     if (theme.themeId() !== "vercel") {
       theme.setTheme("vercel")
     }
 
-    // TODO: 后续支持配色方案切换后，移除这里的强制覆盖，改回用户可配置。
     if (theme.colorScheme() !== "light") {
       theme.setColorScheme("light")
     }
@@ -89,58 +69,9 @@ function FixedExperienceGuards(props: ParentProps) {
   return props.children
 }
 
-declare global {
-  interface Window {
-    __OPENCODE__?: {
-      updaterEnabled?: boolean
-      deepLinks?: string[]
-      wsl?: boolean
-    }
-  }
-}
-
 function MarkedProviderWithNativeParser(props: ParentProps) {
   const platform = usePlatform()
   return <MarkedProvider nativeParser={platform.parseMarkdown}>{props.children}</MarkedProvider>
-}
-
-export function AppShellProviders(props: ParentProps) {
-  return (
-    <PermissionProvider>
-      <LayoutProvider>
-        <NotificationProvider>
-          <ModelsProvider>
-            <CommandProvider>
-              <HighlightsProvider>
-                <Layout>{props.children}</Layout>
-              </HighlightsProvider>
-            </CommandProvider>
-          </ModelsProvider>
-        </NotificationProvider>
-      </LayoutProvider>
-    </PermissionProvider>
-  )
-}
-
-function SessionProviders(props: ParentProps) {
-  return (
-    <TerminalProvider>
-      <FileProvider>
-        <PromptProvider>
-          <CommentsProvider>{props.children}</CommentsProvider>
-        </PromptProvider>
-      </FileProvider>
-    </TerminalProvider>
-  )
-}
-
-export function RouterRoot(props: ParentProps<{ appChildren?: JSX.Element }>) {
-  return (
-    <AppShellProviders>
-      {props.appChildren}
-      {props.children}
-    </AppShellProviders>
-  )
 }
 
 export function AppBaseProviders(props: ParentProps) {
@@ -169,42 +100,5 @@ export function AppBaseProviders(props: ParentProps) {
         </LanguageProvider>
       </ThemeProvider>
     </MetaProvider>
-  )
-}
-
-export function ServerKey(props: ParentProps) {
-  const server = useServer()
-  return (
-    <Show when={server.key} keyed>
-      {props.children}
-    </Show>
-  )
-}
-
-export function AppInterface(props: {
-  children?: JSX.Element
-  defaultServer: ServerConnection.Key
-  servers?: Array<ServerConnection.Any>
-  router?: Component<BaseRouterProps>
-}) {
-  return (
-    <ServerProvider defaultServer={props.defaultServer} servers={props.servers}>
-      <ServerKey>
-        <GlobalSDKProvider>
-          <GlobalSyncProvider>
-            <Dynamic
-              component={props.router ?? Router}
-              root={(routerProps) => <RouterRoot appChildren={props.children}>{routerProps.children}</RouterRoot>}
-            >
-              <Route path="/" component={HomeRoute} />
-              <Route path="/store" component={StoreLayout}>
-                <Route path="/" component={StoreHomeRoute} />
-                <Route path="manager" component={StoreManagerRoute} />
-              </Route>
-            </Dynamic>
-          </GlobalSyncProvider>
-        </GlobalSDKProvider>
-      </ServerKey>
-    </ServerProvider>
   )
 }

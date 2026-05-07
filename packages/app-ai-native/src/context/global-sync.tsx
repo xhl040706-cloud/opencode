@@ -27,7 +27,7 @@ import { SESSION_RECENT_LIMIT } from "./global-sync/types"
 import { sanitizeProject } from "./global-sync/utils"
 import { formatServerError } from "@/utils/server-errors"
 import { useConversationAdapter, sdkAdapter } from "./device-adapter"
-import { workspaceKey } from "@/pages/layout/helpers"
+import { workspaceKey } from "@/lib/workspace-key"
 
 type GlobalStore = {
   ready: boolean

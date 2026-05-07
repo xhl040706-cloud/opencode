@@ -16,7 +16,6 @@ import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { usePlatform } from "@/context/platform"
-import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
 import { decode64 } from "@/utils/base64"
 import { Persist, persisted } from "@/utils/persist"
@@ -135,7 +134,6 @@ export function SessionHeader() {
   const layout = useLayout()
   const params = useParams()
   const command = useCommand()
-  const server = useServer()
   const sync = useSync()
   const platform = usePlatform()
   const language = useLanguage()
@@ -204,34 +202,12 @@ export function SessionHeader() {
   })
 
   const [prefs, setPrefs] = persisted(Persist.global("open.app"), createStore({ app: "finder" as OpenApp }))
-  const [menu, setMenu] = createStore({ open: false })
-  const [openRequest, setOpenRequest] = createStore({
-    app: undefined as OpenApp | undefined,
-  })
 
-  const canOpen = createMemo(() => platform.platform === "desktop" && !!platform.openPath && server.isLocal())
   const current = createMemo(() => options().find((o) => o.id === prefs.app) ?? options()[0])
-  const opening = createMemo(() => openRequest.app !== undefined)
 
   const selectApp = (app: OpenApp) => {
     if (!options().some((item) => item.id === app)) return
     setPrefs("app", app)
-  }
-
-  const openDir = (app: OpenApp) => {
-    if (opening() || !canOpen() || !platform.openPath) return
-    const directory = workspaceDirectory()
-    if (!directory) return
-
-    const item = options().find((o) => o.id === app)
-    const openWith = item && "openWith" in item ? item.openWith : undefined
-    setOpenRequest("app", app)
-    platform
-      .openPath(directory, openWith)
-      .catch((err: unknown) => showRequestError(language, err))
-      .finally(() => {
-        setOpenRequest("app", undefined)
-      })
   }
 
   const copyPath = () => {
@@ -291,117 +267,19 @@ export function SessionHeader() {
               <StatusPopover />
               <Show when={workspaceDirectory()}>
                 <div class="hidden xl:flex items-center">
-                  <Show
-                    when={canOpen()}
-                    fallback={
-                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-surface-panel overflow-hidden">
-                        <Button
-                          variant="ghost"
-                          class="rounded-none h-full py-0 pr-3 pl-0.5 gap-1.5 border-none shadow-none"
-                          onClick={copyPath}
-                          aria-label={language.t("session.header.open.copyPath")}
-                        >
-                          <Icon name="copy" size="small" class="text-icon-base" />
-                          <span class="text-12-regular text-text-strong">
-                            {language.t("session.header.open.copyPath")}
-                          </span>
-                        </Button>
-                      </div>
-                    }
-                  >
-                    <div class="flex items-center">
-                      <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-surface-panel overflow-hidden">
-                        <Button
-                          variant="ghost"
-                          class="rounded-none h-full py-0 pr-3 pl-0.5 gap-1.5 border-none shadow-none disabled:!cursor-default"
-                          classList={{
-                            "bg-surface-raised-base-active": opening(),
-                          }}
-                          onClick={() => openDir(current().id)}
-                          disabled={opening()}
-                          aria-label={language.t("session.header.open.ariaLabel", { app: current().label })}
-                        >
-                          <div class="flex size-5 shrink-0 items-center justify-center">
-                            <Show
-                              when={opening()}
-                              fallback={<AppIcon id={current().icon} class={openIconSize(current().icon)} />}
-                            >
-                              <Spinner class="size-3.5 text-icon-base" />
-                            </Show>
-                          </div>
-                          <span class="text-12-regular text-text-strong">{language.t("common.open")}</span>
-                        </Button>
-                        <div class="self-stretch w-px bg-border-weak-base" />
-                        <DropdownMenu
-                          gutter={4}
-                          placement="bottom-end"
-                          open={menu.open}
-                          onOpenChange={(open) => setMenu("open", open)}
-                        >
-                          <DropdownMenu.Trigger
-                            as={IconButton}
-                            icon="chevron-down"
-                            variant="ghost"
-                            disabled={opening()}
-                            class="rounded-none h-full w-[24px] p-0 border-none shadow-none data-[expanded]:bg-surface-raised-base-active disabled:!cursor-default"
-                            classList={{
-                              "bg-surface-raised-base-active": opening(),
-                            }}
-                            aria-label={language.t("session.header.open.menu")}
-                          />
-                          <DropdownMenu.Portal>
-                            <DropdownMenu.Content>
-                              <DropdownMenu.Group>
-                                <DropdownMenu.GroupLabel>{language.t("session.header.openIn")}</DropdownMenu.GroupLabel>
-                                <DropdownMenu.RadioGroup
-                                  value={current().id}
-                                  onChange={(value) => {
-                                    if (!OPEN_APPS.includes(value as OpenApp)) return
-                                    selectApp(value as OpenApp)
-                                  }}
-                                >
-                                  <For each={options()}>
-                                    {(o) => (
-                                      <DropdownMenu.RadioItem
-                                        value={o.id}
-                                        disabled={opening()}
-                                        onSelect={() => {
-                                          setMenu("open", false)
-                                          openDir(o.id)
-                                        }}
-                                      >
-                                        <div class="flex size-5 shrink-0 items-center justify-center">
-                                          <AppIcon id={o.icon} class={openIconSize(o.icon)} />
-                                        </div>
-                                        <DropdownMenu.ItemLabel>{o.label}</DropdownMenu.ItemLabel>
-                                        <DropdownMenu.ItemIndicator>
-                                          <Icon name="check-small" size="small" class="text-icon-weak" />
-                                        </DropdownMenu.ItemIndicator>
-                                      </DropdownMenu.RadioItem>
-                                    )}
-                                  </For>
-                                </DropdownMenu.RadioGroup>
-                              </DropdownMenu.Group>
-                              <DropdownMenu.Separator />
-                              <DropdownMenu.Item
-                                onSelect={() => {
-                                  setMenu("open", false)
-                                  copyPath()
-                                }}
-                              >
-                                <div class="flex size-5 shrink-0 items-center justify-center">
-                                  <Icon name="copy" size="small" class="text-icon-weak" />
-                                </div>
-                                <DropdownMenu.ItemLabel>
-                                  {language.t("session.header.open.copyPath")}
-                                </DropdownMenu.ItemLabel>
-                              </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                          </DropdownMenu.Portal>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </Show>
+                  <div class="flex h-[24px] box-border items-center rounded-md border border-border-weak-base bg-surface-panel overflow-hidden">
+                    <Button
+                      variant="ghost"
+                      class="rounded-none h-full py-0 pr-3 pl-0.5 gap-1.5 border-none shadow-none"
+                      onClick={copyPath}
+                      aria-label={language.t("session.header.open.copyPath")}
+                    >
+                      <Icon name="copy" size="small" class="text-icon-base" />
+                      <span class="text-12-regular text-text-strong">
+                        {language.t("session.header.open.copyPath")}
+                      </span>
+                    </Button>
+                  </div>
                 </div>
               </Show>
               <div class="flex items-center gap-1">

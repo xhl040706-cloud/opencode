@@ -20,7 +20,7 @@ import { ContentTabContext, useContentTabs, type ContentTab } from "@/context/co
 import { useLayout } from "@/context/layout"
 import { FilePreviewTab } from "./file-preview-tab"
 import { DiffPreviewTab } from "./diff-preview-tab"
-import { workspaceKey } from "@/pages/layout/helpers"
+import { workspaceKey } from "@/lib/workspace-key"
 import { shouldRestore, activeSession } from "./workspace-content-layout-sync"
 import FileTree from "@/components/file-tree"
 import type { FileNode } from "@opencode-ai/sdk/v2"
