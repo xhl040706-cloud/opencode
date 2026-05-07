@@ -1,4 +1,5 @@
 import "@/index.css"
+import "@/styles/session-markdown.css"
 import { File } from "@opencode-ai/ui/file"
 import { I18nProvider } from "@opencode-ai/ui/context"
 import { DialogProvider } from "@opencode-ai/ui/context/dialog"
