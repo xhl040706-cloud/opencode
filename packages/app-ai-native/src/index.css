@@ -1,2 +1,3 @@
 @import "@opencode-ai/ui/styles/tailwind";
 @import "./styles/native-theme.css";
+@import "./styles/session-markdown.css";
