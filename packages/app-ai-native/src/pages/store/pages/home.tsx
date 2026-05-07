@@ -494,20 +494,20 @@ export default function Home() {
           <>
             {/* ═══ HOME MODE ═══ */}
             <header class="relative overflow-hidden bg-[linear-gradient(135deg,color-mix(in_srgb,var(--native-primary)_2%,white),color-mix(in_srgb,var(--native-primary)_10%,var(--native-panel))_62%,color-mix(in_srgb,var(--native-primary)_14%,var(--native-panel)))] before:pointer-events-none before:absolute before:right-[-10%] before:top-[-60%] before:h-[340px] before:w-[340px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--native-primary)_8%,transparent),transparent_70%)] before:content-['']">
-              <div class="relative flex flex-row items-center justify-between gap-4 px-5 py-3 lg:gap-6">
-                <div class="min-w-0 flex flex-1 items-center gap-4">
+              <div class="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 px-4 md:px-5 py-3 lg:gap-6">
+                <div class="min-w-0 flex flex-col md:flex-row md:flex-1 md:items-center gap-0.5 md:gap-4">
                   <h1 class="relative m-0 shrink-0 text-[1.625rem] leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t("store.home.hero.title")}</h1>
-                  <p class="relative m-0 min-w-0 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t("store.home.hero.description")}</p>
+                  <p class="relative m-0 hidden min-w-0 max-w-none lg:block lg:max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t("store.home.hero.description")}</p>
                 </div>
 
-                <div class="flex shrink-0 items-center justify-end gap-3">
-                  <div class="flex flex-nowrap items-stretch justify-end gap-2 overflow-x-auto">
+                <div class="flex flex-wrap sm:flex-nowrap shrink-0 items-center justify-start md:justify-end gap-2 md:gap-3 w-full md:w-auto pb-1 md:pb-0">
+                  <div class="flex flex-nowrap items-stretch justify-start md:justify-end gap-2">
                   <For each={statCards()}>
                     {(entry) => (
                       <button
                         type="button"
                         class={cn(
-                          "group flex shrink-0 items-center gap-1.5 rounded-[0.375rem] border border-transparent bg-transparent px-3 py-0.5 text-left cursor-pointer transition-[background-color,border-color,color,transform,box-shadow]",
+                          "group flex shrink-0 items-center gap-1.5 rounded-[0.375rem] border border-transparent bg-transparent px-2 md:px-3 py-0.5 text-left cursor-pointer transition-[background-color,border-color,color,transform,box-shadow]",
                           entry.value === activeType() && "border-transparent bg-[var(--stat-accent)] text-white",
                           hoveredType() === entry.value && entry.value !== activeType() && "bg-[color:color-mix(in_oklab,var(--stat-accent)_70%,white)] text-white",
                         )}
@@ -541,41 +541,43 @@ export default function Home() {
                     )}
                   </For>
                   </div>
-                  <Tooltip value={language.t("store.console.capabilities.title")} placement="bottom">
-                    <button
-                      type="button"
-                      class="flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[0.375rem] bg-[color:color-mix(in_oklab,var(--native-primary)_85%,white)] px-3 !text-white shadow-[var(--native-shadow-sm)] transition-[background-color,filter,transform] hover:cursor-pointer hover:bg-[var(--native-primary)] hover:!text-white"
-                      style={{ color: "#ffffff" }}
-                      aria-label={language.t("store.console.capabilities.title")}
-                      onClick={() => navigate("/store/manager")}
-                    >
-                      <Icon name="sliders" class="size-4" style={{ color: "#ffffff" }} />
-                      <span class="text-sm font-medium leading-none !text-white" style={{ color: "#ffffff" }}>{language.t("store.console.capabilities.manage")}</span>
-                    </button>
-                  </Tooltip>
-                  <Tooltip value={language.t("store.console.capabilities.create")} placement="bottom">
-                    <button
-                      type="button"
-                      class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[0.375rem] bg-[color:color-mix(in_oklab,var(--native-primary)_85%,white)] text-white shadow-[var(--native-shadow-sm)] transition-[background-color,filter,transform] hover:cursor-pointer hover:bg-[var(--native-primary)]"
-                      aria-label={language.t("store.console.capabilities.create")}
-                      onClick={() => navigate("/capabilities/new")}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="size-5"
+                  <div class="flex w-full sm:w-auto items-center justify-start sm:justify-end gap-2">
+                    <Tooltip value={language.t("store.console.capabilities.title")} placement="bottom">
+                      <button
+                        type="button"
+                        class="flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[0.375rem] bg-[color:color-mix(in_oklab,var(--native-primary)_85%,white)] px-3 !text-white shadow-[var(--native-shadow-sm)] transition-[background-color,filter,transform] hover:cursor-pointer hover:bg-[var(--native-primary)] hover:!text-white"
                         style={{ color: "#ffffff" }}
+                        aria-label={language.t("store.console.capabilities.title")}
+                        onClick={() => navigate("/store/manager")}
                       >
-                        <path d="M12 5v14" />
-                        <path d="M5 12h14" />
-                      </svg>
-                    </button>
-                  </Tooltip>
+                        <Icon name="sliders" class="size-4" style={{ color: "#ffffff" }} />
+                        <span class="text-sm font-medium leading-none !text-white hidden sm:inline" style={{ color: "#ffffff" }}>{language.t("store.console.capabilities.manage")}</span>
+                      </button>
+                    </Tooltip>
+                    <Tooltip value={language.t("store.console.capabilities.create")} placement="bottom">
+                      <button
+                        type="button"
+                        class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[0.375rem] bg-[color:color-mix(in_oklab,var(--native-primary)_85%,white)] text-white shadow-[var(--native-shadow-sm)] transition-[background-color,filter,transform] hover:cursor-pointer hover:bg-[var(--native-primary)]"
+                        aria-label={language.t("store.console.capabilities.create")}
+                        onClick={() => navigate("/capabilities/new")}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="size-5"
+                          style={{ color: "#ffffff" }}
+                        >
+                          <path d="M12 5v14" />
+                          <path d="M5 12h14" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  </div>
                 </div>
               </div>
             </header>
@@ -593,7 +595,7 @@ export default function Home() {
         {/* ═══ TYPE LIST MODE ═══ */}
         <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-4 max-[1280px]:gap-3">
           {/* Type Hero Header */}
-          <header class="relative flex flex-col gap-5 overflow-hidden rounded-[1.25rem] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[linear-gradient(135deg,var(--native-panel),color-mix(in_srgb,var(--tp-accent)_5%,var(--native-panel)))] px-7 py-6 before:pointer-events-none before:absolute before:right-[-5%] before:top-[-40%] before:h-[280px] before:w-[280px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--tp-accent)_8%,transparent),transparent_70%)] before:content-[''] lg:flex-row lg:items-center lg:justify-between" style={{ "--tp-accent": typeMeta().color }}>
+          <header class="relative flex flex-col gap-4 lg:gap-5 overflow-hidden rounded-[1.25rem] border border-[color:color-mix(in_srgb,var(--native-border)_12%,transparent)] bg-[linear-gradient(135deg,var(--native-panel),color-mix(in_srgb,var(--tp-accent)_5%,var(--native-panel)))] px-4 py-4 lg:px-7 lg:py-6 before:pointer-events-none before:absolute before:right-[-5%] before:top-[-40%] before:h-[280px] before:w-[280px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--tp-accent)_8%,transparent),transparent_70%)] before:content-[''] lg:flex-row lg:items-center lg:justify-between" style={{ "--tp-accent": typeMeta().color }}>
             <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[var(--native-radius-lg)] bg-[color-mix(in_srgb,var(--tp-accent)_10%,transparent)]">
               <Icon name={typeMeta().icon} />
             </div>
@@ -690,7 +692,7 @@ export default function Home() {
   function SearchControls() {
     return (
       <section class={sx.section}>
-        <div class="mx-auto flex w-full max-w-[64rem] items-center gap-3 px-4 max-[640px]:gap-2">
+        <div class="mx-auto flex w-full max-w-[64rem] items-center gap-3 px-3 sm:px-4 max-[640px]:gap-2">
           <div class="relative min-w-0 flex-1 rounded-full transition-shadow hover:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))] focus-within:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))]">
             <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-4 text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
               <svg
