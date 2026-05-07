@@ -958,7 +958,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const accepting = createMemo(() => {
     const id = params.id
     if (!id) return store.pendingAutoAccept
-    return permission.isAutoAccepting(id, sdk.directory)
+    return permission.isAutoAccepting(id)
   })
 
   const { abort, handleSubmit } = createPromptSubmit({
@@ -1476,30 +1476,32 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     </ModelSelectorPopover>
                   </TooltipKeybind>
                 </Show>
-                <TooltipKeybind
-                  placement="top"
-                  gutter={4}
-                  title={language.t("command.model.variant.cycle")}
-                  keybind={command.keybind("model.variant.cycle")}
-                >
-                  <Select
-                    size="normal"
-                    options={variants()}
-                    current={local.model.variant.current() ?? "default"}
-                    label={(x) => (x === "default" ? language.t("common.default") : x)}
-                    onSelect={(x) => local.model.variant.set(x === "default" ? undefined : x)}
-                    class="capitalize max-w-[160px]"
-                    valueClass="truncate text-13-regular"
-                    triggerStyle={{
-                      height: "28px",
-                      opacity: buttonsSpring(),
-                      transform: `scale(${0.95 + buttonsSpring() * 0.05})`,
-                      filter: `blur(${(1 - buttonsSpring()) * 2}px)`,
-                      "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
-                    }}
-                    variant="ghost"
-                  />
-                </TooltipKeybind>
+                <Show when={variants().length > 1}>
+                  <TooltipKeybind
+                    placement="top"
+                    gutter={4}
+                    title={language.t("command.model.variant.cycle")}
+                    keybind={command.keybind("model.variant.cycle")}
+                  >
+                    <Select
+                      size="normal"
+                      options={variants()}
+                      current={local.model.variant.current() ?? "default"}
+                      label={(x) => (x === "default" ? language.t("common.default") : x)}
+                      onSelect={(x) => local.model.variant.set(x === "default" ? undefined : x)}
+                      class="capitalize max-w-[160px]"
+                      valueClass="truncate text-13-regular"
+                      triggerStyle={{
+                        height: "28px",
+                        opacity: buttonsSpring(),
+                        transform: `scale(${0.95 + buttonsSpring() * 0.05})`,
+                        filter: `blur(${(1 - buttonsSpring()) * 2}px)`,
+                        "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
+                      }}
+                      variant="ghost"
+                    />
+                  </TooltipKeybind>
+                </Show>
               </div>
             </div>
             <div class="shrink-0">

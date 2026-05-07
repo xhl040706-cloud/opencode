@@ -5,8 +5,6 @@ import type { PermissionRequest } from "@opencode-ai/sdk/v2/client"
 import { Persist, persisted } from "@/utils/persist"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { useGlobalSync } from "./global-sync"
-import { useParams } from "@solidjs/router"
-import { decode64 } from "@/utils/base64"
 import { acceptKey, autoRespondsPermission } from "./permission-auto-respond"
 import { useActiveWorkspace } from "@/pages/workspace/active-workspace"
 
@@ -20,17 +18,12 @@ type PermissionRespondFn = (input: {
 export const { use: usePermission, provider: PermissionProvider, context: PermissionContext } = createSimpleContext({
   name: "Permission",
   init: () => {
-    const params = useParams()
     const globalSDK = useGlobalSDK()
     const globalSync = useGlobalSync()
     const active = useActiveWorkspace()
 
     const permissionsEnabled = createMemo(() => {
-      const directory = decode64(params.dir)
-      if (!directory) return false
-      // Permission behavior is now determined by runtime/device-side policy and
-      // actual pending permission events, not by legacy web config.permission.
-      return true
+      return !!active?.workspace?.directories?.length
     })
 
     const [store, setStore, _, ready] = persisted(
@@ -96,18 +89,28 @@ export const { use: usePermission, provider: PermissionProvider, context: Permis
       })
     }
 
-    function isAutoAccepting(sessionID: string, directory?: string) {
-      const session = directory ? globalSync.child(directory, { bootstrap: false })[0].session : []
-      return autoRespondsPermission(store.autoAccept, session, { sessionID }, directory)
+    function defaultDirectory() {
+      const dirs = active?.workspace?.directories
+      if (!dirs?.length) return undefined
+      return dirs.find((d) => d.isDefault)?.path ?? dirs[0].path
     }
 
-    function shouldAutoRespond(permission: PermissionRequest, directory?: string) {
-      const session = directory ? globalSync.child(directory, { bootstrap: false })[0].session : []
-      return autoRespondsPermission(store.autoAccept, session, permission, directory)
+    function isAutoAccepting(sessionID: string) {
+      const wid = active?.id
+      const dir = defaultDirectory()
+      const session = dir ? globalSync.child(dir, { bootstrap: false })[0].session : []
+      return autoRespondsPermission(store.autoAccept, session, { sessionID }, wid)
     }
 
-    function bumpEnableVersion(sessionID: string, directory?: string) {
-      const key = acceptKey(sessionID, directory)
+    function shouldAutoRespond(permission: PermissionRequest) {
+      const wid = active?.id
+      const dir = defaultDirectory()
+      const session = dir ? globalSync.child(dir, { bootstrap: false })[0].session : []
+      return autoRespondsPermission(store.autoAccept, session, permission, wid)
+    }
+
+    function bumpEnableVersion(sessionID: string) {
+      const key = acceptKey(sessionID, active?.id)
       const next = (enableVersion.get(key) ?? 0) + 1
       enableVersion.set(key, next)
       return next
@@ -118,15 +121,15 @@ export const { use: usePermission, provider: PermissionProvider, context: Permis
       if (event?.type !== "permission.asked") return
 
       const perm = event.properties
-      if (!shouldAutoRespond(perm, e.name)) return
+      if (!shouldAutoRespond(perm)) return
 
       respondOnce(perm, e.name)
     })
     onCleanup(unsubscribe)
 
     function enable(sessionID: string, directory: string) {
-      const key = acceptKey(sessionID, directory)
-      const version = bumpEnableVersion(sessionID, directory)
+      const key = acceptKey(sessionID, active?.id)
+      const version = bumpEnableVersion(sessionID)
       setStore(
         produce((draft) => {
           draft.autoAccept[key] = true
@@ -138,24 +141,22 @@ export const { use: usePermission, provider: PermissionProvider, context: Permis
         .permissions(directory)
         .then((x) => {
           if (enableVersion.get(key) !== version) return
-          if (!isAutoAccepting(sessionID, directory)) return
+          if (!isAutoAccepting(sessionID)) return
           for (const perm of (x as PermissionRequest[] | undefined) ?? []) {
             if (!perm?.id) continue
-            if (!shouldAutoRespond(perm, directory)) continue
+            if (!shouldAutoRespond(perm)) continue
             respondOnce(perm, directory)
           }
         })
         .catch(() => undefined)
     }
 
-    function disable(sessionID: string, directory?: string) {
-      bumpEnableVersion(sessionID, directory)
-      const key = directory ? acceptKey(sessionID, directory) : sessionID
+    function disable(sessionID: string) {
+      bumpEnableVersion(sessionID)
+      const key = active?.id ? acceptKey(sessionID, active.id) : sessionID
       setStore(
         produce((draft) => {
           draft.autoAccept[key] = false
-          if (!directory) return
-          delete draft.autoAccept[sessionID]
         }),
       )
     }
@@ -163,24 +164,24 @@ export const { use: usePermission, provider: PermissionProvider, context: Permis
     return {
       ready,
       respond,
-      autoResponds(permission: PermissionRequest, directory?: string) {
-        return shouldAutoRespond(permission, directory)
+      autoResponds(permission: PermissionRequest) {
+        return shouldAutoRespond(permission)
       },
       isAutoAccepting,
       toggleAutoAccept(sessionID: string, directory: string) {
-        if (isAutoAccepting(sessionID, directory)) {
-          disable(sessionID, directory)
+        if (isAutoAccepting(sessionID)) {
+          disable(sessionID)
           return
         }
 
         enable(sessionID, directory)
       },
       enableAutoAccept(sessionID: string, directory: string) {
-        if (isAutoAccepting(sessionID, directory)) return
+        if (isAutoAccepting(sessionID)) return
         enable(sessionID, directory)
       },
-      disableAutoAccept(sessionID: string, directory?: string) {
-        disable(sessionID, directory)
+      disableAutoAccept(sessionID: string) {
+        disable(sessionID)
       },
       permissionsEnabled,
     }

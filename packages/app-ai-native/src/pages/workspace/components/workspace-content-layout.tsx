@@ -157,6 +157,7 @@ function SessionTabIcon(props: { tab: ContentTab }) {
 }
 
 function TabContent(props: { tab: ContentTab }) {
+  const [autoAccept, setAutoAccept] = createSignal(false)
   return (
     <Switch>
       <Match when={props.tab.kind === "file"}>
@@ -166,7 +167,7 @@ function TabContent(props: { tab: ContentTab }) {
         <DiffPreviewTab tab={props.tab} />
       </Match>
       <Match when={props.tab.kind === "session"}>
-        <DeviceSessionProvider sessionID={(props.tab.meta as any)?.sessionID}>
+        <DeviceSessionProvider sessionID={(props.tab.meta as any)?.sessionID} autoAccept={autoAccept} onAutoAcceptChange={setAutoAccept}>
           <DeviceSessionTab tabId={props.tab.id} />
         </DeviceSessionProvider>
       </Match>

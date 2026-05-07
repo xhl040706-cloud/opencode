@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import type { PermissionRequest, Session } from "@opencode-ai/sdk/v2/client"
-import { base64Encode } from "@opencode-ai/util/encode"
 import { autoRespondsPermission } from "./permission-auto-respond"
 
 const session = (input: { id: string; parentID?: string }) =>
@@ -15,20 +14,20 @@ const permission = (sessionID: string) =>
   }) as Pick<PermissionRequest, "sessionID">
 
 describe("autoRespondsPermission", () => {
-  test("uses a parent session's directory-scoped auto-accept", () => {
-    const directory = "/tmp/project"
+  test("uses a parent session's workspace-scoped auto-accept", () => {
+    const workspaceId = "ws-1"
     const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
     const autoAccept = {
-      [`${base64Encode(directory)}/root`]: true,
+      [`${workspaceId}/root`]: true,
     }
 
-    expect(autoRespondsPermission(autoAccept, sessions, permission("child"), directory)).toBe(true)
+    expect(autoRespondsPermission(autoAccept, sessions, permission("child"), workspaceId)).toBe(true)
   })
 
   test("uses a parent session's legacy auto-accept key", () => {
     const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
 
-    expect(autoRespondsPermission({ root: true }, sessions, permission("child"), "/tmp/project")).toBe(true)
+    expect(autoRespondsPermission({ root: true }, sessions, permission("child"), "ws-1")).toBe(true)
   })
 
   test("defaults to requiring approval when no lineage override exists", () => {
@@ -37,27 +36,27 @@ describe("autoRespondsPermission", () => {
       other: true,
     }
 
-    expect(autoRespondsPermission(autoAccept, sessions, permission("child"), "/tmp/project")).toBe(false)
+    expect(autoRespondsPermission(autoAccept, sessions, permission("child"), "ws-1")).toBe(false)
   })
 
   test("inherits a parent session's false override", () => {
-    const directory = "/tmp/project"
+    const workspaceId = "ws-1"
     const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
     const autoAccept = {
-      [`${base64Encode(directory)}/root`]: false,
+      [`${workspaceId}/root`]: false,
     }
 
-    expect(autoRespondsPermission(autoAccept, sessions, permission("child"), directory)).toBe(false)
+    expect(autoRespondsPermission(autoAccept, sessions, permission("child"), workspaceId)).toBe(false)
   })
 
   test("prefers a child override over parent override", () => {
-    const directory = "/tmp/project"
+    const workspaceId = "ws-1"
     const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
     const autoAccept = {
-      [`${base64Encode(directory)}/root`]: false,
-      [`${base64Encode(directory)}/child`]: true,
+      [`${workspaceId}/root`]: false,
+      [`${workspaceId}/child`]: true,
     }
 
-    expect(autoRespondsPermission(autoAccept, sessions, permission("child"), directory)).toBe(true)
+    expect(autoRespondsPermission(autoAccept, sessions, permission("child"), workspaceId)).toBe(true)
   })
 })

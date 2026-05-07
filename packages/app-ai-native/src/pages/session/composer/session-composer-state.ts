@@ -17,7 +17,7 @@ export function createSessionComposerBlocked() {
   const sync = useSync()
   const permissionRequest = createMemo(() =>
     sessionPermissionRequest(sync.data.session, sync.data.permission, params.id, (item) => {
-      return !permission.autoResponds(item, sdk.directory)
+      return !permission.autoResponds(item)
     }),
   )
   const questionRequest = createMemo(() => sessionQuestionRequest(sync.data.session, sync.data.question, params.id))
@@ -43,7 +43,7 @@ export function createSessionComposerState(options?: { closeMs?: number | (() =>
 
   const permissionRequest = createMemo((): PermissionRequest | undefined => {
     return sessionPermissionRequest(sync.data.session, sync.data.permission, params.id, (item) => {
-      return !permission.autoResponds(item, sdk.directory)
+      return !permission.autoResponds(item)
     })
   })
 
