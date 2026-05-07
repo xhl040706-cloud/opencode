@@ -14,7 +14,7 @@ import {
   type VcsCache,
 } from "./types"
 import { canDisposeDirectory, pickDirectoriesToEvict } from "./eviction"
-import { workspaceKey } from "@/pages/layout/helpers"
+import { workspaceKey } from "@/lib/workspace-key"
 
 export function createChildStoreManager(input: {
   owner: Owner

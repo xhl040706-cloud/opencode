@@ -1,4 +1,4 @@
-import { createContext, useContext, type ParentProps } from "solid-js"
+import { createContext, useContext, type Accessor, type ParentProps } from "solid-js"
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
@@ -96,7 +96,7 @@ export function treeEvent(input: {
   return input.eventSID === input.root
 }
 
-export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>) {
+export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string; autoAccept?: Accessor<boolean>; onAutoAcceptChange?: (v: boolean) => void }>) {
   const device = useDeviceSDK()
   const workspace = useDeviceWorkspace()
 
@@ -116,6 +116,15 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
   }>({
     autoAccept: false,
   })
+
+  const isAutoAccepting = () => props.autoAccept ? props.autoAccept() : permissionStore.autoAccept
+  const setAutoAccept = (v: boolean) => {
+    if (props.onAutoAcceptChange) {
+      props.onAutoAcceptChange(v)
+    } else {
+      setPermissionStore("autoAccept", v)
+    }
+  }
 
   const inflight = new Map<string, Promise<void>>()
 
@@ -295,7 +304,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         }
         case "permission.asked": {
           const perm = payload.properties as PermissionRequest
-          if (perm?.id && permissionStore.autoAccept) {
+          if (perm?.id && isAutoAccepting()) {
             device.client.permission.respond(perm.id, {
               decision: "once",
             }).catch(() => {})
@@ -340,16 +349,16 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     permission: {
       respond: permissionRespond,
       isAutoAccepting() {
-        return permissionStore.autoAccept
+        return isAutoAccepting()
       },
       toggleAutoAccept() {
-        setPermissionStore("autoAccept", (v) => !v)
+        setAutoAccept(!isAutoAccepting())
       },
       enableAutoAccept() {
-        setPermissionStore("autoAccept", true)
+        setAutoAccept(true)
       },
       disableAutoAccept() {
-        setPermissionStore("autoAccept", false)
+        setAutoAccept(false)
       },
       enabled() {
         return workspace.agentAvailable()

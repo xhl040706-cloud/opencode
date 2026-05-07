@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js"
+import { createMemo, For, Show } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
@@ -21,7 +21,6 @@ export function DeviceList(props: DeviceListProps) {
   const language = useLanguage()
   const t = language.t
   const dialog = useDialog()
-  const [upgrades, setUpgrades] = createSignal<Record<string, UpdateCheckResponse>>({})
 
   const filtered = createMemo(() => {
     const query = props.searchQuery().toLowerCase()
@@ -35,26 +34,6 @@ export function DeviceList(props: DeviceListProps) {
           device.platform.toLowerCase().includes(query),
       )
   })
-
-  const checkUpdates = (list: Device[]) => {
-    const online = list.filter((d) => d.status === "online" && d.platform && d.version)
-    if (online.length === 0) return
-
-    Promise.allSettled(
-      online.map(async (d) => {
-        const info = await deviceManagementService.checkUpdate(d.platform, d.version)
-        return [d.deviceId, info] as const
-      }),
-    ).then((results) => {
-      const map: Record<string, UpdateCheckResponse> = {}
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value[1].can_update) {
-          map[r.value[0]] = r.value[1]
-        }
-      }
-      setUpgrades((prev) => ({ ...prev, ...map }))
-    })
-  }
 
   const handleUpgrade = async (deviceId: string) => {
     try {
@@ -91,9 +70,14 @@ export function DeviceList(props: DeviceListProps) {
     props.onCreateWorkspace(device)
   }
 
-  const upgrade = (device: Device) => {
-    const info = upgrades()[device.deviceId]
-    if (!info || device.status !== "online") return
+  const upgrade = async (device: Device) => {
+    if (!device.canUpdate || !device.platform || !device.version || device.status !== "online") return
+    let info: UpdateCheckResponse
+    try {
+      info = await deviceManagementService.checkUpdate(device.platform, device.version)
+    } catch {
+      info = { can_update: true, version: device.latestVersion ?? "", changelog: "", download_url: "", sha256: "", force: false, min_client_version: "", release_date: "", size: 0 }
+    }
     dialog.show(() => (
       <DeviceUpgradeDialog
         deviceName={device.displayName}
@@ -103,18 +87,6 @@ export function DeviceList(props: DeviceListProps) {
       />
     ))
   }
-
-  let checked = false
-  const checkUpdatesOnce = (list: Device[]) => {
-    if (checked) return
-    checked = true
-    checkUpdates(list)
-  }
-
-  createEffect(() => {
-    const d = props.devices()
-    if (d.length > 0) checkUpdatesOnce(d)
-  })
 
   return (
     <div class="flex flex-col py-1">
@@ -157,7 +129,7 @@ export function DeviceList(props: DeviceListProps) {
         <ul class="space-y-1 px-2">
           <For each={filtered()}>
             {(device) => {
-              const hasUpgrade = () => upgrades()[device.deviceId]?.can_update && device.status === "online"
+              const hasUpgrade = () => device.canUpdate && device.status === "online"
 
               return (
                 <li
@@ -234,7 +206,7 @@ export function DeviceList(props: DeviceListProps) {
                   <Show when={hasUpgrade()}>
                     <Tooltip
                       placement="bottom-end"
-                      value={t("workspace.device.upgradeHint", { version: upgrades()[device.deviceId].version })}
+                       value={t("workspace.device.upgradeHint", { version: device.latestVersion ?? "" })}
                       contentStyle={{
                         background: "hsl(var(--sidebar-accent))",
                         color: "hsl(var(--sidebar-accent-foreground))",

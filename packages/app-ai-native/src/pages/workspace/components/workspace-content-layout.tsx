@@ -20,7 +20,7 @@ import { ContentTabContext, useContentTabs, type ContentTab } from "@/context/co
 import { useLayout } from "@/context/layout"
 import { FilePreviewTab } from "./file-preview-tab"
 import { DiffPreviewTab } from "./diff-preview-tab"
-import { workspaceKey } from "@/pages/layout/helpers"
+import { workspaceKey } from "@/lib/workspace-key"
 import { shouldRestore, activeSession } from "./workspace-content-layout-sync"
 import FileTree from "@/components/file-tree"
 import type { FileNode } from "@opencode-ai/sdk/v2"
@@ -157,6 +157,7 @@ function SessionTabIcon(props: { tab: ContentTab }) {
 }
 
 function TabContent(props: { tab: ContentTab }) {
+  const [autoAccept, setAutoAccept] = createSignal(false)
   return (
     <Switch>
       <Match when={props.tab.kind === "file"}>
@@ -166,7 +167,7 @@ function TabContent(props: { tab: ContentTab }) {
         <DiffPreviewTab tab={props.tab} />
       </Match>
       <Match when={props.tab.kind === "session"}>
-        <DeviceSessionProvider sessionID={(props.tab.meta as any)?.sessionID}>
+        <DeviceSessionProvider sessionID={(props.tab.meta as any)?.sessionID} autoAccept={autoAccept} onAutoAcceptChange={setAutoAccept}>
           <DeviceSessionTab tabId={props.tab.id} />
         </DeviceSessionProvider>
       </Match>

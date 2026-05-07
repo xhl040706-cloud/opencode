@@ -18,7 +18,6 @@ import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/
 import { SessionContextUsage } from "@/components/session-context-usage"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
-import { useLayout } from "@/context/layout"
 import { useSettings } from "@/context/settings"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
@@ -218,7 +217,6 @@ export function MessageTimeline(props: {
   const conversation = useConversationAdapter()
   const sync = useSync()
   const settings = useSettings()
-  const layout = useLayout()
   const dialog = useDialog()
   const language = useLanguage()
 
@@ -442,10 +440,8 @@ export function MessageTimeline(props: {
   const navigateParent = () => {
     const id = parentID()
     if (!id) return
-    if (layout.deviceMode) {
-      const back = (sync as any).navigateBack
-      if (back) { back(); return }
-    }
+    const back = (sync as any).navigateBack
+    if (back) { back(); return }
     navigate(`/workspace/${params.workspaceID}/${id}`)
   }
 
