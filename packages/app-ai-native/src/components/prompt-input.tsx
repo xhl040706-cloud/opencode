@@ -589,9 +589,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       .filter((cmd) => cmd.scope !== "tui-only")
       .map((cmd) => ({
         id: `cmd.${cmd.name}`,
-        trigger: cmd.name,
+        trigger: cmd.name === "favorites" ? "hub" : cmd.name,
         title: cmd.title || cmd.name,
-        description: cmd.description,
+        description: cmd.name === "favorites" ? language.t("command.favorites.description") : cmd.description,
         keybind: cmd.keybind,
         scope: cmd.scope,
         type: cmd.scope === "prompt" || !cmd.scope ? ("custom" as const) : ("builtin" as const),
