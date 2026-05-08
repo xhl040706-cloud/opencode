@@ -11,16 +11,41 @@ const eq = (a: Opt | undefined, b: Opt | undefined) =>
   a?.mass === b?.mass &&
   a?.velocity === b?.velocity
 
-export function useSpring(target: () => number, options?: Opt | (() => Opt)) {
+export function useSpring(target: () => number, options?: Opt | (() => Opt), paused?: () => boolean) {
   const read = () => (typeof options === "function" ? options() : options)
   const [value, setValue] = createSignal(target())
   const source = motionValue(value())
   const spring = motionValue(value())
   let config = read()
+  let frozen = false
   let stop = attachSpring(spring, source, config)
   let off = spring.on("change", (next: number) => setValue(next))
 
+  const detach = () => {
+    if (frozen) return
+    frozen = true
+    off()
+    stop()
+  }
+
+  const reattach = () => {
+    if (!frozen) return
+    frozen = false
+    source.set(spring.get())
+    stop = attachSpring(spring, source, config)
+    off = spring.on("change", (next: number) => setValue(next))
+  }
+
   createEffect(() => {
+    if (paused?.()) {
+      detach()
+      const t = target()
+      spring.set(t)
+      source.set(t)
+      setValue(t)
+      return
+    }
+    reattach()
     source.set(target())
   })
 
@@ -29,6 +54,7 @@ export function useSpring(target: () => number, options?: Opt | (() => Opt)) {
     const next = read()
     if (eq(config, next)) return
     config = next
+    if (frozen) return
     stop()
     stop = attachSpring(spring, source, next)
     setValue(spring.get())
