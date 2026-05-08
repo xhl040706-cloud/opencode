@@ -1,6 +1,6 @@
 import { createContext, useContext, type ParentProps } from "solid-js"
 import { createStore, produce } from "solid-js/store"
-import { createMemo, createRoot, onCleanup, batch } from "solid-js"
+import { createMemo, createRoot, createSignal, onCleanup, batch } from "solid-js"
 import { useServer } from "@/context/server"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { Persist, persisted, removePersisted } from "@/utils/persist"
@@ -280,22 +280,27 @@ export function DeviceTerminalProvider(props: ParentProps) {
     return entry.value
   }
 
-  const terminal = createMemo(() => loadSession(device.directory))
+  const [initialized, setInitialized] = createSignal(false)
+  const ensure = () => { if (!initialized()) setInitialized(true) }
+  const terminal = createMemo(() => {
+    if (!initialized()) return null
+    return loadSession(device.directory)
+  })
 
   const value = {
-    ready: () => terminal().ready(),
-    all: () => terminal().all(),
-    active: () => terminal().active(),
-    get: (id: string) => terminal().all().find((p) => p.id === id),
-    clear: () => terminal().clear(),
-    "new": () => terminal().new() as Promise<string | undefined>,
-    update: (pty: Partial<LocalPTY> & { id: string }) => terminal().update(pty),
-    clone: (id: string) => terminal().clone(id),
-    open: (id: string) => terminal().open(id),
-    close: (id: string) => terminal().close(id),
-    move: (id: string, to: number) => terminal().move(id, to),
-    next: () => terminal().next(),
-    previous: () => terminal().previous(),
+    ready: () => { ensure(); return terminal()?.ready() ?? false },
+    all: () => { ensure(); return terminal()?.all() ?? [] },
+    active: () => { ensure(); return terminal()?.active() },
+    get: (id: string) => { ensure(); return terminal()?.all().find((p) => p.id === id) },
+    clear: () => { ensure(); terminal()?.clear() },
+    "new": () => { ensure(); return terminal() ? terminal()!.new() as Promise<string | undefined> : Promise.resolve(undefined) },
+    update: (pty: Partial<LocalPTY> & { id: string }) => { ensure(); terminal()?.update(pty) },
+    clone: (id: string) => { ensure(); return terminal() ? terminal()!.clone(id) : Promise.resolve() },
+    open: (id: string) => { ensure(); terminal()?.open(id) },
+    close: (id: string) => { ensure(); return terminal() ? terminal()!.close(id) : Promise.resolve() },
+    move: (id: string, to: number) => { ensure(); terminal()?.move(id, to) },
+    next: () => { ensure(); terminal()?.next() },
+    previous: () => { ensure(); terminal()?.previous() },
   }
 
   return (

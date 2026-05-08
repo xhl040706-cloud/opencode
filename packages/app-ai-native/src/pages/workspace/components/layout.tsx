@@ -1,5 +1,5 @@
 import type { ParentProps } from "solid-js"
-import { createSignal, createMemo, Show, createEffect, untrack, onCleanup, For, on } from "solid-js"
+import { createContext, useContext, createSignal, createMemo, Show, createEffect, untrack, onCleanup, For, on } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { useNavigate, useParams } from "@solidjs/router"
 import { IconButton } from "@opencode-ai/ui/icon-button"
@@ -29,6 +29,9 @@ import { DirectoryContext } from "@/context/directory"
 import { LayoutContext } from "@/context/layout"
 import { useDeviceLayout } from "./device-interface"
 import { ContentTabContext, createContentTabStore } from "@/context/content-tabs"
+
+const WorkspaceVisibleCtx = createContext<() => boolean>()
+export const useWorkspaceVisible = () => useContext(WorkspaceVisibleCtx) ?? (() => true)
 
 const setNav = (hidden: boolean) => {
   if (typeof document === "undefined") return
@@ -572,11 +575,13 @@ function WorkspaceContent(props: ParentProps) {
                 class={`absolute inset-0 flex flex-col ${animClass()}`}
                 style={{ display: visible() ? "flex" : "none" }}
               >
-                <WorkspaceContentInstance
-                  workspaceId={id}
-                  directory={dir()!}
-                  serverUrl={serverUrl()!}
-                />
+                <WorkspaceVisibleCtx.Provider value={visible}>
+                  <WorkspaceContentInstance
+                    workspaceId={id}
+                    directory={dir()!}
+                    serverUrl={serverUrl()!}
+                  />
+                </WorkspaceVisibleCtx.Provider>
               </div>
             </Show>
           )
