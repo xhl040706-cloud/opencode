@@ -94,8 +94,8 @@ export function useSlashActions() {
         dialog.show(() => <DialogHelp />)
         break
       }
-      case "favorites":
-      case "fav": {
+      case "hub":
+      case "favorites": {
         dialog.show(() => <DialogFavorites />)
         break
       }

@@ -157,7 +157,7 @@ export const dict = {
   "command.skills.description": "浏览并选择技能",
   "command.skills.empty": "没有可用的技能",
   "command.favorites.title": "收藏",
-  "command.favorites.description": "管理收藏的技能",
+  "command.favorites.description": "管理云端技能",
   "command.favorites.status.active": "已启用",
   "command.favorites.status.downloaded": "已下载",
   "command.favorites.status.unloaded": "已停用",
