@@ -54,7 +54,7 @@ export default function WorkspaceLayout(props: ParentProps) {
   const [enabledIds, setEnabledIds] = createSignal<string[]>([])
   const [visitedIds, setVisitedIds] = createSignal<string[]>([])
   const [sidebarOpened, setSidebarOpened] = createSignal(true)
-  const closed = new Set<string>()
+  const [closedIds, setClosedIds] = createSignal<Set<string>>(new Set<string>())
   const auth = useAuth()
   const navigate = useNavigate()
   const active = useActiveWorkspace()
@@ -107,6 +107,10 @@ export default function WorkspaceLayout(props: ParentProps) {
     )
   }
 
+  const isClosed = (id: string) => closedIds().has(id)
+  const markClosed = (id: string) => setClosedIds((prev) => { const next = new Set(prev); next.add(id); return next })
+  const markOpen = (id: string) => setClosedIds((prev) => { const next = new Set(prev); next.delete(id); return next })
+
   let loading = false
   const loadDevices = async () => {
     if (!auth.user()) return
@@ -148,12 +152,12 @@ export default function WorkspaceLayout(props: ParentProps) {
   }
 
   const handleEnableWorkspace = (id: string) => {
-    closed.delete(id)
+    markOpen(id)
     setEnabledIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
   }
 
   const handleDisableWorkspace = (id: string) => {
-    closed.add(id)
+    markClosed(id)
     const next = enabledIds().filter((x) => x !== id)
     setEnabledIds(next)
     setVisitedIds((prev) => prev.filter((x) => x !== id))
@@ -247,11 +251,11 @@ export default function WorkspaceLayout(props: ParentProps) {
   }
 
   const contextValue: WorkspaceContextValue = {
-    workspaces: () => [...workspaces],
-    devices: () => [...devices],
+    workspaces: () => workspaces,
+    devices: () => devices,
     selectedWorkspaceId,
     enabledWorkspaceIds: enabledIds,
-    closedWorkspaceIds: () => Array.from(closed),
+    closedWorkspaceIds: () => [...closedIds()],
     isLoading,
     sidebarOpened,
     selectWorkspace: handleSelectWorkspace,
