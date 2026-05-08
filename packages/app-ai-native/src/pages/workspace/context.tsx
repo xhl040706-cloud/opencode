@@ -23,6 +23,8 @@ type WorkspaceContextValue = {
 
 const WorkspaceContext = createContext<WorkspaceContextValue>()
 
+export { WorkspaceContext }
+
 export function useWorkspace() {
   const ctx = useContext(WorkspaceContext)
   if (!ctx) throw new Error("useWorkspace must be used within WorkspaceProvider")
