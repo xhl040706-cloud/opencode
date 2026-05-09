@@ -438,7 +438,22 @@ export default function KanbanRepoDetail() {
                         <For each={commits()}>
                           {(row) => (
                             <TableRow>
-                              <TableCell>{shortId(row.commit_id)}</TableCell>
+                              <TableCell>
+                                {row.commit_id?.trim()
+                                  ? (
+                                    <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => {
+                                      const id = row.commit_id!.trim()
+                                      const q = searchQuery([
+                                        ["startDate", search.startDate],
+                                        ["endDate", search.endDate],
+                                      ]).toString()
+                                      navigate(`/kanban/commit/${encodeURIComponent(id)}${q ? `?${q}` : ""}`)
+                                    }}>
+                                      {shortId(row.commit_id)}
+                                    </button>
+                                    )
+                                  : <span>-</span>}
+                              </TableCell>
                               <TableCell>{formatLocalTime(row.commit_time)}</TableCell>
                               <TableCell>{row.git_user_name || "-"}</TableCell>
                               <TableCell>{row.comment || "-"}</TableCell>

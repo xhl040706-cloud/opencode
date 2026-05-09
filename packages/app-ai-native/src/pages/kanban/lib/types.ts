@@ -372,8 +372,10 @@ export type TaskListQuery = {
   dateRange: DateRangeValue
   page?: number
   pageSize?: number
-  userName?: string
+  userId?: string
   org?: OrgCascadeValue
+  repoAddr?: string
+  repoBranch?: string
 }
 
 export type TaskListResult = {
@@ -445,8 +447,10 @@ export type CommitListQuery = {
   dateRange: DateRangeValue
   page?: number
   pageSize?: number
-  userName?: string
+  userId?: string
   org?: OrgCascadeValue
+  repoAddr?: string
+  repoBranch?: string
 }
 
 export type CommitListResult = {

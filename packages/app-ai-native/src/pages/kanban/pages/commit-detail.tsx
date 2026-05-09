@@ -127,14 +127,14 @@ export default function KanbanCommitDetail() {
   const params = useParams()
   const navigate = useNavigate()
   const dialog = useDialog()
-  const [search] = useSearchParams<{ startDate?: string; endDate?: string; userName?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
+  const [search] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
 
   const commitId = createMemo(() => decodeURIComponent(params.commitId ?? "").trim())
   const listHref = createMemo(() => {
     const txt = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
-      ["userName", search.userName],
+      ["userId", search.userId],
       ["org1", search.org1],
       ["org2", search.org2],
       ["org3", search.org3],

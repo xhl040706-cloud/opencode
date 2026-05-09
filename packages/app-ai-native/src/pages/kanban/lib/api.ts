@@ -604,7 +604,9 @@ export async function queryTaskRows(input: TaskListQuery): Promise<TaskListResul
     ...range(input.dateRange),
     page: currentPage,
     pageSize: currentSize,
-    userName: input.userName?.trim() || undefined,
+    userId: input.userId?.trim() || undefined,
+    repoAddr: input.repoAddr?.trim() || undefined,
+    repoBranch: input.repoBranch?.trim() || undefined,
     ...org(input.org),
   }, LONG)
 
@@ -678,7 +680,9 @@ export async function queryCommitRows(input: CommitListQuery): Promise<CommitLis
     ...range(input.dateRange),
     page: currentPage,
     pageSize: currentSize,
-    userName: input.userName?.trim() || undefined,
+    userId: input.userId?.trim() || undefined,
+    repoAddr: input.repoAddr?.trim() || undefined,
+    repoBranch: input.repoBranch?.trim() || undefined,
     ...org(input.org),
   }, LONG)
 
