@@ -339,6 +339,7 @@ export namespace LLM {
         ...input.model.headers,
         ...headers,
         "X-Request-Id": requestId,
+        "agent-type": input.agent?.name ?? "",
       },
       maxRetries: input.retries ?? 0,
       messages,
