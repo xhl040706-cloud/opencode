@@ -140,7 +140,7 @@ export default function KanbanTaskDetail() {
   const params = useParams()
   const navigate = useNavigate()
   const dialog = useDialog()
-  const [search] = useSearchParams<{ startDate?: string; endDate?: string; userName?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
+  const [search] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
   const [expand, setExpand] = createStore<Record<string, boolean>>({})
 
   const taskId = createMemo(() => decodeURIComponent(params.taskId ?? "").trim())
@@ -148,7 +148,7 @@ export default function KanbanTaskDetail() {
     const txt = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
-      ["userName", search.userName],
+      ["userId", search.userId],
       ["org1", search.org1],
       ["org2", search.org2],
       ["org3", search.org3],

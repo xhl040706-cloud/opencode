@@ -38,7 +38,7 @@ export default function KanbanTaskList() {
   const language = useLanguage()
   const navigate = useNavigate()
   const dialog = useDialog()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; userName?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; repoAddr?: string; repoBranch?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
   const [state, setState] = createStore({
     page: 1,
     pageSize: 250,
@@ -51,7 +51,9 @@ export default function KanbanTaskList() {
   const routeQuery = createMemo(() => searchQuery([
     ["startDate", search.startDate],
     ["endDate", search.endDate],
-    ["userName", search.userName],
+    ["userId", search.userId],
+    ["repoAddr", search.repoAddr],
+    ["repoBranch", search.repoBranch],
     ["org1", search.org1],
     ["org2", search.org2],
     ["org3", search.org3],
@@ -59,7 +61,20 @@ export default function KanbanTaskList() {
   ]).toString())
 
   const backHref = createMemo(() => {
-    if (search.userName?.trim()) {
+    if (search.repoAddr?.trim()) {
+      const addr = search.repoAddr?.trim()
+      const branch = search.repoBranch?.trim()
+      const txt = searchQuery([
+        ["startDate", search.startDate],
+        ["endDate", search.endDate],
+      ]).toString()
+      const repoUrl = branch
+        ? `/kanban/repo/${encodeURIComponent(addr!)}/${encodeURIComponent(branch)}`
+        : `/kanban/repo/${encodeURIComponent(addr!)}`
+      return txt ? `${repoUrl}?${txt}` : repoUrl
+    }
+
+    if (search.userId?.trim()) {
       const txt = searchQuery([
         ["startDate", search.startDate],
         ["endDate", search.endDate],
@@ -83,7 +98,8 @@ export default function KanbanTaskList() {
   })
 
   const backLabel = createMemo(() => {
-    if (search.userName?.trim()) return language.t("kanban.backToUserView")
+    if (search.repoAddr?.trim()) return language.t("kanban.backToRepoView")
+    if (search.userId?.trim()) return language.t("kanban.backToUserView")
     if (state.org.org1 || state.org.org2 || state.org.org3 || state.org.org4) return language.t("kanban.backToOrgList")
     return language.t("kanban.back")
   })
@@ -103,7 +119,9 @@ export default function KanbanTaskList() {
     const query = searchQuery([
       ["startDate", next.startDate],
       ["endDate", next.endDate],
-      ["userName", search.userName],
+      ["userId", search.userId],
+      ["repoAddr", search.repoAddr],
+      ["repoBranch", search.repoBranch],
       ["org1", state.org.org1],
       ["org2", state.org.org2],
       ["org3", state.org.org3],
@@ -112,7 +130,9 @@ export default function KanbanTaskList() {
     const current = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
-      ["userName", search.userName],
+      ["userId", search.userId],
+      ["repoAddr", search.repoAddr],
+      ["repoBranch", search.repoBranch],
       ["org1", search.org1],
       ["org2", search.org2],
       ["org3", search.org3],
@@ -174,7 +194,7 @@ export default function KanbanTaskList() {
           const back = searchQuery([
             ["startDate", search.startDate],
             ["endDate", search.endDate],
-            ["userName", search.userName],
+            ["userId", search.userId],
             ["org1", search.org1],
             ["org2", search.org2],
             ["org3", search.org3],
@@ -205,11 +225,11 @@ export default function KanbanTaskList() {
   })
 
   createEffect(() => {
-    table.setFilter("user_name", search.userName?.trim() || undefined)
+    table.setFilter("user_name", search.userId?.trim() || undefined)
   })
 
   const [data, { refetch }] = createResource(
-    () => ({ dateRange: state.dateRange, org: { org1: state.org.org1, org2: state.org.org2, org3: state.org.org3, org4: state.org.org4 }, page: state.page, pageSize: state.pageSize }),
+    () => ({ userId: search.userId?.trim() || undefined, repoAddr: search.repoAddr?.trim() || undefined, repoBranch: search.repoBranch?.trim() || undefined, dateRange: state.dateRange, org: { org1: state.org.org1, org2: state.org.org2, org3: state.org.org3, org4: state.org.org4 }, page: state.page, pageSize: state.pageSize }),
     async (input) => {
       try {
         return await queryTaskRows(input)
@@ -266,7 +286,7 @@ export default function KanbanTaskList() {
     <div class="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden p-[clamp(1rem,2vw,2rem)]">
       <div class="flex min-h-0 w-full flex-1 flex-col gap-5">
         <header class="flex w-full flex-col gap-3">
-          <Back href={backHref()} />
+          <Back href={backHref()} label={backLabel()} />
           <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.home.nav.task")}</h1>
         </header>
         <Show when={missingEstimateCount() > 0}>

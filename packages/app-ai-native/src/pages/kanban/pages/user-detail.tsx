@@ -178,7 +178,7 @@ export default function KanbanUserDetail() {
   const labels = createMemo(() => (commits().length ? commits() : tasks()).map((item) => item.period_label || item.period_key || "-"))
   const taskRatio = createMemo(() => summary().task_efficiency_ratio)
   const commitRatio = createMemo(() => summary().commit_efficiency_ratio)
-  const userName = createMemo(() => summary().user_name?.trim() || "")
+  const userIdMemo = createMemo(() => summary().user_id?.trim() || "")
 
   const chart1 = createMemo<EChartsOption | undefined>(() => {
     if (!labels().length) return undefined
@@ -360,7 +360,7 @@ export default function KanbanUserDetail() {
                           q.set("startDate", span.start)
                           q.set("endDate", span.end)
                         }
-                        if (userName()) q.set("userName", userName())
+                        if (userIdMemo()) q.set("userId", userIdMemo())
                         return `/kanban/task?${q.toString()}`
                       }
 
@@ -411,7 +411,7 @@ export default function KanbanUserDetail() {
                           q.set("startDate", span.start)
                           q.set("endDate", span.end)
                         }
-                        if (userName()) q.set("userName", userName())
+                        if (userIdMemo()) q.set("userId", userIdMemo())
                         return `/kanban/commit?${q.toString()}`
                       }
 

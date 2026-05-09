@@ -77,6 +77,28 @@ export default function KanbanRepoList() {
       label: language.t("kanban.table.commitCount"),
       minWidth: 110,
       align: "left",
+      render: (row) => {
+        const count = row.commit_count ?? 0
+        if (count <= 0) return <span>{count}</span>
+        const addr = row.repo_addr?.trim()
+        const branch = row.repo_branch?.trim()
+        const next = rangeQuery(state.serverRange)
+        const q = searchQuery([
+          ["startDate", next.startDate],
+          ["endDate", next.endDate],
+          ["repoAddr", addr],
+          ["repoBranch", branch],
+        ]).toString()
+        return (
+          <button
+            type="button"
+            class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
+            onClick={() => navigate(`/kanban/commit?${q}`)}
+          >
+            {count}
+          </button>
+        )
+      },
       filter: {
         type: "number",
         shortcuts: [
@@ -91,6 +113,28 @@ export default function KanbanRepoList() {
       label: language.t("kanban.table.taskCount"),
       minWidth: 110,
       align: "left",
+      render: (row) => {
+        const count = row.task_count ?? 0
+        if (count <= 0) return <span>{count}</span>
+        const addr = row.repo_addr?.trim()
+        const branch = row.repo_branch?.trim()
+        const next = rangeQuery(state.serverRange)
+        const q = searchQuery([
+          ["startDate", next.startDate],
+          ["endDate", next.endDate],
+          ["repoAddr", addr],
+          ["repoBranch", branch],
+        ]).toString()
+        return (
+          <button
+            type="button"
+            class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
+            onClick={() => navigate(`/kanban/task?${q}`)}
+          >
+            {count}
+          </button>
+        )
+      },
       filter: {
         type: "number",
         shortcuts: [

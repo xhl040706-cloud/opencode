@@ -2054,6 +2054,7 @@ export const dict = {
   "kanban.backToOrgList": "Back to Organizations",
   "kanban.backToUserList": "Back to User List",
   "kanban.backToUserView": "Back to Users",
+  "kanban.backToRepoView": "Back to Repo",
   "kanban.backToTaskDetail": "Back to Task Detail",
 
   "kanban.action.refresh": "Refresh",

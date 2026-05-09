@@ -2026,6 +2026,7 @@ export const dict = {
   "kanban.backToOrgList": "返回组织视图",
   "kanban.backToUserList": "返回用户列表",
   "kanban.backToUserView": "返回用户视图",
+  "kanban.backToRepoView": "返回仓库视图",
   "kanban.backToTaskDetail": "返回 Task 详情",
 
   "kanban.action.refresh": "刷新",
