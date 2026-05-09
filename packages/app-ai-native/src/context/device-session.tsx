@@ -1,10 +1,11 @@
-import { createContext, useContext, type Accessor, type ParentProps } from "solid-js"
+import { createContext, createSignal, useContext, type ParentProps } from "solid-js"
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
 import { useDeviceWorkspace } from "./device-workspace"
 import type { Message, Part, Session, SessionStatus, FileDiff, Todo, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
+import { Persist, persisted } from "@/utils/persist"
 
 type SessionData = {
   session: Session | undefined
@@ -41,10 +42,10 @@ type DeviceSessionValue = {
   }
   permission: {
     respond(input: { permissionID: string; response: "once" | "always" | "reject" }): void
-    isAutoAccepting(): boolean
-    toggleAutoAccept(): void
-    enableAutoAccept(): void
-    disableAutoAccept(): void
+    isAutoAccepting(sid?: string): boolean
+    toggleAutoAccept(sid?: string): void
+    enableAutoAccept(sid?: string): void
+    disableAutoAccept(sid?: string): void
     enabled(): boolean
   }
 }
@@ -96,7 +97,7 @@ export function treeEvent(input: {
   return input.eventSID === input.root
 }
 
-export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string; autoAccept?: Accessor<boolean>; onAutoAcceptChange?: (v: boolean) => void }>) {
+export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>) {
   const device = useDeviceSDK()
   const workspace = useDeviceWorkspace()
 
@@ -111,20 +112,43 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string; a
     questions: {},
   })
 
-  const [permissionStore, setPermissionStore] = createStore<{
-    autoAccept: boolean
-  }>({
-    autoAccept: false,
-  })
+  const [pendingAccept, setPendingAccept] = createSignal(false)
+  const [permissionStore, setPermissionStore] = createStore<Record<string, boolean>>({})
 
-  const isAutoAccepting = () => props.autoAccept ? props.autoAccept() : permissionStore.autoAccept
-  const setAutoAccept = (v: boolean) => {
-    if (props.onAutoAcceptChange) {
-      props.onAutoAcceptChange(v)
-    } else {
-      setPermissionStore("autoAccept", v)
-    }
+  const [persistedAccept, setPersistedAccept] = persisted(
+    Persist.device(workspace.workspaceId ?? "", "permission.auto-accept", ["permission.auto-accept.v1"]),
+    createStore<Record<string, boolean>>({}),
+  )
+
+  const permKey = (sid?: string) => {
+    const wid = workspace.workspaceId
+    const id = sid ?? props.sessionID
+    if (!wid || !id) return ""
+    return `${wid}/${id}`
   }
+
+  const isAutoAccepting = (sid?: string) => {
+    const key = permKey(sid)
+    if (!key) return pendingAccept()
+    return persistedAccept[key] ?? permissionStore[key] ?? false
+  }
+
+  const setAutoAccept = (v: boolean, sid?: string) => {
+    const key = permKey(sid)
+    if (!key) {
+      setPendingAccept(v)
+      return
+    }
+    setPendingAccept(false)
+    setPermissionStore(key, v)
+    setPersistedAccept(key, v)
+  }
+
+  createEffect(() => {
+    const id = props.sessionID
+    if (!id || !pendingAccept()) return
+    setAutoAccept(true, id)
+  })
 
   const inflight = new Map<string, Promise<void>>()
 
@@ -348,17 +372,17 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string; a
     },
     permission: {
       respond: permissionRespond,
-      isAutoAccepting() {
-        return isAutoAccepting()
+      isAutoAccepting(sid?: string) {
+        return isAutoAccepting(sid)
       },
-      toggleAutoAccept() {
-        setAutoAccept(!isAutoAccepting())
+      toggleAutoAccept(sid?: string) {
+        setAutoAccept(!isAutoAccepting(sid), sid)
       },
-      enableAutoAccept() {
-        setAutoAccept(true)
+      enableAutoAccept(sid?: string) {
+        setAutoAccept(true, sid)
       },
-      disableAutoAccept() {
-        setAutoAccept(false)
+      disableAutoAccept(sid?: string) {
+        setAutoAccept(false, sid)
       },
       enabled() {
         return workspace.agentAvailable()

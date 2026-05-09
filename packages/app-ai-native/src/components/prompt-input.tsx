@@ -250,7 +250,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     draggingType: "image" | "@mention" | null
     mode: "normal" | "shell"
     applyingHistory: boolean
-    pendingAutoAccept: boolean
   }>({
     popover: null,
     historyIndex: -1,
@@ -259,7 +258,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     draggingType: null,
     mode: "normal",
     applyingHistory: false,
-    pendingAutoAccept: false,
   })
 
   const visible = useWorkspaceVisible()
@@ -310,12 +308,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       example: suggest() ? language.t(EXAMPLES[store.placeholder]) : "",
       suggest: suggest(),
       t: (key, params) => language.t(key as Parameters<typeof language.t>[0], params as never),
-    }),
-  )
-
-  createEffect(
-    on(sessionKey, () => {
-      setStore("pendingAutoAccept", false)
     }),
   )
 
@@ -1005,11 +997,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const variants = createMemo(() => ["default", ...local.model.variant.list()])
-  const accepting = createMemo(() => {
-    const id = params.id
-    if (!id) return store.pendingAutoAccept
-    return permission.isAutoAccepting(id)
-  })
+  const accepting = createMemo(() => permission.isAutoAccepting(params.id))
 
   const { abort, handleSubmit } = createPromptSubmit({
     info,
@@ -1537,13 +1525,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         type="checkbox"
                         class="size-3.5 accent-[var(--native-primary)] cursor-pointer"
                         checked={accepting()}
-                        onChange={() => {
-                          if (!params.id) {
-                            setStore("pendingAutoAccept", (value) => !value)
-                            return
-                          }
-                          permission.toggleAutoAccept(params.id, sdk.directory)
-                        }}
+                        onChange={() => permission.toggleAutoAccept(params.id, sdk.directory)}
                       />
                       <span class="text-12-regular text-text-weak truncate">
                         {language.t("command.permissions.autoaccept.enable")}
