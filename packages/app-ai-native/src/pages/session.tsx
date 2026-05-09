@@ -417,11 +417,11 @@ export default function Page() {
       () => {
         const msg = lastUserMessage()
         if (!msg) return
-        if (msg.agent) {
-          local.agent.set(msg.agent)
-          if (local.agent.current()?.model) return
-        }
-        if (msg.model) local.model.set(msg.model)
+        if (msg.agent) local.agent.set(msg.agent)
+        const m = msg.model
+        if (!m) return
+        if (typeof m === "string") { if (m) local.model.set(m) }
+        else if (m.modelID && m.providerID) local.model.set(m)
       },
     ),
   )

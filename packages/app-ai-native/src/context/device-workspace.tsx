@@ -58,6 +58,7 @@ type DeviceWorkspaceValue = {
   }
   subscribe(fn: (payload: EventPayload) => void): () => void
   directory: string
+  workspaceId: string | undefined
 }
 
 const DeviceWorkspaceContext = createContext<DeviceWorkspaceValue>()
@@ -458,6 +459,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     vcs: { load: loadVcs },
     subscribe,
     directory: device.directory,
+    workspaceId: props.workspaceId,
   }
 
   return <DeviceWorkspaceContext.Provider value={value}>{props.children}</DeviceWorkspaceContext.Provider>

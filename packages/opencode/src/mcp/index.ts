@@ -539,8 +539,21 @@ export namespace MCP {
 
         const cfg = yield* cfgSvc.get()
         const config = cfg.mcp ?? {}
-        const result: Record<string, Status> = {}
 
+        const uninitialized = Object.entries(config).filter(
+          (entry): entry is [string, Config.Mcp] =>
+            isMcpConfigured(entry[1]) && entry[1].enabled !== false && !s.status[entry[0]],
+        )
+
+        if (uninitialized.length > 0) {
+          yield* Effect.forEach(
+            uninitialized,
+            ([key, mcp]) => createAndStore(key, mcp),
+            { concurrency: "unbounded" },
+          )
+        }
+
+        const result: Record<string, Status> = {}
         for (const [key, mcp] of Object.entries(config)) {
           if (!isMcpConfigured(mcp)) continue
           const st = s.status[key]

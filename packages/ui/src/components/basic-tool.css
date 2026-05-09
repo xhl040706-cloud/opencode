@@ -165,3 +165,39 @@
     flex-shrink: 0;
   }
 }
+
+[data-component="generic-tool-input"] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+
+  [data-slot="generic-tool-input-entry"] {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  [data-slot="generic-tool-input-key"] {
+    flex-shrink: 0;
+    font-family: var(--font-family-mono);
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    color: var(--text-weak);
+    min-width: 80px;
+    text-align: right;
+  }
+
+  [data-slot="generic-tool-input-value"] {
+    margin: 0;
+    font-family: var(--font-family-mono);
+    font-size: 12px;
+    font-weight: var(--font-weight-regular);
+    color: var(--text-base);
+    white-space: pre-wrap;
+    word-break: break-all;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+}

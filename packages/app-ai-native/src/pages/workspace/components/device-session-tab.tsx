@@ -543,11 +543,11 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const permissionValue = {
     ready: () => true,
     respond(input: any) { session.permission.respond(input) },
-    autoResponds() { return session.permission.isAutoAccepting() },
-    isAutoAccepting() { return session.permission.isAutoAccepting() },
-    toggleAutoAccept() { session.permission.toggleAutoAccept() },
-    enableAutoAccept() { session.permission.enableAutoAccept() },
-    disableAutoAccept() { session.permission.disableAutoAccept() },
+    autoResponds(...args: any[]) { return session.permission.isAutoAccepting(...args) },
+    isAutoAccepting(...args: any[]) { return session.permission.isAutoAccepting(...args) },
+    toggleAutoAccept(...args: any[]) { session.permission.toggleAutoAccept(...args) },
+    enableAutoAccept(...args: any[]) { session.permission.enableAutoAccept(...args) },
+    disableAutoAccept(...args: any[]) { session.permission.disableAutoAccept(...args) },
     permissionsEnabled: () => session.permission.enabled(),
   }
 
