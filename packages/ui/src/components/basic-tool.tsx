@@ -1,4 +1,4 @@
-import { createEffect, For, Match, on, onCleanup, Show, Switch, type JSX } from "solid-js"
+import { createEffect, createMemo, For, Match, on, onCleanup, Show, Switch, type JSX } from "solid-js"
 import { animate, type AnimationPlaybackControls } from "motion"
 import { useI18n } from "../context/i18n"
 import { createStore } from "solid-js/store"
@@ -211,43 +211,58 @@ export function BasicTool(props: BasicToolProps) {
   )
 }
 
-function label(input: Record<string, unknown> | undefined) {
-  const keys = ["description", "query", "url", "filePath", "path", "pattern", "name"]
-  return keys.map((key) => input?.[key]).find((value): value is string => typeof value === "string" && value.length > 0)
-}
-
-function args(input: Record<string, unknown> | undefined) {
-  if (!input) return []
-  const skip = new Set(["description", "query", "url", "filePath", "path", "pattern", "name"])
-  return Object.entries(input)
-    .filter(([key]) => !skip.has(key))
-    .flatMap(([key, value]) => {
-      if (typeof value === "string") return [`${key}=${value}`]
-      if (typeof value === "number") return [`${key}=${value}`]
-      if (typeof value === "boolean") return [`${key}=${value}`]
-      return []
-    })
-    .slice(0, 3)
+function formatValue(value: unknown): string {
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return JSON.stringify(value, null, 2)
 }
 
 export function GenericTool(props: {
   tool: string
   status?: string
   hideDetails?: boolean
+  defaultOpen?: boolean
   input?: Record<string, unknown>
+  output?: string
+  metadata?: Record<string, unknown>
 }) {
-  const i18n = useI18n()
+  const pending = () => props.status === "pending" || props.status === "running"
+
+  const entries = createMemo(() => {
+    if (!props.input) return []
+    return Object.entries(props.input).filter(([, v]) => v !== undefined && v !== null)
+  })
+
+  const trigger = () => (
+    <div data-slot="basic-tool-tool-info-structured">
+      <div data-slot="basic-tool-tool-info-main">
+        <span data-slot="basic-tool-tool-title">
+          <TextShimmer text={props.tool} active={pending()} />
+        </span>
+      </div>
+    </div>
+  )
 
   return (
     <BasicTool
       icon="mcp"
       status={props.status}
-      trigger={{
-        title: i18n.t("ui.basicTool.called", { tool: props.tool }),
-        subtitle: label(props.input),
-        args: args(props.input),
-      }}
+      trigger={trigger()}
       hideDetails={props.hideDetails}
-    />
+      defaultOpen={props.defaultOpen}
+    >
+      <Show when={entries().length > 0}>
+        <div data-component="generic-tool-input">
+          <For each={entries()}>
+            {([key, value]) => (
+              <div data-slot="generic-tool-input-entry">
+                <span data-slot="generic-tool-input-key">{key}</span>
+                <pre data-slot="generic-tool-input-value">{formatValue(value)}</pre>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+    </BasicTool>
   )
 }
