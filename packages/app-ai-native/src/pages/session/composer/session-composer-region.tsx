@@ -10,6 +10,7 @@ import { SessionPermissionDock } from "@/pages/session/composer/session-permissi
 import { SessionQuestionDock } from "@/pages/session/composer/session-question-dock"
 import type { SessionComposerState } from "@/pages/session/composer/session-composer-state"
 import { SessionTodoDock } from "@/pages/session/composer/session-todo-dock"
+import { StatusDisplay } from "@/pages/session/composer/session-status-display"
 
 export function SessionComposerRegion(props: {
   state: SessionComposerState
@@ -40,6 +41,7 @@ export function SessionComposerRegion(props: {
   countWidthDuration?: number
   hideAttachButton?: boolean
   hidePrompt?: boolean
+  working?: boolean
 }) {
   const prompt = usePrompt()
   const language = useLanguage()
@@ -220,6 +222,7 @@ export function SessionComposerRegion(props: {
                 "margin-top": `${-36 * value()}px`,
               }}
             >
+              <StatusDisplay working={!!props.working} />
               <PromptInput
                 ref={props.inputRef}
                 newSessionWorktree={props.newSessionWorktree}

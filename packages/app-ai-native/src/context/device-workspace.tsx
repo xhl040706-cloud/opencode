@@ -3,6 +3,7 @@ import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
 import { syncSummary, clearSummary } from "./workspace-summary-store"
+import { markSessionUnread, clearSessionUnread } from "./session-unread-store"
 import type { Session, Command, Agent, VcsInfo, SessionStatus, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 import type { ProviderCapabilitiesResponse } from "./global-sync/types"
 
@@ -150,6 +151,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             sessionStatus: (sessionStatusRes as Record<string, SessionStatus>) ?? {},
             questions: groupBy(Array.isArray(questionsRes) ? questionsRes : []),
             permissions: groupBy(Array.isArray(permsRes) ? permsRes : []),
+            sessionIds: merged.map((s) => s.id),
           })
         }
       })
@@ -307,6 +309,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
           sessionStatus: store.sessionStatus,
           questions: store.questions,
           permissions: store.permissions,
+          sessionIds: store.session.map((s) => s.id),
         })
       }
       return result as VcsInfo | undefined
@@ -371,6 +374,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                       if (idx !== -1) draft.splice(idx, 1)
                     }))
                     setSessionStatus(id, undefined)
+                    clearSessionUnread(id)
                     setStore("questions", produce((draft) => { delete draft[id] }))
                     setStore("permissions", produce((draft) => { delete draft[id] }))
                   })
@@ -381,7 +385,13 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   const props = payload.properties as { sessionID?: string; status?: SessionStatus }
                   const id = props?.sessionID ?? payload.sessionID
                   if (!id || !props?.status) break
+                  const prevStatus = store.sessionStatus[id]
+                  const wasBusy = prevStatus?.type === "busy" || prevStatus?.type === "retry"
+                  const nowIdle = props.status.type === "idle"
                   setSessionStatus(id, props.status)
+                  if (wasBusy && nowIdle) {
+                    markSessionUnread(id)
+                  }
                   summaryChanged = true
                   break
                 }
@@ -424,6 +434,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   sessionStatus: store.sessionStatus,
                   questions: store.questions,
                   permissions: store.permissions,
+                  sessionIds: store.session.map((s) => s.id),
                 })
               }
               dispatch(payload)

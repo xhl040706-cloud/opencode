@@ -22,6 +22,8 @@ import { FilePreviewTab } from "./file-preview-tab"
 import { DiffPreviewTab } from "./diff-preview-tab"
 import { workspaceKey } from "@/lib/workspace-key"
 import { shouldRestore, activeSession } from "./workspace-content-layout-sync"
+import { isSessionUnread, clearSessionUnread, unreadVersion } from "@/context/session-unread-store"
+import { refreshUnread } from "@/context/workspace-summary-store"
 import FileTree from "@/components/file-tree"
 import type { FileNode } from "@opencode-ai/sdk/v2"
 import type { Session } from "@opencode-ai/sdk/v2/client"
@@ -132,6 +134,12 @@ function SessionTabIcon(props: { tab: ContentTab }) {
     const id = props.tab.meta?.sessionID as string | undefined
     return hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, id)
   })
+  const unread = createMemo(() => {
+    const id = props.tab.meta?.sessionID as string | undefined
+    if (!id) return false
+    unreadVersion()
+    return isSessionUnread(id)
+  })
 
   const tabStore = useContentTabs()
   const isActiveTab = createMemo(() => tabStore.activeId() === props.tab.id)
@@ -140,7 +148,11 @@ function SessionTabIcon(props: { tab: ContentTab }) {
     <Show
       when={pending()}
       fallback={
-        <Show when={working()} fallback={<TabIcon tab={props.tab} />}>
+        <Show when={working()} fallback={
+          <Show when={unread()} fallback={<TabIcon tab={props.tab} />}>
+            <span class="shrink-0 w-2 h-2 rounded-full bg-native-primary" />
+          </Show>
+        }>
           <WorkingIcon
             title={status()?.type === "retry" ? "retry" : "busy"}
             classList={{
@@ -182,6 +194,7 @@ function ContentTabPanel() {
   const terminal = useDeviceTerminal()
   const language = useLanguage()
   const layout = useLayout()
+  const dw = useDeviceWorkspace()
 
   const closeTab = (id: string) => {
     const tab = tabStore.tabs().find((t) => t.id === id)
@@ -217,7 +230,15 @@ function ContentTabPanel() {
       >
         <Tabs
           value={tabStore.activeId()}
-          onChange={tabStore.activate}
+          onChange={(id: string) => {
+            tabStore.activate(id)
+            const tab = tabStore.tabs().find((t) => t.id === id)
+            const sid = tab?.kind === "session" ? (tab.meta?.sessionID as string | undefined) : undefined
+            if (sid) {
+              clearSessionUnread(sid)
+              if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.map((s) => s.id))
+            }
+          }}
           class="h-full flex flex-col"
         >
           <div class="h-[41px] shrink-0 flex items-center border-b">
@@ -357,6 +378,8 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   }
 
   const openSession = (session: Session) => {
+    clearSessionUnread(session.id)
+    if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.map((s) => s.id))
     const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === session.id)
     if (existing) {
       tabStore.activate(existing.id)
@@ -581,6 +604,9 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
                                             "border-native-dim": !isActive(),
                                           }}
                                         />
+                                      </Show>
+                                      <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && !isWorking(session.id) && isSessionUnread(session.id) && unreadVersion() >= 0}>
+                                        <span class="shrink-0 w-2 h-2 rounded-full bg-native-primary" />
                                       </Show>
                                       <span class="truncate flex-1 min-w-0">{session.title || language.t("command.session.new")}</span>
                                       <button
@@ -841,6 +867,8 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
   }
 
   const restoreFromUrl = (sid: string, ws: ReturnType<typeof useDeviceWorkspace>) => {
+    clearSessionUnread(sid)
+    if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.map((s) => s.id))
     const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === sid)
     if (existing) {
       tabStore.activate(existing.id)
@@ -876,6 +904,16 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
     if (!active()) return
     if (shouldRestore(searchParams.session, done())) return
     syncUrlFromTab(tabStore.activeId())
+  })
+
+  createEffect(() => {
+    const id = tabStore.activeId()
+    if (!id) return
+    const sid = activeSession(tabStore.tabs(), id)
+    if (sid) {
+      clearSessionUnread(sid)
+      if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.map((s) => s.id))
+    }
   })
 
   return (

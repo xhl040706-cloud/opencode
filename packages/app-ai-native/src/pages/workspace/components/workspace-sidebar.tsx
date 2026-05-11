@@ -317,6 +317,9 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
                             <div class="size-3 rounded-full border border-[var(--native-primary)] border-t-transparent animate-spin" />
                           </div>
                         </Show>
+                        <Show when={!summary()?.hasPendingInteraction && !summary()?.hasActiveSession && summary()?.hasUnreadSession}>
+                          <span class="shrink-0 w-2 h-2 rounded-full bg-[var(--native-primary)]" />
+                        </Show>
                         <span
                           class="text-sm font-medium truncate"
                           onDblClick={(e: MouseEvent) => {
