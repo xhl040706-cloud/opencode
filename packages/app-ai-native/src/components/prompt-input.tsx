@@ -1,6 +1,8 @@
 import { useFilteredList } from "@opencode-ai/ui/hooks"
 import { useSpring } from "@opencode-ai/ui/motion-spring"
-import { createEffect, on, Component, Show, onCleanup, Switch, Match, createMemo, createSignal } from "solid-js"
+import { useWorkspaceVisible } from "@/pages/workspace/components/layout"
+import { WorkspaceContext } from "@/pages/workspace/context"
+import { createEffect, on, Component, Show, onCleanup, Switch, Match, createMemo, createSignal, useContext } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createFocusSignal } from "@solid-primitives/active-element"
 import { useLocal } from "@/context/local"
@@ -14,6 +16,7 @@ import {
   ImageAttachmentPart,
   AgentPart,
   FileAttachmentPart,
+  WorkspacePart,
 } from "@/context/prompt"
 import { useLayout } from "@/context/layout"
 import { useSDK } from "@/context/sdk"
@@ -247,7 +250,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     draggingType: "image" | "@mention" | null
     mode: "normal" | "shell"
     applyingHistory: boolean
-    pendingAutoAccept: boolean
   }>({
     popover: null,
     historyIndex: -1,
@@ -256,10 +258,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     draggingType: null,
     mode: "normal",
     applyingHistory: false,
-    pendingAutoAccept: false,
   })
 
-  const buttonsSpring = useSpring(() => (store.mode === "normal" ? 1 : 0), { visualDuration: 0.2, bounce: 0 })
+  const visible = useWorkspaceVisible()
+  const buttonsSpring = useSpring(() => (store.mode === "normal" ? 1 : 0), { visualDuration: 0.2, bounce: 0 }, () => !visible())
 
   const commentCount = createMemo(() => {
     if (store.mode === "shell") return 0
@@ -306,12 +308,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       example: suggest() ? language.t(EXAMPLES[store.placeholder]) : "",
       suggest: suggest(),
       t: (key, params) => language.t(key as Parameters<typeof language.t>[0], params as never),
-    }),
-  )
-
-  createEffect(
-    on(sessionKey, () => {
-      setStore("pendingAutoAccept", false)
     }),
   )
 
@@ -508,10 +504,26 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   )
   const agentNames = createMemo(() => local.agent.list().map((agent) => agent.name))
 
+  const workspaceCtx = useContext(WorkspaceContext)
+  const workspaceList = createMemo(() => {
+    if (!workspaceCtx) return []
+    const all = workspaceCtx.workspaces()
+    const current = all.find((w) => w.id === params.workspaceID)
+    if (!current?.deviceId) return []
+    return all
+      .filter((w) => w.deviceId === current.deviceId)
+      .map((w): AtOption => {
+        const dir = w.directories?.find((d) => d.isDefault) || w.directories?.[0]
+        return { type: "workspace", id: w.id, name: w.name, directory: dir?.path ?? "", display: w.name }
+      })
+  })
+
   const handleAtSelect = (option: AtOption | undefined) => {
     if (!option) return
     if (option.type === "agent") {
       addPart({ type: "agent", name: option.name, content: "@" + option.name, start: 0, end: 0 })
+    } else if (option.type === "workspace") {
+      addPart({ type: "workspace", workspaceId: option.id, workspaceName: option.name, directory: option.directory, content: "@" + option.name, start: 0, end: 0 })
     } else {
       addPart({ type: "file", path: option.path, content: "@" + option.path, start: 0, end: 0 })
     }
@@ -519,7 +531,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const atKey = (x: AtOption | undefined) => {
     if (!x) return ""
-    return x.type === "agent" ? `agent:${x.name}` : `file:${x.path}`
+    if (x.type === "agent") return `agent:${x.name}`
+    if (x.type === "workspace") return `workspace:${x.id}`
+    return `file:${x.path}`
   }
 
   const {
@@ -530,29 +544,32 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     onKeyDown: atOnKeyDown,
   } = useFilteredList<AtOption>({
     items: async (query) => {
+      const workspaces = workspaceList()
       const agents = agentList()
       const open = recent()
       const seen = new Set(open)
       const pinned: AtOption[] = open.map((path) => ({ type: "file", path, display: path, recent: true }))
-      if (!query.trim()) return [...agents, ...pinned]
+      if (!query.trim()) return [...workspaces, ...agents, ...pinned]
       const paths = await files.searchFilesAndDirectories(query)
       const fileOptions: AtOption[] = paths
         .filter((path) => !seen.has(path))
         .map((path) => ({ type: "file", path, display: path }))
-      return [...agents, ...pinned, ...fileOptions]
+      return [...workspaces, ...agents, ...pinned, ...fileOptions]
     },
     key: atKey,
     filterKeys: ["display"],
     groupBy: (item) => {
+      if (item.type === "workspace") return "workspace"
       if (item.type === "agent") return "agent"
       if (item.recent) return "recent"
       return "file"
     },
     sortGroupsBy: (a, b) => {
       const rank = (category: string) => {
-        if (category === "agent") return 0
-        if (category === "recent") return 1
-        return 2
+        if (category === "workspace") return 0
+        if (category === "agent") return 1
+        if (category === "recent") return 2
+        return 3
       }
       return rank(a.category) - rank(b.category)
     },
@@ -564,9 +581,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       .filter((cmd) => cmd.scope !== "tui-only")
       .map((cmd) => ({
         id: `cmd.${cmd.name}`,
-        trigger: cmd.name,
+        trigger: cmd.name === "favorites" ? "hub" : cmd.name,
         title: cmd.title || cmd.name,
-        description: cmd.description,
+        description: cmd.name === "favorites" ? language.t("command.favorites.description") : cmd.description,
         keybind: cmd.keybind,
         scope: cmd.scope,
         type: cmd.scope === "prompt" || !cmd.scope ? ("custom" as const) : ("builtin" as const),
@@ -604,12 +621,17 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     onSelect: handleSlashSelect,
   })
 
-  const createPill = (part: FileAttachmentPart | AgentPart) => {
+  const createPill = (part: FileAttachmentPart | AgentPart | WorkspacePart) => {
     const pill = document.createElement("span")
     pill.textContent = part.content
     pill.setAttribute("data-type", part.type)
     if (part.type === "file") pill.setAttribute("data-path", part.path)
     if (part.type === "agent") pill.setAttribute("data-name", part.name)
+    if (part.type === "workspace") {
+      pill.setAttribute("data-workspace-id", part.workspaceId)
+      pill.setAttribute("data-workspace-name", part.workspaceName)
+      pill.setAttribute("data-directory", part.directory)
+    }
     pill.setAttribute("contenteditable", "false")
     pill.style.userSelect = "text"
     pill.style.cursor = "default"
@@ -632,6 +654,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const el = node as HTMLElement
       if (el.dataset.type === "file") return true
       if (el.dataset.type === "agent") return true
+      if (el.dataset.type === "workspace") return true
       return el.tagName === "BR"
     })
 
@@ -642,7 +665,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         editorRef.appendChild(createTextFragment(part.content))
         continue
       }
-      if (part.type === "file" || part.type === "agent") {
+      if (part.type === "file" || part.type === "agent" || part.type === "workspace") {
         editorRef.appendChild(createPill(part))
       }
     }
@@ -744,6 +767,20 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       position += content.length
     }
 
+    const pushWorkspace = (ws: HTMLElement) => {
+      const content = ws.textContent ?? ""
+      parts.push({
+        type: "workspace",
+        workspaceId: ws.dataset.workspaceId!,
+        workspaceName: ws.dataset.workspaceName!,
+        directory: ws.dataset.directory!,
+        content,
+        start: position,
+        end: position + content.length,
+      })
+      position += content.length
+    }
+
     const visit = (node: Node) => {
       if (node.nodeType === Node.TEXT_NODE) {
         buffer += node.textContent ?? ""
@@ -760,6 +797,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       if (el.dataset.type === "agent") {
         flushText()
         pushAgent(el)
+        return
+      }
+      if (el.dataset.type === "workspace") {
+        flushText()
+        pushWorkspace(el)
         return
       }
       if (el.tagName === "BR") {
@@ -852,7 +894,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     const range = selection.getRangeAt(0)
     if (!editorRef.contains(range.startContainer)) return false
 
-    if (part.type === "file" || part.type === "agent") {
+    if (part.type === "file" || part.type === "agent" || part.type === "workspace") {
       const cursorPosition = getCursorPosition(editorRef)
       const rawText = prompt
         .current()
@@ -955,11 +997,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const variants = createMemo(() => ["default", ...local.model.variant.list()])
-  const accepting = createMemo(() => {
-    const id = params.id
-    if (!id) return store.pendingAutoAccept
-    return permission.isAutoAccepting(id, sdk.directory)
-  })
+  const accepting = createMemo(() => permission.isAutoAccepting(params.id))
 
   const { abort, handleSubmit } = createPromptSubmit({
     info,
@@ -1221,6 +1259,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 "w-full pl-3 pr-2 pt-2 pb-11 text-14-regular text-text-strong focus:outline-none whitespace-pre-wrap": true,
                 "[&_[data-type=file]]:text-syntax-property": true,
                 "[&_[data-type=agent]]:text-syntax-type": true,
+                "[&_[data-type=workspace]]:text-icon-warning-active": true,
                 "font-mono!": store.mode === "shell",
               }}
             />
@@ -1319,47 +1358,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </div>
           </div>
 
-          <div class="pointer-events-none absolute bottom-2 left-2">
-            <div class="pointer-events-auto">
-              <TooltipKeybind
-                placement="top"
-                gutter={8}
-                title={language.t(
-                  accepting() ? "command.permissions.autoaccept.disable" : "command.permissions.autoaccept.enable",
-                )}
-                keybind={command.keybind("permissions.autoaccept")}
-              >
-                <Button
-                  data-action="prompt-permissions"
-                  variant="ghost"
-                  onClick={() => {
-                    if (!params.id) {
-                      setStore("pendingAutoAccept", (value) => !value)
-                      return
-                    }
-                    permission.toggleAutoAccept(params.id, sdk.directory)
-                  }}
-                  classList={{
-                    "size-6 flex items-center justify-center": true,
-                    "text-text-base": !accepting(),
-                    "hover:bg-surface-success-base": accepting(),
-                  }}
-                  aria-label={
-                    accepting()
-                      ? language.t("command.permissions.autoaccept.disable")
-                      : language.t("command.permissions.autoaccept.enable")
-                  }
-                  aria-pressed={accepting()}
-                >
-                  <Icon
-                    name="chevron-double-right"
-                    size="small"
-                    classList={{ "text-icon-success-base": accepting() }}
-                  />
-                </Button>
-              </TooltipKeybind>
-            </div>
-          </div>
+
         </div>
       </DockShellForm>
       <Show when={store.mode === "normal" || store.mode === "shell"}>
@@ -1476,30 +1475,64 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     </ModelSelectorPopover>
                   </TooltipKeybind>
                 </Show>
-                <TooltipKeybind
-                  placement="top"
-                  gutter={4}
-                  title={language.t("command.model.variant.cycle")}
-                  keybind={command.keybind("model.variant.cycle")}
-                >
-                  <Select
-                    size="normal"
-                    options={variants()}
-                    current={local.model.variant.current() ?? "default"}
-                    label={(x) => (x === "default" ? language.t("common.default") : x)}
-                    onSelect={(x) => local.model.variant.set(x === "default" ? undefined : x)}
-                    class="capitalize max-w-[160px]"
-                    valueClass="truncate text-13-regular"
-                    triggerStyle={{
-                      height: "28px",
-                      opacity: buttonsSpring(),
-                      transform: `scale(${0.95 + buttonsSpring() * 0.05})`,
-                      filter: `blur(${(1 - buttonsSpring()) * 2}px)`,
-                      "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
-                    }}
-                    variant="ghost"
-                  />
-                </TooltipKeybind>
+                <Show when={variants().length > 1}>
+                  <TooltipKeybind
+                    placement="top"
+                    gutter={4}
+                    title={language.t("command.model.variant.cycle")}
+                    keybind={command.keybind("model.variant.cycle")}
+                  >
+                    <Select
+                      size="normal"
+                      options={variants()}
+                      current={local.model.variant.current() ?? "default"}
+                      label={(x) => (x === "default" ? language.t("common.default") : x)}
+                      onSelect={(x) => local.model.variant.set(x === "default" ? undefined : x)}
+                      class="capitalize max-w-[160px]"
+                      valueClass="truncate text-13-regular"
+                      triggerStyle={{
+                        height: "28px",
+                        opacity: buttonsSpring(),
+                        transform: `scale(${0.95 + buttonsSpring() * 0.05})`,
+                        filter: `blur(${(1 - buttonsSpring()) * 2}px)`,
+                        "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
+                      }}
+                      variant="ghost"
+                    />
+                  </TooltipKeybind>
+                </Show>
+                <Show when={store.mode === "normal"}>
+                  <TooltipKeybind
+                    placement="top"
+                    gutter={4}
+                    title={language.t(
+                      accepting()
+                        ? "command.permissions.autoaccept.disable"
+                        : "command.permissions.autoaccept.enable",
+                    )}
+                    keybind={command.keybind("permissions.autoaccept")}
+                  >
+                    <label
+                      class="flex items-center gap-1.5 shrink-0 cursor-pointer select-none h-7"
+                      style={{
+                        opacity: buttonsSpring(),
+                        transform: `scale(${0.95 + buttonsSpring() * 0.05})`,
+                        filter: `blur(${(1 - buttonsSpring()) * 2}px)`,
+                        "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        class="size-3.5 accent-[var(--native-primary)] cursor-pointer"
+                        checked={accepting()}
+                        onChange={() => permission.toggleAutoAccept(params.id, sdk.directory)}
+                      />
+                      <span class="text-12-regular text-text-weak truncate">
+                        {language.t("command.permissions.autoaccept.enable")}
+                      </span>
+                    </label>
+                  </TooltipKeybind>
+                </Show>
               </div>
             </div>
             <div class="shrink-0">

@@ -1,10 +1,11 @@
-import { createContext, useContext, type ParentProps } from "solid-js"
+import { createContext, createSignal, useContext, type ParentProps } from "solid-js"
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
 import { useDeviceWorkspace } from "./device-workspace"
 import type { Message, Part, Session, SessionStatus, FileDiff, Todo, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
+import { Persist, persisted } from "@/utils/persist"
 
 type SessionData = {
   session: Session | undefined
@@ -41,10 +42,10 @@ type DeviceSessionValue = {
   }
   permission: {
     respond(input: { permissionID: string; response: "once" | "always" | "reject" }): void
-    isAutoAccepting(): boolean
-    toggleAutoAccept(): void
-    enableAutoAccept(): void
-    disableAutoAccept(): void
+    isAutoAccepting(sid?: string): boolean
+    toggleAutoAccept(sid?: string): void
+    enableAutoAccept(sid?: string): void
+    disableAutoAccept(sid?: string): void
     enabled(): boolean
   }
 }
@@ -111,10 +112,42 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     questions: {},
   })
 
-  const [permissionStore, setPermissionStore] = createStore<{
-    autoAccept: boolean
-  }>({
-    autoAccept: false,
+  const [pendingAccept, setPendingAccept] = createSignal(false)
+  const [permissionStore, setPermissionStore] = createStore<Record<string, boolean>>({})
+
+  const [persistedAccept, setPersistedAccept] = persisted(
+    Persist.device(workspace.workspaceId ?? "", "permission.auto-accept", ["permission.auto-accept.v1"]),
+    createStore<Record<string, boolean>>({}),
+  )
+
+  const permKey = (sid?: string) => {
+    const wid = workspace.workspaceId
+    const id = sid ?? props.sessionID
+    if (!wid || !id) return ""
+    return `${wid}/${id}`
+  }
+
+  const isAutoAccepting = (sid?: string) => {
+    const key = permKey(sid)
+    if (!key) return pendingAccept()
+    return persistedAccept[key] ?? permissionStore[key] ?? false
+  }
+
+  const setAutoAccept = (v: boolean, sid?: string) => {
+    const key = permKey(sid)
+    if (!key) {
+      setPendingAccept(v)
+      return
+    }
+    setPendingAccept(false)
+    setPermissionStore(key, v)
+    setPersistedAccept(key, v)
+  }
+
+  createEffect(() => {
+    const id = props.sessionID
+    if (!id || !pendingAccept()) return
+    setAutoAccept(true, id)
   })
 
   const inflight = new Map<string, Promise<void>>()
@@ -295,7 +328,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         }
         case "permission.asked": {
           const perm = payload.properties as PermissionRequest
-          if (perm?.id && permissionStore.autoAccept) {
+          if (perm?.id && isAutoAccepting()) {
             device.client.permission.respond(perm.id, {
               decision: "once",
             }).catch(() => {})
@@ -339,17 +372,17 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     },
     permission: {
       respond: permissionRespond,
-      isAutoAccepting() {
-        return permissionStore.autoAccept
+      isAutoAccepting(sid?: string) {
+        return isAutoAccepting(sid)
       },
-      toggleAutoAccept() {
-        setPermissionStore("autoAccept", (v) => !v)
+      toggleAutoAccept(sid?: string) {
+        setAutoAccept(!isAutoAccepting(sid), sid)
       },
-      enableAutoAccept() {
-        setPermissionStore("autoAccept", true)
+      enableAutoAccept(sid?: string) {
+        setAutoAccept(true, sid)
       },
-      disableAutoAccept() {
-        setPermissionStore("autoAccept", false)
+      disableAutoAccept(sid?: string) {
+        setAutoAccept(false, sid)
       },
       enabled() {
         return workspace.agentAvailable()

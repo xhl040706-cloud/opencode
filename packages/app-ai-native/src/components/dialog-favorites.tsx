@@ -150,15 +150,12 @@ export const DialogFavorites: Component = () => {
                 <div class="flex items-center justify-between w-full gap-4 py-1">
                   <div class="flex flex-col min-w-0 flex-1">
                     <div class="flex items-center gap-2">
-                      <span class="text-sm font-medium text-text-strong">{f.name}</span>
+                      <span class="text-sm font-medium text-text-strong">{f.slug}</span>
                       <StatusBadge status={f.status} />
                       <span class="text-11-regular text-text-subtle px-1.5 py-0.5 bg-surface-base rounded">
                         {TYPE_LABEL[f.itemType] ?? f.itemType}
                       </span>
                     </div>
-                    {f.description && (
-                      <span class="text-xs text-foreground-muted truncate max-w-full">{f.description}</span>
-                    )}
                   </div>
                   <div onClick={(e) => e.stopPropagation()}>
                     <Switch

@@ -17,6 +17,7 @@ import { useDeviceWorkspace } from "@/context/device-workspace"
 import { useDeviceSession } from "@/context/device-session"
 import { useDeviceLocal } from "@/context/device-local"
 import { deviceAdapter, ConversationAdapterContext } from "@/context/device-adapter"
+import { useDiff } from "@/context/device-file"
 import { useLanguage } from "@/context/language"
 import { useFile } from "@/context/file"
 import { SyncContext } from "@/context/sync"
@@ -51,46 +52,50 @@ function legacyProvider(input: ProviderCapabilitiesResponse): ProviderListRespon
       name: provider.name,
       source: provider.source,
       env: [],
+      options: {},
       models: Object.fromEntries(
         Object.entries(provider.models).map(([key, model]) => [
           key,
           {
             id: model.id,
+            providerID: provider.id,
+            api: { id: "", url: "", npm: "" },
             name: model.name,
             ...(model.family ? { family: model.family } : {}),
-            release_date: model.release_date,
-            attachment: model.capabilities.attachment,
-            reasoning: model.capabilities.reasoning,
-            temperature: model.capabilities.temperature,
-            tool_call: model.capabilities.toolcall,
-            interleaved: model.capabilities.interleaved === false ? undefined : model.capabilities.interleaved,
+            capabilities: {
+              temperature: model.capabilities.temperature,
+              reasoning: model.capabilities.reasoning,
+              attachment: model.capabilities.attachment,
+              toolcall: model.capabilities.toolcall,
+              input: model.capabilities.input,
+              output: model.capabilities.output,
+              interleaved: model.capabilities.interleaved,
+            },
             cost: model.cost
               ? {
                   input: model.cost.input,
                   output: model.cost.output,
-                  cache_read: model.cost.cache.read,
-                  cache_write: model.cost.cache.write,
-                  context_over_200k: model.cost.experimentalOver200K
+                  cache: {
+                    read: model.cost.cache.read,
+                    write: model.cost.cache.write,
+                  },
+                  experimentalOver200K: model.cost.experimentalOver200K
                     ? {
                         input: model.cost.experimentalOver200K.input,
                         output: model.cost.experimentalOver200K.output,
-                        cache_read: model.cost.experimentalOver200K.cache.read,
-                        cache_write: model.cost.experimentalOver200K.cache.write,
+                        cache: {
+                          read: model.cost.experimentalOver200K.cache.read,
+                          write: model.cost.experimentalOver200K.cache.write,
+                        },
                       }
                     : undefined,
                 }
-              : undefined,
+              : { input: 0, output: 0, cache: { read: 0, write: 0 } },
             limit: model.limit,
-            modalities: {
-              input: Object.entries(model.capabilities.input)
-                .filter(([, enabled]) => enabled)
-                .map(([name]) => name as "text" | "audio" | "image" | "video" | "pdf"),
-              output: Object.entries(model.capabilities.output)
-                .filter(([, enabled]) => enabled)
-                .map(([name]) => name as "text" | "audio" | "image" | "video" | "pdf"),
-            },
-            status: model.status === "active" ? undefined : model.status,
+            status: model.status,
             options: {},
+            headers: {},
+            release_date: model.release_date,
             variants: model.variants,
           },
         ]),
@@ -108,6 +113,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const local = useDeviceLocal()
   const language = useLanguage()
   const file = useFile()
+  const diffCtx = useDiff()
   const tabStore = useContentTabs()
   const dialog = useDialog()
 
@@ -250,8 +256,14 @@ export function DeviceSessionTab(props: { tabId: string }) {
       const info = (payload.properties as { info?: Session })?.info ?? payload.properties as Session
       if (info?.id && !createdSessionID() && !session.sessionID()) {
         setCreatedSessionID(info.id)
-        tabStore.updateMeta(props.tabId, { sessionID: info.id })
-        if (info.title) tabStore.setTitle(props.tabId, info.title)
+        const current = tabStore.tabs().find((t) => t.id === props.tabId)
+        tabStore.replace(props.tabId, {
+          kind: "session",
+          key: info.id,
+          title: info.title ?? current?.title ?? language.t("command.session.new"),
+          icon: current?.icon ?? "message",
+          meta: { sessionID: info.id },
+        })
       }
     }
 
@@ -462,7 +474,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
         }
       },
       async sync(id: string) { await session.sync() },
-      async diff(id: string) { await session.diff() },
+      async diff(id: string) { if (diffCtx.scheduler.active) await session.diff() },
       async todo(id: string) { await session.todo() },
       history: {
         more(id: string) { return session.history.more() },
@@ -531,11 +543,11 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const permissionValue = {
     ready: () => true,
     respond(input: any) { session.permission.respond(input) },
-    autoResponds() { return session.permission.isAutoAccepting() },
-    isAutoAccepting() { return session.permission.isAutoAccepting() },
-    toggleAutoAccept() { session.permission.toggleAutoAccept() },
-    enableAutoAccept() { session.permission.enableAutoAccept() },
-    disableAutoAccept() { session.permission.disableAutoAccept() },
+    autoResponds(...args: any[]) { return session.permission.isAutoAccepting(...args) },
+    isAutoAccepting(...args: any[]) { return session.permission.isAutoAccepting(...args) },
+    toggleAutoAccept(...args: any[]) { session.permission.toggleAutoAccept(...args) },
+    enableAutoAccept(...args: any[]) { session.permission.enableAutoAccept(...args) },
+    disableAutoAccept(...args: any[]) { session.permission.disableAutoAccept(...args) },
     permissionsEnabled: () => session.permission.enabled(),
   }
 
@@ -601,6 +613,33 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const messages = createMemo(() => effectiveMessages())
   const messagesReady = createMemo(() => true)
 
+  const enrichedMessages = createMemo(() => {
+    const raw = effectiveMessages()
+    if (!raw || raw.length === 0) return raw ?? []
+    const userIDs = new Set<string>()
+    for (const m of raw) {
+      if (m.role === "user") userIDs.add(m.id)
+    }
+    const orphans = new Map<string, any>()
+    for (const m of raw) {
+      if (m.role === "assistant" && m.parentID && !userIDs.has(m.parentID) && !orphans.has(m.parentID)) {
+        orphans.set(m.parentID, {
+          id: m.parentID,
+          sessionID: currentSessionID() ?? "",
+          role: "user",
+          time: { created: m.time?.created ?? 0 },
+        })
+      }
+    }
+    if (orphans.size === 0) return raw
+    const enriched = [...raw]
+    for (const s of [...orphans.values()]) {
+      const idx = enriched.findIndex((m) => m.role === "assistant" && m.parentID === s.id)
+      if (idx >= 0) enriched.splice(idx, 0, s)
+    }
+    return enriched
+  })
+
   createEffect(on(currentSessionID, () => setSnap(true), { defer: true }))
 
   createEffect(() => {
@@ -616,7 +655,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
   })
 
   const userMessages = createMemo(
-    () => messages().filter((m) => m.role === "user") as any[],
+    () => enrichedMessages().filter((m) => m.role === "user") as any[],
     emptyMessages as any[],
   )
 
@@ -655,7 +694,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
       provider: workspace.data.provider,
       agent: workspace.data.agent,
       agentRuntimes: [] as unknown[],
-      command: workspace.data.command,
+    command: workspace.data.command ?? [],
       path: { directory: device.directory } as Path,
       session: workspace.data.session,
       sessionTotal: workspace.data.sessionTotal,
@@ -689,10 +728,16 @@ export function DeviceSessionTab(props: { tabId: string }) {
     todo: { set: () => {} },
   }
 
-  const dataProps = createMemo(() => ({
-    ...syncStore(),
-    provider: legacyProvider(workspace.data.provider),
-  }))
+  const dataProps = createMemo(() => {
+    const base = syncStore()
+    if (!base) return undefined
+    const cid = currentSessionID()
+    return {
+      ...base,
+      message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() },
+      provider: legacyProvider(workspace.data.provider),
+    }
+  })
 
   return (
     <ConversationAdapterContext.Provider value={adapter() as any}>
@@ -705,7 +750,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
               <PermissionContext.Provider value={permissionValue as any}>
                 <CommandContext.Provider value={commandValue as any}>
                 <SettingsContext.Provider value={settingsValue as any}>
-                  <DataProvider data={dataProps()} directory={device.directory}
+                  <DataProvider data={dataProps()!} directory={device.directory}
                     onNavigateToSession={(id: string) => {
                       const s = workspace.data.session.find((s) => s.id === id)
                       const name = s?.title ?? id.slice(0, 8)

@@ -4,6 +4,7 @@ import { Checkbox } from "@opencode-ai/ui/checkbox"
 import { DockTray } from "@opencode-ai/ui/dock-surface"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { useSpring } from "@opencode-ai/ui/motion-spring"
+import { useWorkspaceVisible } from "@/pages/workspace/components/layout"
 import { TextReveal } from "@opencode-ai/ui/text-reveal"
 import { TextStrikethrough } from "@opencode-ai/ui/text-strikethrough"
 import { Index, createEffect, createMemo, createSignal, on, onCleanup } from "solid-js"
@@ -84,7 +85,8 @@ export function SessionTodoDock(props: {
           bounce: props.expandBounce ?? props.bounce ?? 0,
         },
   )
-  const collapse = useSpring(() => (store.collapsed ? 1 : 0), config)
+  const visible = useWorkspaceVisible()
+  const collapse = useSpring(() => (store.collapsed ? 1 : 0), config, () => !visible())
   const dock = createMemo(() => Math.max(0, Math.min(1, props.dockProgress ?? 1)))
   const shut = createMemo(() => 1 - dock())
   const value = createMemo(() => Math.max(0, Math.min(1, collapse())))

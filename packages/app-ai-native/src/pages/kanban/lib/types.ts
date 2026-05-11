@@ -372,8 +372,10 @@ export type TaskListQuery = {
   dateRange: DateRangeValue
   page?: number
   pageSize?: number
-  userName?: string
+  userId?: string
   org?: OrgCascadeValue
+  repoAddr?: string
+  repoBranch?: string
 }
 
 export type TaskListResult = {
@@ -445,8 +447,10 @@ export type CommitListQuery = {
   dateRange: DateRangeValue
   page?: number
   pageSize?: number
-  userName?: string
+  userId?: string
   org?: OrgCascadeValue
+  repoAddr?: string
+  repoBranch?: string
 }
 
 export type CommitListResult = {
@@ -536,6 +540,7 @@ export type RepoCommitRow = EfficiencyRow & {
   cost?: number | null
   upstream_tokens?: number
   downstream_tokens?: number
+  efficiency_ratio: number | null
 }
 
 export type RepoTaskRow = EfficiencyRow & {

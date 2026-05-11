@@ -7,6 +7,7 @@ import {
   For,
   Match,
   on,
+  onCleanup,
   onMount,
   Show,
   Switch,
@@ -153,7 +154,7 @@ export function Session() {
   const [timestamps, setTimestamps] = kv.signal<"hide" | "show">("timestamps", "hide")
   const [showDetails, setShowDetails] = kv.signal("tool_details_visibility", true)
   const [showAssistantMetadata, setShowAssistantMetadata] = kv.signal("assistant_metadata_visibility", true)
-  const [showScrollbar, setShowScrollbar] = kv.signal("scrollbar_visible", true)
+  const [showScrollbar, setShowScrollbar] = kv.signal("scrollbar_visible", false)
   const [diffWrapMode] = kv.signal<"word" | "none">("diff_wrap_mode", "word")
   const [animationsEnabled, setAnimationsEnabled] = kv.signal("animations_enabled", true)
   const [showGenericToolOutput, setShowGenericToolOutput] = kv.signal("generic_tool_output_visibility", false)
@@ -186,19 +187,20 @@ export function Session() {
     }
   })
 
-  createEffect(async () => {
-    await sync.session
-      .sync(route.sessionID)
+  createEffect(() => {
+    const id = route.sessionID
+    sync.session
+      .sync(id)
       .then(() => {
         if (scroll) scroll.scrollBy(100_000)
       })
       .catch((e) => {
         console.error(e)
         toast.show({
-          message: `Session not found: ${route.sessionID}`,
+          message: `Session not found: ${id}`,
           variant: "error",
         })
-        return navigate({ type: "home" })
+        navigate({ type: "home" })
       })
   })
 
@@ -213,20 +215,23 @@ export function Session() {
   })
 
   let lastSwitch: string | undefined = undefined
-  sdk.event.on("message.part.updated", (evt) => {
-    const part = evt.properties.part
-    if (part.type !== "tool") return
-    if (part.sessionID !== route.sessionID) return
-    if (part.state.status !== "completed") return
-    if (part.id === lastSwitch) return
+  onMount(() => {
+    const unsub = sdk.event.on("message.part.updated", (evt) => {
+      const part = evt.properties.part
+      if (part.type !== "tool") return
+      if (part.sessionID !== route.sessionID) return
+      if (part.state.status !== "completed") return
+      if (part.id === lastSwitch) return
 
-    if (part.tool === "plan_exit") {
-      local.agent.set("build")
-      lastSwitch = part.id
-    } else if (part.tool === "plan_enter") {
-      local.agent.set("plan")
-      lastSwitch = part.id
-    }
+      if (part.tool === "plan_exit") {
+        local.agent.set("build")
+        lastSwitch = part.id
+      } else if (part.tool === "plan_enter") {
+        local.agent.set("plan")
+        lastSwitch = part.id
+      }
+    })
+    onCleanup(() => unsub())
   })
 
   let scroll: ScrollBoxRenderable
@@ -381,7 +386,10 @@ export function Session() {
           .share({
             sessionID: route.sessionID,
           })
-          .then((res) => copy(res.data!.share!.url))
+          .then((res) => {
+            const url = res.data?.share?.url
+            if (url) return copy(url)
+          })
           .catch((error) => {
             toast.show({
               message: error instanceof Error ? error.message : "Failed to share session",
@@ -471,11 +479,13 @@ export function Session() {
           })
           return
         }
-        sdk.client.session.summarize({
-          sessionID: route.sessionID,
-          modelID: selectedModel.modelID,
-          providerID: selectedModel.providerID,
-        })
+        sdk.client.session
+          .summarize({
+            sessionID: route.sessionID,
+            modelID: selectedModel.modelID,
+            providerID: selectedModel.providerID,
+          })
+          .catch(() => {})
         dialog.clear()
       },
     },
@@ -527,6 +537,7 @@ export function Session() {
           .then(() => {
             toBottom()
           })
+          .catch(() => {})
         const parts = sync.data.part[message.id]
         prompt.set(
           parts.reduce(
@@ -559,14 +570,17 @@ export function Session() {
         if (!messageID) return
         const message = messages().find((x) => x.role === "user" && x.id > messageID)
         if (!message) {
-          sdk.client.session.unrevert({
-            sessionID: route.sessionID,
-          })
+          sdk.client.session
+            .unrevert({
+              sessionID: route.sessionID,
+            })
+            .catch(() => {})
           prompt.set({ input: "", parts: [] })
           return
         }
-        sdk.client.session.revert({
-          sessionID: route.sessionID,
+        sdk.client.session
+          .revert({
+            sessionID: route.sessionID,
           messageID: message.id,
         })
       },
@@ -1130,7 +1144,12 @@ export function Session() {
                         )
                       })()}
                     </Match>
-                    <Match when={revert()?.messageID && message.id >= revert()!.messageID}>
+                    <Match
+                      when={(() => {
+                        const r = revert()
+                        return r?.messageID && message.id >= r.messageID
+                      })()}
+                    >
                       <></>
                     </Match>
                     <Match when={message.role === "user"}>
@@ -1277,7 +1296,7 @@ function UserMessage(props: {
                 <For each={files()}>
                   {(file) => {
                     const bg = createMemo(() => {
-                      if (file.mime.startsWith("image/")) return theme.accent
+                      if (file.mime?.startsWith("image/")) return theme.accent
                       if (file.mime === "application/pdf") return theme.primary
                       return theme.secondary
                     })
@@ -1995,7 +2014,10 @@ function Task(props: ToolProps<typeof TaskTool>) {
 
     if (isRunning() && tools().length > 0) {
       // content[0] += ` · ${tools().length} toolcalls`
-      if (current()) content.push(`↳ ${Locale.titlecase(current()!.tool)} ${(current()!.state as any).title}`)
+      if (current()) {
+        const c = current()!
+        content.push(`↳ ${Locale.titlecase(c.tool)} ${(c.state as any).title}`)
+      }
       else content.push(`↳ ${tools().length} toolcalls`)
     }
 

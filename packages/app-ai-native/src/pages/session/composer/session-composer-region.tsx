@@ -2,6 +2,7 @@ import { Show, createEffect, createMemo, createSignal, onCleanup } from "solid-j
 import { createStore } from "solid-js/store"
 import { useParams } from "@solidjs/router"
 import { useSpring } from "@opencode-ai/ui/motion-spring"
+import { useWorkspaceVisible } from "@/pages/workspace/components/layout"
 import { PromptInput } from "@/components/prompt-input"
 import { useLanguage } from "@/context/language"
 import { usePrompt } from "@/context/prompt"
@@ -54,6 +55,7 @@ export function SessionComposerRegion(props: {
       .map((part) => {
         if (part.type === "file") return `[file:${part.path}]`
         if (part.type === "agent") return `@${part.name}`
+        if (part.type === "workspace") return `@${part.workspaceName}`
         if (part.type === "image") return `[image:${part.filename}]`
         return part.content
       })
@@ -114,7 +116,8 @@ export function SessionComposerRegion(props: {
           bounce: props.dockCloseBounce ?? props.bounce ?? 0,
         },
   )
-  const progress = useSpring(() => (open() ? 1 : 0), config)
+  const visible = useWorkspaceVisible()
+  const progress = useSpring(() => (open() ? 1 : 0), config, () => !visible())
   const value = createMemo(() => Math.max(0, Math.min(1, progress())))
   const [height, setHeight] = createSignal(320)
   const dock = createMemo(() => (gate.ready && props.state.dock()) || value() > 0.001)

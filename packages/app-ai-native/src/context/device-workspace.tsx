@@ -58,6 +58,7 @@ type DeviceWorkspaceValue = {
   }
   subscribe(fn: (payload: EventPayload) => void): () => void
   directory: string
+  workspaceId: string | undefined
 }
 
 const DeviceWorkspaceContext = createContext<DeviceWorkspaceValue>()
@@ -113,9 +114,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
         return
       }
 
-      const [agentsRes, commandsRes, sessionsRes, sessionStatusRes, vcsRes, providersRes, allSessionsRes, permsRes, questionsRes] = await Promise.all([
+      const [agentsRes, sessionsRes, sessionStatusRes, vcsRes, providersRes, allSessionsRes, permsRes, questionsRes] = await Promise.all([
         device.client.agent.sessionModes().catch(() => undefined),
-        device.client.agent.commands().catch(() => undefined),
         device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory }).catch(() => undefined),
         device.client.conversation.status().catch(() => undefined),
         device.client.runtime.vcs().catch(() => undefined),
@@ -127,9 +127,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
 
       batch(() => {
         setStore("agent", reconcile((agentsRes as Agent[]) ?? [], { key: "name" }))
-        setStore("command", reconcile((commandsRes as Command[]) ?? [], { key: "name" }))
-        const rootSessions = (sessionsRes as Session[]) ?? []
-        const allSessions = (allSessionsRes as Session[]) ?? []
+        const rootSessions = (Array.isArray(sessionsRes) ? sessionsRes : []) as Session[]
+        const allSessions = (Array.isArray(allSessionsRes) ? allSessionsRes : []) as Session[]
         const children = allSessions.filter((s) => !!s?.id && !!s.parentID)
         const merged = [...rootSessions, ...children].filter((s) => !!s?.id)
         setStore("session", reconcile(merged.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)), { key: "id" }))
@@ -290,6 +289,14 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     try {
       const result = await device.client.runtime.vcs()
       setStore("vcs", result as VcsInfo | undefined)
+      if (props.workspaceId) {
+        syncSummary(props.workspaceId, {
+          vcs: result as VcsInfo | undefined,
+          sessionStatus: store.sessionStatus,
+          questions: store.questions,
+          permissions: store.permissions,
+        })
+      }
       return result as VcsInfo | undefined
     } catch {
       return undefined
@@ -326,6 +333,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             if (!payload?.type) continue
 
             batch(() => {
+              let summaryChanged = false
               switch (payload.type) {
                 case "session.created":
                 case "session.updated": {
@@ -354,6 +362,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                     setStore("questions", produce((draft) => { delete draft[id] }))
                     setStore("permissions", produce((draft) => { delete draft[id] }))
                   })
+                  summaryChanged = true
                   break
                 }
                 case "session.status": {
@@ -361,27 +370,30 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   const id = props?.sessionID ?? payload.sessionID
                   if (!id || !props?.status) break
                   setSessionStatus(id, props.status)
+                  summaryChanged = true
                   break
                 }
                 case "question.asked": {
                   const q = payload.properties as QuestionRequest
-                  if (q?.id) addQuestion(q)
+                  if (q?.id) { addQuestion(q); summaryChanged = true }
                   break
                 }
                 case "question.replied":
                 case "question.rejected": {
                   const props = payload.properties as { sessionID?: string; requestID?: string }
                   removeQuestion(props?.sessionID ?? "", props?.requestID ?? "")
+                  summaryChanged = true
                   break
                 }
                 case "permission.asked": {
                   const p = payload.properties as PermissionRequest
-                  if (p?.id) addPermission(p)
+                  if (p?.id) { addPermission(p); summaryChanged = true }
                   break
                 }
                 case "permission.replied": {
                   const props = payload.properties as { sessionID?: string; requestID?: string }
                   removePermission(props?.sessionID ?? "", props?.requestID ?? "")
+                  summaryChanged = true
                   break
                 }
                 case "vcs.branch.updated": {
@@ -390,10 +402,11 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   const prev = store.vcs
                   if (prev?.branch === props.branch) break
                   setStore("vcs", { ...prev, branch: props.branch })
+                  summaryChanged = true
                   break
                 }
               }
-              if (props.workspaceId) {
+              if (summaryChanged && props.workspaceId) {
                 syncSummary(props.workspaceId, {
                   vcs: store.vcs,
                   sessionStatus: store.sessionStatus,
@@ -446,6 +459,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     vcs: { load: loadVcs },
     subscribe,
     directory: device.directory,
+    workspaceId: props.workspaceId,
   }
 
   return <DeviceWorkspaceContext.Provider value={value}>{props.children}</DeviceWorkspaceContext.Provider>

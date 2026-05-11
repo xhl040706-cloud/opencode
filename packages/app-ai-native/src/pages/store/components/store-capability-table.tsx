@@ -737,6 +737,9 @@ export function StoreCapabilityTable(props: {
     favoriteCount: string
     favorite: string
     unfavorite: string
+    favoriteTooltip: string
+    unfavoriteTooltip: string
+    favoriteSignInTooltip: string
     updated: string
     action: string
     toggleColumns: string
@@ -753,6 +756,7 @@ export function StoreCapabilityTable(props: {
   renderActions: (item: CapabilityItem) => JSX.Element
   typeLabel?: (value: string) => string
   maxVisibleRows?: number
+  fixedRows?: boolean
 }) {
   const isColumnVisible = (key: TableColumnKey) => props.visibleColumns[key]
   const stickyHeadClass = "sticky top-0 z-10 bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))]"
@@ -765,16 +769,17 @@ export function StoreCapabilityTable(props: {
 
   let scrollRef: HTMLDivElement | undefined
 
-  const tableMaxHeight = createMemo(() => {
+  const tableHeight = createMemo(() => {
     const max = props.maxVisibleRows
     if (!max) return undefined
     return `calc(2.5rem + 3.9375rem * ${max} + 1px)`
   })
+  const fixed = createMemo(() => props.fixedRows && tableHeight() != null)
 
   return (
-    <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div ref={scrollRef} class="min-h-0 flex-1 overflow-auto" style={tableMaxHeight() != null ? { "max-height": tableMaxHeight() } : undefined}>
-        <table class="w-full table-fixed caption-bottom text-sm text-[0.8125rem]">
+    <div class={cn("flex min-h-0 flex-col overflow-hidden", fixed() ? "shrink-0" : "flex-1")} style={fixed() ? { height: tableHeight(), "max-height": tableHeight() } : undefined}>
+      <div ref={scrollRef} class="min-h-0 flex-1 overflow-auto" style={!props.fixedRows && tableHeight() != null ? { "max-height": tableHeight() } : undefined}>
+        <table class="w-full min-w-[48rem] table-auto caption-bottom text-sm">
           <thead class={cn("[&_tr]:border-b [&_tr]:border-border", sx.thead)}>
             <tr class={stickyHeadRowClass}>
               <Show when={isColumnVisible("title")}>
@@ -950,11 +955,13 @@ export function StoreCapabilityTable(props: {
                 <Show when={isColumnVisible("title")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colTitle)}>
                     <div class="flex min-w-0 items-center gap-2">
-                      <Show keyed when={props.creatorInfo(item.createdBy)} fallback={<AvatarDisplay avatarUrl={undefined} username={item.createdBy} class="size-6 shrink-0" title={item.createdBy} />}>
-                        {(info) => (
-                          <AvatarDisplay avatarUrl={info.avatarUrl} username={info.name ?? item.createdBy} class="size-6 shrink-0" title={info.name ?? item.createdBy} />
-                        )}
-                      </Show>
+                      <div class="shrink-0">
+                        <Show keyed when={props.creatorInfo(item.createdBy)} fallback={<AvatarDisplay avatarUrl={undefined} username={item.createdBy} class="size-6 shrink-0" title={item.createdBy} />}>
+                          {(info) => (
+                            <AvatarDisplay avatarUrl={info.avatarUrl} username={info.name ?? item.createdBy} class="size-6 shrink-0" title={info.name ?? item.createdBy} />
+                          )}
+                        </Show>
+                      </div>
                       <div class="min-w-0">
                         <div class={cn(sx.item, "truncate text-[14px] font-bold leading-5 text-[color:color-mix(in_oklab,var(--native-foreground)_80%,white_20%)]")} style={{ "font-weight": 700 }} title={item.name}>
                           {item.name}
@@ -1016,7 +1023,7 @@ export function StoreCapabilityTable(props: {
                         type="button"
                         class="inline-flex size-6 items-center justify-center rounded-full transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] active:bg-[color:color-mix(in_oklab,var(--native-foreground)_16%,transparent)]]"
                         disabled={!props.onToggleFavorite}
-                        title={item.favorited ? props.labels.unfavorite : props.labels.favorite}
+                        title={item.favorited ? props.labels.unfavoriteTooltip : props.labels.favoriteTooltip}
                         onClick={(e: MouseEvent) => {
                           e.stopPropagation()
                           props.onToggleFavorite?.(item)

@@ -277,7 +277,7 @@ export default function KanbanOrgDetail() {
 
         <section class="grid gap-4 lg:grid-cols-2">
           <section class="overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-            <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.commitList")}</div>
+            <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.taskList")}</div>
             <div class="overflow-auto">
               <Table>
                 <TableHeader><TableRow><TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead><TableHead class="min-w-[80px] text-left">{language.t("kanban.table.taskCount")}</TableHead><TableHead class="min-w-[90px] text-left">{language.t("kanban.table.codeLines")}</TableHead><TableHead class="min-w-[110px] text-left">{language.t("kanban.table.actualTime")}</TableHead><TableHead class="min-w-[150px] text-left">{language.t("kanban.table.traditionalEst")}</TableHead><TableHead class="min-w-[100px] text-left">{language.t("kanban.table.efficiencyRatio")}</TableHead><TableHead class="min-w-[120px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead><TableHead class="min-w-[100px] text-left">{language.t("kanban.table.cost")}</TableHead></TableRow></TableHeader>
@@ -291,7 +291,7 @@ export default function KanbanOrgDetail() {
           </section>
 
           <section class="overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-            <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.taskList")}</div>
+            <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.commitList")}</div>
             <div class="overflow-auto">
               <Table>
                 <TableHeader><TableRow><TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead><TableHead class="min-w-[90px] text-left">{language.t("kanban.table.commitCount")}</TableHead><TableHead class="min-w-[90px] text-left">{language.t("kanban.table.codeLines")}</TableHead><TableHead class="min-w-[110px] text-left">{language.t("kanban.table.actualTime")}</TableHead><TableHead class="min-w-[150px] text-left">{language.t("kanban.table.traditionalEst")}</TableHead><TableHead class="min-w-[100px] text-left">{language.t("kanban.table.efficiencyRatio")}</TableHead><TableHead class="min-w-[120px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead><TableHead class="min-w-[100px] text-left">{language.t("kanban.table.cost")}</TableHead></TableRow></TableHeader>

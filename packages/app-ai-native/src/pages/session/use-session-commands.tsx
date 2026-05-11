@@ -269,7 +269,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
     permissionsCommand({
       id: "permissions.autoaccept",
       title:
-        params.id && permission.isAutoAccepting(params.id, sdk.directory)
+        params.id && permission.isAutoAccepting(params.id)
           ? language.t("command.permissions.autoaccept.disable")
           : language.t("command.permissions.autoaccept.enable"),
       keybind: "mod+shift+a",
@@ -279,10 +279,10 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
         if (!sessionID) return
         permission.toggleAutoAccept(sessionID, sdk.directory)
         showToast({
-          title: permission.isAutoAccepting(sessionID, sdk.directory)
+          title: permission.isAutoAccepting(sessionID)
             ? language.t("toast.permissions.autoaccept.on.title")
             : language.t("toast.permissions.autoaccept.off.title"),
-          description: permission.isAutoAccepting(sessionID, sdk.directory)
+          description: permission.isAutoAccepting(sessionID)
             ? language.t("toast.permissions.autoaccept.on.description")
             : language.t("toast.permissions.autoaccept.off.description"),
         })

@@ -376,27 +376,33 @@ State transition rules:
 }
 
 async function runFavoriteAction(action: "download" | "load" | "unload" | "uninstall", id: string) {
-  switch (action) {
-    case "download": {
-      const item = await downloadFavoriteItem(id)
-      console.log(`downloaded ${item.slug}`)
-      return
+  try {
+    switch (action) {
+      case "download": {
+        const item = await downloadFavoriteItem(id)
+        console.log(`downloaded ${item.slug}`)
+        return
+      }
+      case "load": {
+        const item = await loadFavoriteItem(id)
+        console.log(`loaded ${item.slug} as active without restart`)
+        return
+      }
+      case "unload": {
+        const item = await unloadFavoriteItem(id)
+        console.log(`unloaded ${item.slug} without restart`)
+        return
+      }
+      case "uninstall": {
+        const item = await uninstallFavoriteItem(id)
+        console.log(`uninstalled ${item.slug} without restart`)
+        return
+      }
     }
-    case "load": {
-      const item = await loadFavoriteItem(id)
-      console.log(`loaded ${item.slug} as active without restart`)
-      return
-    }
-    case "unload": {
-      const item = await unloadFavoriteItem(id)
-      console.log(`unloaded ${item.slug} without restart`)
-      return
-    }
-    case "uninstall": {
-      const item = await uninstallFavoriteItem(id)
-      console.log(`uninstalled ${item.slug} without restart`)
-      return
-    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error(`\n${action} failed: ${message}\n`)
+    process.exit(1)
   }
 }
 

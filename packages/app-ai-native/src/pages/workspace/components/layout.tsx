@@ -1,5 +1,5 @@
 import type { ParentProps } from "solid-js"
-import { createSignal, createMemo, Show, createEffect, untrack, onCleanup, For, on } from "solid-js"
+import { createContext, useContext, createSignal, createMemo, Show, createEffect, untrack, onCleanup, For, on } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { useNavigate, useParams } from "@solidjs/router"
 import { IconButton } from "@opencode-ai/ui/icon-button"
@@ -10,7 +10,6 @@ import { WorkspaceSidebar } from "./workspace-sidebar"
 import { WorkspaceProvider, useWorkspace, type WorkspaceContextValue } from "../context"
 import { ServerConnection, ServerProvider, useServer } from "@/context/server"
 import { useAuth } from "@/context/auth"
-import { AppInterface } from "@/app-interface"
 import { WorkspaceContentLayout } from "./workspace-content-layout"
 import { getProxyUrl } from "../lib/url"
 import { ActiveWorkspaceProvider, useActiveWorkspace } from "../active-workspace"
@@ -21,6 +20,7 @@ import { createSdkForServer } from "@/utils/server"
 import { DeviceClientContext } from "@/context/device-client"
 import { DeviceSDKContext } from "@/context/device-sdk"
 import { DeviceInitGate } from "@/context/device-init"
+import { WorkspaceInitGate } from "@/context/workspace-init-gate"
 import { DeviceFileProvider } from "@/context/device-file"
 import { DeviceTerminalProvider } from "@/context/device-terminal"
 import { DeviceWorkspaceProvider } from "@/context/device-workspace"
@@ -29,6 +29,9 @@ import { DirectoryContext } from "@/context/directory"
 import { LayoutContext } from "@/context/layout"
 import { useDeviceLayout } from "./device-interface"
 import { ContentTabContext, createContentTabStore } from "@/context/content-tabs"
+
+const WorkspaceVisibleCtx = createContext<() => boolean>()
+export const useWorkspaceVisible = () => useContext(WorkspaceVisibleCtx) ?? (() => true)
 
 const setNav = (hidden: boolean) => {
   if (typeof document === "undefined") return
@@ -51,7 +54,7 @@ export default function WorkspaceLayout(props: ParentProps) {
   const [enabledIds, setEnabledIds] = createSignal<string[]>([])
   const [visitedIds, setVisitedIds] = createSignal<string[]>([])
   const [sidebarOpened, setSidebarOpened] = createSignal(true)
-  const closed = new Set<string>()
+  const [closedIds, setClosedIds] = createSignal<Set<string>>(new Set<string>())
   const auth = useAuth()
   const navigate = useNavigate()
   const active = useActiveWorkspace()
@@ -104,6 +107,10 @@ export default function WorkspaceLayout(props: ParentProps) {
     )
   }
 
+  const isClosed = (id: string) => closedIds().has(id)
+  const markClosed = (id: string) => setClosedIds((prev) => { const next = new Set(prev); next.add(id); return next })
+  const markOpen = (id: string) => setClosedIds((prev) => { const next = new Set(prev); next.delete(id); return next })
+
   let loading = false
   const loadDevices = async () => {
     if (!auth.user()) return
@@ -145,12 +152,12 @@ export default function WorkspaceLayout(props: ParentProps) {
   }
 
   const handleEnableWorkspace = (id: string) => {
-    closed.delete(id)
+    markOpen(id)
     setEnabledIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
   }
 
   const handleDisableWorkspace = (id: string) => {
-    closed.add(id)
+    markClosed(id)
     const next = enabledIds().filter((x) => x !== id)
     setEnabledIds(next)
     setVisitedIds((prev) => prev.filter((x) => x !== id))
@@ -175,7 +182,7 @@ export default function WorkspaceLayout(props: ParentProps) {
     }
   }
 
-  const handleCreateWorkspace = async (deviceId: string, directory: string) => {
+  const handleCreateWorkspace = async (deviceId: string, directory: string, name: string) => {
     const device = devices.find((d) => d.id === deviceId)
     if (!device) {
       showToast({ title: t("workspace.create.failed"), description: t("workspace.create.deviceNotFound") })
@@ -186,7 +193,6 @@ export default function WorkspaceLayout(props: ParentProps) {
       return
     }
     try {
-      const name = directory.split("/").pop() || "New Workspace"
       const request: CreateWorkspaceRequest = {
         name,
         deviceId,
@@ -245,11 +251,11 @@ export default function WorkspaceLayout(props: ParentProps) {
   }
 
   const contextValue: WorkspaceContextValue = {
-    workspaces: () => [...workspaces],
-    devices: () => [...devices],
+    workspaces: () => workspaces,
+    devices: () => devices,
     selectedWorkspaceId,
     enabledWorkspaceIds: enabledIds,
-    closedWorkspaceIds: () => Array.from(closed),
+    closedWorkspaceIds: () => [...closedIds()],
     isLoading,
     sidebarOpened,
     selectWorkspace: handleSelectWorkspace,
@@ -395,10 +401,11 @@ function WorkspaceContentInstance(props: { workspaceId: string; directory: strin
       <DeviceInitGate>
         <DeviceLayoutProvider deviceLayout={dl}>
           <DirectoryContext.Provider value={() => props.directory}>
-            <DeviceWorkspaceProvider workspaceId={props.workspaceId}>
+            <WorkspaceInitGate>
+              <DeviceWorkspaceProvider workspaceId={props.workspaceId}>
                 <DeviceFileProvider>
                   <DeviceTerminalProvider>
-                    <DeviceLocalProvider>
+                    <DeviceLocalProvider workspaceId={props.workspaceId}>
                       <ContentTabContext.Provider value={tabStore}>
                         <WorkspaceContentLayout workspaceId={props.workspaceId} directory={props.directory} />
                       </ContentTabContext.Provider>
@@ -406,6 +413,7 @@ function WorkspaceContentInstance(props: { workspaceId: string; directory: strin
                   </DeviceTerminalProvider>
                 </DeviceFileProvider>
             </DeviceWorkspaceProvider>
+            </WorkspaceInitGate>
           </DirectoryContext.Provider>
         </DeviceLayoutProvider>
       </DeviceInitGate>
@@ -460,7 +468,6 @@ function DeviceLayoutProvider(props: ParentProps<{ deviceLayout: ReturnType<type
   const dl = props.deviceLayout
   const value = {
     ready: () => true,
-    deviceMode: true as boolean,
     handoff: { tabs: () => undefined, setTabs() {}, clearTabs() {} },
     projects: { list: () => [], open() {}, close() {}, expand() {}, collapse() {}, move() {} },
     sidebar: { opened: () => false, open() {}, close() {}, toggle() {}, width: () => 280, resize() {}, workspaces: () => () => false, setWorkspaces() {}, toggleWorkspaces() {} },
@@ -572,11 +579,13 @@ function WorkspaceContent(props: ParentProps) {
                 class={`absolute inset-0 flex flex-col ${animClass()}`}
                 style={{ display: visible() ? "flex" : "none" }}
               >
-                <WorkspaceContentInstance
-                  workspaceId={id}
-                  directory={dir()!}
-                  serverUrl={serverUrl()!}
-                />
+                <WorkspaceVisibleCtx.Provider value={visible}>
+                  <WorkspaceContentInstance
+                    workspaceId={id}
+                    directory={dir()!}
+                    serverUrl={serverUrl()!}
+                  />
+                </WorkspaceVisibleCtx.Provider>
               </div>
             </Show>
           )

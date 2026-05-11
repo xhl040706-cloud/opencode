@@ -12,7 +12,7 @@ type WorkspaceContextValue = {
   selectWorkspace: (id: string) => void
   enableWorkspace: (id: string) => void
   disableWorkspace: (id: string) => void
-  createWorkspace: (deviceId: string, directory: string) => Promise<void>
+  createWorkspace: (deviceId: string, directory: string, name: string) => Promise<void>
   deleteWorkspace: (workspaceId: string) => void
   renameWorkspace: (workspaceId: string, name: string) => Promise<void>
   removeVisited: (id: string) => void
@@ -22,6 +22,8 @@ type WorkspaceContextValue = {
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue>()
+
+export { WorkspaceContext }
 
 export function useWorkspace() {
   const ctx = useContext(WorkspaceContext)

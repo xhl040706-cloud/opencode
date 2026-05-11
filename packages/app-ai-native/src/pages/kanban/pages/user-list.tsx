@@ -222,10 +222,7 @@ export default function KanbanUserList() {
           ["startDate", next.startDate],
           ["endDate", next.endDate],
           ["granularity", state.granularity],
-          ["org1", row.org1],
-          ["org2", row.org2],
-          ["org3", row.org3],
-          ["org4", row.org4],
+          ["userId", row.user_id?.trim() || ""],
         ]).toString()
         return (
           <button
@@ -252,10 +249,7 @@ export default function KanbanUserList() {
           ["startDate", next.startDate],
           ["endDate", next.endDate],
           ["granularity", state.granularity],
-          ["org1", row.org1],
-          ["org2", row.org2],
-          ["org3", row.org3],
-          ["org4", row.org4],
+          ["userId", row.user_id?.trim() || ""],
         ]).toString()
         return (
           <button
