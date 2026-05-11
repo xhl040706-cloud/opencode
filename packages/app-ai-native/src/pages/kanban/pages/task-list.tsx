@@ -179,7 +179,8 @@ export default function KanbanTaskList() {
         return <button type="button" class="block max-w-[18rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" title={txt} onClick={() => {
           const path = [row.org1, row.org2, row.org3, row.org4].filter(Boolean).join("/")
           if (!path) return
-          navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}`)
+          const backUrl = `/kanban/task?${routeQuery()}`
+          navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}&back=${encodeURIComponent(backUrl)}`)
         }}>{txt}</button>
       },
     },

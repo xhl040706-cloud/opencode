@@ -1970,6 +1970,7 @@ export const dict = {
   "kanban.table.codeLines": "Code Lines",
   "kanban.table.comment": "Comment",
   "kanban.table.taskTraditionalEst": "Task Traditional Est",
+  "kanban.table.commitTraditionalEst": "Commit Traditional Est",
   "kanban.table.taskActualTime": "Task Actual Time",
   "kanban.table.taskEfficiency": "Task Efficiency",
   "kanban.table.repoCount": "Repos",

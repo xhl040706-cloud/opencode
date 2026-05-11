@@ -76,13 +76,15 @@ export default function KanbanOrgDetail() {
   const language = useLanguage()
   const params = useParams()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string; back?: string }>()
 
   const org = createMemo(() => parsePath(params.orgPath ?? ""))
   const orgKey = createMemo(() => orgPath(org()))
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
   const granularity = createMemo(() => parseGranularity(search.granularity))
   const listHref = createMemo(() => {
+    const back = search.back?.trim()
+    if (back) return decodeURIComponent(back)
     const scope = parentOrg(org())
     const q = queryOf(dateRange(), granularity(), scope)
     return `/kanban/org?${q.toString()}`
