@@ -1945,6 +1945,7 @@ export const dict = {
   "kanban.table.codeLines": "代码行数",
   "kanban.table.comment": "说明",
   "kanban.table.taskTraditionalEst": "Task传统预估",
+  "kanban.table.commitTraditionalEst": "Commit传统预估",
   "kanban.table.taskActualTime": "Task实际耗时",
   "kanban.table.taskEfficiency": "Task提效比",
   "kanban.table.repoCount": "Repo数",

@@ -201,7 +201,8 @@ export default function KanbanUserList() {
             onClick={() => {
               const path = [row.org1, row.org2, row.org3, row.org4].filter(Boolean).join("/")
               if (!path) return
-              navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}`)
+              const backUrl = `/kanban/user?${routeQuery()}`
+              navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}&back=${encodeURIComponent(backUrl)}`)
             }}
           >
             {txt}
@@ -264,34 +265,36 @@ export default function KanbanUserList() {
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
     {
-      prop: "task_diff_lines",
-      label: language.t("kanban.table.taskCodeLines"),
-      minWidth: 110,
-      align: "left",
-      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
-    },
-    {
-      prop: "commit_diff_lines",
-      label: language.t("kanban.table.commitCodeLines"),
-      minWidth: 120,
-      align: "left",
-      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
-    },
-    {
       prop: "task_real_minutes",
       label: language.t("kanban.table.taskActualTime"),
-      minWidth: 120,
+      minWidth: 110,
       align: "left",
       display: (row) => formatDuration(row.task_real_minutes, language.t),
       filter: { type: "number", valueGetter: (row) => (row.task_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
     {
+      prop: "task_ancient_minutes",
+      label: language.t("kanban.table.taskTraditionalEst"),
+      minWidth: 110,
+      align: "left",
+      display: (row) => formatDuration(row.task_ancient_minutes, language.t),
+      filter: { type: "number", valueGetter: (row) => (row.task_ancient_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
+    },
+    {
       prop: "commit_real_minutes",
       label: language.t("kanban.table.commitActualTime"),
-      minWidth: 130,
+      minWidth: 110,
       align: "left",
       display: (row) => formatDuration(row.commit_real_minutes, language.t),
       filter: { type: "number", valueGetter: (row) => (row.commit_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
+    },
+    {
+      prop: "commit_ancient_minutes",
+      label: language.t("kanban.table.commitTraditionalEst"),
+      minWidth: 110,
+      align: "left",
+      display: (row) => formatDuration(row.commit_ancient_minutes, language.t),
+      filter: { type: "number", valueGetter: (row) => (row.commit_ancient_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
     {
       prop: "task_efficiency_ratio",
@@ -330,6 +333,20 @@ export default function KanbanUserList() {
           ? "-"
           : `¥${row.cost.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`,
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] },
+    },
+    {
+      prop: "task_diff_lines",
+      label: language.t("kanban.table.taskCodeLines"),
+      minWidth: 110,
+      align: "left",
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
+    },
+    {
+      prop: "commit_diff_lines",
+      label: language.t("kanban.table.commitCodeLines"),
+      minWidth: 120,
+      align: "left",
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
     },
   ])
 
