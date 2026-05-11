@@ -201,6 +201,11 @@ export function DeviceSessionTab(props: { tabId: string }) {
     return session.data.status
   })
 
+  const isWorking = createMemo(() => {
+    const t = effectiveStatus()?.type
+    return t === "busy" || t === "retry"
+  })
+
   const effectiveParts = createMemo(() => {
     if (viewingSessionID()) return loadedParts as Record<string, Part[]>
     const fromSession = session.data.parts
@@ -919,6 +924,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
                             setPromptDockRef={(el) => { promptDock = el }}
                             hideAttachButton
                             hidePrompt={!!viewingSessionID()}
+                            working={isWorking()}
                           />
                         </Show>
                         <Show when={!workspace.agentAvailable()}>

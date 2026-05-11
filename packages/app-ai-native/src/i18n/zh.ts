@@ -581,6 +581,7 @@ export const dict = {
   "session.messages.loading": "正在加载消息...",
   "session.messages.jumpToLatest": "跳转到最新",
   "session.context.addToContext": "将 {{selection}} 添加到上下文",
+  "session.status.processing": "处理中...",
   "session.todo.title": "待办事项",
   "session.todo.collapse": "折叠",
   "session.todo.expand": "展开",
