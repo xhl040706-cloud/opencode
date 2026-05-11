@@ -122,11 +122,9 @@ async function cloneAndCopy(
 
     for (const skillMdPath of skillPaths) {
       const srcDir = path.join(cloneDir, path.dirname(skillMdPath))
-      // Strip locale prefix: "en/skills/review" -> "skills/review"
-      const relativeDir = skillMdPath.startsWith(`${locale}/`)
-        ? skillMdPath.slice(locale.length + 1).replace(/\/[^/]*$/, "")
-        : path.dirname(skillMdPath)
-      const outputDir = path.join(outputLocaleDir, relativeDir)
+      // Extract skill name: "skills/en/review/SKILL.md" -> "review"
+      const skillName = path.basename(path.dirname(skillMdPath))
+      const outputDir = path.join(outputLocaleDir, "skills", skillName)
 
       await fs.rm(outputDir, { recursive: true, force: true })
       await fs.cp(srcDir, outputDir, { recursive: true })
@@ -138,7 +136,6 @@ async function cloneAndCopy(
         throw new Error(`Skill (${locale}) missing SKILL.md at ${skillMdPath}`)
       }
 
-      const skillName = path.basename(srcDir)
       const fileCount = (await walk(outputDir)).length
       console.log(`   ✓ ${locale}/skills/${skillName}: ${fileCount} files`)
     }
