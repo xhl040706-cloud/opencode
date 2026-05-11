@@ -221,11 +221,12 @@ export function MessageTimeline(props: {
   const language = useLanguage()
 
   const rendered = createMemo(() => props.renderedUserMessages.map((message) => message.id))
+  const sid = createMemo(() => (sync as any).currentSessionID?.())
   const sessionKey = createMemo(() => {
-    const id = params.id || (sync as any).currentSessionID?.()
-    return `${params.dir}${id ? "/" + id : ""}`
+    const id = sid()
+    return `${id ?? ""}`
   })
-  const sessionID = createMemo(() => params.id || (sync as any).currentSessionID?.())
+  const sessionID = sid
   const sessionMessages = createMemo(() => {
     const id = sessionID()
     if (!id) return emptyMessages
@@ -245,7 +246,7 @@ export function MessageTimeline(props: {
     const parentID = pending()?.parentID
     if (parentID) {
       const messages = sessionMessages()
-      const result = Binary.search(messages, parentID, (message) => message.id)
+      const result = Binary.search(messages, parentID, (message: any) => message.id)
       const message = result.found ? messages[result.index] : messages.find((item) => item.id === parentID)
       if (message && message.role === "user") return message.id
     }
@@ -332,8 +333,8 @@ export function MessageTimeline(props: {
       .sessionUpdate({ sessionID: id, title: next })
       .then(() => {
         sync.set(
-          produce((draft) => {
-            const index = draft.session.findIndex((s) => s.id === id)
+          produce((draft: any) => {
+            const index = draft.session.findIndex((s: any) => s.id === id)
             if (index !== -1) draft.session[index].title = next
           }),
         )
@@ -349,7 +350,7 @@ export function MessageTimeline(props: {
   }
 
   const navigateAfterSessionRemoval = (sessionID: string, parentID?: string) => {
-    if (params.id !== sessionID) return
+    if (sid() !== sessionID) return
     if (parentID) {
       navigate(`/workspace/${params.workspaceID}/${parentID}`)
       return
@@ -366,12 +367,19 @@ export function MessageTimeline(props: {
       .sessionUpdate({ sessionID, time: { archived: Date.now() } })
       .then(() => {
         sync.set(
-          produce((draft) => {
-            const index = draft.session.findIndex((s) => s.id === sessionID)
+          produce((draft: any) => {
+            const index = draft.session.findIndex((s: any) => s.id === sessionID)
             if (index !== -1) draft.session.splice(index, 1)
           }),
         )
         navigateAfterSessionRemoval(sessionID, session.parentID)
+      })
+      .catch((err) => {
+        showToast({
+          title: language.t("session.delete.failed.title"),
+          description: errorMessage(err),
+        })
+        return false
       })
       .catch((err) => {
         showToast({
@@ -399,7 +407,7 @@ export function MessageTimeline(props: {
     if (!result) return false
 
     sync.set(
-      produce((draft) => {
+      produce((draft: any) => {
         const removed = new Set<string>([sessionID])
 
         const byParent = new Map<string, string[]>()
@@ -429,7 +437,7 @@ export function MessageTimeline(props: {
           }
         }
 
-        draft.session = draft.session.filter((s) => !removed.has(s.id))
+        draft.session = draft.session.filter((s: any) => !removed.has(s.id))
       }),
     )
 

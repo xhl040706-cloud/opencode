@@ -143,6 +143,10 @@
       color: var(--syntax-type);
     }
 
+    [data-highlight="workspace"] {
+      color: var(--icon-warning-active);
+    }
+
     max-width: 100%;
   }
 

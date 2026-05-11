@@ -1,6 +1,6 @@
 import { Component, createMemo } from "solid-js"
-import { useParams } from "@solidjs/router"
 import { useSync } from "@/context/sync"
+import { useSDK } from "@/context/sdk"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { List } from "@opencode-ai/ui/list"
@@ -8,16 +8,16 @@ import { useLanguage } from "@/context/language"
 import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 
 export const DialogSessionList: Component = () => {
-  const params = useParams()
   const sync = useSync()
+  const sdk = useSDK()
   const dialog = useDialog()
   const language = useLanguage()
   const { navigateToSession } = useWorkspaceNavigate()
 
   const sessions = createMemo(() => {
-    const dir = params.dir
-    if (!dir) return sync.data.session.slice(0, 20)
-    return sync.data.session
+    const dir = sdk.directory
+    if (!dir) return (sync.data.session as any[]).slice(0, 20)
+    return (sync.data.session as any[])
       .filter((s) => s.directory === dir)
       .slice(0, 20)
   })
@@ -28,7 +28,7 @@ export const DialogSessionList: Component = () => {
       description={language.t("command.sessions.description")}
     >
       <List
-        items={sessions()}
+        items={sessions() as any[]}
         key={(s) => s.id}
         onSelect={(item) => {
           if (!item) return

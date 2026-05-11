@@ -28,7 +28,7 @@ export const DialogSelectProvider: Component = () => {
         key={(x) => x?.id}
         items={() => {
           language.locale()
-          return providers.connected()
+          return providers.connected() as any[]
         }}
         filterKeys={["id", "name"]}
         sortBy={(a, b) => {

@@ -28,7 +28,7 @@ export const DialogSelectMcp: Component = () => {
 
   const items = createMemo(() =>
     Object.entries(sync.data.mcp ?? {})
-      .map(([name, status]) => ({ name, status: status.status }))
+      .map(([name, status]: [string, any]) => ({ name, status: status.status }))
       .sort((a, b) => a.name.localeCompare(b.name)),
   )
 

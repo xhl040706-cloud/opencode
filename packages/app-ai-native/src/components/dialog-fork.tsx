@@ -1,5 +1,4 @@
 import { Component, createMemo } from "solid-js"
-import { useParams } from "@solidjs/router"
 import { useSync } from "@/context/sync"
 import { useSDK } from "@/context/sdk"
 import { usePrompt } from "@/context/prompt"
@@ -23,7 +22,6 @@ function formatTime(date: Date): string {
 }
 
 export const DialogFork: Component = () => {
-  const params = useParams()
   const { navigateToSession } = useWorkspaceNavigate()
   const sync = useSync()
   const sdk = useSDK()
@@ -32,7 +30,7 @@ export const DialogFork: Component = () => {
   const language = useLanguage()
 
   const messages = createMemo((): ForkableMessage[] => {
-    const sessionID = params.id
+    const sessionID = (sync as any).currentSessionID?.()
     if (!sessionID) return []
 
     const msgs = sync.data.message[sessionID] ?? []
@@ -58,7 +56,7 @@ export const DialogFork: Component = () => {
   const handleSelect = (item: ForkableMessage | undefined) => {
     if (!item) return
 
-    const sessionID = params.id
+    const sessionID = (sync as any).currentSessionID?.()
     if (!sessionID) return
 
     const parts = sync.data.part[item.id] ?? []

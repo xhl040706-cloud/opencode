@@ -8,12 +8,7 @@ import { MarkedProvider } from "@opencode-ai/ui/context/marked"
 import { Font } from "@opencode-ai/ui/font"
 import { ThemeProvider } from "@opencode-ai/ui/theme"
 import { MetaProvider } from "@solidjs/meta"
-import { Navigate } from "@solidjs/router"
-import { createEffect, ErrorBoundary, type ParentProps, lazy, Suspense } from "solid-js"
-import { TerminalProvider } from "@/context/terminal"
-import { FileProvider } from "@/context/file"
-import { PromptProvider } from "@/context/prompt"
-import { CommentsProvider } from "@/context/comments"
+import { createEffect, ErrorBoundary, type ParentProps, Suspense } from "solid-js"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
 import { LanguageProvider } from "@/context/language"
@@ -23,31 +18,7 @@ import { ItemFilterOptionsProvider } from "@/context/item-filter-options"
 import { ErrorPage } from "./pages/error"
 import { useTheme } from "@opencode-ai/ui/theme"
 
-const Session = lazy(() => import("@/pages/session"))
-
 const Loading = () => <div class="size-full" />
-
-function SessionProviders(props: ParentProps) {
-  return (
-    <TerminalProvider>
-      <FileProvider>
-        <PromptProvider>
-          <CommentsProvider>{props.children}</CommentsProvider>
-        </PromptProvider>
-      </FileProvider>
-    </TerminalProvider>
-  )
-}
-
-export const SessionRoute = () => (
-  <SessionProviders>
-    <Suspense fallback={<Loading />}>
-      <Session />
-    </Suspense>
-  </SessionProviders>
-)
-
-export const SessionIndexRoute = () => <Navigate href="session" />
 
 function UiI18nBridge(props: ParentProps) {
   const language = useLanguage()

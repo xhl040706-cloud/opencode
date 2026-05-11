@@ -2,7 +2,6 @@ import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { showToast } from "@opencode-ai/ui/toast"
-import { useParams } from "@solidjs/router"
 import { getFilename } from "@opencode-ai/util/path"
 import { useSDK } from "./sdk"
 import { useSync } from "./sync"
@@ -57,14 +56,13 @@ export const { use: useFile, provider: FileProvider, context: FileContext } = cr
   gate: false,
   init: () => {
     const sdk = useSDK()
-    useSync()
-    const params = useParams()
+    const sync = useSync()
     const language = useLanguage()
     const layout = useLayout()
 
     const scope = createMemo(() => sdk.directory)
     const path = createPathHelpers(scope)
-    const tabs = layout.tabs(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
+    const tabs = layout.tabs(() => (sync as any).currentSessionID?.() ?? "")
 
     const inflight = new Map<string, Promise<void>>()
     const [store, setStore] = createStore<{
@@ -111,7 +109,7 @@ export const { use: useFile, provider: FileProvider, context: FileContext } = cr
     })
 
     const viewCache = createFileViewCache()
-    const view = createMemo(() => viewCache.load(scope(), params.id))
+    const view = createMemo(() => viewCache.load(scope(), (sync as any).currentSessionID?.()))
 
     const ensure = (file: string) => {
       if (!file) return

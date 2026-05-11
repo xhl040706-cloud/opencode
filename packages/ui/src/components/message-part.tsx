@@ -944,6 +944,8 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
 
   const agents = createMemo(() => (props.parts?.filter((p) => p.type === "agent") as AgentPart[]) ?? [])
 
+  const textParts = createMemo(() => (props.parts?.filter((p) => p.type === "text") as TextPart[]) ?? [])
+
   const model = createMemo(() => {
     const providerID = props.message.model?.providerID
     const modelID = props.message.model?.modelID
@@ -1033,7 +1035,7 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
         <>
           <div data-slot="user-message-body">
             <div data-slot="user-message-text">
-              <HighlightedText text={text()} references={inlineFiles()} agents={agents()} />
+              <HighlightedText text={text()} references={inlineFiles()} agents={agents()} textParts={textParts()} />
             </div>
           </div>
           <div data-slot="user-message-copy-wrapper">
@@ -1096,19 +1098,33 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
   )
 }
 
-type HighlightSegment = { text: string; type?: "file" | "agent" }
+type HighlightSegment = { text: string; type?: "file" | "agent" | "workspace" }
 
-function HighlightedText(props: { text: string; references: FilePart[]; agents: AgentPart[] }) {
+type WorkspaceRef = {
+  start: number
+  end: number
+}
+
+function HighlightedText(props: { text: string; references: FilePart[]; agents: AgentPart[]; textParts: TextPart[] }) {
   const segments = createMemo(() => {
     const text = props.text
 
-    const allRefs: { start: number; end: number; type: "file" | "agent" }[] = [
+    const allRefs: { start: number; end: number; type: "file" | "agent" | "workspace" }[] = [
       ...props.references
         .filter((r) => r.source?.text?.start !== undefined && r.source?.text?.end !== undefined)
         .map((r) => ({ start: r.source!.text!.start, end: r.source!.text!.end, type: "file" as const })),
       ...props.agents
         .filter((a) => a.source?.start !== undefined && a.source?.end !== undefined)
         .map((a) => ({ start: a.source!.start, end: a.source!.end, type: "agent" as const })),
+      ...props.textParts
+        .filter((p) => {
+          const ws = p.metadata?._workspace as { source?: { start?: number; end?: number } } | undefined
+          return ws?.source?.start !== undefined && ws?.source?.end !== undefined
+        })
+        .map((p) => {
+          const ws = p.metadata!._workspace as { source: { start: number; end: number } }
+          return { start: ws.source.start, end: ws.source.end, type: "workspace" as const }
+        }),
     ].sort((a, b) => a.start - b.start)
 
     const result: HighlightSegment[] = []

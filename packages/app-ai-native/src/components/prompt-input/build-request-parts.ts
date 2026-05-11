@@ -126,6 +126,13 @@ export function buildRequestParts(input: BuildRequestPartsInput) {
       id: Identifier.ascending("part"),
       type: "text",
       text: attachment.directory,
+      metadata: {
+        _workspace: {
+          source: { value: attachment.content, start: attachment.start, end: attachment.end },
+          directory: attachment.directory,
+          workspaceName: attachment.workspaceName,
+        },
+      },
     } satisfies PromptRequestPart
   })
 

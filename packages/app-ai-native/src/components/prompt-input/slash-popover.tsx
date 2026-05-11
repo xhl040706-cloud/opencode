@@ -27,12 +27,42 @@ type PromptPopoverProps = {
   atKey: (item: AtOption) => string
   setAtActive: (id: string) => void
   onAtSelect: (item: AtOption) => void
+  workspaceFileSearch: { id: string; name: string; directory: string } | null
+  wsFileFlat: AtOption[]
+  wsFileActive?: string
+  setWsFileActive: (id: string) => void
+  onWsFileSelect: (item: AtOption) => void
+  currentWorkspaceId: string
   slashFlat: SlashCommand[]
   slashActive?: string
   setSlashActive: (id: string) => void
   onSlashSelect: (item: SlashCommand) => void
   commandKeybind: (id: string) => string | undefined
   t: (key: string) => string
+}
+
+function FileItem(props: { item: AtOption; atKey: string; isActive: boolean; onActive: () => void; onSelect: () => void }) {
+  const path = () => (props.item as { type: "file"; path: string }).path
+  const isDirectory = () => path().endsWith("/")
+  const directory = () => (isDirectory() ? path() : getDirectory(path()))
+  const filename = () => (isDirectory() ? "" : getFilename(path()))
+
+  return (
+    <button
+      class="w-full flex items-center gap-x-2 rounded-md px-2 py-0.5"
+      classList={{ "bg-surface-raised-base-hover": props.isActive }}
+      onClick={() => props.onSelect()}
+      onMouseEnter={() => props.onActive()}
+    >
+      <FileIcon node={{ path: path(), type: "file" }} class="shrink-0 size-4" />
+      <div class="flex items-center text-14-regular min-w-0">
+        <span class="text-text-weak whitespace-nowrap truncate min-w-0">{directory()}</span>
+        <Show when={!isDirectory()}>
+          <span class="text-text-strong whitespace-nowrap">{filename()}</span>
+        </Show>
+      </div>
+    </button>
+  )
 }
 
 export const PromptPopover: Component<PromptPopoverProps> = (props) => {
@@ -48,6 +78,31 @@ export const PromptPopover: Component<PromptPopoverProps> = (props) => {
         onMouseDown={(e) => e.preventDefault()}
       >
         <Switch>
+          <Match when={props.popover === "at" && props.workspaceFileSearch}>
+            <div class="flex items-center justify-between gap-x-2 px-1 pb-1 mb-1 border-b border-[var(--native-border)]">
+              <div class="flex items-center gap-x-2 min-w-0">
+                <Icon name="folder" size="small" class="text-icon-warning-active shrink-0" />
+                <span class="text-13-medium text-text-strong whitespace-nowrap truncate">{props.workspaceFileSearch!.name}</span>
+              </div>
+              <span class="text-11-regular text-text-subtle shrink-0">{props.t("prompt.popover.workspace.exit")}</span>
+            </div>
+            <Show
+              when={props.wsFileFlat.length > 0}
+              fallback={<div class="text-text-weak px-2 py-1">{props.t("prompt.popover.workspaceFile.empty")}</div>}
+            >
+              <For each={props.wsFileFlat.slice(0, 10)}>
+                {(item) => (
+                  <FileItem
+                    item={item}
+                    atKey={props.atKey(item)}
+                    isActive={props.wsFileActive === props.atKey(item)}
+                    onActive={() => props.setWsFileActive(props.atKey(item))}
+                    onSelect={() => props.onWsFileSelect(item)}
+                  />
+                )}
+              </For>
+            </Show>
+          </Match>
           <Match when={props.popover === "at"}>
             <Show
               when={props.atFlat.length > 0}
@@ -72,6 +127,8 @@ export const PromptPopover: Component<PromptPopoverProps> = (props) => {
                   }
 
                   if (item.type === "workspace") {
+                    const isCurrent = item.id === props.currentWorkspaceId
+                    const isActive = () => props.atActive === key && !isCurrent
                     return (
                       <button
                         class="w-full flex items-center justify-between gap-x-2 rounded-md px-2 py-0.5"
@@ -83,30 +140,24 @@ export const PromptPopover: Component<PromptPopoverProps> = (props) => {
                           <Icon name="folder" size="small" class="text-icon-warning-active shrink-0" />
                           <span class="text-14-regular text-text-strong whitespace-nowrap truncate">{item.name}</span>
                         </div>
-                        <span class="text-11-regular text-text-subtle px-1.5 py-0.5 bg-surface-base rounded shrink-0">workspace</span>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                          <Show when={isActive()}>
+                            <span class="text-11-regular text-text-subtle">{props.t("prompt.popover.workspace.enter")}</span>
+                          </Show>
+                          <span class="text-11-regular text-text-subtle px-1.5 py-0.5 bg-surface-base rounded">workspace</span>
+                        </div>
                       </button>
                     )
                   }
 
-                  const isDirectory = item.path.endsWith("/")
-                  const directory = isDirectory ? item.path : getDirectory(item.path)
-                  const filename = isDirectory ? "" : getFilename(item.path)
-
                   return (
-                    <button
-                      class="w-full flex items-center gap-x-2 rounded-md px-2 py-0.5"
-                      classList={{ "bg-surface-raised-base-hover": props.atActive === key }}
-                      onClick={() => props.onAtSelect(item)}
-                      onMouseEnter={() => props.setAtActive(key)}
-                    >
-                      <FileIcon node={{ path: item.path, type: "file" }} class="shrink-0 size-4" />
-                      <div class="flex items-center text-14-regular min-w-0">
-                        <span class="text-text-weak whitespace-nowrap truncate min-w-0">{directory}</span>
-                        <Show when={!isDirectory}>
-                          <span class="text-text-strong whitespace-nowrap">{filename}</span>
-                        </Show>
-                      </div>
-                    </button>
+                    <FileItem
+                      item={item}
+                      atKey={key}
+                      isActive={props.atActive === key}
+                      onActive={() => props.setAtActive(key)}
+                      onSelect={() => props.onAtSelect(item)}
+                    />
                   )
                 }}
               </For>

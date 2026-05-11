@@ -8,7 +8,6 @@ import { Spinner } from "@opencode-ai/ui/spinner"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
 import { getFilename } from "@opencode-ai/util/path"
-import { useParams } from "@solidjs/router"
 import { createEffect, createMemo, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
@@ -17,7 +16,7 @@ import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { usePlatform } from "@/context/platform"
 import { useSync } from "@/context/sync"
-import { decode64 } from "@/utils/base64"
+import { useSDK } from "@/context/sdk"
 import { Persist, persisted } from "@/utils/persist"
 import { StatusPopover } from "../status-popover"
 
@@ -132,13 +131,13 @@ const showRequestError = (language: ReturnType<typeof useLanguage>, err: unknown
 
 export function SessionHeader() {
   const layout = useLayout()
-  const params = useParams()
   const command = useCommand()
   const sync = useSync()
+  const sdk = useSDK()
   const platform = usePlatform()
   const language = useLanguage()
 
-  const workspaceDirectory = createMemo(() => decode64(params.dir) ?? "")
+  const workspaceDirectory = createMemo(() => sdk.directory ?? "")
   const workspace = createMemo(() => {
     const directory = workspaceDirectory()
     if (!directory) return
@@ -151,7 +150,7 @@ export function SessionHeader() {
   })
   const hotkey = createMemo(() => command.keybind("file.open"))
 
-  const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
+  const sessionKey = createMemo(() => ((sync as any).currentSessionID?.() ?? ""))
   const view = createMemo(() => layout.view(sessionKey))
   const os = createMemo(() => detectOS(platform))
 

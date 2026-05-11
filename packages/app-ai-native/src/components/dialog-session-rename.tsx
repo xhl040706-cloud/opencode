@@ -1,5 +1,4 @@
 import { Component, createSignal } from "solid-js"
-import { useParams } from "@solidjs/router"
 import { useSync } from "@/context/sync"
 import { useSDK } from "@/context/sdk"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -10,24 +9,24 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
 
 export const DialogSessionRename: Component = () => {
-  const params = useParams()
   const sync = useSync()
   const sdk = useSDK()
   const dialog = useDialog()
   const language = useLanguage()
 
-  const sessionID = params.id
-  const session = () => (sessionID ? sync.session.get(sessionID) : undefined)
+  const sessionID = () => (sync as any).currentSessionID?.() as string | undefined
+  const session = () => (sessionID() ? sync.session.get(sessionID()!) : undefined)
   const [title, setTitle] = createSignal(session()?.title ?? "")
 
   const handleSubmit = async () => {
-    if (!sessionID) return
+    const id = sessionID()
+    if (!id) return
     const newTitle = title().trim()
     if (!newTitle) return
 
     try {
       await sdk.client.session.update({
-        id: sessionID,
+        id,
         body: { title: newTitle },
       })
       showToast({

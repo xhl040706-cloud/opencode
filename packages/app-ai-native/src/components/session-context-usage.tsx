@@ -2,7 +2,6 @@ import { Match, Show, Switch, createMemo } from "solid-js"
 import { Tooltip, type TooltipProps } from "@opencode-ai/ui/tooltip"
 import { ProgressCircle } from "@opencode-ai/ui/progress-circle"
 import { Button } from "@opencode-ai/ui/button"
-import { useParams } from "@solidjs/router"
 
 import { useLayout } from "@/context/layout"
 import { useSync } from "@/context/sync"
@@ -27,15 +26,17 @@ function openSessionContext(args: {
 
 export function SessionContextUsage(props: SessionContextUsageProps) {
   const sync = useSync()
-  const params = useParams()
   const layout = useLayout()
   const language = useLanguage()
 
   const variant = createMemo(() => props.variant ?? "button")
-  const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
+  const sessionKey = createMemo(() => (sync as any).currentSessionID?.() ?? "")
   const tabs = createMemo(() => layout.tabs(sessionKey))
   const view = createMemo(() => layout.view(sessionKey))
-  const messages = createMemo(() => (params.id ? (sync.data.message[params.id] ?? []) : []))
+  const messages = createMemo(() => {
+    const id = (sync as any).currentSessionID?.()
+    return id ? (sync.data.message[id] ?? []) : []
+  })
 
   const usd = createMemo(
     () =>
@@ -54,7 +55,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
   })
 
   const openContext = () => {
-    if (!params.id) return
+    if (!(sync as any).currentSessionID?.()) return
 
     if (tabs().active() === "context") {
       tabs().close("context")
@@ -97,7 +98,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
   )
 
   return (
-    <Show when={params.id}>
+    <Show when={(sync as any).currentSessionID?.()}>
       <Tooltip value={tooltipValue()} placement={props.placement ?? "top"}>
         <Switch>
           <Match when={variant() === "indicator"}>{circle()}</Match>

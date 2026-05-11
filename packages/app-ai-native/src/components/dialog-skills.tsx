@@ -11,7 +11,7 @@ export const DialogSkills: Component = () => {
   const sync = useSync()
 
   const skills = createMemo(() =>
-    Object.values(sync.data.command).filter((c) => c.source === "skill"),
+    Object.values(sync.data.command as any).filter((c: any) => c.source === "skill"),
   )
 
   return (
@@ -28,7 +28,7 @@ export const DialogSkills: Component = () => {
         }
       >
         <List
-          items={skills()}
+          items={skills() as any[]}
           key={(s) => s.name}
           onSelect={() => dialog.close()}
         >

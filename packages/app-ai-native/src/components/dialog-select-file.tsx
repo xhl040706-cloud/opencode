@@ -14,7 +14,8 @@ import { useGlobalSync } from "@/context/global-sync"
 import { useLayout } from "@/context/layout"
 import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
-import { decode64 } from "@/utils/base64"
+import { useSync } from "@/context/sync"
+import { useSDK } from "@/context/sdk"
 import { getRelativeTime } from "@/utils/time"
 
 type EntryType = "command" | "file" | "session"
@@ -259,12 +260,14 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
   const layout = useLayout()
   const file = useFile()
   const dialog = useDialog()
+  const sync = useSync()
+  const sdk = useSDK()
   const params = useParams()
   const { navigateToSession } = useWorkspaceNavigate()
   const globalSDK = useGlobalSDK()
   const globalSync = useGlobalSync()
   const filesOnly = () => props.mode === "files"
-  const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
+  const sessionKey = createMemo(() => (sync as any).currentSessionID?.() ?? "")
   const tabs = createMemo(() => layout.tabs(sessionKey))
   const view = createMemo(() => layout.view(sessionKey))
   const state = { cleanup: undefined as (() => void) | void, committed: false }
@@ -272,7 +275,7 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
   const commandEntries = createCommandEntries({ filesOnly, command, language })
   const fileEntries = createFileEntries({ file, tabs, language })
 
-  const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
+  const projectDirectory = createMemo(() => sdk.directory ?? "")
   const project = createMemo(() => {
     const directory = projectDirectory()
     if (!directory) return

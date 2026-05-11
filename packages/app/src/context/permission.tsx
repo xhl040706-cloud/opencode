@@ -120,6 +120,13 @@ export const { use: usePermission, provider: PermissionProvider } = createSimple
     const respond: PermissionRespondFn = (input) => {
       globalSDK.client.permission.respond(input).catch(() => {
         responded.delete(input.permissionID)
+        if (input.sessionID && input.permissionID) {
+          const [, setChildStore] = globalSync.child(input.directory)
+          setChildStore("permission", input.sessionID, produce((draft) => {
+            const idx = draft.findIndex((p) => p.id === input.permissionID)
+            if (idx !== -1) draft.splice(idx, 1)
+          }))
+        }
       })
     }
 

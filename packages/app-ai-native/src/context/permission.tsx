@@ -1,7 +1,6 @@
-import type { PermissionRequest } from "@opencode-ai/sdk/v2/client"
-import { createSimpleContext } from "@opencode-ai/ui/context"
+import { createContext, useContext } from "solid-js"
 
-type PermissionRespondFn = (input: {
+export type PermissionRespondFn = (input: {
   sessionID: string
   permissionID: string
   response: "once" | "always" | "reject"
@@ -11,7 +10,7 @@ type PermissionRespondFn = (input: {
 export type PermissionValue = {
   ready: () => boolean
   respond: PermissionRespondFn
-  autoResponds: (permission?: PermissionRequest) => boolean
+  autoResponds: (permission?: any) => boolean
   isAutoAccepting: (sessionID?: string) => boolean
   toggleAutoAccept: (sessionID?: string, directory?: string) => void
   enableAutoAccept: (sessionID?: string, directory?: string) => void
@@ -19,18 +18,10 @@ export type PermissionValue = {
   permissionsEnabled: () => boolean
 }
 
-const stub: PermissionValue = {
-  ready: () => true,
-  respond: () => {},
-  autoResponds: () => false,
-  isAutoAccepting: () => false,
-  toggleAutoAccept: () => {},
-  enableAutoAccept: () => {},
-  disableAutoAccept: () => {},
-  permissionsEnabled: () => false,
-}
+export const PermissionContext = createContext<PermissionValue>()
 
-export const { use: usePermission, provider: PermissionProvider, context: PermissionContext } = createSimpleContext({
-  name: "Permission",
-  init: () => stub,
-})
+export function usePermission() {
+  const ctx = useContext(PermissionContext)
+  if (!ctx) throw new Error("Permission context must be used within a context provider")
+  return ctx
+}
