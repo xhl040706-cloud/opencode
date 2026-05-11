@@ -188,6 +188,9 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const effectiveMessages = createMemo(() => {
     const cid = currentSessionID()
     if (!cid) return [] as Message[]
+    if (viewingSessionID()) {
+      return loadedMessages[cid] ?? ([] as Message[])
+    }
     const fromSession = session.data.messages
     if (fromSession.length > 0) return fromSession
     const fromLoaded = loadedMessages[cid]

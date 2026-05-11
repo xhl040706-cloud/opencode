@@ -587,14 +587,17 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   let wsSearchTimer: ReturnType<typeof setTimeout> | undefined
   const searchWorkspaceFiles = (query: string, directory: string) => {
+    const normalized = query.replace(/\\/g, "/")
     const scoped = device.createClient({ directory, throwOnError: true })
     return new Promise<string[]>((resolve) => {
       if (wsSearchTimer) clearTimeout(wsSearchTimer)
       const delay = query.trim() ? 300 : 0
       wsSearchTimer = setTimeout(() => {
         wsSearchTimer = undefined
-        scoped.runtime.findFiles(query, "true").then(
-          (x) => resolve((x as string[] | undefined) ?? []),
+        scoped.runtime.findFiles(normalized, "true").then(
+          (x) => {
+            resolve((x as string[] | undefined) ?? [])
+          },
           () => resolve([]),
         )
       }, delay)
@@ -637,6 +640,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       return paths.map((path) => ({ type: "file" as const, path, display: path }))
     },
     key: atKey,
+    filterKeys: ["display"],
     noInitialSelection: true,
     onSelect: handleWsFileSelect,
   })
