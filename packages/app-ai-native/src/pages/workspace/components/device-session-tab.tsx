@@ -454,7 +454,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
         if (!createdSessionID() && !session.sessionID()) {
           setCreatedSessionID(input.sessionID)
         }
-        const cid = viewingSessionID() ? currentSessionID() : input.sessionID
+        const cid = currentSessionID() ?? input.sessionID
         const message: Message = {
           id: input.messageID,
           sessionID: cid,

@@ -288,7 +288,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           .catch((err) => {
             showToast({
               title: language.t("prompt.toast.commandSendFailed.title"),
-              description: formatServerError(err, language, language.t("common.requestFailed")),
+              description: formatServerError(err, language.t, language.t("common.requestFailed")),
             })
             restoreInput()
           })
