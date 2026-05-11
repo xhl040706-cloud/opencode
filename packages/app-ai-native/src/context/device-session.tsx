@@ -194,6 +194,13 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
               setStore("parts", item.info.id, reconcile(item.parts as Part[], { key: "id" }))
             }
           }
+          const existingIDs = new Set(msgs.map((m) => m.id))
+          for (const m of store.messages) {
+            if (!existingIDs.has(m.id)) {
+              msgs.push(m)
+            }
+          }
+          msgs.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
           setStore("messages", reconcile(msgs, { key: "id" }))
         })
       } catch {}
@@ -331,7 +338,9 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           if (perm?.id && isAutoAccepting()) {
             device.client.permission.respond(perm.id, {
               decision: "once",
-            }).catch(() => {})
+            }).catch(() => {
+              if (perm.sessionID) workspace.session.removePermission(perm.sessionID, perm.id)
+            })
           }
           break
         }
@@ -342,9 +351,12 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
 
   const permissionRespond = (input: { permissionID: string; response: "once" | "always" | "reject" }) => {
     if (!workspace.agentAvailable()) return
+    const id = sid()
     device.client.permission.respond(input.permissionID, {
       decision: input.response,
-    }).catch(() => {})
+    }).catch(() => {
+      if (id) workspace.session.removePermission(id, input.permissionID)
+    })
   }
 
   const value: DeviceSessionValue = {

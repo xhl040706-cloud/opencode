@@ -2,7 +2,7 @@ import { createContext, useContext } from "solid-js"
 import type { DeviceClient } from "../client/device-client"
 
 export type ConversationAdapter = {
-  sessionCreate: () => Promise<{ data: unknown }>
+  sessionCreate: (body?: unknown) => Promise<{ data: unknown }>
   sessionAbort: (sessionID: string) => Promise<{ data: unknown }>
   sessionPromptAsync: (input: { sessionID: string } & Record<string, unknown>) => Promise<{ data: unknown }>
   sessionShell: (input: { sessionID: string } & Record<string, unknown>) => Promise<{ data: unknown }>
@@ -55,7 +55,7 @@ export function deviceAdapter(client: DeviceClient): ConversationAdapter {
     sessionStatus: () => wrap(client.conversation.status()),
     sessionDiff: (id) => wrap(client.conversation.diff(id)),
     sessionTodo: (id) => wrap(client.conversation.todo(id)),
-    sessionCreate: () => wrap(client.conversation.create()),
+    sessionCreate: (body?: unknown) => wrap(client.conversation.create(body)),
     sessionUpdate: (input) => wrap(client.conversation.update(input.sessionID, input)),
     sessionDelete: (id) => wrap(client.conversation.delete(id)),
     sessionAbort: (id) => wrap(client.conversation.abort(id)),
@@ -72,63 +72,5 @@ export function deviceAdapter(client: DeviceClient): ConversationAdapter {
     favoriteList: () => client.transport.get("/api/v1/agents/favorites").then((data) => ({ data: data ?? [] })),
     favoriteLoad: (slug) => client.transport.post(`/api/v1/agents/favorites/${slug}/load`).then((data) => ({ data })),
     favoriteUnload: (slug) => client.transport.post(`/api/v1/agents/favorites/${slug}/unload`).then((data) => ({ data })),
-  }
-}
-
-export function sdkAdapter(sdk: any): ConversationAdapter {
-  const wrap = <T>(p: Promise<T>) => p.then((data: unknown) => ({ data })) as Promise<{ data: unknown }>
-
-  return {
-    health: () => wrap(sdk.runtime.health()),
-    path: () => wrap(sdk.runtime.path()),
-    sessionModes: () => wrap(sdk.agent.sessionModes()),
-    agentRuntimes: () => wrap(sdk.agent.list()),
-    sessionGet: (sessionID: string) => wrap(sdk.conversation.get(sessionID)),
-    sessionList: (directory?: string) => wrap(sdk.conversation.list(directory ? { directory } : undefined)),
-    sessionMessages: (sessionID: string, directory: string, limit: number) =>
-      wrap(sdk.conversation.messages(sessionID, { directory, limit })),
-    sessionStatus: () => wrap(sdk.conversation.status()),
-    sessionDiff: (sessionID: string) => wrap(sdk.conversation.diff(sessionID)),
-    sessionTodo: (sessionID: string) => wrap(sdk.conversation.todo(sessionID)),
-    sessionCreate: () => wrap(sdk.conversation.create()),
-    sessionUpdate: (input: { sessionID: string } & Record<string, unknown>) =>
-      wrap(sdk.conversation.update(input.sessionID, input)),
-    sessionDelete: (sessionID: string) => wrap(sdk.conversation.delete(sessionID)),
-    sessionAbort: (sessionID: string) => wrap(sdk.conversation.abort(sessionID)),
-    sessionShell: (input: { sessionID: string } & Record<string, unknown>) =>
-      wrap(sdk.conversation.shell(input.sessionID, input)),
-    sessionCommand: (input: { sessionID: string } & Record<string, unknown>) =>
-      wrap(sdk.conversation.command(input.sessionID, input)),
-    sessionPromptAsync: (input: { sessionID: string } & Record<string, unknown>) =>
-      wrap(sdk.conversation.promptAsync(input.sessionID, input)),
-    worktreeCreate: (directory: string) => sdk.raw.worktree.create({ directory }),
-    commands: () => {
-      const baseUrl = (sdk as any).client?.baseUrl ?? ""
-      const headers = (sdk as any).client?.headers ?? {}
-      const url = `${baseUrl.replace(/\/$/, "")}/agents/commands`
-      return globalThis.fetch(url, { headers, method: "GET" })
-        .then((r: Response) => r.json())
-        .then((body: any) => ({ data: Array.isArray(body) ? body : body?.data?.commands ?? [] }))
-    },
-    vcs: (directory: string) => wrap(sdk.runtime.vcs(directory)),
-    permissions: () => wrap(sdk.permission.list()),
-    questions: () => wrap(sdk.question.list()),
-    questionReply: (requestID: string, answers: unknown) =>
-      wrap(sdk.question.reply(requestID, { answers })),
-    questionReject: (requestID: string) => wrap(sdk.question.reject(requestID)),
-    favoriteList: () =>
-      sdk.transport
-        .get("/api/v1/agents/favorites")
-        .then((data: unknown) => ({ data: (data as unknown[] | null | undefined) ?? [] })),
-    favoriteLoad: (slug: string) =>
-      sdk.transport
-        .post(`/api/v1/agents/favorites/${slug}/load`)
-        .then((data) => ({ data }))
-        .catch(() => ({ data: undefined })),
-    favoriteUnload: (slug: string) =>
-      sdk.transport
-        .post(`/api/v1/agents/favorites/${slug}/unload`)
-        .then((data) => ({ data }))
-        .catch(() => ({ data: undefined })),
   }
 }

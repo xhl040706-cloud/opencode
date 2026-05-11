@@ -187,10 +187,12 @@ export function DeviceSessionTab(props: { tabId: string }) {
 
   const effectiveMessages = createMemo(() => {
     const cid = currentSessionID()
-    const fromLoaded = cid ? loadedMessages[cid] : undefined
-    if (fromLoaded) return fromLoaded
-    if (cid === rootSessionID()) return session.data.messages
-    return [] as Message[]
+    if (!cid) return [] as Message[]
+    const fromSession = session.data.messages
+    if (fromSession.length > 0) return fromSession
+    const fromLoaded = loadedMessages[cid]
+    if (fromLoaded && fromLoaded.length > 0) return fromLoaded
+    return fromSession
   })
 
   const effectiveStatus = createMemo(() => {
@@ -201,7 +203,9 @@ export function DeviceSessionTab(props: { tabId: string }) {
 
   const effectiveParts = createMemo(() => {
     if (viewingSessionID()) return loadedParts as Record<string, Part[]>
-    return session.data.parts
+    const fromSession = session.data.parts
+    if (Object.keys(fromSession).length > 0) return fromSession
+    return loadedParts as Record<string, Part[]>
   })
 
   const effectiveDiffs = createMemo(() => {
@@ -254,16 +258,11 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const unsubscribe = workspace.subscribe((payload) => {
     if (payload.type === "session.created") {
       const info = (payload.properties as { info?: Session })?.info ?? payload.properties as Session
-      if (info?.id && !createdSessionID() && !session.sessionID()) {
-        setCreatedSessionID(info.id)
+      if (info?.id) {
         const current = tabStore.tabs().find((t) => t.id === props.tabId)
-        tabStore.replace(props.tabId, {
-          kind: "session",
-          key: info.id,
-          title: info.title ?? current?.title ?? language.t("command.session.new"),
-          icon: current?.icon ?? "message",
-          meta: { sessionID: info.id },
-        })
+        if (current && (current.meta as any)?.sessionID === info.id && info.title) {
+          tabStore.setTitle(props.tabId, info.title)
+        }
       }
     }
 
@@ -419,28 +418,30 @@ export function DeviceSessionTab(props: { tabId: string }) {
       optimistic: {
         add(input: { directory?: string; sessionID: string; message: Message; parts: Part[] }) {
           session.optimistic.add({ message: input.message, parts: input.parts })
-          if (!viewingSessionID()) return
-          const cid = currentSessionID()
-          if (cid) {
-            setLoadedMessages(cid, produce((draft: Message[]) => {
-              const idx = draft.findIndex((m) => m.id === input.message.id)
-              if (idx === -1) draft.push(input.message)
-            }))
-            if (input.message.id) {
-              setLoadedParts(input.message.id, produce((draft: Part[]) => {
-                for (const p of input.parts) {
-                  const idx = draft.findIndex((x) => x.id === p.id)
-                  if (idx === -1) draft.push(p)
-                }
-              }))
+          const cid = currentSessionID() ?? input.sessionID
+          if (!loadedMessages[cid]) {
+            setLoadedMessages(cid, [])
+          }
+          setLoadedMessages(cid, produce((draft: Message[]) => {
+            const idx = draft.findIndex((m) => m.id === input.message.id)
+            if (idx === -1) draft.push(input.message)
+          }))
+          if (input.message.id) {
+            if (!loadedParts[input.message.id]) {
+              setLoadedParts(input.message.id, [])
             }
+            setLoadedParts(input.message.id, produce((draft: Part[]) => {
+              for (const p of input.parts) {
+                const idx = draft.findIndex((x) => x.id === p.id)
+                if (idx === -1) draft.push(p)
+              }
+            }))
           }
         },
         remove(input: { directory?: string; sessionID: string; messageID: string }) {
           session.optimistic.remove({ messageID: input.messageID })
-          if (!viewingSessionID()) return
-          const cid = currentSessionID()
-          if (cid) {
+          const cid = currentSessionID() ?? input.sessionID
+          if (cid && loadedMessages[cid]) {
             setLoadedMessages(cid, produce((draft: Message[]) => {
               const idx = draft.findIndex((m) => m.id === input.messageID)
               if (idx !== -1) draft.splice(idx, 1)
@@ -450,27 +451,40 @@ export function DeviceSessionTab(props: { tabId: string }) {
       },
       addOptimisticMessage(input: { sessionID: string; messageID: string; parts: Part[]; agent: string; model: { providerID: string; modelID: string } }) {
         session.addOptimisticMessage(input)
-        if (!viewingSessionID()) return
-        const cid = currentSessionID()
-        if (cid) {
-          const message: Message = {
-            id: input.messageID,
-            sessionID: cid,
-            role: "user",
-            time: { created: Date.now() },
-            agent: input.agent,
-            model: input.model,
+        if (!createdSessionID() && !session.sessionID()) {
+          setCreatedSessionID(input.sessionID)
+        }
+        const cid = viewingSessionID() ? currentSessionID() : input.sessionID
+        const message: Message = {
+          id: input.messageID,
+          sessionID: cid,
+          role: "user",
+          time: { created: Date.now() },
+          agent: input.agent,
+          model: input.model,
+        }
+        if (!loadedMessages[cid]) {
+          setLoadedMessages(cid, [])
+        }
+        setLoadedMessages(cid, produce((draft: Message[]) => {
+          const idx = draft.findIndex((m) => m.id === message.id)
+          if (idx === -1) draft.push(message)
+        }))
+        if (!loadedParts[input.messageID]) {
+          setLoadedParts(input.messageID, [])
+        }
+        setLoadedParts(input.messageID, produce((draft: Part[]) => {
+          for (const p of input.parts) {
+            const idx = draft.findIndex((x) => x.id === p.id)
+            if (idx === -1) draft.push(p)
           }
-          setLoadedMessages(cid, produce((draft: Message[]) => {
-            const idx = draft.findIndex((m) => m.id === message.id)
-            if (idx === -1) draft.push(message)
-          }))
-          setLoadedParts(input.messageID, produce((draft: Part[]) => {
-            for (const p of input.parts) {
-              const idx = draft.findIndex((x) => x.id === p.id)
-              if (idx === -1) draft.push(p)
-            }
-          }))
+        }))
+      },
+      replaceTab(input: { sessionID: string; title?: string }) {
+        const current = tabStore.tabs().find((t) => t.id === props.tabId)
+        if (current && !(current.meta as any)?.sessionID) {
+          tabStore.updateMeta(props.tabId, { sessionID: input.sessionID })
+          if (input.title) tabStore.setTitle(props.tabId, input.title)
         }
       },
       async sync(id: string) { await session.sync() },

@@ -1,8 +1,9 @@
 import type { Message, Session } from "@opencode-ai/sdk/v2/client"
 import { showToast } from "@opencode-ai/ui/toast"
 import { base64Encode } from "@opencode-ai/util/encode"
-import { useNavigate, useParams } from "@solidjs/router"
+import { useNavigate } from "@solidjs/router"
 import type { Accessor } from "solid-js"
+import { createMemo } from "solid-js"
 import type { FileSelection } from "@/context/file"
 import { useGlobalSync } from "@/context/global-sync"
 import { useLanguage } from "@/context/language"
@@ -55,7 +56,6 @@ type CommentItem = {
 
 export function createPromptSubmit(input: PromptSubmitInput) {
   const navigate = useNavigate()
-  const params = useParams()
   const sdk = useSDK()
   const sync = useSync()
   const globalSync = useGlobalSync()
@@ -74,21 +74,23 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     return language.t("common.requestFailed")
   }
 
+  const sessionID = createMemo(() => (sync as any).currentSessionID?.())
+
   const abort = async () => {
-    const sessionID = params.id || (sync as any).currentSessionID?.()
-    if (!sessionID) return Promise.resolve()
+    const id = sessionID()
+    if (!id) return Promise.resolve()
 
-    sync.set("todo", sessionID, [])
+    sync.set("todo", id, [])
 
-    const queued = pending.get(sessionID)
+    const queued = pending.get(id)
     if (queued) {
       queued.abort.abort()
       queued.cleanup()
-      pending.delete(sessionID)
+      pending.delete(id)
       return Promise.resolve()
     }
     return deviceAdapter
-      .sessionAbort(sessionID)
+      .sessionAbort(id)
       .catch(() => {})
   }
 
@@ -140,12 +142,9 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     const projectDirectory = sdk.directory
     const existingSession = input.info() as Session | undefined
-    const deviceCurrentSession = !params.id && (sync as any).currentSessionID?.()
-      ? sync.session.get((sync as any).currentSessionID())
-      : undefined
-    const currentSession = existingSession ?? deviceCurrentSession
+    const currentSession = existingSession
     const isNewSession = !currentSession
-    const shouldAutoAccept = !params.id && input.autoAccept()
+    const shouldAutoAccept = !existingSession && input.autoAccept()
     const worktreeSelection = input.newSessionWorktree?.() || "main"
 
     let sessionDirectory = projectDirectory
@@ -193,20 +192,20 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     }
 
     let session = currentSession as Session | undefined
+
     if (!session && isNewSession) {
-      session = (await conversation
+      const created = await conversation
         .sessionCreate()
-        .then((x: any) => x.data ?? undefined)
-        .catch((err) => {
-          showToast({
-            title: language.t("prompt.toast.sessionCreateFailed.title"),
-            description: errorMessage(err),
-          })
-          return undefined
-        })) as Session | undefined
-        if (session) {
-        if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
+        .then((x: any) => x?.data ?? x)
+        .catch(() => undefined)
+      if (!created?.id) {
+        showToast({
+          title: language.t("prompt.toast.sessionCreateFailed.title"),
+          description: language.t("common.requestFailed"),
+        })
+        return
       }
+      session = created as Session
     }
     if (!session) {
       showToast({
@@ -246,7 +245,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     if (mode === "shell") {
       clearInput()
-      conversation
+      void conversation
         .sessionShell({
           sessionID: session.id,
           agent,
@@ -270,7 +269,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       const customCommand = commands.find((c) => c.name === commandName || c.aliases?.includes(commandName))
       if (customCommand && (customCommand.scope === "prompt" || !customCommand.scope)) {
         clearInput()
-        conversation
+        void conversation
           .sessionCommand({
             sessionID: session.id,
             command: commandName,
@@ -289,7 +288,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           .catch((err) => {
             showToast({
               title: language.t("prompt.toast.commandSendFailed.title"),
-              description: formatServerError(err, language.t, language.t("common.requestFailed")),
+              description: formatServerError(err, language, language.t("common.requestFailed")),
             })
             restoreInput()
           })
@@ -337,6 +336,12 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     removeCommentItems(commentItems)
     clearInput()
+
+    if (isNewSession) {
+      sync.session.replaceTab({ sessionID: session.id, title: session.title })
+      if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
+    }
+
     addOptimisticMessage()
 
     const waitForWorktree = async () => {
