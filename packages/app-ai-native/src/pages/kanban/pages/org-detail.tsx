@@ -236,9 +236,11 @@ export default function KanbanOrgDetail() {
                   <TableHead class="min-w-[140px]">{language.t("kanban.table.userName")}</TableHead>
                   <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.commitCodeLines")}</TableHead>
                   <TableHead class="min-w-[130px] text-left">{language.t("kanban.table.commitActualTime")}</TableHead>
+                  <TableHead class="min-w-[150px] text-left">{language.t("kanban.table.commitTraditionalEst")}</TableHead>
                   <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.commitEfficiency")}</TableHead>
                   <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskCodeLines")}</TableHead>
                   <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.taskActualTime")}</TableHead>
+                  <TableHead class="min-w-[150px] text-left">{language.t("kanban.table.taskTraditionalEst")}</TableHead>
                   <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskEfficiency")}</TableHead>
                   <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead>
                   <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.cost")}</TableHead>
@@ -263,9 +265,11 @@ export default function KanbanOrgDetail() {
                       </TableCell>
                       <TableCell class="text-left tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
                       <TableCell class="text-left">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
+                      <TableCell class="text-left">{formatDuration(row.commit_ancient_minutes, language.t)}</TableCell>
                       <TableCell class="text-left"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
                       <TableCell class="text-left tabular-nums">{row.task_diff_lines ?? 0}</TableCell>
                       <TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
+                      <TableCell class="text-left">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
                       <TableCell class="text-left"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
                       <TableCell class="text-left tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell>
                       <TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell>

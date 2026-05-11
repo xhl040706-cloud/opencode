@@ -340,7 +340,7 @@ export default function KanbanUserDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead>
-                  <TableHead class="min-w-[90px] text-left">{language.t("kanban.table.taskCount")}</TableHead>
+                  <TableHead class="min-w-[90px] text-left">{language.t("kanban.user.detail.table.commitCount")}</TableHead>
                   <TableHead class="min-w-[90px] text-left">{language.t("kanban.table.codeLines")}</TableHead>
                   <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.actualTime")}</TableHead>
                   <TableHead class="min-w-[150px] text-left">{language.t("kanban.table.traditionalEst")}</TableHead>
@@ -391,7 +391,7 @@ export default function KanbanUserDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead class="min-w-[140px]">{language.t("kanban.table.time")}</TableHead>
-                  <TableHead class="min-w-[90px] text-left">{language.t("kanban.table.commitCount")}</TableHead>
+                  <TableHead class="min-w-[90px] text-left">{language.t("kanban.user.detail.table.taskCount")}</TableHead>
                   <TableHead class="min-w-[90px] text-left">{language.t("kanban.table.codeLines")}</TableHead>
                   <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.actualTime")}</TableHead>
                   <TableHead class="min-w-[150px] text-left">{language.t("kanban.table.traditionalEst")}</TableHead>
