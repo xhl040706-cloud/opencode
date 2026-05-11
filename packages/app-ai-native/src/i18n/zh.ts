@@ -2212,4 +2212,7 @@ export const dict = {
   "kanban.action.clearAll": "清除全部",
 
   "kanban.misc.loading": "加载中...",
+
+  "kanban.user.detail.table.commitCount": "Commit 数",
+  "kanban.user.detail.table.taskCount": "Task 数",
 } satisfies Partial<Record<Keys | "store.home.filters.searchTag" | "store.home.filters.tagLimitHint" | "store.home.table.toggleColumns" | "store.console.capabilities.backToHome" | "store.console.capabilities.searchPlaceholder" | "store.security.riskLevel", string>>

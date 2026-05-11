@@ -2240,4 +2240,7 @@ export const dict = {
   "kanban.action.clearAll": "Clear all",
 
   "kanban.misc.loading": "Loading...",
+
+  "kanban.user.detail.table.commitCount": "Commit Count",
+  "kanban.user.detail.table.taskCount": "Task Count",
 }
