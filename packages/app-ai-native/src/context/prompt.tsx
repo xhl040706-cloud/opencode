@@ -1,10 +1,11 @@
 import { createStore, type SetStoreFunction } from "solid-js/store"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { batch, createMemo, createRoot, onCleanup } from "solid-js"
-import { useParams } from "@solidjs/router"
 import type { FileSelection } from "@/context/file"
 import { Persist, persisted } from "@/utils/persist"
 import { checksum } from "@opencode-ai/util/encode"
+import { useSync } from "@/context/sync"
+import { useSDK } from "@/context/sdk"
 
 interface PartBase {
   content: string
@@ -233,7 +234,8 @@ export const { use: usePrompt, provider: PromptProvider, context: PromptContext 
   name: "Prompt",
   gate: false,
   init: () => {
-    const params = useParams()
+    const sync = useSync()
+    const sdk = useSDK()
     const cache = new Map<string, PromptCacheEntry>()
 
     const disposeAll = () => {
@@ -274,7 +276,7 @@ export const { use: usePrompt, provider: PromptProvider, context: PromptContext 
       return entry.value
     }
 
-    const session = createMemo(() => load(params.dir!, params.id))
+    const session = createMemo(() => load(sdk.directory, (sync as any).currentSessionID?.()))
 
     return {
       ready: () => session().ready(),

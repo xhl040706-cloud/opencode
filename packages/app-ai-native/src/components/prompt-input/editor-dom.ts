@@ -28,8 +28,13 @@ export function createTextFragment(content: string): DocumentFragment {
 }
 
 export function getNodeLength(node: Node): number {
+  if (node.nodeType === Node.TEXT_NODE) return (node.textContent ?? "").replace(/\u200B/g, "").length
   if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR") return 1
-  return (node.textContent ?? "").replace(/\u200B/g, "").length
+  let length = 0
+  for (const child of Array.from(node.childNodes)) {
+    length += getNodeLength(child)
+  }
+  return length
 }
 
 export function getTextLength(node: Node): number {
@@ -40,6 +45,15 @@ export function getTextLength(node: Node): number {
     length += getTextLength(child)
   }
   return length
+}
+
+function toDomOffset(text: string, strippedOffset: number): number {
+  let stripped = 0
+  for (let i = 0; i < text.length; i++) {
+    if (stripped >= strippedOffset) return i
+    if (text[i] !== "\u200B") stripped++
+  }
+  return text.length
 }
 
 export function getCursorPosition(parent: HTMLElement): number {
@@ -53,8 +67,33 @@ export function getCursorPosition(parent: HTMLElement): number {
   return getTextLength(preCaretRange.cloneContents())
 }
 
+function findLeafNode(node: Node, offset: number): { node: Node; offset: number } | null {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent ?? ""
+    const domOffset = toDomOffset(text, offset)
+    return { node, offset: Math.min(domOffset, text.length) }
+  }
+  if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR") {
+    return null
+  }
+  const children = Array.from(node.childNodes)
+  let remaining = offset
+  for (const child of children) {
+    const length = getNodeLength(child)
+    if (remaining <= length) {
+      return findLeafNode(child, remaining)
+    }
+    remaining -= length
+  }
+  const last = children[children.length - 1]
+  if (last) return findLeafNode(last, getNodeLength(last))
+  return null
+}
+
 export function setCursorPosition(parent: HTMLElement, position: number) {
-  let remaining = position
+  const max = getTextLength(parent)
+  const clamped = Math.min(Math.max(position, 0), max)
+  let remaining = clamped
   let node = parent.firstChild
   while (node) {
     const length = getNodeLength(node)
@@ -65,9 +104,11 @@ export function setCursorPosition(parent: HTMLElement, position: number) {
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 
     if (isText && remaining <= length) {
+      const text = node.textContent ?? ""
+      const domOffset = Math.min(toDomOffset(text, remaining), text.length)
       const range = document.createRange()
       const selection = window.getSelection()
-      range.setStart(node, remaining)
+      range.setStart(node, domOffset)
       range.collapse(true)
       selection?.removeAllRanges()
       selection?.addRange(range)
@@ -118,7 +159,8 @@ export function setCursorPosition(parent: HTMLElement, position: number) {
 }
 
 export function setRangeEdge(parent: HTMLElement, range: Range, edge: "start" | "end", offset: number) {
-  let remaining = offset
+  const max = getTextLength(parent)
+  let remaining = Math.min(Math.max(offset, 0), max)
   const nodes = Array.from(parent.childNodes)
 
   for (const node of nodes) {
@@ -130,8 +172,10 @@ export function setRangeEdge(parent: HTMLElement, range: Range, edge: "start" | 
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 
     if (isText && remaining <= length) {
-      if (edge === "start") range.setStart(node, remaining)
-      if (edge === "end") range.setEnd(node, remaining)
+      const text = node.textContent ?? ""
+      const domOffset = Math.min(toDomOffset(text, remaining), text.length)
+      if (edge === "start") range.setStart(node, domOffset)
+      if (edge === "end") range.setEnd(node, domOffset)
       return
     }
 

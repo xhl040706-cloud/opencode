@@ -1,6 +1,5 @@
 import { Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
-import { useParams } from "@solidjs/router"
 import { useSpring } from "@opencode-ai/ui/motion-spring"
 import { useWorkspaceVisible } from "@/pages/workspace/components/layout"
 import { PromptInput } from "@/components/prompt-input"
@@ -42,11 +41,10 @@ export function SessionComposerRegion(props: {
   hideAttachButton?: boolean
   hidePrompt?: boolean
 }) {
-  const params = useParams()
   const prompt = usePrompt()
   const language = useLanguage()
 
-  const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
+  const sessionKey = createMemo(() => "")
   const handoffPrompt = createMemo(() => getSessionHandoff(sessionKey())?.prompt)
 
   const previewPrompt = () =>

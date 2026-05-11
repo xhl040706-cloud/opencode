@@ -826,6 +826,9 @@ export const dict = {
 
   "prompt.popover.emptyResults": "No matching results",
   "prompt.popover.emptyCommands": "No matching commands",
+  "prompt.popover.workspace.enter": "Press → to enter",
+  "prompt.popover.workspace.exit": "Press ← to exit",
+  "prompt.popover.workspaceFile.empty": "No files found",
   "prompt.dropzone.label": "Drop images or PDFs here",
   "prompt.dropzone.file.label": "Drop to @mention file",
   "prompt.slash.badge.custom": "custom",

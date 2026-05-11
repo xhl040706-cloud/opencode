@@ -5,7 +5,7 @@ import { Identifier } from "@/id/id"
 import { YoloMode } from "@/permission/yolo"
 import { Instance } from "@/project/instance"
 import { PermissionTable } from "@/session/session.sql"
-import { Database, eq } from "@/storage/db"
+import { Database, NotFoundError, eq } from "@/storage/db"
 import { Context } from "@/util/context"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
@@ -180,7 +180,7 @@ export namespace PermissionNext {
     async (input) => {
       const s = await state()
       const existing = s.pending[input.requestID]
-      if (!existing) return
+      if (!existing) throw new NotFoundError({ message: "permission not found" })
       delete s.pending[input.requestID]
       Bus.publish(Event.Replied, {
         sessionID: existing.info.sessionID,

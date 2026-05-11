@@ -52,6 +52,7 @@ export function createDeviceSessionComposerState(options?: { closeMs?: number | 
     if (!perm) return
     if (store.responding === perm.id) return
 
+    const sid = session.sessionID()
     setStore("responding", perm.id)
     device.client.permission
       .respond(perm.id, {
@@ -60,6 +61,7 @@ export function createDeviceSessionComposerState(options?: { closeMs?: number | 
       .catch((err: unknown) => {
         const description = err instanceof Error ? err.message : String(err)
         showToast({ title: language.t("common.requestFailed"), description })
+        if (sid) workspace.session.removePermission(sid, perm.id)
       })
       .finally(() => {
         setStore("responding", (id) => (id === perm.id ? undefined : id))

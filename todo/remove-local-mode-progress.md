@@ -83,9 +83,11 @@
 - [x] `src/components/server/server-row.tsx` — 删除（无消费者）
 - [x] `src/utils/server-health.ts` + `server-health.test.ts` — 删除（仅被 server-row 和注释代码引用）
 - [x] `src/context/server.tsx` — 清理注释掉的 health polling 代码（~30 行）
-- [ ] `src/context/sync.tsx` / `global-sync.tsx` / `local.tsx` / `sdk.tsx` / `terminal.tsx` / `permission.tsx`（延后处理）
-  - 这些被 `DirectoryLayout` 和 `device-session-tab` 的 stub bridge 使用
-  - 需要评估 device 模式对它们的依赖关系后进一步简化
+- [x] `src/context/sync.tsx` / `global-sync.tsx` / `local.tsx` — 已是纯 context shell（createContext + useContext），device-session-tab 用作 bridge，无需进一步简化
+- [x] `src/context/terminal.tsx` — 已简化为 device-terminal 的 re-export
+- [x] `src/context/sdk.tsx` — 移除 `createSimpleContext` 及其未使用的 `init` 函数，改为纯 `createContext` + `useContext`（~40 行 → ~16 行）
+- [x] `src/context/permission.tsx` — 同上，移除未使用的 `PermissionProvider` 和 stub `init`，改为纯 `createContext` + `useContext`
+- [x] `src/hooks/use-providers.ts` — 移除 local 模式 fallback 路径（useGlobalSync + useSDK 分支），仅保留 DeviceWorkspaceContext 路径
 
 ### 阶段三额外清理
 
@@ -94,11 +96,12 @@
 
 ## 阶段四：验证 & 清理
 
-- [ ] 运行 `bun typecheck` 确保无类型错误（从 `packages/app-ai-native` 目录）
-- [ ] 运行 lint 检查
-- [ ] 确认 `device-session-tab.tsx` 中的 stub provider 桥接仍然正常
-- [ ] 确认 `DirectoryLayout` 的 SDK/Sync/Local provider 链路正常
-- [ ] 手动验证 device 模式下 session 创建、消息收发、终端等核心功能
+- [x] 运行 `bun typecheck` 确保无类型错误 ✅ 通过（exit code 0）
+- [x] 运行 lint 检查 — 该包无 lint 脚本，跳过
+- [x] 确认 `device-session-tab.tsx` 中的 stub provider 桥接正常（10 个 Context.Provider 嵌套平衡、顺序正确）
+- [x] 确认 `DeviceInterface` 的 provider 链路完整（DeviceClientProvider → DeviceInitGate → DeviceLayoutProvider → DirectoryContext → DeviceSDKProvider → WorkspaceInitGate → DeviceWorkspaceProvider → DeviceFileProvider → DeviceTerminalProvider → DeviceLocalProvider）
+- [x] 全局检查无残留引用（已删除文件、deviceMode 关键词均无匹配）
+- [ ] 手动验证 device 模式下 session 创建、消息收发、终端等核心功能（需运行时验证）
 
 ## 影响范围统计
 
@@ -107,7 +110,7 @@
 | 阶段一：移除专用文件 | ~3000+ 行 | 已完成 |
 | 阶段二：清理分支逻辑 | ~50 行 | 已完成 |
 | 阶段三：重构共享 Context | ~1200 行 | 已完成 |
-| 阶段四：验证 | — | 待做 |
+| 阶段四：验证 | — | 已完成（静态验证通过，运行时需手动验证） |
 
 ## 备注
 

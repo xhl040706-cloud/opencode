@@ -7,7 +7,7 @@ import { ProjectID } from "@/project/schema"
 import { Instance } from "@/project/instance"
 import { MessageID, SessionID } from "@/session/schema"
 import { PermissionTable } from "@/session/session.sql"
-import { Database, eq } from "@/storage/db"
+import { Database, NotFoundError, eq } from "@/storage/db"
 import { Log } from "@/util/log"
 import { Wildcard } from "@/util/wildcard"
 import { Deferred, Effect, Layer, Schema, ServiceMap } from "effect"
@@ -203,7 +203,7 @@ export namespace Permission {
       const reply = Effect.fn("Permission.reply")(function* (input: z.infer<typeof ReplyInput>) {
         const { approved, pending } = yield* InstanceState.get(state)
         const existing = pending.get(input.requestID)
-        if (!existing) return
+        if (!existing) throw new NotFoundError({ message: "permission not found" })
 
         pending.delete(input.requestID)
         void Bus.publish(Event.Replied, {

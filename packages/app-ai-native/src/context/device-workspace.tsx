@@ -49,6 +49,7 @@ type DeviceWorkspaceValue = {
     setStatus(id: string, status: SessionStatus | undefined): void
     setQuestions(questions: Record<string, QuestionRequest[]>): void
     setPermissions(permissions: Record<string, PermissionRequest[]>): void
+    removePermission(sessionID: string, requestID: string): void
   }
   command: {
     load(): Promise<Command[]>
@@ -114,19 +115,24 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
         return
       }
 
-      const [agentsRes, sessionsRes, sessionStatusRes, vcsRes, providersRes, allSessionsRes, permsRes, questionsRes] = await Promise.all([
-        device.client.agent.sessionModes().catch(() => undefined),
+      const [sessionsRes, vcsRes] = await Promise.all([
         device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory }).catch(() => undefined),
-        device.client.conversation.status().catch(() => undefined),
         device.client.runtime.vcs().catch(() => undefined),
-        device.client.agent.models().catch(() => undefined),
+      ])
+
+      const [allSessionsRes, sessionStatusRes, permsRes, questionsRes] = await Promise.all([
         device.client.conversation.list({ limit: 50 }).catch(() => undefined),
+        device.client.conversation.status().catch(() => undefined),
         device.client.permission.list().catch(() => undefined),
         device.client.question.list().catch(() => undefined),
       ])
 
+      const agentPromise = Promise.all([
+        device.client.agent.sessionModes().catch(() => undefined),
+        device.client.agent.models().catch(() => undefined),
+      ])
+
       batch(() => {
-        setStore("agent", reconcile((agentsRes as Agent[]) ?? [], { key: "name" }))
         const rootSessions = (Array.isArray(sessionsRes) ? sessionsRes : []) as Session[]
         const allSessions = (Array.isArray(allSessionsRes) ? allSessionsRes : []) as Session[]
         const children = allSessions.filter((s) => !!s?.id && !!s.parentID)
@@ -135,8 +141,6 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
         setStore("sessionStatus", reconcile((sessionStatusRes as Record<string, SessionStatus>) ?? {}))
         setStore("sessionTotal", rootSessions.length)
         setStore("vcs", vcsRes as VcsInfo | undefined)
-        const providerData = (providersRes as ProviderCapabilitiesResponse) ?? { connected: [] }
-        setStore("provider", reconcile(providerData, { key: "id" }))
         setStore("questions", reconcile(groupBy(Array.isArray(questionsRes) ? questionsRes : [])))
         setStore("permissions", reconcile(groupBy(Array.isArray(permsRes) ? permsRes : [])))
         setStore("status", "ready")
@@ -148,6 +152,14 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             permissions: groupBy(Array.isArray(permsRes) ? permsRes : []),
           })
         }
+      })
+
+      agentPromise.then(([agentsRes, providersRes]) => {
+        batch(() => {
+          setStore("agent", reconcile((agentsRes as Agent[]) ?? [], { key: "name" }))
+          const providerData = (providersRes as ProviderCapabilitiesResponse) ?? { connected: [] }
+          setStore("provider", reconcile(providerData, { key: "id" }))
+        })
       })
     } catch {
       setStore("status", "unavailable")
@@ -454,6 +466,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
       setStatus: setSessionStatus,
       setQuestions: (q: Record<string, QuestionRequest[]>) => setStore("questions", reconcile(q)),
       setPermissions: (p: Record<string, PermissionRequest[]>) => setStore("permissions", reconcile(p)),
+      removePermission,
     },
     command: { load: loadCommands },
     vcs: { load: loadVcs },

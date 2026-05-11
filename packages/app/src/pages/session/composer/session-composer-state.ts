@@ -1,5 +1,5 @@
 import { createEffect, createMemo, on, onCleanup, onMount } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createStore, produce } from "solid-js/store"
 import type { PermissionRequest, QuestionRequest, Todo } from "@opencode-ai/sdk/v2"
 import { useParams } from "@solidjs/router"
 import { showToast } from "@opencode-ai/ui/toast"
@@ -137,6 +137,12 @@ export function createSessionComposerState(options?: { closeMs?: number | (() =>
       .catch((err: unknown) => {
         const description = err instanceof Error ? err.message : String(err)
         showToast({ title: language.t("common.requestFailed"), description })
+        if (perm.sessionID && params.id) {
+          sync.set("permission", perm.sessionID, produce((draft) => {
+            const idx = draft.findIndex((p) => p.id === perm.id)
+            if (idx !== -1) draft.splice(idx, 1)
+          }))
+        }
       })
       .finally(() => {
         setStore("responding", (id) => (id === perm.id ? undefined : id))

@@ -1,6 +1,5 @@
 import { Navigate, Route } from "@solidjs/router"
 import { Component, lazy, Suspense, type JSX } from "solid-js"
-import { SessionRoute, SessionIndexRoute } from "@/app"
 import AuthGuard from "@/components/auth-guard"
 import { useAuth } from "@/context/auth"
 
@@ -32,7 +31,6 @@ const KanbanProjectList = lazy(() => import("@/pages/kanban").then((m) => ({ def
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
 const CapabilityEditorLayout = lazy(() => import("@/pages/capability-editor-layout"))
-const DirectoryLayout = lazy(() => import("@/pages/directory-layout"))
 const consoleImport = import("@/pages/console")
 const ConsoleLayout = lazy(() => consoleImport.then((m) => ({ default: m.ConsoleLayout })))
 const ConsoleRepositories = lazy(() => consoleImport.then((m) => ({ default: m.DashboardRepositories })))
@@ -107,14 +105,7 @@ export const routeConfig: RouteConfig[] = [
     auth: true,
     children: [
       { path: "/", component: WorkspaceHome },
-      {
-        path: "/:workspaceID",
-        component: DirectoryLayout,
-        children: [
-          { path: "/", component: SessionRoute },
-          { path: "/:id", component: SessionRoute },
-        ],
-      },
+      { path: "/:workspaceID", component: WorkspaceLayout },
     ],
   },
   {

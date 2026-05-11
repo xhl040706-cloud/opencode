@@ -7,6 +7,7 @@ import { createStore } from "solid-js/store"
 import { createFocusSignal } from "@solid-primitives/active-element"
 import { useLocal } from "@/context/local"
 import { selectionFromLines, type SelectedLineRange, useFile } from "@/context/file"
+import { useDeviceClient } from "@/context/device-client"
 import {
   ContentPart,
   DEFAULT_PROMPT,
@@ -104,6 +105,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const sync = useSync()
   const local = useLocal()
   const files = useFile()
+  const device = useDeviceClient()
   const prompt = usePrompt()
   const layout = useLayout()
   const comments = useComments()
@@ -122,6 +124,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const mirror = { input: false }
   const inset = 44
+
+  const sid = createMemo(() => (sync as any).currentSessionID?.())
 
   const scrollCursorIntoView = () => {
     const container = scrollRef
@@ -160,15 +164,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     requestAnimationFrame(scrollCursorIntoView)
   }
 
-  const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
+  const sessionKey = createMemo(() => sid() ?? "")
   const tabs = createMemo(() => layout.tabs(sessionKey))
   const view = createMemo(() => layout.view(sessionKey))
 
   const commentInReview = (path: string) => {
-    const sessionID = params.id
-    if (!sessionID) return false
+    const id = sid()
+    if (!id) return false
 
-    const diffs = sync.data.session_diff[sessionID]
+    const diffs = sync.data.session_diff[id]
     if (!diffs) return false
     return diffs.some((diff) => diff.file === path)
   }
@@ -230,10 +234,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     return paths
   })
-  const info = createMemo(() => (params.id ? sync.session.get(params.id) : undefined))
+  const info = createMemo(() => (sid() ? sync.session.get(sid()!) : undefined))
   const status = createMemo(
     () =>
-      sync.data.session_status[params.id ?? ""] ?? {
+      sync.data.session_status[sid() ?? ""] ?? {
         type: "idle",
       },
   )
@@ -250,6 +254,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     draggingType: "image" | "@mention" | null
     mode: "normal" | "shell"
     applyingHistory: boolean
+    workspaceFileSearch: { id: string; name: string; directory: string } | null
   }>({
     popover: null,
     historyIndex: -1,
@@ -258,6 +263,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     draggingType: null,
     mode: "normal",
     applyingHistory: false,
+    workspaceFileSearch: null,
   })
 
   const visible = useWorkspaceVisible()
@@ -275,9 +281,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const hasUserPrompt = createMemo(() => {
-    const sessionID = params.id
-    if (!sessionID) return false
-    const messages = sync.data.message[sessionID]
+    const id = sid()
+    if (!id) return false
+    const messages = sync.data.message[id]
     if (!messages) return false
     return messages.some((m) => m.role === "user")
   })
@@ -438,7 +444,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     },
   ])
 
-  const closePopover = () => setStore("popover", null)
+  const closePopover = () => {
+    setStore("popover", null)
+    setStore("workspaceFileSearch", null)
+  }
 
   const resetHistoryNavigation = (force = false) => {
     if (!force && (store.historyIndex < 0 || store.applyingHistory)) return
@@ -480,8 +489,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   }
 
   createEffect(() => {
-    params.id
-    if (params.id) return
+    const id = sid()
+    if (id) return
     if (!suggest()) return
     const interval = setInterval(() => {
       setStore("placeholder", (prev) => (prev + 1) % EXAMPLES.length)
@@ -574,6 +583,62 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       return rank(a.category) - rank(b.category)
     },
     onSelect: handleAtSelect,
+  })
+
+  let wsSearchTimer: ReturnType<typeof setTimeout> | undefined
+  const searchWorkspaceFiles = (query: string, directory: string) => {
+    const scoped = device.createClient({ directory, throwOnError: true })
+    return new Promise<string[]>((resolve) => {
+      if (wsSearchTimer) clearTimeout(wsSearchTimer)
+      const delay = query.trim() ? 300 : 0
+      wsSearchTimer = setTimeout(() => {
+        wsSearchTimer = undefined
+        scoped.runtime.findFiles(query, "true").then(
+          (x) => resolve((x as string[] | undefined) ?? []),
+          () => resolve([]),
+        )
+      }, delay)
+    })
+  }
+
+  const enterWorkspaceFileSearch = (ws: { id: string; name: string; directory: string }) => {
+    setStore("workspaceFileSearch", ws)
+    setEditorText("@")
+    prompt.set([{ type: "text", content: "@", start: 0, end: 1 }], 1)
+    wsFileRefetch()
+    focusEditorEnd()
+  }
+
+  const exitWorkspaceFileSearch = () => {
+    setStore("workspaceFileSearch", null)
+    setEditorText("@")
+    prompt.set([{ type: "text", content: "@", start: 0, end: 1 }], 1)
+    atOnInput("")
+    focusEditorEnd()
+  }
+
+  const handleWsFileSelect = (option: AtOption | undefined) => {
+    if (!option || option.type !== "file") return
+    addPart({ type: "file", path: option.path, content: "@" + option.path, start: 0, end: 0 })
+  }
+
+  const {
+    flat: wsFileFlat,
+    active: wsFileActive,
+    setActive: wsFileSetActiveActive,
+    onInput: wsFileOnInput,
+    onKeyDown: wsFileOnKeyDown,
+    refetch: wsFileRefetch,
+  } = useFilteredList<AtOption>({
+    items: async (query) => {
+      const ws = store.workspaceFileSearch
+      if (!ws) return []
+      const paths = await searchWorkspaceFiles(query, ws.directory)
+      return paths.map((path) => ({ type: "file" as const, path, display: path }))
+    },
+    key: atKey,
+    noInitialSelection: true,
+    onSelect: handleWsFileSelect,
   })
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
@@ -689,6 +754,14 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const selectPopoverActive = () => {
     if (store.popover === "at") {
+      if (store.workspaceFileSearch) {
+        const items = wsFileFlat()
+        if (items.length === 0) return
+        const active = wsFileActive()
+        const item = items.find((entry) => atKey(entry) === active) ?? items[0]
+        handleWsFileSelect(item)
+        return
+      }
       const items = atFlat()
       if (items.length === 0) return
       const active = atActive()
@@ -858,8 +931,13 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const slashMatch = rawText.match(/^\/(\S*)$/)
 
       if (atMatch) {
-        atOnInput(atMatch[1])
-        setStore("popover", "at")
+        if (store.workspaceFileSearch) {
+          wsFileOnInput(atMatch[1])
+          setStore("popover", "at")
+        } else {
+          atOnInput(atMatch[1])
+          setStore("popover", "at")
+        }
       } else if (slashMatch) {
         void sync.command.load()
         slashOnInput(slashMatch[1])
@@ -997,7 +1075,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const variants = createMemo(() => ["default", ...local.model.variant.list()])
-  const accepting = createMemo(() => permission.isAutoAccepting(params.id))
+  const accepting = createMemo(() => permission.isAutoAccepting(sid()))
 
   const { abort, handleSubmit } = createPromptSubmit({
     info,
@@ -1110,6 +1188,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     const ctrl = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
 
     if (store.popover) {
+      if (event.key === "ArrowLeft" && store.workspaceFileSearch) {
+        exitWorkspaceFileSearch()
+        event.preventDefault()
+        return
+      }
       if (event.key === "Tab") {
         selectPopoverActive()
         event.preventDefault()
@@ -1119,7 +1202,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const ctrlNav = ctrl && (event.key === "n" || event.key === "p")
       if (nav || ctrlNav) {
         if (store.popover === "at") {
-          atOnKeyDown(event)
+          if (store.workspaceFileSearch) {
+            wsFileOnKeyDown(event)
+          } else {
+            atOnKeyDown(event)
+          }
           event.preventDefault()
           return
         }
@@ -1128,6 +1215,16 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         }
         event.preventDefault()
         return
+      }
+      if (store.popover === "at" && !store.workspaceFileSearch && event.key === "ArrowRight") {
+        const active = atActive()
+        const items = atFlat()
+        const item = items.find((entry) => atKey(entry) === active)
+        if (item?.type === "workspace" && item.id !== params.workspaceID) {
+          enterWorkspaceFileSearch({ id: item.id, name: item.name, directory: item.directory })
+          event.preventDefault()
+          return
+        }
       }
     }
 
@@ -1178,6 +1275,12 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         atKey={atKey}
         setAtActive={setAtActive}
         onAtSelect={handleAtSelect}
+        workspaceFileSearch={store.workspaceFileSearch}
+        wsFileFlat={wsFileFlat()}
+        wsFileActive={wsFileActive() ?? undefined}
+        setWsFileActive={wsFileSetActiveActive}
+        onWsFileSelect={handleWsFileSelect}
+        currentWorkspaceId={params.workspaceID ?? ""}
         slashFlat={slashFlat()}
         slashActive={slashActive() ?? undefined}
         setSlashActive={setSlashActive}
@@ -1525,7 +1628,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         type="checkbox"
                         class="size-3.5 accent-[var(--native-primary)] cursor-pointer"
                         checked={accepting()}
-                        onChange={() => permission.toggleAutoAccept(params.id, sdk.directory)}
+                        onChange={() => permission.toggleAutoAccept(sid(), sdk.directory)}
                       />
                       <span class="text-12-regular text-text-weak truncate">
                         {language.t("command.permissions.autoaccept.enable")}

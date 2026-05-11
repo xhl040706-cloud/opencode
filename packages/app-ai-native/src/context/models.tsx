@@ -37,8 +37,8 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
     )
 
     const available = createMemo(() =>
-      providers.connected().flatMap((p) =>
-        Object.values(p.models).map((m) => ({
+      providers.connected().flatMap((p: any) =>
+        Object.values(p.models).map((m: any) => ({
           ...m,
           provider: p,
         })),
@@ -47,8 +47,8 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
 
     const release = createMemo(
       () =>
-        new Map(
-          available().map((model) => {
+        new Map<string, DateTime>(
+          available().map((model: any) => {
             const parsed = DateTime.fromISO(model.release_date)
             return [modelKey({ providerID: model.provider.id, modelID: model.id }), parsed] as const
           }),

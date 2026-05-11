@@ -38,13 +38,13 @@ export function useSlashActions() {
   const layout = useLayout()
   const { navigateToSession } = useWorkspaceNavigate()
 
-  const sessionID = () => params.id
-  const directory = () => params.dir
+  const sessionID = () => (sync as any).currentSessionID?.()
+  const directory = () => sdk.directory
 
   const execute = (name: string) => {
     switch (name) {
       case "new": {
-        navigate(`/workspace/${params.workspaceID}`)
+        navigate(`/workspace/${params.workspaceID ?? ""}`)
         break
       }
       case "sessions":

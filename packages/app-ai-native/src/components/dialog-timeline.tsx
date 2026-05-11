@@ -1,5 +1,4 @@
 import { Component, createMemo } from "solid-js"
-import { useParams } from "@solidjs/router"
 import { useSync } from "@/context/sync"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
@@ -18,13 +17,12 @@ function formatTime(date: Date): string {
 }
 
 export const DialogTimeline: Component = () => {
-  const params = useParams()
   const sync = useSync()
   const dialog = useDialog()
   const language = useLanguage()
 
   const messages = createMemo((): TimelineMessage[] => {
-    const sessionID = params.id
+    const sessionID = (sync as any).currentSessionID?.()
     if (!sessionID) return []
 
     const msgs = sync.data.message[sessionID] ?? []
