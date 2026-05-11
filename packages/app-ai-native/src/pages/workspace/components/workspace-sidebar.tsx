@@ -257,6 +257,9 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
                         "bg-sidebar-border": !dot().online && !dot().offline,
                       }}
                     />
+                    <Show when={summary()?.hasUnreadSession}>
+                      <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--native-primary)]" />
+                    </Show>
                     <Show
                       when={renaming()}
                       fallback={
@@ -316,6 +319,9 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
                           <div class="shrink-0 flex items-center justify-center w-4 h-4">
                             <div class="size-3 rounded-full border border-[var(--native-primary)] border-t-transparent animate-spin" />
                           </div>
+                        </Show>
+                        <Show when={!summary()?.hasPendingInteraction && !summary()?.hasActiveSession && summary()?.hasUnreadSession}>
+                          <span class="shrink-0 w-2 h-2 rounded-full bg-[var(--native-primary)]" />
                         </Show>
                         <span
                           class="text-sm font-medium truncate"

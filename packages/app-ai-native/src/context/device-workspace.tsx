@@ -151,6 +151,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             sessionStatus: (sessionStatusRes as Record<string, SessionStatus>) ?? {},
             questions: groupBy(Array.isArray(questionsRes) ? questionsRes : []),
             permissions: groupBy(Array.isArray(permsRes) ? permsRes : []),
+            sessionIds: merged.map((s) => s.id),
           })
         }
       })
@@ -308,6 +309,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
           sessionStatus: store.sessionStatus,
           questions: store.questions,
           permissions: store.permissions,
+          sessionIds: store.session.map((s) => s.id),
         })
       }
       return result as VcsInfo | undefined
@@ -432,6 +434,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   sessionStatus: store.sessionStatus,
                   questions: store.questions,
                   permissions: store.permissions,
+                  sessionIds: store.session.map((s) => s.id),
                 })
               }
               dispatch(payload)
