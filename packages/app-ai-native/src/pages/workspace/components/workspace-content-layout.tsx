@@ -23,6 +23,7 @@ import { DiffPreviewTab } from "./diff-preview-tab"
 import { workspaceKey } from "@/lib/workspace-key"
 import { shouldRestore, activeSession } from "./workspace-content-layout-sync"
 import { isSessionUnread, clearSessionUnread, unreadVersion } from "@/context/session-unread-store"
+import { refreshUnread } from "@/context/workspace-summary-store"
 import FileTree from "@/components/file-tree"
 import type { FileNode } from "@opencode-ai/sdk/v2"
 import type { Session } from "@opencode-ai/sdk/v2/client"
@@ -193,6 +194,7 @@ function ContentTabPanel() {
   const terminal = useDeviceTerminal()
   const language = useLanguage()
   const layout = useLayout()
+  const dw = useDeviceWorkspace()
 
   const closeTab = (id: string) => {
     const tab = tabStore.tabs().find((t) => t.id === id)
@@ -232,7 +234,10 @@ function ContentTabPanel() {
             tabStore.activate(id)
             const tab = tabStore.tabs().find((t) => t.id === id)
             const sid = tab?.kind === "session" ? (tab.meta?.sessionID as string | undefined) : undefined
-            if (sid) clearSessionUnread(sid)
+            if (sid) {
+              clearSessionUnread(sid)
+              if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.map((s) => s.id))
+            }
           }}
           class="h-full flex flex-col"
         >
@@ -374,6 +379,7 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
 
   const openSession = (session: Session) => {
     clearSessionUnread(session.id)
+    if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.map((s) => s.id))
     const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === session.id)
     if (existing) {
       tabStore.activate(existing.id)
@@ -862,6 +868,7 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
 
   const restoreFromUrl = (sid: string, ws: ReturnType<typeof useDeviceWorkspace>) => {
     clearSessionUnread(sid)
+    if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.map((s) => s.id))
     const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === sid)
     if (existing) {
       tabStore.activate(existing.id)
@@ -903,7 +910,10 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
     const id = tabStore.activeId()
     if (!id) return
     const sid = activeSession(tabStore.tabs(), id)
-    if (sid) clearSessionUnread(sid)
+    if (sid) {
+      clearSessionUnread(sid)
+      if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.map((s) => s.id))
+    }
   })
 
   return (

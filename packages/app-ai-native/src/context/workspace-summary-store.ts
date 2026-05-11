@@ -45,6 +45,14 @@ export function syncSummary(
   setSummaries(id, next)
 }
 
+export function refreshUnread(id: string, sessionIds: string[]) {
+  unreadVersion()
+  const hasUnreadSession = sessionIds.some((sid) => isSessionUnread(sid))
+  const prev = summaries[id]
+  if (!prev || prev.hasUnreadSession === hasUnreadSession) return
+  setSummaries(id, "hasUnreadSession", hasUnreadSession)
+}
+
 export function clearSummary(id: string) {
   setSummaries(produce((draft) => { delete draft[id] }))
 }
