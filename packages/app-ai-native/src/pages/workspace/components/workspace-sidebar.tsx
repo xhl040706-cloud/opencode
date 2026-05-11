@@ -257,9 +257,6 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
                         "bg-sidebar-border": !dot().online && !dot().offline,
                       }}
                     />
-                    <Show when={summary()?.hasUnreadSession}>
-                      <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--native-primary)]" />
-                    </Show>
                     <Show
                       when={renaming()}
                       fallback={
