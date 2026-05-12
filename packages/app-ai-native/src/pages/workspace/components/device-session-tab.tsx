@@ -1022,11 +1022,14 @@ export function DeviceSessionTab(props: { tabId: string }) {
                                 if (sid) workspace.session.clearUnread(sid)
                               }
                               el.addEventListener("focusin", handler)
+                              el.addEventListener("pointerdown", handler)
                             }}
                             newSessionWorktree="main"
                             onNewSessionWorktreeReset={() => {}}
                             onSubmit={() => {
                               resumeScroll()
+                              const sid = rootSessionID()
+                              if (sid) workspace.session.clearUnread(sid)
                             }}
                             onResponseSubmit={resumeScroll}
                             setPromptDockRef={(el) => { promptDock = el }}
