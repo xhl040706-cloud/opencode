@@ -44,6 +44,7 @@ import type { ProviderCapability, ProviderCapabilitiesResponse } from "@/context
 
 const emptyMessages: Message[] = []
 const idle: SessionStatus = { type: "idle" }
+const busySinceMap = new Map<string, number>()
 
 function legacyProvider(input: ProviderCapabilitiesResponse): ProviderListResponse {
   return {
@@ -207,6 +208,25 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const isWorking = createMemo(() => {
     const t = effectiveStatus()?.type
     return t === "busy" || t === "retry"
+  })
+
+  const busySince = createMemo(() => {
+    const cid = currentSessionID()
+    if (!cid || !isWorking()) return undefined
+    let t = busySinceMap.get(cid)
+    if (t === undefined) {
+      t = Date.now()
+      busySinceMap.set(cid, t)
+    }
+    return t
+  })
+
+  createEffect(() => {
+    const cid = currentSessionID()
+    if (!cid) return
+    if (!isWorking()) {
+      busySinceMap.delete(cid)
+    }
   })
 
   const effectiveParts = createMemo(() => {
@@ -504,7 +524,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
         async loadMore(id: string, count?: number) { await session.history.loadMore(count) },
       },
       async fetch(count?: number) { await workspace.session.fetch(count) },
-      async archive(id: string) { await workspace.session.archive(id) },
+      async remove(id: string) { await workspace.session.remove(id) },
     },
     command: { async load() { return workspace.command.load() } },
     vcs: { async load() { return workspace.vcs.load() } },
@@ -827,13 +847,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
                               <DropdownMenu.Content style={{ "min-width": "104px" }}>
                                 <DropdownMenu.Item onSelect={() => {
                                   const sid = rootSessionID()
-                                  if (sid) void workspace.session.archive(sid)
-                                }}>
-                                  <DropdownMenu.ItemLabel>{language.t("common.archive")}</DropdownMenu.ItemLabel>
-                                </DropdownMenu.Item>
-                                <DropdownMenu.Separator />
-                                <DropdownMenu.Item onSelect={() => {
-                                  const sid = rootSessionID()
                                   if (!sid) return
                                   const name = workspace.data.session.find((s) => s.id === sid)?.title ?? language.t("command.session.new")
                                   dialog.show(() => (
@@ -928,6 +941,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
                             hideAttachButton
                             hidePrompt={!!viewingSessionID()}
                             working={isWorking()}
+                            busySince={busySince()}
                           />
                         </Show>
                         <Show when={!workspace.agentAvailable()}>

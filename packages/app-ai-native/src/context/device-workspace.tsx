@@ -3,7 +3,6 @@ import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
 import { syncSummary, clearSummary } from "./workspace-summary-store"
-import { markSessionUnread, clearSessionUnread } from "./session-unread-store"
 import type { Session, Command, Agent, VcsInfo, SessionStatus, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 import type { ProviderCapabilitiesResponse } from "./global-sync/types"
 
@@ -30,6 +29,7 @@ type WorkspaceData = {
   vcs: VcsInfo | undefined
   provider: ProviderCapabilitiesResponse
   agentAvailable: boolean
+  unread: Record<string, boolean>
 }
 
 type EventPayload = { type: string; sessionID?: string; messageID?: string; properties?: any; [key: string]: unknown }
@@ -46,11 +46,12 @@ type DeviceWorkspaceValue = {
   session: {
     get: (id: string) => Session | undefined
     fetch(count?: number): Promise<void>
-    archive(id: string): Promise<void>
+    remove(id: string): Promise<void>
     setStatus(id: string, status: SessionStatus | undefined): void
     setQuestions(questions: Record<string, QuestionRequest[]>): void
     setPermissions(permissions: Record<string, PermissionRequest[]>): void
     removePermission(sessionID: string, requestID: string): void
+    clearUnread(id: string): void
   }
   command: {
     load(): Promise<Command[]>
@@ -88,6 +89,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     vcs: undefined,
     provider: { connected: [] } as ProviderCapabilitiesResponse,
     agentAvailable: true,
+    unread: {},
   })
 
   const checkAgentAvailable = async () => {
@@ -151,7 +153,6 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             sessionStatus: (sessionStatusRes as Record<string, SessionStatus>) ?? {},
             questions: groupBy(Array.isArray(questionsRes) ? questionsRes : []),
             permissions: groupBy(Array.isArray(permsRes) ? permsRes : []),
-            sessionIds: merged.map((s) => s.id),
           })
         }
       })
@@ -163,6 +164,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
           setStore("provider", reconcile(providerData, { key: "id" }))
         })
       })
+
+      void startEventStream()
     } catch {
       setStore("status", "unavailable")
     }
@@ -273,15 +276,30 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     } catch {}
   }
 
-  const archiveSession = async (id: string) => {
+  const deleteSession = async (id: string) => {
     if (!store.agentAvailable) return
     try {
-      await device.client.conversation.update(id, { time: { archived: Date.now() } })
-      setStore("session", produce((draft) => {
-        const idx = draft.findIndex((s) => s.id === id)
-        if (idx !== -1) draft.splice(idx, 1)
-      }))
-      setSessionStatus(id, undefined)
+      await device.client.conversation.delete(id)
+      batch(() => {
+        setStore("session", produce((draft) => {
+          const idx = draft.findIndex((s) => s.id === id)
+          if (idx !== -1) draft.splice(idx, 1)
+        }))
+        setSessionStatus(id, undefined)
+        setStore("unread", produce((draft) => { delete draft[id] }))
+        setStore("questions", produce((draft) => { delete draft[id] }))
+        setStore("permissions", produce((draft) => { delete draft[id] }))
+        if (props.workspaceId) {
+          syncSummary(props.workspaceId, {
+            vcs: store.vcs,
+            sessionStatus: store.sessionStatus,
+            questions: store.questions,
+            permissions: store.permissions,
+            hasUnreadSession: store.session.some((s) => store.unread[s.id]),
+          })
+        }
+      })
+
     } catch {}
   }
 
@@ -303,14 +321,14 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     try {
       const result = await device.client.runtime.vcs()
       setStore("vcs", result as VcsInfo | undefined)
-      if (props.workspaceId) {
-        syncSummary(props.workspaceId, {
-          vcs: result as VcsInfo | undefined,
-          sessionStatus: store.sessionStatus,
-          questions: store.questions,
-          permissions: store.permissions,
-          sessionIds: store.session.map((s) => s.id),
-        })
+        if (props.workspaceId) {
+          syncSummary(props.workspaceId, {
+            vcs: result as VcsInfo | undefined,
+            sessionStatus: store.sessionStatus,
+            questions: store.questions,
+            permissions: store.permissions,
+            hasUnreadSession: store.session.some((s) => store.unread[s.id]),
+          })
       }
       return result as VcsInfo | undefined
     } catch {
@@ -374,7 +392,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                       if (idx !== -1) draft.splice(idx, 1)
                     }))
                     setSessionStatus(id, undefined)
-                    clearSessionUnread(id)
+                    setStore("unread", produce((draft) => { delete draft[id] }))
                     setStore("questions", produce((draft) => { delete draft[id] }))
                     setStore("permissions", produce((draft) => { delete draft[id] }))
                   })
@@ -390,7 +408,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   const nowIdle = props.status.type === "idle"
                   setSessionStatus(id, props.status)
                   if (wasBusy && nowIdle) {
-                    markSessionUnread(id)
+                    setStore("unread", id, true)
                   }
                   summaryChanged = true
                   break
@@ -434,7 +452,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   sessionStatus: store.sessionStatus,
                   questions: store.questions,
                   permissions: store.permissions,
-                  sessionIds: store.session.map((s) => s.id),
+                  hasUnreadSession: store.session.some((s) => store.unread[s.id]),
                 })
               }
               dispatch(payload)
@@ -449,8 +467,6 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
       if ((e as any)?.name === "AbortError") return
     }
   }
-
-  void startEventStream()
 
   onCleanup(() => {
     streamAbort?.abort()
@@ -473,11 +489,12 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     session: {
       get: getSession,
       fetch: fetchSessions,
-      archive: archiveSession,
+      remove: deleteSession,
       setStatus: setSessionStatus,
       setQuestions: (q: Record<string, QuestionRequest[]>) => setStore("questions", reconcile(q)),
       setPermissions: (p: Record<string, PermissionRequest[]>) => setStore("permissions", reconcile(p)),
       removePermission,
+      clearUnread: (id: string) => setStore("unread", produce((draft) => { delete draft[id] })),
     },
     command: { load: loadCommands },
     vcs: { load: loadVcs },
