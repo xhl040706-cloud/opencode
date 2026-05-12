@@ -268,12 +268,20 @@ export function SessionTurn(
       const index = messageIndex()
       if (index < 0) return emptyAssistant
 
+      const userID = msg.id
       const result: AssistantMessage[] = []
       for (let i = index + 1; i < messages.length; i++) {
         const item = messages[i]
         if (!item) continue
         if (item.role === "user") break
-        if (item.role === "assistant" && item.parentID === msg.id) result.push(item as AssistantMessage)
+        if (item.role === "assistant") {
+          const pid = item.parentID
+          if (pid === userID) {
+            result.push(item as AssistantMessage)
+          } else if (!pid || result.length > 0) {
+            result.push(item as AssistantMessage)
+          }
+        }
       }
       return result
     },

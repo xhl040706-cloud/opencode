@@ -473,7 +473,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
     const cid = currentSessionID() ?? ""
     setSyncData("message", { [cid]: msgs, "": msgs, undefined: msgs })
   })
-  createEffect(() => setSyncData("part", effectiveParts() as Record<string, Part[]>))
 
   const syncSet = (...args: any[]) => {
     if (!viewingSessionID()) return
@@ -678,10 +677,10 @@ export function DeviceSessionTab(props: { tabId: string }) {
 
   const composer = createDeviceSessionComposerState()
 
-  const [composerMounted, setComposerMounted] = createSignal(false)
+  const [composerMounted, setComposerMounted] = createSignal(true)
   createEffect(() => {
     const id = currentSessionID()
-    if (!id) return
+    void id
     setComposerMounted(false)
     const frame = requestAnimationFrame(() => setComposerMounted(true))
     onCleanup(() => cancelAnimationFrame(frame))
@@ -728,22 +727,30 @@ export function DeviceSessionTab(props: { tabId: string }) {
     for (const m of raw) {
       if (m.role === "user") userIDs.add(m.id)
     }
-    const orphans = new Map<string, any>()
+    let orphanID: string | undefined
+    let orphanCreated = false
+    const orphan = {
+      id: "",
+      sessionID: currentSessionID() ?? "",
+      role: "user",
+      time: { created: 0 },
+    } as any
+    const enriched: any[] = []
     for (const m of raw) {
-      if (m.role === "assistant" && m.parentID && !userIDs.has(m.parentID) && !orphans.has(m.parentID)) {
-        orphans.set(m.parentID, {
-          id: m.parentID,
-          sessionID: currentSessionID() ?? "",
-          role: "user",
-          time: { created: m.time?.created ?? 0 },
-        })
+      if (m.role === "assistant" && m.parentID && !userIDs.has(m.parentID)) {
+        if (!orphanCreated) {
+          orphan.id = m.parentID
+          orphan.time = { created: m.time?.created ?? 0 }
+          orphanID = m.parentID
+          enriched.push(orphan)
+          userIDs.add(m.parentID)
+          orphanCreated = true
+        }
+        if (m.parentID !== orphanID) {
+          ;(m as any).parentID = orphanID
+        }
       }
-    }
-    if (orphans.size === 0) return raw
-    const enriched = [...raw]
-    for (const s of [...orphans.values()]) {
-      const idx = enriched.findIndex((m) => m.role === "assistant" && m.parentID === s.id)
-      if (idx >= 0) enriched.splice(idx, 0, s)
+      enriched.push(m)
     }
     return enriched
   })
@@ -841,6 +848,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
     return {
       ...syncData,
       message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() } as Record<string, Message[]>,
+      part: effectiveParts() as Record<string, Part[]>,
       provider: legacyProvider(workspace.data.provider),
     }
   })
