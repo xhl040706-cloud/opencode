@@ -345,12 +345,10 @@ export default function KanbanUserDetail() {
                   <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.actualTime")}</TableHead>
                   <TableHead class="min-w-[150px] text-left">{language.t("kanban.table.traditionalEst")}</TableHead>
                   <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.efficiencyRatio")}</TableHead>
-                  <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead>
-                  <TableHead class="min-w-[100px] text-left">{language.t("kanban.table.cost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <Show when={commits().length > 0} fallback={<TableRow><TableCell colSpan={8} class="py-8 text-left text-sm text-[var(--native-muted)]">{language.t("kanban.empty.noCommitRecords")}</TableCell></TableRow>}>
+                <Show when={commits().length > 0} fallback={<TableRow><TableCell colSpan={6} class="py-8 text-left text-sm text-[var(--native-muted)]">{language.t("kanban.empty.noCommitRecords")}</TableCell></TableRow>}>
                   <For each={commits()}>
                     {(row) => {
                       const link = () => {
@@ -361,19 +359,17 @@ export default function KanbanUserDetail() {
                           q.set("endDate", span.end)
                         }
                         if (userIdMemo()) q.set("userId", userIdMemo())
-                        return `/kanban/task?${q.toString()}`
+                        return `/kanban/commit?${q.toString()}`
                       }
 
                       return (
                         <TableRow>
                           <TableCell>{row.period_label || row.period_key || "-"}</TableCell>
-                          <TableCell class="text-left tabular-nums">{(row.task_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(link())}>{row.task_count}</button> : 0}</TableCell>
+                          <TableCell class="text-left tabular-nums">{(row.commit_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(link())}>{row.commit_count}</button> : 0}</TableCell>
                           <TableCell class="text-left tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
                           <TableCell class="text-left">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
                           <TableCell class="text-left">{formatDuration(row.commit_ancient_minutes, language.t)}</TableCell>
                           <TableCell class="text-left"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
-                          <TableCell class="text-left tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell>
-                          <TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell>
                         </TableRow>
                       )
                     }}
@@ -412,13 +408,13 @@ export default function KanbanUserDetail() {
                           q.set("endDate", span.end)
                         }
                         if (userIdMemo()) q.set("userId", userIdMemo())
-                        return `/kanban/commit?${q.toString()}`
+                        return `/kanban/task?${q.toString()}`
                       }
 
                       return (
                         <TableRow>
                           <TableCell>{row.period_label || row.period_key || "-"}</TableCell>
-                          <TableCell class="text-left tabular-nums">{(row.commit_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(link())}>{row.commit_count}</button> : 0}</TableCell>
+                          <TableCell class="text-left tabular-nums">{(row.task_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(link())}>{row.task_count}</button> : 0}</TableCell>
                           <TableCell class="text-left tabular-nums">{row.task_diff_lines ?? 0}</TableCell>
                           <TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
                           <TableCell class="text-left">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
