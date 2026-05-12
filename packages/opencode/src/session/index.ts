@@ -778,6 +778,7 @@ export namespace Session {
 
     const limit = input?.limit ?? 100
 
+    const t0 = Date.now()
     const rows = Database.use((db) =>
       db
         .select()
@@ -787,9 +788,12 @@ export namespace Session {
         .limit(limit)
         .all(),
     )
+    console.log(`[perf.session] list DB query=${Date.now() - t0}ms rows=${rows.length} project=${project.id}`)
+    const t1 = Date.now()
     for (const row of rows) {
       yield fromRow(row)
     }
+    console.log(`[perf.session] list fromRow=${Date.now() - t1}ms total=${Date.now() - t0}ms`)
   }
 
   export function* listGlobal(input?: {

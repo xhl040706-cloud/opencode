@@ -86,7 +86,8 @@ export function treeEvent(input: {
   type: string
   tree: Set<string>
 }) {
-  if (!input.root || !input.eventSID) return true
+  if (!input.root) return false
+  if (!input.eventSID) return true
   const request =
     input.type === "permission.asked" ||
     input.type === "permission.replied" ||
@@ -185,23 +186,35 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         const result = await device.client.conversation.messages(id, { limit })
         if (!result) return
         const raw = Array.isArray(result) ? result : []
-        const msgs: Message[] = []
+        const fetched = new Map<string, { info: Message; parts?: Part[] }>()
+        for (const item of raw as any[]) {
+          if (!item?.info?.id) continue
+          fetched.set(item.info.id, {
+            info: item.info as Message,
+            parts: Array.isArray(item.parts) ? (item.parts as Part[]) : undefined,
+          })
+        }
         batch(() => {
-          for (const item of raw as any[]) {
-            if (!item?.info?.id) continue
-            msgs.push(item.info as Message)
-            if (item.parts && Array.isArray(item.parts)) {
-              setStore("parts", item.info.id, reconcile(item.parts as Part[], { key: "id" }))
+          for (const [mid, data] of fetched) {
+            if (data.parts && data.parts.length > 0) {
+              const existing = store.parts[mid]
+              if (!existing || existing.length !== data.parts.length) {
+                setStore("parts", mid, data.parts)
+              }
             }
           }
-          const existingIDs = new Set(msgs.map((m) => m.id))
-          for (const m of store.messages) {
-            if (!existingIDs.has(m.id)) {
-              msgs.push(m)
+          setStore("messages", produce((draft: Message[]) => {
+            const index = new Map(draft.map((m, i) => [m.id, i]))
+            for (const [mid, data] of fetched) {
+              const idx = index.get(mid)
+              if (idx !== undefined) {
+                draft[idx] = data.info
+              } else {
+                draft.push(data.info)
+              }
             }
-          }
-          msgs.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
-          setStore("messages", reconcile(msgs, { key: "id" }))
+            draft.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
+          }))
         })
       } catch {}
     })

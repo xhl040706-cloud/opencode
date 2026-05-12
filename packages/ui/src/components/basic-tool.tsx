@@ -228,6 +228,11 @@ export function GenericTool(props: {
 }) {
   const pending = () => props.status === "pending" || props.status === "running"
 
+  const title = () =>
+    props.tool
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+
   const entries = createMemo(() => {
     if (!props.input) return []
     return Object.entries(props.input).filter(([, v]) => v !== undefined && v !== null)
@@ -237,7 +242,7 @@ export function GenericTool(props: {
     <div data-slot="basic-tool-tool-info-structured">
       <div data-slot="basic-tool-tool-info-main">
         <span data-slot="basic-tool-tool-title">
-          <TextShimmer text={props.tool} active={pending()} />
+          <TextShimmer text={title()} active={pending()} />
         </span>
       </div>
     </div>

@@ -42,6 +42,7 @@ export function SessionComposerRegion(props: {
   hideAttachButton?: boolean
   hidePrompt?: boolean
   working?: boolean
+  busySince?: number
 }) {
   const prompt = usePrompt()
   const language = useLanguage()
@@ -222,7 +223,7 @@ export function SessionComposerRegion(props: {
                 "margin-top": `${-36 * value()}px`,
               }}
             >
-              <StatusDisplay working={!!props.working} />
+              <StatusDisplay working={!!props.working} busySince={props.busySince} />
               <PromptInput
                 ref={props.inputRef}
                 newSessionWorktree={props.newSessionWorktree}

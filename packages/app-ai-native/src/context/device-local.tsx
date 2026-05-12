@@ -138,31 +138,38 @@ export function DeviceLocalProvider(props: ParentProps<{ workspaceId?: string }>
     )
   })
 
-  const currentModel = createMemo<ModelInfo | undefined>(() => {
-    const providers = sync.data.provider.connected as ProviderCapability[]
-    if (!store.currentModel) {
-      const persisted = loadPersistedModel()
-      if (persisted) {
-        const provider = providers.find((p) => p.id === persisted.providerID)
-        const m = provider?.models[persisted.modelID]
-        if (m) return { ...m, provider: { id: provider.id, name: provider.name } }
-      }
-      for (const p of providers) {
-        const defaultModel = p.default_model
-        if (defaultModel) {
-          const m = p.models[defaultModel]
-          if (m) return { ...m, provider: { id: p.id, name: p.name } }
-        }
-        const first = Object.values(p.models)[0]
-        if (first) return { ...first, provider: { id: p.id, name: p.name } }
-      }
-      return undefined
-    }
-    const key = store.currentModel
+  const resolveModel = (providers: ProviderCapability[], key: ModelKey): ModelInfo | undefined => {
     const provider = providers.find((p) => p.id === key.providerID)
     const m = provider?.models[key.modelID]
-    if (!m) return undefined
-    return { ...m, provider: { id: provider.id, name: provider.name } }
+    if (m) return { ...m, provider: { id: provider.id, name: provider.name } }
+    return undefined
+  }
+
+  const fallbackModel = (providers: ProviderCapability[]): ModelInfo | undefined => {
+    for (const p of providers) {
+      if (p.default_model) {
+        const m = p.models[p.default_model]
+        if (m) return { ...m, provider: { id: p.id, name: p.name } }
+      }
+      const first = Object.values(p.models)[0]
+      if (first) return { ...first, provider: { id: p.id, name: p.name } }
+    }
+    return undefined
+  }
+
+  const currentModel = createMemo<ModelInfo | undefined>(() => {
+    const providers = sync.data.provider.connected as ProviderCapability[]
+    if (!providers?.length) return undefined
+    if (store.currentModel) {
+      const resolved = resolveModel(providers, store.currentModel)
+      if (resolved) return resolved
+    }
+    const persisted = loadPersistedModel()
+    if (persisted) {
+      const resolved = resolveModel(providers, persisted)
+      if (resolved) return resolved
+    }
+    return fallbackModel(providers)
   })
 
   const setModel = (model: ModelKey | undefined) => {

@@ -1,6 +1,5 @@
 import { createStore, produce } from "solid-js/store"
 import type { SessionStatus, QuestionRequest, PermissionRequest } from "@opencode-ai/sdk/v2/client"
-import { isSessionUnread, unreadVersion } from "./session-unread-store"
 
 export type WorkspaceSummary = {
   branch?: string
@@ -22,7 +21,7 @@ export function syncSummary(
     sessionStatus: Record<string, SessionStatus>
     questions: Record<string, QuestionRequest[]>
     permissions: Record<string, PermissionRequest[]>
-    sessionIds?: string[]
+    hasUnreadSession?: boolean
   },
 ) {
   const hasActiveSession = Object.values(data.sessionStatus).some(
@@ -31,26 +30,21 @@ export function syncSummary(
   const hasPendingInteraction =
     Object.values(data.questions).some((q) => q.length > 0) ||
     Object.values(data.permissions).some((p) => p.length > 0)
-  unreadVersion()
-  const ids = data.sessionIds ?? Object.keys(data.sessionStatus)
-  const hasUnreadSession = ids.some((sid) => isSessionUnread(sid))
   const next = {
     branch: data.vcs?.branch,
     hasActiveSession,
     hasPendingInteraction,
-    hasUnreadSession,
+    hasUnreadSession: !!data.hasUnreadSession,
   }
   const prev = summaries[id]
   if (prev && prev.branch === next.branch && prev.hasActiveSession === next.hasActiveSession && prev.hasPendingInteraction === next.hasPendingInteraction && prev.hasUnreadSession === next.hasUnreadSession) return
   setSummaries(id, next)
 }
 
-export function refreshUnread(id: string, sessionIds: string[]) {
-  unreadVersion()
-  const hasUnreadSession = sessionIds.some((sid) => isSessionUnread(sid))
+export function refreshUnread(id: string, hasUnread: boolean) {
   const prev = summaries[id]
-  if (!prev || prev.hasUnreadSession === hasUnreadSession) return
-  setSummaries(id, "hasUnreadSession", hasUnreadSession)
+  if (!prev || prev.hasUnreadSession === hasUnread) return
+  setSummaries(id, "hasUnreadSession", hasUnread)
 }
 
 export function clearSummary(id: string) {

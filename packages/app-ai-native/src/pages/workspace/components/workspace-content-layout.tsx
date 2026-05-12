@@ -22,7 +22,6 @@ import { FilePreviewTab } from "./file-preview-tab"
 import { DiffPreviewTab } from "./diff-preview-tab"
 import { workspaceKey } from "@/lib/workspace-key"
 import { shouldRestore, activeSession } from "./workspace-content-layout-sync"
-import { isSessionUnread, clearSessionUnread, unreadVersion } from "@/context/session-unread-store"
 import { refreshUnread } from "@/context/workspace-summary-store"
 import FileTree from "@/components/file-tree"
 import type { FileNode } from "@opencode-ai/sdk/v2"
@@ -137,8 +136,7 @@ function SessionTabIcon(props: { tab: ContentTab }) {
   const unread = createMemo(() => {
     const id = props.tab.meta?.sessionID as string | undefined
     if (!id) return false
-    unreadVersion()
-    return isSessionUnread(id)
+    return !!dw.data.unread[id]
   })
 
   const tabStore = useContentTabs()
@@ -235,8 +233,8 @@ function ContentTabPanel() {
             const tab = tabStore.tabs().find((t) => t.id === id)
             const sid = tab?.kind === "session" ? (tab.meta?.sessionID as string | undefined) : undefined
             if (sid) {
-              clearSessionUnread(sid)
-              if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.map((s) => s.id))
+              dw.session.clearUnread(sid)
+              if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.some((s) => dw.data.unread[s.id]))
             }
           }}
           class="h-full flex flex-col"
@@ -350,7 +348,7 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   const sortedSessions = createMemo(() => {
     const sessions = dw.data.session
     return sessions
-      .filter((s) => !s.parentID && !s.time.archived)
+      .filter((s) => !s.parentID)
       .slice()
       .sort((a, b) => (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created))
   })
@@ -378,8 +376,8 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   }
 
   const openSession = (session: Session) => {
-    clearSessionUnread(session.id)
-    if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.map((s) => s.id))
+    dw.session.clearUnread(session.id)
+    if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.some((s) => dw.data.unread[s.id]))
     const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === session.id)
     if (existing) {
       tabStore.activate(existing.id)
@@ -394,8 +392,8 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
     })
   }
 
-  const archiveSession = async (session: Session) => {
-    await dw.session.archive(session.id)
+  const deleteSession = async (session: Session) => {
+    await dw.session.remove(session.id)
   }
 
   createEffect(() => {
@@ -535,24 +533,23 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
           </button>
         </Tooltip>
         <div class="flex-1" />
-        <Tooltip value={language.t("workspace.content.newSession")} placement="bottom">
-          <IconButton
-            icon="plus-small"
-            variant="ghost"
-            iconSize="small"
-            onClick={() => {
-              newSessionCounter++
-              tabStore.open({
-                kind: "session",
-                key: `new-${newSessionCounter}`,
-                title: language.t("command.session.new"),
-                icon: SESSION_TAB_ICON,
-                meta: { sessionID: undefined },
-              })
-            }}
-            aria-label={language.t("workspace.content.newSession")}
-          />
-        </Tooltip>
+        <button
+          class="flex items-center gap-1 h-7 px-2 rounded-[4px] text-[12px] font-medium text-text-base ring-1 ring-border hover:bg-[var(--surface-base-hover)] transition-colors cursor-pointer"
+          onClick={() => {
+            newSessionCounter++
+            tabStore.open({
+              kind: "session",
+              key: `new-${newSessionCounter}`,
+              title: language.t("command.session.new"),
+              icon: SESSION_TAB_ICON,
+              meta: { sessionID: undefined },
+            })
+          }}
+          aria-label={language.t("workspace.content.newSession")}
+        >
+          <Icon name="plus-small" size="small" />
+          <span>{language.t("workspace.content.newSession")}</span>
+        </button>
       </div>
 
       <div class="flex-1 min-h-0 flex flex-col">
@@ -605,7 +602,7 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
                                           }}
                                         />
                                       </Show>
-                                      <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && !isWorking(session.id) && isSessionUnread(session.id) && unreadVersion() >= 0}>
+                                      <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && !isWorking(session.id) && !!dw.data.unread[session.id]}>
                                         <span class="shrink-0 w-2 h-2 rounded-full bg-native-primary" />
                                       </Show>
                                       <span class="truncate flex-1 min-w-0">{session.title || language.t("command.session.new")}</span>
@@ -613,10 +610,10 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
                                         class="shrink-0 size-5 flex items-center justify-center rounded opacity-0 group-hover/s:opacity-100 transition-[width,opacity] duration-150 w-0 overflow-hidden group-hover/s:w-5 hover:bg-native-active"
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          archiveSession(session)
+                                          deleteSession(session)
                                         }}
                                       >
-                                        <Icon name="archive" size="small" class="text-native-dim" />
+                                        <Icon name="trash" size="small" class="text-native-dim" />
                                       </button>
                                     </div>
                                   )
@@ -867,8 +864,8 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
   }
 
   const restoreFromUrl = (sid: string, ws: ReturnType<typeof useDeviceWorkspace>) => {
-    clearSessionUnread(sid)
-    if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.map((s) => s.id))
+    ws.session.clearUnread(sid)
+    if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.some((s) => ws.data.unread[s.id]))
     const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === sid)
     if (existing) {
       tabStore.activate(existing.id)
@@ -911,8 +908,10 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
     if (!id) return
     const sid = activeSession(tabStore.tabs(), id)
     if (sid) {
-      clearSessionUnread(sid)
-      if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.map((s) => s.id))
+      untrack(() => {
+        ws.session.clearUnread(sid)
+        if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.some((s) => ws.data.unread[s.id]))
+      })
     }
   })
 

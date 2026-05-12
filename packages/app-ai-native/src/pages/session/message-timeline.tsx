@@ -359,36 +359,6 @@ export function MessageTimeline(props: {
     navigate(`/workspace/${params.workspaceID}`)
   }
 
-  const archiveSession = async (sessionID: string) => {
-    const session = sync.session.get(sessionID)
-    if (!session) return
-
-    await conversation
-      .sessionUpdate({ sessionID, time: { archived: Date.now() } })
-      .then(() => {
-        sync.set(
-          produce((draft: any) => {
-            const index = draft.session.findIndex((s: any) => s.id === sessionID)
-            if (index !== -1) draft.session.splice(index, 1)
-          }),
-        )
-        navigateAfterSessionRemoval(sessionID, session.parentID)
-      })
-      .catch((err) => {
-        showToast({
-          title: language.t("session.delete.failed.title"),
-          description: errorMessage(err),
-        })
-        return false
-      })
-      .catch((err) => {
-        showToast({
-          title: language.t("common.requestFailed"),
-          description: errorMessage(err),
-        })
-      })
-  }
-
   const deleteSession = async (sessionID: string) => {
     const session = sync.session.get(sessionID)
     if (!session) return false
@@ -651,8 +621,8 @@ export function MessageTimeline(props: {
                               >
                                 <DropdownMenu.ItemLabel>{language.t("common.rename")}</DropdownMenu.ItemLabel>
                               </DropdownMenu.Item>
-                              <DropdownMenu.Item onSelect={() => void archiveSession(id)}>
-                                <DropdownMenu.ItemLabel>{language.t("common.archive")}</DropdownMenu.ItemLabel>
+                               <DropdownMenu.Item onSelect={() => void deleteSession(id)}>
+                                <DropdownMenu.ItemLabel>{language.t("common.delete")}</DropdownMenu.ItemLabel>
                               </DropdownMenu.Item>
                               <DropdownMenu.Separator />
                               <DropdownMenu.Item

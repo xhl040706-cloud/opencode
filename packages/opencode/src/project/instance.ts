@@ -65,8 +65,10 @@ function track(directory: string, next: Promise<InstanceContext>) {
 export const Instance = {
   async provide<R>(input: { directory: string; init?: () => Promise<any>; fn: () => R }): Promise<R> {
     const directory = Filesystem.resolve(input.directory)
+    const t0 = Date.now()
     let existing = cache.get(directory)
     if (!existing) {
+      console.log(`[perf.instance] CACHE MISS, booting instance for ${directory}`)
       Log.Default.info("creating instance", { directory })
       existing = track(
         directory,
@@ -75,11 +77,17 @@ export const Instance = {
           init: input.init,
         }),
       )
+    } else {
+      console.log(`[perf.instance] CACHE HIT for ${directory}`)
     }
     const ctx = await existing
-    return context.provide(ctx, async () => {
+    console.log(`[perf.instance] instance.resolve=${Date.now() - t0}ms (includes boot if miss)`)
+    const t1 = Date.now()
+    const result = await context.provide(ctx, async () => {
       return input.fn()
     })
+    console.log(`[perf.instance] context.provide+fn=${Date.now() - t1}ms`)
+    return result
   },
   get current() {
     return context.use()

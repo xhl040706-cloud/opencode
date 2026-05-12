@@ -273,13 +273,12 @@ export function Markdown(
             }
           }
 
-          const next = await Promise.resolve(marked.parse(block.src))
-          const safe = sanitize(next)
-          if (key && hash) touch(key, { hash, html: safe })
-          return safe
+          const html = await Promise.resolve(marked.parse(block.src))
+          if (key && hash) touch(key, { hash, html })
+          return html
         }),
       )
-        .then((list) => list.join(""))
+        .then((list) => sanitize(list.join("")))
         .catch(() => fallback(src.text))
     },
     { initialValue: fallback(local.text) },
@@ -302,8 +301,7 @@ export function Markdown(
       copy: i18n.t("ui.message.copy"),
       copied: i18n.t("ui.message.copied"),
     }
-    const temp = document.createElement("div")
-    temp.innerHTML = content
+    const temp = new DOMParser().parseFromString(content, "text/html").body as HTMLDivElement
     decorate(temp, labels)
 
     morphdom(container, temp, {

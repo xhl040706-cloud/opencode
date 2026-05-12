@@ -14,11 +14,14 @@ function common(active: string, done: string) {
   }
 }
 
+const canvas = typeof document !== "undefined" ? document.createElement("canvas") : undefined
+const ctx = canvas?.getContext("2d") ?? undefined
+
 function contentWidth(el: HTMLSpanElement | undefined) {
-  if (!el) return 0
-  const range = document.createRange()
-  range.selectNodeContents(el)
-  return Math.ceil(range.getBoundingClientRect().width)
+  if (!el || !ctx) return 0
+  const s = getComputedStyle(el)
+  ctx.font = `${s.fontStyle} ${s.fontVariant} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`
+  return Math.ceil(ctx.measureText(el.textContent ?? "").width)
 }
 
 export function ToolStatusTitle(props: {

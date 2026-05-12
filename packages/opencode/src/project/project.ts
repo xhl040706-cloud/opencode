@@ -163,11 +163,13 @@ export namespace Project {
       })
 
       const fromDirectory = Effect.fn("Project.fromDirectory")(function* (directory: string) {
+        const t0 = Date.now()
         log.info("fromDirectory", { directory })
 
         // Phase 1: discover git info
         type DiscoveryResult = { id: ProjectID; worktree: string; sandbox: string; vcs: Info["vcs"] }
 
+        const t1 = Date.now()
         const data: DiscoveryResult = yield* Effect.gen(function* () {
           const dotgitMatches = yield* fs.up({ targets: [".git"], start: directory }).pipe(Effect.orDie)
           const dotgit = dotgitMatches[0]
@@ -244,8 +246,12 @@ export namespace Project {
           return { id, sandbox, worktree, vcs: "git" as const }
         })
 
+        console.log(`[perf.project] fromDirectory phase1.git-discovery=${Date.now() - t1}ms id=${data.id}`)
+
         // Phase 2: upsert
+        const t2 = Date.now()
         const row = yield* db((d) => d.select().from(ProjectTable).where(eq(ProjectTable.id, data.id)).get())
+        console.log(`[perf.project] fromDirectory phase2.db-select=${Date.now() - t2}ms`)
         const existing = row
           ? fromRow(row)
           : {
@@ -321,6 +327,7 @@ export namespace Project {
         }
 
         yield* emitUpdated(result)
+        console.log(`[perf.project] fromDirectory TOTAL=${Date.now() - t0}ms`)
         return { project: result, sandbox: data.sandbox }
       })
 

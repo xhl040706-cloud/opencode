@@ -8,7 +8,7 @@ function formatElapsedTime(seconds: number): string {
   return `${minutes}m ${remainingSeconds}s`
 }
 
-export function StatusDisplay(props: { working: boolean }) {
+export function StatusDisplay(props: { working: boolean; busySince?: number }) {
   const language = useLanguage()
   const [elapsed, setElapsed] = createSignal(0)
 
@@ -18,8 +18,8 @@ export function StatusDisplay(props: { working: boolean }) {
       return
     }
 
-    const start = Date.now()
-    setElapsed(0)
+    const start = props.busySince ?? Date.now()
+    setElapsed(Math.floor((Date.now() - start) / 1000))
     const timer = setInterval(() => {
       setElapsed(Math.floor((Date.now() - start) / 1000))
     }, 1000)
