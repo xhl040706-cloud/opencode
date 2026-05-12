@@ -494,7 +494,21 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
       setQuestions: (q: Record<string, QuestionRequest[]>) => setStore("questions", reconcile(q)),
       setPermissions: (p: Record<string, PermissionRequest[]>) => setStore("permissions", reconcile(p)),
       removePermission,
-      clearUnread: (id: string) => setStore("unread", produce((draft) => { delete draft[id] })),
+      clearUnread: (id: string) => {
+        if (!store.unread[id]) return
+        batch(() => {
+          setStore("unread", produce((draft) => { delete draft[id] }))
+          if (props.workspaceId) {
+            syncSummary(props.workspaceId, {
+              vcs: store.vcs,
+              sessionStatus: store.sessionStatus,
+              questions: store.questions,
+              permissions: store.permissions,
+              hasUnreadSession: store.session.some((s) => !s.parentID && store.unread[s.id]),
+            })
+          }
+        })
+      },
     },
     command: { load: loadCommands },
     vcs: { load: loadVcs },
