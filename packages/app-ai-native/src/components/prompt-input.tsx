@@ -604,18 +604,36 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     })
   }
 
+  const trimAfterAt = () => {
+    const cursor = getCursorPosition(editorRef)
+    const raw = prompt
+      .current()
+      .map((p) => ("content" in p ? p.content : ""))
+      .join("")
+    const match = raw.substring(0, cursor).match(/@(\S*)$/)
+    if (!match || match.index == null) {
+      setEditorText("@")
+      prompt.set([{ type: "text", content: "@", start: 0, end: 1 }], 1)
+      return
+    }
+    const range = document.createRange()
+    setRangeEdge(editorRef, range, "start", match.index + 1)
+    setRangeEdge(editorRef, range, "end", cursor)
+    range.deleteContents()
+    const updated = parseFromDOM()
+    prompt.set(updated, match.index + 1)
+  }
+
   const enterWorkspaceFileSearch = (ws: { id: string; name: string; directory: string }) => {
     setStore("workspaceFileSearch", ws)
-    setEditorText("@")
-    prompt.set([{ type: "text", content: "@", start: 0, end: 1 }], 1)
+    trimAfterAt()
     wsFileRefetch()
     focusEditorEnd()
   }
 
   const exitWorkspaceFileSearch = () => {
     setStore("workspaceFileSearch", null)
-    setEditorText("@")
-    prompt.set([{ type: "text", content: "@", start: 0, end: 1 }], 1)
+    trimAfterAt()
     atOnInput("")
     focusEditorEnd()
   }
