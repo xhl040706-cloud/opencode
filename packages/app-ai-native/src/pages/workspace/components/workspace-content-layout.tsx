@@ -908,8 +908,10 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
     if (!id) return
     const sid = activeSession(tabStore.tabs(), id)
     if (sid) {
-      ws.session.clearUnread(sid)
-      if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.some((s) => ws.data.unread[s.id]))
+      untrack(() => {
+        ws.session.clearUnread(sid)
+        if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.some((s) => ws.data.unread[s.id]))
+      })
     }
   })
 

@@ -383,8 +383,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   break
                 }
                 case "session.deleted": {
-                  const props = payload.properties as { sessionID?: string; info?: Session }
-                  const id = props?.sessionID ?? props?.info?.id ?? payload.sessionID
+                  const dp = payload.properties as { sessionID?: string; info?: Session }
+                  const id = dp?.sessionID ?? dp?.info?.id ?? payload.sessionID
                   if (!id) break
                   batch(() => {
                     setStore("session", produce((draft) => {
@@ -400,13 +400,13 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   break
                 }
                 case "session.status": {
-                  const props = payload.properties as { sessionID?: string; status?: SessionStatus }
-                  const id = props?.sessionID ?? payload.sessionID
-                  if (!id || !props?.status) break
+                  const sp = payload.properties as { sessionID?: string; status?: SessionStatus }
+                  const id = sp?.sessionID ?? payload.sessionID
+                  if (!id || !sp?.status) break
                   const prevStatus = store.sessionStatus[id]
                   const wasBusy = prevStatus?.type === "busy" || prevStatus?.type === "retry"
-                  const nowIdle = props.status.type === "idle"
-                  setSessionStatus(id, props.status)
+                  const nowIdle = sp.status.type === "idle"
+                  setSessionStatus(id, sp.status)
                   if (wasBusy && nowIdle) {
                     setStore("unread", id, true)
                   }
