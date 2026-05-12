@@ -388,35 +388,91 @@ export function DeviceSessionTab(props: { tabId: string }) {
   }
 
   // SyncContext value — adapt DeviceWorkspaceProvider + DeviceSessionProvider
-  const syncStore = createMemo(() => ({
-    status: workspace.data.status === "unavailable" ? "complete" as const : workspace.data.status === "loading" ? "loading" as const : "complete" as const,
-    agent: workspace.data.agent,
-    agentRuntimes: [] as unknown[],
-    command: workspace.data.command,
+  type SyncDataShape = {
+    status: "complete" | "loading"
+    agent: Agent[] | undefined
+    agentRuntimes: unknown[]
+    command: Command[] | undefined
+    project: string
+    projectMeta: any
+    icon: string | undefined
+    provider: ProviderCapabilitiesResponse | undefined
+    path: Path
+    session: Session[]
+    sessionTotal: number
+    session_status: Record<string, SessionStatus>
+    session_diff: Record<string, FileDiff[]>
+    todo: Record<string, Todo[]>
+    permission: Record<string, PermissionRequest[]>
+    question: Record<string, QuestionRequest[]>
+    mcp: Record<string, any>
+    lsp: any[]
+    vcs: VcsInfo | undefined
+    limit: number
+    message: Record<string, Message[]>
+    part: Record<string, Part[]>
+  }
+
+  const [syncData, setSyncData] = createStore<SyncDataShape>({
+    status: "complete",
+    agent: undefined,
+    agentRuntimes: [],
+    command: undefined,
     project: "",
-    projectMeta: undefined as any,
-    icon: undefined as string | undefined,
-    provider: workspace.data.provider,
+    projectMeta: undefined,
+    icon: undefined,
+    provider: undefined,
     path: { directory: device.directory } as Path,
-    session: workspace.data.session,
-    sessionTotal: workspace.data.sessionTotal,
-    session_status: {
-      ...workspace.data.sessionStatus,
-      ...(currentSessionID() ? { [currentSessionID()!]: effectiveStatus() } : {}),
-      "": effectiveStatus(),
-      undefined: effectiveStatus(),
-    } as Record<string, SessionStatus>,
-    session_diff: { [currentSessionID() ?? ""]: effectiveDiffs() } as Record<string, FileDiff[]>,
-    todo: { [currentSessionID() ?? ""]: effectiveTodos() } as Record<string, Todo[]>,
-    permission: workspace.data.permissions,
-    question: workspace.data.questions,
-    mcp: {} as Record<string, any>,
-    lsp: [] as any[],
-    vcs: workspace.data.vcs,
+    session: [],
+    sessionTotal: 0,
+    session_status: {},
+    session_diff: {},
+    todo: {},
+    permission: {},
+    question: {},
+    mcp: {},
+    lsp: [],
+    vcs: undefined,
     limit: 50,
-    message: { [currentSessionID() ?? ""]: effectiveMessages(), "": effectiveMessages(), undefined: effectiveMessages() } as Record<string, Message[]>,
-    part: effectiveParts() as Record<string, Part[]>,
-  }))
+    message: {},
+    part: {},
+  })
+
+  createEffect(() => {
+    const s = workspace.data.status
+    setSyncData("status", s === "unavailable" ? "complete" as const : s === "loading" ? "loading" as const : "complete" as const)
+  })
+  createEffect(() => setSyncData("agent", workspace.data.agent))
+  createEffect(() => setSyncData("command", workspace.data.command))
+  createEffect(() => setSyncData("provider", workspace.data.provider))
+  createEffect(() => setSyncData("session", workspace.data.session))
+  createEffect(() => setSyncData("sessionTotal", workspace.data.sessionTotal))
+  createEffect(() => setSyncData("permission", workspace.data.permissions))
+  createEffect(() => setSyncData("question", workspace.data.questions))
+  createEffect(() => setSyncData("vcs", workspace.data.vcs))
+  createEffect(() => {
+    const cid = currentSessionID()
+    const status = effectiveStatus()
+    setSyncData("session_status", {
+      ...workspace.data.sessionStatus,
+      ...(cid ? { [cid]: status } : {}),
+      "": status,
+      undefined: status,
+    })
+  })
+  createEffect(() => {
+    const cid = currentSessionID() ?? ""
+    setSyncData("session_diff", { [cid]: effectiveDiffs() })
+  })
+  createEffect(() => {
+    const cid = currentSessionID() ?? ""
+    setSyncData("todo", { [cid]: effectiveTodos() })
+  })
+  createEffect(() => {
+    const msgs = effectiveMessages()
+    const cid = currentSessionID() ?? ""
+    setSyncData("message", { [cid]: msgs, "": msgs, undefined: msgs })
+  })
 
   const syncSet = (...args: any[]) => {
     if (!viewingSessionID()) return
@@ -429,9 +485,9 @@ export function DeviceSessionTab(props: { tabId: string }) {
   }
 
   const syncValue = {
-    get data() { return syncStore() },
+    get data() { return syncData },
     get set() { return syncSet },
-    get status() { return syncStore().status },
+    get status() { return syncData.status },
     get ready() { return workspace.data.status !== "loading" },
     get project() {
       return {
@@ -621,6 +677,15 @@ export function DeviceSessionTab(props: { tabId: string }) {
 
   const composer = createDeviceSessionComposerState()
 
+  const [composerMounted, setComposerMounted] = createSignal(true)
+  createEffect(() => {
+    const id = currentSessionID()
+    void id
+    setComposerMounted(false)
+    const frame = requestAnimationFrame(() => setComposerMounted(true))
+    onCleanup(() => cancelAnimationFrame(frame))
+  })
+
   const [snap, setSnap] = createSignal(true)
 
   const done = createMemo(() => {
@@ -662,22 +727,30 @@ export function DeviceSessionTab(props: { tabId: string }) {
     for (const m of raw) {
       if (m.role === "user") userIDs.add(m.id)
     }
-    const orphans = new Map<string, any>()
+    let orphanID: string | undefined
+    let orphanCreated = false
+    const orphan = {
+      id: "",
+      sessionID: currentSessionID() ?? "",
+      role: "user",
+      time: { created: 0 },
+    } as any
+    const enriched: any[] = []
     for (const m of raw) {
-      if (m.role === "assistant" && m.parentID && !userIDs.has(m.parentID) && !orphans.has(m.parentID)) {
-        orphans.set(m.parentID, {
-          id: m.parentID,
-          sessionID: currentSessionID() ?? "",
-          role: "user",
-          time: { created: m.time?.created ?? 0 },
-        })
+      if (m.role === "assistant" && m.parentID && !userIDs.has(m.parentID)) {
+        if (!orphanCreated) {
+          orphan.id = m.parentID
+          orphan.time = { created: m.time?.created ?? 0 }
+          orphanID = m.parentID
+          enriched.push(orphan)
+          userIDs.add(m.parentID)
+          orphanCreated = true
+        }
+        if (m.parentID !== orphanID) {
+          ;(m as any).parentID = orphanID
+        }
       }
-    }
-    if (orphans.size === 0) return raw
-    const enriched = [...raw]
-    for (const s of [...orphans.values()]) {
-      const idx = enriched.findIndex((m) => m.role === "assistant" && m.parentID === s.id)
-      if (idx >= 0) enriched.splice(idx, 0, s)
+      enriched.push(m)
     }
     return enriched
   })
@@ -771,12 +844,11 @@ export function DeviceSessionTab(props: { tabId: string }) {
   }
 
   const dataProps = createMemo(() => {
-    const base = syncStore()
-    if (!base) return undefined
     const cid = currentSessionID()
     return {
-      ...base,
-      message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() },
+      ...syncData,
+      message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() } as Record<string, Message[]>,
+      part: effectiveParts() as Record<string, Part[]>,
       provider: legacyProvider(workspace.data.provider),
     }
   })
@@ -925,12 +997,19 @@ export function DeviceSessionTab(props: { tabId: string }) {
                           </Show>
                         </div>
 
-                        <Show when={workspace.agentAvailable()}>
+                        <Show when={workspace.agentAvailable() && composerMounted()}>
                           <SessionComposerRegion
                             state={composer}
                             ready={true}
                             centered={true}
-                            inputRef={() => {}}
+                            inputRef={(el: HTMLDivElement) => {
+                              if (!el) return
+                              const handler = () => {
+                                const sid = rootSessionID()
+                                if (sid) workspace.session.clearUnread(sid)
+                              }
+                              el.addEventListener("focusin", handler)
+                            }}
                             newSessionWorktree="main"
                             onNewSessionWorktreeReset={() => {}}
                             onSubmit={() => {

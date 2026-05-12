@@ -224,9 +224,12 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     const id = sid()
     if (!id || !workspace.agentAvailable()) return
     try {
-      const result = await device.client.conversation.get(id)
-      if (result) setStore("session", result as Session)
-      await loadMessages(MESSAGE_PAGE_SIZE)
+      const [,] = await Promise.allSettled([
+        device.client.conversation.get(id).then((result) => {
+          if (result) setStore("session", result as Session)
+        }),
+        loadMessages(MESSAGE_PAGE_SIZE),
+      ])
     } catch {}
   }
 

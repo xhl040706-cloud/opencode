@@ -2,12 +2,10 @@ import { useNavigate, useParams } from "@solidjs/router"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
-import { useLocal } from "@/context/local"
 import { useLayout } from "@/context/layout"
 import { useSync } from "@/context/sync"
 import { useSDK } from "@/context/sdk"
 import { useConversationAdapter } from "@/context/device-adapter"
-import { useWorkspaceNavigate } from "@/hooks/use-workspace-navigate"
 import { DialogSelectFile } from "@/components/dialog-select-file"
 import { DialogSelectModel } from "@/components/dialog-select-model"
 import { DialogSelectMcp } from "@/components/dialog-select-mcp"
@@ -30,13 +28,11 @@ export function useSlashActions() {
   const dialog = useDialog()
   const navigate = useNavigate()
   const params = useParams()
-  const local = useLocal()
   const sync = useSync()
   const sdk = useSDK()
   const conversation = useConversationAdapter()
   const language = useLanguage()
   const layout = useLayout()
-  const { navigateToSession } = useWorkspaceNavigate()
 
   const sessionID = () => (sync as any).currentSessionID?.()
   const directory = () => sdk.directory
@@ -45,198 +41,75 @@ export function useSlashActions() {
     switch (name) {
       case "new": {
         navigate(`/workspace/${params.workspaceID ?? ""}`)
-        break
+        return
       }
       case "sessions":
       case "resume":
       case "continue": {
         dialog.show(() => <DialogSessionList />)
-        break
+        return
       }
       case "workspaces": {
         const dir = directory()
         if (dir) layout.sidebar.toggleWorkspaces(dir)
-        break
+        return
       }
       case "models": {
         dialog.show(() => <DialogSelectModel />)
-        break
+        return
       }
       case "agents": {
         dialog.show(() => <DialogSelectAgent />)
-        break
+        return
       }
       case "mcps": {
         dialog.show(() => <DialogSelectMcp />)
-        break
+        return
       }
       case "variants": {
         dialog.show(() => <DialogSelectVariant />)
-        break
+        return
       }
       case "connect": {
         dialog.show(() => <DialogSelectProvider />)
-        break
+        return
       }
       case "status": {
         dialog.show(() => <DialogStatus />)
-        break
+        return
       }
       case "credit": {
         dialog.show(() => <DialogCredit />)
-        break
+        return
       }
       case "themes": {
         dialog.show(() => <DialogThemeList />)
-        break
+        return
       }
       case "help": {
         dialog.show(() => <DialogHelp />)
-        break
+        return
       }
       case "hub":
       case "favorites": {
         dialog.show(() => <DialogFavorites />)
-        break
+        return
       }
       case "skills": {
         dialog.show(() => <DialogSkills />)
-        break
-      }
-      case "share": {
-        const sid = sessionID()
-        if (!sid) {
-          showToast({ title: language.t("command.session.share.noSession") })
-          return
-        }
-        sdk.client.session
-          .share({ id: sid })
-          .then((res) => {
-            const url = res.data?.share?.url
-            if (url) {
-              navigator.clipboard
-                .writeText(url)
-                .then(() =>
-                  showToast({
-                    title: language.t("command.session.share.copied"),
-                    variant: "success",
-                  }),
-                )
-                .catch(() =>
-                  showToast({
-                    title: language.t("command.session.share.success"),
-                    description: url,
-                    variant: "success",
-                  }),
-                )
-            }
-          })
-          .catch((err) =>
-            showToast({
-              title: language.t("command.session.share.error"),
-              description: err instanceof Error ? err.message : undefined,
-              variant: "error",
-            }),
-          )
-        break
-      }
-      case "unshare": {
-        const sid = sessionID()
-        if (!sid) {
-          showToast({ title: language.t("command.session.unshare.noSession") })
-          return
-        }
-        sdk.client.session
-          .unshare({ id: sid })
-          .then(() =>
-            showToast({
-              title: language.t("command.session.unshare.success"),
-              variant: "success",
-            }),
-          )
-          .catch((err) =>
-            showToast({
-              title: language.t("command.session.unshare.error"),
-              description: err instanceof Error ? err.message : undefined,
-              variant: "error",
-            }),
-          )
-        break
+        return
       }
       case "rename": {
         dialog.show(() => <DialogSessionRename />)
-        break
+        return
       }
       case "timeline": {
         dialog.show(() => <DialogTimeline />)
-        break
+        return
       }
       case "fork": {
         dialog.show(() => <DialogFork />)
-        break
-      }
-      case "compact": {
-        const sid = sessionID()
-        if (!sid) {
-          showToast({ title: language.t("command.session.compact.noSession") })
-          return
-        }
-        conversation
-          .sessionCommand({ sessionID: sid, command: "/compact" })
-          .catch((err) =>
-            showToast({
-              title: language.t("command.session.compact.error"),
-              description: err instanceof Error ? err.message : undefined,
-              variant: "error",
-            }),
-          )
-        break
-      }
-      case "undo": {
-        const sid = sessionID()
-        if (!sid) {
-          showToast({ title: language.t("command.session.undo.noSession") })
-          return
-        }
-        sdk.client.session
-          .revert({ id: sid })
-          .then(() =>
-            showToast({
-              title: language.t("command.session.undo.success"),
-              variant: "success",
-            }),
-          )
-          .catch((err) =>
-            showToast({
-              title: language.t("command.session.undo.error"),
-              description: err instanceof Error ? err.message : undefined,
-              variant: "error",
-            }),
-          )
-        break
-      }
-      case "redo": {
-        const sid = sessionID()
-        if (!sid) {
-          showToast({ title: language.t("command.session.redo.noSession") })
-          return
-        }
-        sdk.client.session
-          .unrevert({ id: sid })
-          .then(() =>
-            showToast({
-              title: language.t("command.session.redo.success"),
-              variant: "success",
-            }),
-          )
-          .catch((err) =>
-            showToast({
-              title: language.t("command.session.redo.error"),
-              description: err instanceof Error ? err.message : undefined,
-              variant: "error",
-            }),
-          )
-        break
+        return
       }
       case "copy": {
         const sid = sessionID()
@@ -260,7 +133,7 @@ export function useSlashActions() {
               variant: "error",
             }),
           )
-        break
+        return
       }
       case "export": {
         const sid = sessionID()
@@ -275,32 +148,37 @@ export function useSlashActions() {
           title: language.t("command.session.export.success"),
           variant: "success",
         })
-        break
+        return
       }
       case "timestamps":
       case "toggle-timestamps": {
-        // Placeholder: toggle timestamp display in session messages
         showToast({ title: language.t("command.timestamps.placeholder") })
-        break
+        return
       }
       case "thinking":
       case "toggle-thinking": {
-        // Placeholder: toggle thinking process display
         showToast({ title: language.t("command.thinking.placeholder") })
-        break
+        return
       }
       case "open": {
         dialog.show(() => <DialogSelectFile onOpenFile={() => {}} />)
-        break
+        return
       }
       case "terminal": {
         layout.view(sessionID() ?? "").terminal.toggle()
-        break
-      }
-      default: {
-        showToast({ title: language.t("command.unknown", { command: name }) })
+        return
       }
     }
+
+    const sid = sessionID()
+    if (!sid) return
+    conversation.sessionCommand({ sessionID: sid, command: name }).catch((err) =>
+      showToast({
+        title: language.t("prompt.toast.commandSendFailed.title"),
+        description: err instanceof Error ? err.message : undefined,
+        variant: "error",
+      }),
+    )
   }
 
   return { execute }
