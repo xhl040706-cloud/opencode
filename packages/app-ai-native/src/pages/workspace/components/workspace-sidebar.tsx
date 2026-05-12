@@ -403,7 +403,7 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
         </div>
       </div>
 
-      <div class="thin-scrollbar flex-[3] min-h-0 overflow-y-auto py-1 pr-1">
+      <div class="thin-scrollbar min-h-0 overflow-y-auto py-1 pr-1" classList={{ "flex-1": isDeviceListCollapsed(), "flex-[3]": !isDeviceListCollapsed() }}>
         <Show when={runningIds().length > 0}>
           <div class="mb-3 px-2">
             <div class="mb-1 flex items-center gap-1.5 px-2.5 py-1.5">
@@ -434,7 +434,7 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
         </div>
       </div>
 
-      <div class="thin-scrollbar flex-[2] min-h-0 overflow-y-auto pt-1">
+      <div class="thin-scrollbar min-h-0 overflow-y-auto pt-1" classList={{ "shrink-0": isDeviceListCollapsed(), "flex-[2]": !isDeviceListCollapsed() }}>
         <DeviceList
           devices={devices}
           onCreateWorkspace={handleCreateWorkspace}

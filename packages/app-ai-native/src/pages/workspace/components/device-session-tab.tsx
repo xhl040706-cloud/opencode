@@ -269,18 +269,31 @@ export function DeviceSessionTab(props: { tabId: string }) {
       return
     }
     const raw = Array.isArray(messagesResult.value) ? messagesResult.value : []
-    const msgs: Message[] = []
+    const items: { info: Message; parts?: Part[] }[] = []
+    for (const item of raw as any[]) {
+      if (!item?.info?.id) continue
+      items.push({ info: item.info as Message, parts: Array.isArray(item.parts) ? (item.parts as Part[]) : undefined })
+    }
     batch(() => {
-      for (const item of raw as any[]) {
-        if (!item?.info?.id) continue
-        msgs.push(item.info as Message)
-        if (item.parts && Array.isArray(item.parts)) {
-          setLoadedParts(item.info.id, reconcile(item.parts as Part[], { key: "id" }))
+      for (const item of items) {
+        if (item.parts) {
+          setLoadedParts(item.info.id, reconcile(item.parts, { key: "id" }))
         }
       }
-      setLoadedMessages(id, reconcile(msgs, { key: "id" }))
-      setPhase(id, "ready")
     })
+    const msgs: Message[] = []
+    const CHUNK = 10
+    for (let i = 0; i < items.length; i += CHUNK) {
+      const chunk = items.slice(i, i + CHUNK)
+      batch(() => {
+        for (const item of chunk) msgs.push(item.info)
+        setLoadedMessages(id, reconcile(msgs, { key: "id" }))
+        setPhase(id, "ready")
+      })
+      if (i + CHUNK < items.length) {
+        await new Promise<void>(r => requestAnimationFrame(() => r()))
+      }
+    }
   }))
 
   const unsubscribe = workspace.subscribe((payload) => {

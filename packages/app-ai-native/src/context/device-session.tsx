@@ -178,6 +178,8 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     setStore("status", workspace.data.sessionStatus[id] ?? idle)
   })
 
+  const BATCH_SIZE = 10
+
   const loadMessages = async (limit: number) => {
     const id = sid()
     if (!id) return
@@ -194,6 +196,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
             parts: Array.isArray(item.parts) ? (item.parts as Part[]) : undefined,
           })
         }
+
         batch(() => {
           for (const [mid, data] of fetched) {
             if (data.parts && data.parts.length > 0) {
@@ -203,19 +206,29 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
               }
             }
           }
-          setStore("messages", produce((draft: Message[]) => {
-            const index = new Map(draft.map((m, i) => [m.id, i]))
-            for (const [mid, data] of fetched) {
-              const idx = index.get(mid)
-              if (idx !== undefined) {
-                draft[idx] = data.info
-              } else {
-                draft.push(data.info)
-              }
-            }
-            draft.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
-          }))
         })
+
+        const entries = [...fetched]
+        for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+          const chunk = entries.slice(i, i + BATCH_SIZE)
+          batch(() => {
+            setStore("messages", produce((draft: Message[]) => {
+              const index = new Map(draft.map((m, j) => [m.id, j]))
+              for (const [mid, data] of chunk) {
+                const idx = index.get(mid)
+                if (idx !== undefined) {
+                  draft[idx] = data.info
+                } else {
+                  draft.push(data.info)
+                }
+              }
+              draft.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
+            }))
+          })
+          if (i + BATCH_SIZE < entries.length) {
+            await new Promise<void>(r => requestAnimationFrame(() => r()))
+          }
+        }
       } catch {}
     })
   }
