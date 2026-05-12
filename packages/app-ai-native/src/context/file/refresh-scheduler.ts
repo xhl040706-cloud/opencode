@@ -2,6 +2,7 @@ type RefreshSchedulerOptions = {
   interval?: number
   retryInterval?: number
   maxRetries?: number
+  visible?: () => boolean
   fetch: () => Promise<void>
 }
 
@@ -9,6 +10,7 @@ export function createRefreshScheduler(opts: RefreshSchedulerOptions) {
   const INTERVAL = opts.interval ?? 60_000
   const RETRY_INTERVAL = opts.retryInterval ?? 5_000
   const MAX_RETRIES = opts.maxRetries ?? 3
+  const isVisible = opts.visible ?? (() => true)
 
   let timer: ReturnType<typeof setTimeout> | undefined
   let lastRefreshAt = 0
@@ -32,6 +34,10 @@ export function createRefreshScheduler(opts: RefreshSchedulerOptions) {
   const doFetch = async () => {
     timer = undefined
     if (!active) return
+    if (!isVisible()) {
+      timer = setTimeout(doFetch, INTERVAL)
+      return
+    }
     try {
       await opts.fetch()
       lastRefreshAt = Date.now()

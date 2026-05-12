@@ -68,7 +68,11 @@ export function useTreePolling(): TreePollingControls {
   return treePollingRef ?? { start() {}, stop() {} }
 }
 
-export function DeviceFileProvider(props: ParentProps) {
+type DeviceFileProviderProps = ParentProps & {
+  visible?: () => boolean
+}
+
+export function DeviceFileProvider(props: DeviceFileProviderProps) {
   const device = useDeviceSDK()
   const workspace = useDeviceWorkspace()
   const language = useLanguage()
@@ -101,11 +105,15 @@ export function DeviceFileProvider(props: ParentProps) {
     fetch: () => device.client.runtime.diff(),
   })
 
+  const visible = props.visible ?? (() => true)
+
   const treeScheduler = createRefreshScheduler({
+    visible,
     fetch: () => Promise.resolve(tree.refreshExpanded()),
   })
 
   const diffScheduler = createRefreshScheduler({
+    visible,
     fetch: () => diff.load(),
   })
 

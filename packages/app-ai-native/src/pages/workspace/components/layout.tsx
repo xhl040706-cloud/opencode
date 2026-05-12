@@ -392,7 +392,7 @@ function WorkspaceShell(props: ParentProps) {
   )
 }
 
-function WorkspaceContentInstance(props: { workspaceId: string; directory: string; serverUrl: string }) {
+function WorkspaceContentInstance(props: { workspaceId: string; directory: string; serverUrl: string; visible: () => boolean }) {
   const dl = useDeviceLayout()
   const tabStore = createContentTabStore()
 
@@ -403,7 +403,7 @@ function WorkspaceContentInstance(props: { workspaceId: string; directory: strin
           <DirectoryContext.Provider value={() => props.directory}>
             <WorkspaceInitGate>
               <DeviceWorkspaceProvider workspaceId={props.workspaceId}>
-                <DeviceFileProvider>
+                <DeviceFileProvider visible={props.visible}>
                   <DeviceTerminalProvider>
                     <DeviceLocalProvider workspaceId={props.workspaceId}>
                       <ContentTabContext.Provider value={tabStore}>
@@ -584,6 +584,7 @@ function WorkspaceContent(props: ParentProps) {
                     workspaceId={id}
                     directory={dir()!}
                     serverUrl={serverUrl()!}
+                    visible={visible}
                   />
                 </WorkspaceVisibleCtx.Provider>
               </div>
