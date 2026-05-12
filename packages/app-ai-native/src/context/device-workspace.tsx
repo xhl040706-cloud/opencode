@@ -295,7 +295,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             sessionStatus: store.sessionStatus,
             questions: store.questions,
             permissions: store.permissions,
-            hasUnreadSession: store.session.some((s) => store.unread[s.id]),
+            hasUnreadSession: store.session.some((s) => !s.parentID && store.unread[s.id]),
           })
         }
       })
@@ -327,7 +327,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             sessionStatus: store.sessionStatus,
             questions: store.questions,
             permissions: store.permissions,
-            hasUnreadSession: store.session.some((s) => store.unread[s.id]),
+            hasUnreadSession: store.session.some((s) => !s.parentID && store.unread[s.id]),
           })
       }
       return result as VcsInfo | undefined
@@ -452,7 +452,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   sessionStatus: store.sessionStatus,
                   questions: store.questions,
                   permissions: store.permissions,
-                  hasUnreadSession: store.session.some((s) => store.unread[s.id]),
+                  hasUnreadSession: store.session.some((s) => !s.parentID && store.unread[s.id]),
                 })
               }
               dispatch(payload)

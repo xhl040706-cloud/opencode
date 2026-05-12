@@ -234,7 +234,7 @@ function ContentTabPanel() {
             const sid = tab?.kind === "session" ? (tab.meta?.sessionID as string | undefined) : undefined
             if (sid) {
               dw.session.clearUnread(sid)
-              if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.some((s) => dw.data.unread[s.id]))
+              if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.some((s) => !s.parentID && dw.data.unread[s.id]))
             }
           }}
           class="h-full flex flex-col"
@@ -377,7 +377,7 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
 
   const openSession = (session: Session) => {
     dw.session.clearUnread(session.id)
-    if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.some((s) => dw.data.unread[s.id]))
+    if (dw.workspaceId) refreshUnread(dw.workspaceId, dw.data.session.some((s) => !s.parentID && dw.data.unread[s.id]))
     const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === session.id)
     if (existing) {
       tabStore.activate(existing.id)
@@ -865,7 +865,7 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
 
   const restoreFromUrl = (sid: string, ws: ReturnType<typeof useDeviceWorkspace>) => {
     ws.session.clearUnread(sid)
-    if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.some((s) => ws.data.unread[s.id]))
+    if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.some((s) => !s.parentID && ws.data.unread[s.id]))
     const existing = tabStore.tabs().find((t) => t.kind === "session" && t.meta?.sessionID === sid)
     if (existing) {
       tabStore.activate(existing.id)
@@ -910,7 +910,7 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
     if (sid) {
       untrack(() => {
         ws.session.clearUnread(sid)
-        if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.some((s) => ws.data.unread[s.id]))
+        if (props.workspaceId) refreshUnread(props.workspaceId, ws.data.session.some((s) => !s.parentID && ws.data.unread[s.id]))
       })
     }
   })
