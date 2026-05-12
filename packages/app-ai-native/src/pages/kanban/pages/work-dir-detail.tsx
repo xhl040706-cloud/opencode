@@ -1,7 +1,22 @@
 import { A, useParams, useSearchParams } from "@solidjs/router"
-import { createMemo, createResource, For, Show } from "solid-js"
+import { createMemo, createResource, createSignal, For, Show } from "solid-js"
+import { Icon } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
+import { cn } from "@/lib/utils"
+import {
+  createListCollection,
+  SelectContent,
+  SelectControl,
+  SelectIndicator,
+  SelectItem,
+  SelectItemText,
+  SelectList,
+  SelectPositioner,
+  SelectRoot,
+  SelectTrigger,
+  SelectValueText,
+} from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Back from "../components/back"
 import { getWorkDirDetail } from "../lib/api"
@@ -10,6 +25,101 @@ import type {
   WorkDirParticipant,
   WorkDirSilicaEntry,
 } from "../lib/types"
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+
+function rangePages(page: number, totalPages: number) {
+  const size = 5
+  if (totalPages <= size) return Array.from({ length: totalPages }, (_, i) => i + 1)
+  const start = Math.max(1, Math.min(page - 2, totalPages - size + 1))
+  return Array.from({ length: size }, (_, i) => start + i)
+}
+
+function PaginationBar(props: {
+  page: number
+  totalPages: number
+  total: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (pageSize: number) => void
+}) {
+  const language = useLanguage()
+  const from = () => (props.total === 0 ? 0 : (props.page - 1) * props.pageSize + 1)
+  const to = () => Math.min(props.page * props.pageSize, props.total)
+  const visiblePages = () => rangePages(props.page, props.totalPages)
+  const sizes = () => PAGE_SIZE_OPTIONS
+
+  return (
+    <div class="flex flex-col gap-3 border-t border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div class="text-[0.8125rem] leading-[1.55] text-[var(--native-muted)]">
+        {language.t("kanban.pagination.showing", { from: from(), to: to(), total: props.total })}
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <div class="flex items-center gap-2">
+          <span class="text-[0.8125rem] text-[var(--native-muted)]">{language.t("kanban.pagination.perPage")}</span>
+          <SelectRoot
+            collection={createListCollection({ items: sizes().map((s) => ({ label: String(s), value: String(s) })) })}
+            value={[String(props.pageSize)]}
+            onValueChange={(detail) => {
+              const v = Number(detail.value[0])
+              if (!isNaN(v)) props.onPageSizeChange(v)
+            }}
+          >
+            <SelectControl>
+              <SelectTrigger class="h-8 min-w-[4.5rem] px-3 py-0 text-[0.8125rem] text-[var(--native-foreground)]">
+                <SelectValueText />
+                <SelectIndicator />
+              </SelectTrigger>
+            </SelectControl>
+            <SelectPositioner>
+              <SelectContent class="max-h-[min(20rem,calc(var(--available-height)-1rem))] overflow-y-auto">
+                <SelectList>
+                  <For each={sizes()}>
+                    {(size) => (
+                      <SelectItem item={{ label: String(size), value: String(size) }}>
+                        <SelectItemText>{size}</SelectItemText>
+                      </SelectItem>
+                    )}
+                  </For>
+                </SelectList>
+              </SelectContent>
+            </SelectPositioner>
+          </SelectRoot>
+        </div>
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
+          disabled={props.page <= 1}
+          onClick={() => props.onPageChange(props.page - 1)}
+        >
+          <Icon name="chevron-left" />
+        </button>
+        <For each={visiblePages()}>
+          {(page) => (
+            <button
+              type="button"
+              class={cn(
+                "inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]",
+                page === props.page && "bg-[var(--native-primary-soft)] text-[var(--native-primary)]",
+              )}
+              onClick={() => props.onPageChange(page)}
+            >
+              {page}
+            </button>
+          )}
+        </For>
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
+          disabled={props.page >= props.totalPages}
+          onClick={() => props.onPageChange(props.page + 1)}
+        >
+          <Icon name="chevron-right" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function silicaColor(silica: number) {
   const pct = silica * 100
@@ -113,6 +223,30 @@ export default function KanbanWorkDirDetail() {
       }
     }
     return Object.values(map)
+	  })
+
+	  const [commitPage, setCommitPage] = createSignal(1)
+  const [participantPage, setParticipantPage] = createSignal(1)
+  const [silicaPage, setSilicaPage] = createSignal(1)
+  const [commitPageSize, setCommitPageSize] = createSignal(10)
+  const [participantPageSize, setParticipantPageSize] = createSignal(10)
+  const [silicaPageSize, setSilicaPageSize] = createSignal(10)
+
+  const commitTotalPages = createMemo(() => Math.max(1, Math.ceil(commits().length / commitPageSize())))
+  const participantTotalPages = createMemo(() => Math.max(1, Math.ceil(participants().length / participantPageSize())))
+  const silicaTotalPages = createMemo(() => Math.max(1, Math.ceil(silicaEntries().length / silicaPageSize())))
+
+  const pagedCommits = createMemo(() => {
+    const start = (commitPage() - 1) * commitPageSize()
+    return commits().slice(start, start + commitPageSize())
+  })
+  const pagedParticipants = createMemo(() => {
+    const start = (participantPage() - 1) * participantPageSize()
+    return participants().slice(start, start + participantPageSize())
+  })
+  const pagedSilicaEntries = createMemo(() => {
+    const start = (silicaPage() - 1) * silicaPageSize()
+    return silicaEntries().slice(start, start + silicaPageSize())
   })
 
   return (
@@ -169,7 +303,7 @@ export default function KanbanWorkDirDetail() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          <For each={commits()}>
+                          <For each={pagedCommits()}>
                             {(row) => (
                               <>
                                 <TableRow>
@@ -242,7 +376,15 @@ export default function KanbanWorkDirDetail() {
                         </TableBody>
                       </Table>
                     </div>
-                  </section>
+                  <PaginationBar
+                    page={commitPage()}
+                    totalPages={commitTotalPages()}
+                    total={commits().length}
+                    pageSize={commitPageSize()}
+                    onPageChange={setCommitPage}
+                    onPageSizeChange={(s) => { setCommitPageSize(s); setCommitPage(1) }}
+                  />
+                </section>
                 </Show>
 
                 {/* 参与者列表 */}
@@ -261,7 +403,7 @@ export default function KanbanWorkDirDetail() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          <For each={participants()}>
+                          <For each={pagedParticipants()}>
                             {(row) => (
                               <TableRow>
                                 <TableCell>
@@ -277,12 +419,28 @@ export default function KanbanWorkDirDetail() {
                         </TableBody>
                       </Table>
                     </div>
+                    <PaginationBar
+                      page={participantPage()}
+                      totalPages={participantTotalPages()}
+                      total={participants().length}
+                      pageSize={participantPageSize()}
+                      onPageChange={setParticipantPage}
+                      onPageSizeChange={(s) => { setParticipantPageSize(s); setParticipantPage(1) }}
+                    />
                   </section>
                 </Show>
 
                 {/* 硅比例图表区域 */}
                 <Show when={silicaEntries().length > 0}>
-                  <SilicaChartSection entries={silicaEntries()} />
+                  <SilicaChartSection entries={pagedSilicaEntries()} />
+                  <PaginationBar
+                    page={silicaPage()}
+                    totalPages={silicaTotalPages()}
+                    total={silicaEntries().length}
+                    pageSize={silicaPageSize()}
+                    onPageChange={setSilicaPage}
+                    onPageSizeChange={(s) => { setSilicaPageSize(s); setSilicaPage(1) }}
+                  />
                 </Show>
               </>
             )}

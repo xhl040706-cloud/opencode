@@ -967,8 +967,7 @@ export async function getWorkDirDetail(workDirId: string): Promise<WorkDirDetail
   if (!id) fail("workDirId is required")
 
   const raw = await get<unknown>(`${API}/v2/repos/detail`, {
-    repoAddr: id,
-    repoBranch: "",
+    work_dir_id: id,
   }, LONG)
 
   const data = unwrap(raw)

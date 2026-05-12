@@ -3,7 +3,9 @@ import Back from "../components/back"
 import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { Icon } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
+import { cn } from "@/lib/utils"
 import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import {
@@ -36,6 +38,15 @@ function formatDay(value?: string | null) {
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
+}
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+
+function rangePages(page: number, totalPages: number) {
+  const size = 5
+  if (totalPages <= size) return Array.from({ length: totalPages }, (_, i) => i + 1)
+  const start = Math.max(1, Math.min(page - 2, totalPages - size + 1))
+  return Array.from({ length: size }, (_, i) => start + i)
 }
 
 function taskEffRatio(row: RepoTaskRow) {
@@ -89,6 +100,92 @@ function MetricCard(props: {
         </p>
       </Show>
     </article>
+  )
+}
+
+function PaginationBar(props: {
+  page: number
+  totalPages: number
+  total: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (pageSize: number) => void
+}) {
+  const language = useLanguage()
+  const from = () => (props.total === 0 ? 0 : (props.page - 1) * props.pageSize + 1)
+  const to = () => Math.min(props.page * props.pageSize, props.total)
+  const visiblePages = () => rangePages(props.page, props.totalPages)
+  const sizes = () => PAGE_SIZE_OPTIONS
+
+  return (
+    <div class="flex flex-col gap-3 border-t border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div class="text-[0.8125rem] leading-[1.55] text-[var(--native-muted)]">
+        {language.t("kanban.pagination.showing", { from: from(), to: to(), total: props.total })}
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <div class="flex items-center gap-2">
+          <span class="text-[0.8125rem] text-[var(--native-muted)]">{language.t("kanban.pagination.perPage")}</span>
+          <SelectRoot
+            collection={createListCollection({ items: sizes().map((s) => ({ label: String(s), value: String(s) })) })}
+            value={[String(props.pageSize)]}
+            onValueChange={(detail) => {
+              const v = Number(detail.value[0])
+              if (!isNaN(v)) props.onPageSizeChange(v)
+            }}
+          >
+            <SelectControl>
+              <SelectTrigger class="h-8 min-w-[4.5rem] px-3 py-0 text-[0.8125rem] text-[var(--native-foreground)]">
+                <SelectValueText />
+                <SelectIndicator />
+              </SelectTrigger>
+            </SelectControl>
+            <SelectPositioner>
+              <SelectContent class="max-h-[min(20rem,calc(var(--available-height)-1rem))] overflow-y-auto">
+                <SelectList>
+                  <For each={sizes()}>
+                    {(size) => (
+                      <SelectItem item={{ label: String(size), value: String(size) }}>
+                        <SelectItemText>{size}</SelectItemText>
+                      </SelectItem>
+                    )}
+                  </For>
+                </SelectList>
+              </SelectContent>
+            </SelectPositioner>
+          </SelectRoot>
+        </div>
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
+          disabled={props.page <= 1}
+          onClick={() => props.onPageChange(props.page - 1)}
+        >
+          <Icon name="chevron-left" />
+        </button>
+        <For each={visiblePages()}>
+          {(page) => (
+            <button
+              type="button"
+              class={cn(
+                "inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]",
+                page === props.page && "bg-[var(--native-primary-soft)] text-[var(--native-primary)]",
+              )}
+              onClick={() => props.onPageChange(page)}
+            >
+              {page}
+            </button>
+          )}
+        </For>
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
+          disabled={props.page >= props.totalPages}
+          onClick={() => props.onPageChange(props.page + 1)}
+        >
+          <Icon name="chevron-right" />
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -175,6 +272,23 @@ export default function KanbanRepoDetail() {
   const commits = createMemo(() => view()?.commits ?? [])
   const tasks = createMemo(() => view()?.tasks ?? [])
   const branches = createMemo(() => view()?.branches ?? [])
+
+  const [commitPage, setCommitPage] = createSignal(1)
+  const [taskPage, setTaskPage] = createSignal(1)
+  const [commitPageSize, setCommitPageSize] = createSignal(10)
+  const [taskPageSize, setTaskPageSize] = createSignal(10)
+
+  const commitTotalPages = createMemo(() => Math.max(1, Math.ceil(commits().length / commitPageSize())))
+  const taskTotalPages = createMemo(() => Math.max(1, Math.ceil(tasks().length / taskPageSize())))
+
+  const pagedCommits = createMemo(() => {
+    const start = (commitPage() - 1) * commitPageSize()
+    return commits().slice(start, start + commitPageSize())
+  })
+  const pagedTasks = createMemo(() => {
+    const start = (taskPage() - 1) * taskPageSize()
+    return tasks().slice(start, start + taskPageSize())
+  })
 
   const branchItems = createMemo(() =>
     createListCollection({
@@ -435,7 +549,7 @@ export default function KanbanRepoDetail() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <For each={commits()}>
+                        <For each={pagedCommits()}>
                           {(row) => (
                             <TableRow>
                               <TableCell>
@@ -484,6 +598,19 @@ export default function KanbanRepoDetail() {
                       </TableBody>
                     </Table>
                   </div>
+                  <Show when={commits().length > commitPageSize()}>
+                    <PaginationBar
+                      page={commitPage()}
+                      totalPages={commitTotalPages()}
+                      total={commits().length}
+                      pageSize={commitPageSize()}
+                      onPageChange={setCommitPage}
+                      onPageSizeChange={(size) => {
+                        setCommitPageSize(size)
+                        setCommitPage(1)
+                      }}
+                    />
+                  </Show>
                 </section>
 
                 <Show when={tasks().length > 0}>
@@ -518,10 +645,21 @@ export default function KanbanRepoDetail() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          <For each={tasks()}>
+                          <For each={pagedTasks()}>
                             {(row) => (
                               <TableRow>
-                                <TableCell>{shortId(row.task_id)}</TableCell>
+                                <TableCell>
+                                  {row.task_id?.trim()
+                                    ? (
+                                      <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => {
+                                        const id = row.task_id!.trim()
+                                        navigate(`/kanban/task/${encodeURIComponent(id)}`)
+                                      }}>
+                                        {shortId(row.task_id)}
+                                      </button>
+                                      )
+                                    : <span>-</span>}
+                                </TableCell>
                                 <TableCell>{formatLocalTime(row.start_time)}</TableCell>
                                 <TableCell>{row.user_name || "-"}</TableCell>
                                 <TableCell>{row.title || "-"}</TableCell>
@@ -552,6 +690,19 @@ export default function KanbanRepoDetail() {
                         </TableBody>
                       </Table>
                     </div>
+                    <Show when={tasks().length > taskPageSize()}>
+                      <PaginationBar
+                        page={taskPage()}
+                        totalPages={taskTotalPages()}
+                        total={tasks().length}
+                        pageSize={taskPageSize()}
+                        onPageChange={setTaskPage}
+                        onPageSizeChange={(size) => {
+                          setTaskPageSize(size)
+                          setTaskPage(1)
+                        }}
+                      />
+                    </Show>
                   </section>
                 </Show>
               </>
