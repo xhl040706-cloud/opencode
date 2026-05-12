@@ -39,19 +39,23 @@ export const WorkspaceRouterMiddleware: MiddlewareHandler = async (c) => {
   )
 
   const url = new URL(c.req.url)
+  const t0 = Date.now()
+  console.log(`[perf.router] --> ${c.req.method} ${url.pathname} directory=${directory}`)
   const workspaceParam = url.searchParams.get("workspace")
 
-  // TODO: If session is being routed, force it to lookup the
-  // project/workspace
-
-  // If no workspace is provided we use the "project" workspace
   if (!workspaceParam) {
     return Instance.provide({
       directory,
       init: InstanceBootstrap,
       async fn() {
-        return routes().fetch(c.req.raw, c.env)
+        const t1 = Date.now()
+        const res = await routes().fetch(c.req.raw, c.env)
+        console.log(`[perf.router] <-- ${url.pathname} route.handler=${Date.now() - t1}ms total=${Date.now() - t0}ms`)
+        return res
       },
+    }).then((res) => {
+      console.log(`[perf.router] <-- ${url.pathname} instance.provide+route total=${Date.now() - t0}ms`)
+      return res
     })
   }
 
