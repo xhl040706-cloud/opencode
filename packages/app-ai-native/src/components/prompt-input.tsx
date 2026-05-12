@@ -507,7 +507,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   }
 
   const agentList = createMemo(() =>
-    sync.data.agent
+    (sync.data.agent ?? [])
       .filter((agent) => !agent.hidden && agent.mode !== "primary")
       .map((agent): AtOption => ({ type: "agent", name: agent.name, display: agent.name })),
   )
@@ -664,7 +664,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
-    return sync.data.command
+    return (sync.data.command ?? [])
       .filter((cmd) => cmd.scope !== "tui-only")
       .map((cmd) => ({
         id: `cmd.${cmd.name}`,
