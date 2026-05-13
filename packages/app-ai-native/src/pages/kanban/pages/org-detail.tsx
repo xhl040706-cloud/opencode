@@ -59,6 +59,37 @@ function fmtTokens(up?: number, down?: number) {
   return String(total)
 }
 
+function periodRange(row: UserDetailPeriodRow, granularity: Granularity) {
+  const key = row.period_key?.trim() || row.period_label?.trim() || ""
+  if (!key) return { start: "", end: "" }
+  if (granularity === "day") return { start: key.replace(/-/g, ""), end: key.replace(/-/g, "") }
+  if (granularity === "week") {
+    const match = key.match(/^(\d{4})-W(\d{2})$/)
+    if (!match) return { start: "", end: "" }
+    const year = Number(match[1])
+    const week = Number(match[2])
+    const jan4 = new Date(year, 0, 4)
+    const day = jan4.getDay() || 7
+    const monday = new Date(jan4)
+    monday.setDate(jan4.getDate() - day + 1 + (week - 1) * 7)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    const start = `${monday.getFullYear()}${String(monday.getMonth() + 1).padStart(2, "0")}${String(monday.getDate()).padStart(2, "0")}`
+    const end = `${sunday.getFullYear()}${String(sunday.getMonth() + 1).padStart(2, "0")}${String(sunday.getDate()).padStart(2, "0")}`
+    return { start, end }
+  }
+  if (granularity === "month") {
+    const [year, month] = key.split("-").map(Number)
+    const last = new Date(year, month, 0).getDate()
+    return {
+      start: `${year}${String(month).padStart(2, "0")}01`,
+      end: `${year}${String(month).padStart(2, "0")}${String(last).padStart(2, "0")}`,
+    }
+  }
+
+  return { start: `${key}0101`, end: `${key}1231` }
+}
+
 function queryOf(range: [string, string], granularity: Granularity, org?: OrgCascadeValue) {
   const next = rangeQuery(range)
   return searchQuery([
@@ -334,23 +365,42 @@ export default function KanbanOrgDetail() {
               </TableHeader>
               <TableBody>
                 <For each={dailyEfficiency()}>
-                  {(row) => (
-                    <TableRow>
-                      <TableCell>{row.period_label || row.period_key || "-"}</TableCell>
-                      <TableCell class="text-left tabular-nums">{row.task_count ?? 0}</TableCell>
-                      <TableCell class="text-left tabular-nums">{row.commit_count ?? 0}</TableCell>
-                      <TableCell class="text-left tabular-nums">{row.task_diff_lines ?? 0}</TableCell>
-                      <TableCell class="text-left tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
-                      <TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
-                      <TableCell class="text-left">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
-                      <TableCell class="text-left">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
-                      <TableCell class="text-left">{formatDuration(row.commit_ancient_minutes, language.t)}</TableCell>
-                      <TableCell class="text-left"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
-                      <TableCell class="text-left"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
-                      <TableCell class="text-left tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell>
-                      <TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell>
-                    </TableRow>
-                  )}
+                  {(row) => {
+                    const linkQuery = () => {
+                      const span = periodRange(row, granularity())
+                      const q = new URLSearchParams()
+                      if (span.start && span.end) {
+                        q.set("startDate", span.start)
+                        q.set("endDate", span.end)
+                      }
+                      const o = org()
+                      if (o.org1) q.set("org1", o.org1)
+                      if (o.org2) q.set("org2", o.org2)
+                      if (o.org3) q.set("org3", o.org3)
+                      if (o.org4) q.set("org4", o.org4)
+                      return q.toString()
+                    }
+                    const taskLink = () => `/kanban/task?${linkQuery()}`
+                    const commitLink = () => `/kanban/commit?${linkQuery()}`
+
+                    return (
+                      <TableRow>
+                        <TableCell>{row.period_label || row.period_key || "-"}</TableCell>
+                        <TableCell class="text-left tabular-nums">{(row.task_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(taskLink())}>{row.task_count}</button> : 0}</TableCell>
+                        <TableCell class="text-left tabular-nums">{(row.commit_count ?? 0) > 0 ? <button type="button" class="text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(commitLink())}>{row.commit_count}</button> : 0}</TableCell>
+                        <TableCell class="text-left tabular-nums">{row.task_diff_lines ?? 0}</TableCell>
+                        <TableCell class="text-left tabular-nums">{row.commit_diff_lines ?? 0}</TableCell>
+                        <TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
+                        <TableCell class="text-left">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
+                        <TableCell class="text-left">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
+                        <TableCell class="text-left">{formatDuration(row.commit_ancient_minutes, language.t)}</TableCell>
+                        <TableCell class="text-left"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
+                        <TableCell class="text-left"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
+                        <TableCell class="text-left tabular-nums">{fmtTokens(row.upstream_tokens, row.downstream_tokens)}</TableCell>
+                        <TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell>
+                      </TableRow>
+                    )
+                  }}
                 </For>
               </TableBody>
             </Table>

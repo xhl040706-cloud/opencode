@@ -1,9 +1,10 @@
 import { Navigate, Route } from "@solidjs/router"
 import { Component, lazy, Suspense, type JSX } from "solid-js"
 import AuthGuard from "@/components/auth-guard"
+import { PageLoadingSkeleton } from "@/components/page-loading-skeleton"
 import { useAuth } from "@/context/auth"
 
-const Loading = () => <div class="size-full" />
+const Loading = () => <PageLoadingSkeleton />
 
 const RootLayout = lazy(() => import("@/pages/root-layout"))
 const StoreLayout = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreLayout })))

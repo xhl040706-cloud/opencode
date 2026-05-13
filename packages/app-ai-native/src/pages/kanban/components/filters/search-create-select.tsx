@@ -9,11 +9,13 @@ type Option = FilterOption
 
 type Props = {
   value?: string
+  displayValue?: string
   options: string[] | Option[]
   onChange: (value: string) => void
   onCreate?: (value: string) => void
   clearable?: boolean
   allowCreate?: boolean
+  showValue?: boolean
   loading?: boolean
   placeholder?: string
   emptyMessage?: string
@@ -63,7 +65,7 @@ export function SearchCreateSelect(props: Props) {
             <path d="m20 20-3.5-3.5" />
           </svg>
           <span class={cn("truncate", props.value ? "text-[var(--native-foreground)]" : "text-[var(--native-dim)]")}>
-            {props.value || props.placeholder || language.t("kanban.search.searchAndSelect")}
+            {props.displayValue || props.value || props.placeholder || language.t("kanban.search.searchAndSelect")}
           </span>
           <Show when={props.clearable && props.value}>
             <button
@@ -116,7 +118,9 @@ export function SearchCreateSelect(props: Props) {
         {(item) => (
           <div class="flex min-w-0 items-center justify-between gap-3">
             <span class="truncate">{item.label}</span>
-            <span class="text-[0.75rem] text-[var(--native-dim)]">{item.value}</span>
+            <Show when={props.showValue !== false}>
+              <span class="text-[0.75rem] text-[var(--native-dim)]">{item.value}</span>
+            </Show>
           </div>
         )}
       </List>
