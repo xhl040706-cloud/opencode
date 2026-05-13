@@ -59,6 +59,7 @@ import { PromptContextItems } from "./prompt-input/context-items"
 import { PromptImageAttachments } from "./prompt-input/image-attachments"
 import { PromptDragOverlay } from "./prompt-input/drag-overlay"
 import { promptPlaceholder } from "./prompt-input/placeholder"
+import { StatusDisplay } from "@/pages/session/composer/session-status-display"
 import { ImagePreview } from "@opencode-ai/ui/image-preview"
 
 interface PromptInputProps {
@@ -68,6 +69,7 @@ interface PromptInputProps {
   onNewSessionWorktreeReset?: () => void
   onSubmit?: () => void
   hideAttachButton?: boolean
+  busySince?: number
 }
 
 const EXAMPLES = [
@@ -1310,6 +1312,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         commandKeybind={command.keybind}
         t={(key) => language.t(key as Parameters<typeof language.t>[0])}
       />
+      <StatusDisplay working={working()} busySince={props.busySince} />
       <DockShellForm
         onSubmit={handleSubmit}
         classList={{
