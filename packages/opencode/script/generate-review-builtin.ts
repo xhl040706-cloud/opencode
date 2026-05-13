@@ -239,6 +239,7 @@ export async function extractBundledSkill(skillName: string, targetDir: string, 
 }
 `
 
+  await fs.mkdir(path.dirname(builtinSkillsFile), { recursive: true })
   await fs.writeFile(builtinSkillsFile, content, "utf-8")
   console.log(`\n✓ Generated ${builtinSkillsFile}`)
 }
