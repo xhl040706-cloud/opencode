@@ -26,6 +26,8 @@ export function createContentTabStore() {
     activeId: undefined,
   })
 
+  const pendingSessionIDs = new Set<string>()
+
   let _openPending: string | undefined
 
   const open = (tab: Omit<ContentTab, "id"> & { key: string }) => {
@@ -95,7 +97,11 @@ export function createContentTabStore() {
     setStore(
       produce((draft) => {
         const tab = draft.tabs.find((t) => t.id === id)
-        if (tab) Object.assign(tab.meta, meta)
+        if (!tab) return
+        if (meta.sessionID && !tab.meta?.sessionID && tab.kind === "session") {
+          pendingSessionIDs.add(meta.sessionID)
+        }
+        Object.assign(tab.meta, meta)
       }),
     )
   }
@@ -118,6 +124,14 @@ export function createContentTabStore() {
     )
   }
 
+  const confirmSession = (sessionID: string) => {
+    pendingSessionIDs.delete(sessionID)
+  }
+
+  const isPendingSession = (sessionID: string) => {
+    return pendingSessionIDs.has(sessionID)
+  }
+
   return {
     tabs: () => store.tabs,
     activeId: () => store.activeId,
@@ -131,6 +145,8 @@ export function createContentTabStore() {
     updateMeta,
     setTitle,
     makeTabId,
+    confirmSession,
+    isPendingSession,
   }
 }
 

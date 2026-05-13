@@ -1,12 +1,143 @@
-import { createMemo, For, Show } from "solid-js"
+import { createMemo, createSignal, For, Show, createEffect, onCleanup } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
-import type { Device, UpdateCheckResponse } from "../types"
+import type { CommandStatusResponse, Device, UpdateCheckResponse } from "../types"
 import { useLanguage } from "@/context/language"
 import { deviceManagementService } from "@/pages/console/lib/device-management-service"
 import { DeviceUpgradeDialog } from "@/pages/console/components/device-upgrade-dialog"
+
+const UPGRADE_POLL_MS = 2000
+const UPGRADE_TIMEOUT_MS = 3 * 60 * 1000
+const UPGRADE_SUPPRESS_MS = 5 * 60 * 1000
+
+function loadUpgradeCmdId(deviceId: string): string | null {
+  try {
+    return localStorage.getItem(`upgrade_${deviceId}`)
+  } catch {
+    return null
+  }
+}
+
+function saveUpgradeCmdId(deviceId: string, commandId: string) {
+  try {
+    localStorage.setItem(`upgrade_${deviceId}`, commandId)
+  } catch {}
+}
+
+function clearUpgradeCmdId(deviceId: string) {
+  try {
+    localStorage.removeItem(`upgrade_${deviceId}`)
+  } catch {}
+}
+
+function markUpgradeCompleted(deviceId: string, oldVersion: string) {
+  try {
+    localStorage.setItem(`upgrade_done_${deviceId}`, JSON.stringify({ ts: Date.now(), v: oldVersion }))
+  } catch {}
+}
+
+function isRecentlyUpgraded(deviceId: string): boolean {
+  try {
+    const raw = localStorage.getItem(`upgrade_done_${deviceId}`)
+    if (!raw) return false
+    const data = JSON.parse(raw)
+    if (Date.now() - data.ts > UPGRADE_SUPPRESS_MS) {
+      localStorage.removeItem(`upgrade_done_${deviceId}`)
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+function clearUpgradeSuppressedIfVersionChanged(deviceId: string, currentVersion: string) {
+  try {
+    const raw = localStorage.getItem(`upgrade_done_${deviceId}`)
+    if (!raw) return
+    const data = JSON.parse(raw)
+    if (data.v && data.v !== currentVersion) {
+      localStorage.removeItem(`upgrade_done_${deviceId}`)
+    }
+  } catch {}
+}
+
+const activePollers = new Set<string>()
+
+function startDevicePolling(
+  deviceId: string,
+  commandId: string,
+  oldVersion: string,
+  onProgress: (deviceId: string, progress: number) => void,
+  onDone: (deviceId: string, outcome: "completed" | "failed", errMsg?: string) => void,
+) {
+  if (activePollers.has(deviceId)) return
+  activePollers.add(deviceId)
+
+  const startTime = Date.now()
+  let stopped = false
+  let timerId: ReturnType<typeof setTimeout> | undefined
+
+  async function poll() {
+    if (stopped) return
+    if (Date.now() - startTime > UPGRADE_TIMEOUT_MS) {
+      stopped = true
+      activePollers.delete(deviceId)
+      onDone(deviceId, "failed")
+      clearUpgradeCmdId(deviceId)
+      return
+    }
+
+    try {
+      const status = await deviceManagementService.getCommandStatus(deviceId, commandId)
+      if (stopped) return
+      if (status === null) {
+        stopped = true
+        activePollers.delete(deviceId)
+        onDone(deviceId, "failed")
+        clearUpgradeCmdId(deviceId)
+        return
+      }
+      if (status.progress && status.progress > 0) {
+        onProgress(deviceId, status.progress)
+      }
+      if (status.status === "completed") {
+        stopped = true
+        activePollers.delete(deviceId)
+        onProgress(deviceId, 100)
+        onDone(deviceId, "completed")
+        clearUpgradeCmdId(deviceId)
+        markUpgradeCompleted(deviceId, oldVersion)
+        return
+      }
+      if (status.status === "failed") {
+        stopped = true
+        activePollers.delete(deviceId)
+        onDone(deviceId, "failed", status.error)
+        clearUpgradeCmdId(deviceId)
+        return
+      }
+    } catch {
+      if (!stopped && Date.now() - startTime > 30 * 1000) {
+        onProgress(deviceId, -1)
+      }
+    }
+
+    if (!stopped) {
+      timerId = setTimeout(poll, UPGRADE_POLL_MS)
+    }
+  }
+
+  timerId = setTimeout(poll, UPGRADE_POLL_MS)
+
+  return () => {
+    stopped = true
+    activePollers.delete(deviceId)
+    if (timerId !== undefined) clearTimeout(timerId)
+  }
+}
 
 export type DeviceListProps = {
   devices: () => Device[]
@@ -15,12 +146,15 @@ export type DeviceListProps = {
   onSearchChange: (query: string) => void
   isCollapsed: () => boolean
   onToggleCollapse: () => void
+  onUpgradeCompleted?: () => void
 }
 
 export function DeviceList(props: DeviceListProps) {
   const language = useLanguage()
   const t = language.t
   const dialog = useDialog()
+
+  const [upgradeMap, setUpgradeMap] = createSignal<Record<string, { commandId: string; progress: number; done: "completed" | "failed" | null }>>({})
 
   const filtered = createMemo(() => {
     const query = props.searchQuery().toLowerCase()
@@ -35,10 +169,11 @@ export function DeviceList(props: DeviceListProps) {
       )
   })
 
-  const handleUpgrade = async (deviceId: string) => {
+  const handleUpgrade = async (deviceId: string): Promise<string | undefined> => {
+    const commandId = `upgrade-${Date.now()}`
     try {
       await deviceManagementService.sendCommand(deviceId, {
-        command_id: `upgrade-${Date.now()}`,
+        command_id: commandId,
         type: "upgrade",
         timestamp: new Date().toISOString(),
       })
@@ -48,6 +183,7 @@ export function DeviceList(props: DeviceListProps) {
         title: language.t("store.devices.upgrade.toast.sent.title"),
         description: language.t("store.devices.upgrade.toast.sent.description"),
       })
+      return commandId
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
       const unsupported = /404|not found/i.test(msg)
@@ -57,6 +193,7 @@ export function DeviceList(props: DeviceListProps) {
         title: language.t(unsupported ? "store.devices.upgrade.toast.unsupported.title" : "store.devices.upgrade.toast.failed.title"),
         description: language.t(unsupported ? "store.devices.upgrade.toast.unsupported.description" : "store.devices.upgrade.toast.failed.description"),
       })
+      return undefined
     }
   }
 
@@ -83,10 +220,81 @@ export function DeviceList(props: DeviceListProps) {
         deviceName={device.displayName}
         currentVersion={device.version}
         update={info}
-        onConfirm={() => handleUpgrade(device.deviceId)}
+        onConfirm={async () => {
+          const cmdId = await handleUpgrade(device.deviceId)
+          if (cmdId) {
+             startUpgradePolling(device.deviceId, cmdId, device.version)
+          }
+        }}
       />
     ))
   }
+
+  function startUpgradePolling(deviceId: string, commandId: string, oldVersion: string) {
+    setUpgradeMap((prev) => ({ ...prev, [deviceId]: { commandId, progress: 5, done: null } }))
+    saveUpgradeCmdId(deviceId, commandId)
+    startDevicePolling(
+      deviceId,
+      commandId,
+      oldVersion,
+      (dId, progress) => {
+        setUpgradeMap((prev) => {
+          const cur = prev[dId]
+          if (!cur || cur.done !== null) return prev
+          return { ...prev, [dId]: { ...cur, progress: progress === -1 ? Math.min(cur.progress + 0.5, 95) : progress } }
+        })
+      },
+      (dId, outcome, errMsg) => {
+        if (outcome === "completed") {
+          showToast({ variant: "success", icon: "circle-check", title: t("store.devices.upgrade.toast.sent.title") })
+        } else {
+          showToast({
+            variant: "error",
+            icon: "circle-x",
+            title: t("store.devices.upgrade.toast.failed.title"),
+            description: errMsg || t("store.devices.upgrade.toast.failed.description"),
+          })
+        }
+        setUpgradeMap((prev) => {
+          const cur = prev[dId]
+          if (!cur) return prev
+          return { ...prev, [dId]: { ...cur, progress: outcome === "completed" ? 100 : cur.progress, done: outcome } }
+        })
+        const delay = outcome === "completed" ? 1500 : 2000
+        setTimeout(() => {
+          setUpgradeMap((prev) => {
+            const next = { ...prev }
+            delete next[dId]
+            return next
+          })
+          if (outcome === "completed") {
+            let count = 0
+            const tick = async () => {
+              if (++count > 3) return
+              await new Promise((r) => setTimeout(r, 5000))
+              props.onUpgradeCompleted?.()
+              for (const d of props.devices()) {
+                clearUpgradeSuppressedIfVersionChanged(d.deviceId, d.version)
+              }
+              tick()
+            }
+            tick()
+          }
+        }, delay)
+      },
+    )
+  }
+
+  createEffect(() => {
+    const deviceIds = new Set(props.devices().map((d) => d.deviceId))
+    for (const deviceId of deviceIds) {
+      if (upgradeMap()[deviceId] || activePollers.has(deviceId)) continue
+      const saved = loadUpgradeCmdId(deviceId)
+      if (saved) {
+        startUpgradePolling(deviceId, saved, "")
+      }
+    }
+  })
 
   return (
     <div class="flex flex-col py-1">
@@ -129,14 +337,17 @@ export function DeviceList(props: DeviceListProps) {
         <ul class="space-y-1 px-2">
           <For each={filtered()}>
             {(device) => {
-              const hasUpgrade = () => device.canUpdate && device.status === "online"
+              const hasUpgrade = () => device.canUpdate && device.status === "online" && !upgradeMap()[device.deviceId] && !isRecentlyUpgraded(device.deviceId)
+              const upgradeState = () => upgradeMap()[device.deviceId]
+              const isUpgrading = () => !!upgradeState()
 
               return (
                 <li
-                  class="group/device flex items-center gap-2 rounded-[var(--native-radius-md)] border border-transparent px-2.5 py-2 text-xs transition-all duration-150 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  class="group/device relative flex items-center gap-2 rounded-[var(--native-radius-md)] border border-transparent px-2.5 py-2 text-xs transition-all duration-150 hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground overflow-hidden"
                   classList={{
-                    "opacity-60 text-sidebar-foreground/40": device.status === "offline",
-                    "text-sidebar-foreground/70": device.status !== "offline",
+                    "opacity-60 text-sidebar-foreground/40": device.status === "offline" && !isUpgrading(),
+                    "text-sidebar-foreground/70": device.status !== "offline" || isUpgrading(),
+                    "border-[color:color-mix(in_srgb,#ff9800_25%,transparent)]": isUpgrading(),
                   }}
                 >
                   <Tooltip
@@ -163,9 +374,10 @@ export function DeviceList(props: DeviceListProps) {
                          <span
                            class="absolute right-1 top-1 h-1.5 w-1.5 rounded-full"
                            classList={{
-                             "bg-[var(--native-success)]": device.status === "online",
-                             "bg-[var(--native-error)]": device.status === "offline",
-                             "bg-sidebar-border": device.status !== "online" && device.status !== "offline",
+                             "bg-[#ff9800] animate-pulse": isUpgrading(),
+                             "bg-[var(--native-success)]": !isUpgrading() && device.status === "online",
+                             "bg-[var(--native-error)]": !isUpgrading() && device.status === "offline",
+                             "bg-sidebar-border": !isUpgrading() && device.status !== "online" && device.status !== "offline",
                            }}
                          />
                          <Icon name="server" class="text-sm" />
@@ -229,6 +441,20 @@ export function DeviceList(props: DeviceListProps) {
                         <Icon name="cloud-upload" size="small" style={{ color: "white" }} />
                       </button>
                     </Tooltip>
+                  </Show>
+
+                  <Show when={isUpgrading()}>
+                    <div
+                      class="absolute bottom-0 left-0 h-[3px] rounded-b-[var(--native-radius-md)] transition-all duration-500 ease-out"
+                      style={{
+                        width: `${upgradeState()?.progress ?? 0}%`,
+                        background: upgradeState()?.done === "failed"
+                          ? "#ef4444"
+                          : upgradeState()?.done === "completed"
+                            ? "linear-gradient(90deg, #22c55e, #16a34a)"
+                            : "linear-gradient(90deg, #ff9800, #f57c00)",
+                      }}
+                    />
                   </Show>
                  </li>
               )

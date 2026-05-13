@@ -6,6 +6,7 @@ import type {
   ListDevicesResponse,
   UpdateCheckResponse,
   UpdateDeviceRequest,
+  CommandStatusResponse,
 } from "@/pages/workspace/types"
 
 // In dev the Vite proxy forwards /api/* to the real backend.
@@ -1127,4 +1128,15 @@ export const updateApi = {
       method: "POST",
       body: JSON.stringify(cmd),
     }),
+
+  getCommandStatus: async (deviceId: string, commandId: string): Promise<CommandStatusResponse | null> => {
+    const res = await fetch(`${API_BASE}/cloud/device/${deviceId}/proxy/api/v1/commands/status?command_id=${encodeURIComponent(commandId)}`, { headers: { "Content-Type": "application/json" } })
+    if (res.status === 404) return null
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }))
+      throw new Error(err.error || err.message || `Request failed: ${res.status}`)
+    }
+    const json = await res.json()
+    return json?.data ?? json
+  },
 }

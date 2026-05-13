@@ -306,7 +306,17 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
 
   const unsubscribe = workspace.subscribe((payload) => {
     const eventSID = payload.sessionID ?? (payload.properties as any)?.sessionID ?? ((payload.properties as any)?.part as any)?.sessionID ?? ((payload.properties as any)?.info as any)?.sessionID ?? ((payload.properties as any)?.status as any)?.sessionID ?? ((payload.properties as any)?.diff as any[])?.[0]?.sessionID ?? ((payload.properties as any)?.todos as any[])?.[0]?.sessionID
-    if (!treeEvent({ root: sid(), eventSID, type: payload.type, tree: tree() })) return
+    if (!treeEvent({ root: sid(), eventSID, type: payload.type, tree: tree() })) {
+      if (payload.type === "permission.asked" && isAutoAccepting()) {
+        const perm = payload.properties as PermissionRequest
+        if (perm?.id) {
+          device.client.permission.respond(perm.id, { decision: "once" }).catch(() => {
+            if (perm.sessionID) workspace.session.removePermission(perm.sessionID, perm.id)
+          })
+        }
+      }
+      return
+    }
 
 
     batch(() => {

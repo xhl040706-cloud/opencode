@@ -10,7 +10,7 @@ export default function WorkspaceHome() {
   const navigate = useNavigate()
   const platform = usePlatform()
   const work = useWorkspace()
-  const installUrl = "https://docs.costrict.ai/cli/guide/installation#%E4%BA%8C%E4%B8%80%E9%94%AE%E5%AE%89%E8%A3%85%E6%8E%A8%E8%8D%90"
+  const installUrl = "https://docs.costrict.ai/csc/overview#%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B"
   const [copiedId, setCopiedId] = createSignal<string | null>(null)
   const steps: { id: string; tone: string; titleKey: string; descKey: string; kind: string; cmdKey?: string }[] = [
     { id: "01", tone: "var(--native-warning)", titleKey: "workspace.home.step1.title", descKey: "workspace.home.step1.description", kind: "link" },
@@ -179,8 +179,8 @@ export default function WorkspaceHome() {
                     {t("workspace.home.proTip.status")}
                   </p>
                   <div class="inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-2.5 py-1.5 font-[var(--native-font-mono)] text-[0.8125rem] text-[var(--native-foreground)]">
-                    <span>cs cloud status</span>
-                    <button type="button" class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none" onClick={() => copy("cs cloud status", "tip-status")} aria-label="Copy command" title="Copy command">
+                    <span>csc cloud status</span>
+                    <button type="button" class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none" onClick={() => copy("csc cloud status", "tip-status")} aria-label="Copy command" title="Copy command">
                       <Icon name={copiedId() === "tip-status" ? "check" : "copy"} />
                     </button>
                   </div>
@@ -190,8 +190,8 @@ export default function WorkspaceHome() {
                     {t("workspace.home.proTip.stop")}
                   </p>
                   <div class="inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-2.5 py-1.5 font-[var(--native-font-mono)] text-[0.8125rem] text-[var(--native-foreground)]">
-                    <span>cs cloud stop</span>
-                    <button type="button" class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none" onClick={() => copy("cs cloud stop", "tip-stop")} aria-label="Copy command" title="Copy command">
+                    <span>csc cloud stop</span>
+                    <button type="button" class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none" onClick={() => copy("csc cloud stop", "tip-stop")} aria-label="Copy command" title="Copy command">
                       <Icon name={copiedId() === "tip-stop" ? "check" : "copy"} />
                     </button>
                   </div>

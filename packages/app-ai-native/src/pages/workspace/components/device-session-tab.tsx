@@ -917,8 +917,20 @@ export function DeviceSessionTab(props: { tabId: string }) {
                           )}
                         </For>
                       </div>
-                      <Show when={!isNew() && !viewingSessionID()}>
+                      <Show when={!isNew()}>
                         <div class="shrink-0 flex items-center gap-0.5 ml-1">
+                          <Show when={autoScroll.userScrolled()}>
+                            <Tooltip value={language.t("session.messages.jumpToLatest")} placement="bottom">
+                              <IconButton
+                                icon="arrow-down-to-line"
+                                variant="ghost"
+                                iconSize="small"
+                                class="size-6 rounded-md"
+                                onClick={resumeScroll}
+                              />
+                            </Tooltip>
+                          </Show>
+                          <Show when={!viewingSessionID()}>
                           <DropdownMenu gutter={4} placement="bottom-end">
                             <DropdownMenu.Trigger
                               as={IconButton}
@@ -963,6 +975,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
                               </DropdownMenu.Content>
                             </DropdownMenu.Portal>
                           </DropdownMenu>
+                          </Show>
                         </div>
                       </Show>
                     </div>

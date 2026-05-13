@@ -1,4 +1,5 @@
 import type {
+  CommandStatusResponse,
   DeviceCommandAck,
   DeviceCommandRequest,
   UpdateCheckResponse,
@@ -23,6 +24,10 @@ export const deviceManagementService = {
 
   sendCommand(deviceId: string, cmd: DeviceCommandRequest): Promise<DeviceCommandAck> {
     return updateApi.sendCommand(deviceId, cmd)
+  },
+
+  getCommandStatus(deviceId: string, commandId: string): Promise<CommandStatusResponse | null> {
+    return updateApi.getCommandStatus(deviceId, commandId)
   },
 
   remove(deviceId: string): Promise<void> {
