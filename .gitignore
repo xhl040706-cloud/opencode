@@ -44,4 +44,5 @@ tsconfig.tsbuildinfo
 skills
 # Generated builtin review files (run build:review-builtin to populate)
 packages/opencode/src/costrict/review/agent/
-packages/opencode/src/costrict/review/skill/
+packages/opencode/src/costrict/review/skill/*
+!packages/opencode/src/costrict/review/skill/builtin.ts
