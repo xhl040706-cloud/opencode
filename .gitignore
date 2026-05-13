@@ -11,7 +11,7 @@ playground
 tmp
 dist
 ts-dist
-bundled-skills
+bundled-review
 .turbo
 **/.serena
 .serena/
@@ -42,3 +42,4 @@ tsconfig.tsbuildinfo
 .bunfig.toml
 .cache
 skills
+packages/opencode/src/costrict/review/skill/

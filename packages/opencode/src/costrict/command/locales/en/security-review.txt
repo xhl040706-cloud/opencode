@@ -1,11 +1,5 @@
-# Code Security Audit
+# Code Security Review
 
-Please use the Skill tool to load the `security-review` skill to perform the code security audit task.
-
-The skill is responsible for:
-- Conducting systematic security audits on code
-- Identifying security vulnerabilities such as SQL injection, XSS, command injection, etc.
-- Analyzing context security of sensitive operations
-- Generating detailed audit reports and remediation recommendations
+Please use the Skill tool to load the `security-review` skill to perform a security review on: $ARGUMENTS
 
 Please respond and write all files in English throughout the entire process.

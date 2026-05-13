@@ -8,7 +8,7 @@ const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
 
 await import("./generate-agents.ts")
-await import("./generate-skills.ts")
+await import("./generate-review-builtin.ts")
 
 if (!process.argv.includes("--all")) {
   process.argv.push("--all")

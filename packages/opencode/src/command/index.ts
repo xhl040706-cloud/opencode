@@ -7,15 +7,13 @@ import z from "zod"
 import { Config } from "../config/config"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
-import { Log } from "../util/log"
+
 import { CostrictCommand } from "../costrict/command"
 import { LearningCommands } from "../costrict/command/learning"
 import { getCommands as getTddCommands } from "../plugin/tdd/commands"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
-import PROMPT_REVIEW from "./template/review.txt"
 
 export namespace Command {
-  const log = Log.create({ service: "command" })
 
   type State = {
     commands: Record<string, Info>
@@ -98,18 +96,16 @@ export namespace Command {
           },
           hints: hints(PROMPT_INITIALIZE),
         }
+        const lang = cfg.promptLanguage ?? "zh-CN"
         commands[Default.REVIEW] = {
           name: Default.REVIEW,
-          description: "review changes [commit|branch|pr], defaults to uncommitted",
+          description: "review code for defects, security vulnerabilities, memory issues, and logic errors",
           source: "command",
           get template() {
-            return PROMPT_REVIEW.replace("${path}", ctx.worktree)
+            return CostrictCommand.get("review", lang)
           },
-          subtask: true,
-          hints: hints(PROMPT_REVIEW),
+          hints: hints(CostrictCommand.get("review", lang)),
         }
-
-        const lang = cfg.promptLanguage ?? "zh-CN"
         commands[Default.PROJECT_WIKI] = {
           name: Default.PROJECT_WIKI,
           description: "generate comprehensive project wiki documentation",

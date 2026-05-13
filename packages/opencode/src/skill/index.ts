@@ -17,7 +17,7 @@ import { ConfigMarkdown } from "../config/markdown"
 import { Glob } from "../util/glob"
 import { Log } from "../util/log"
 import { Discovery } from "./discovery"
-import * as CoStrictSkill from "../costrict/skill"
+import * as CoStrictReview from "../costrict/review"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
@@ -144,9 +144,13 @@ export namespace Skill {
     directory: string,
     worktree: string,
   ) {
+    // Get config early for locale
+    const cfg = yield* config.get()
+    const locale = cfg.promptLanguage ?? "zh-CN"
+
     // Initialize CoStrict builtin skills to cache directory on first run
     yield* Effect.tryPromise({
-      try: () => CoStrictSkill.Extension.initializeBuiltinSkills(),
+      try: () => CoStrictReview.Extension.initializeBuiltinSkills(locale),
       catch: (err) => err,
     }).pipe(
       Effect.catch((err) => {
@@ -177,12 +181,11 @@ export namespace Skill {
     }
 
     // Scan CoStrict builtin skills (embedded in binary, extracted to cache on first run)
-    const costrictSkillsDir = CoStrictSkill.Extension.getBuiltinSkillsDir()
+    const costrictSkillsDir = CoStrictReview.Extension.getBuiltinSkillsDir()
     if (yield* fsys.isDir(costrictSkillsDir)) {
       yield* scan(state, bus, costrictSkillsDir, SKILL_PATTERN, { scope: "builtin" })
     }
 
-    const cfg = yield* config.get()
     for (const item of cfg.skills?.paths ?? []) {
       const expanded = item.startsWith("~/") ? path.join(os.homedir(), item.slice(2)) : item
       const dir = path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)
