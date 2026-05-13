@@ -396,8 +396,11 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   createEffect(() => {
     if (dw.data.status !== "ready") return
     const live = new Set(dw.data.session.map((s) => s.id))
+    for (const sid of live) {
+      tabStore.confirmSession(sid)
+    }
     const ids = tabStore.tabs()
-      .filter((tab) => tab.kind === "session" && tab.meta?.sessionID && !live.has(tab.meta.sessionID))
+      .filter((tab) => tab.kind === "session" && tab.meta?.sessionID && !live.has(tab.meta.sessionID) && !tabStore.isPendingSession(tab.meta.sessionID))
       .map((tab) => tab.id)
     if (ids.length === 0) return
     ids.forEach(tabStore.close)
