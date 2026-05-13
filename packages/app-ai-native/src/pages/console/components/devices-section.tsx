@@ -3,7 +3,7 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import type { Device, UpdateDeviceRequest } from "@/pages/workspace/types"
-import { DeviceCard } from "./device-card"
+import { DeviceCard, clearUpgradeSuppressedIfVersionChanged } from "./device-card"
 import { deviceManagementService } from "../lib/device-management-service"
 
 export function DevicesSection() {
@@ -71,10 +71,11 @@ export function DevicesSection() {
     }
   }
 
-  const handleUpgrade = async (deviceId: string) => {
+  const handleUpgrade = async (deviceId: string): Promise<string | undefined> => {
+    const commandId = `upgrade-${Date.now()}`
     try {
       await deviceManagementService.sendCommand(deviceId, {
-        command_id: `upgrade-${Date.now()}`,
+        command_id: commandId,
         type: "upgrade",
         timestamp: new Date().toISOString(),
       })
@@ -84,6 +85,7 @@ export function DevicesSection() {
         title: language.t("store.devices.upgrade.toast.sent.title"),
         description: language.t("store.devices.upgrade.toast.sent.description"),
       })
+      return commandId
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
       const unsupported = /404|not found/i.test(msg)
@@ -93,6 +95,7 @@ export function DevicesSection() {
         title: language.t(unsupported ? "store.devices.upgrade.toast.unsupported.title" : "store.devices.upgrade.toast.failed.title"),
         description: language.t(unsupported ? "store.devices.upgrade.toast.unsupported.description" : "store.devices.upgrade.toast.failed.description"),
       })
+      return undefined
     }
   }
 
@@ -166,6 +169,20 @@ export function DevicesSection() {
                    onUpgrade={handleUpgrade}
                    onDelete={handleDelete}
                    onUpdate={handleUpdateDevice}
+                   onUpgradeCompleted={() => {
+                    let count = 0
+                    const tick = async () => {
+                      if (++count > 3) return
+                      await new Promise((r) => setTimeout(r, 5000))
+                      await acts.refetch()
+                      const list = devices() ?? []
+                      for (const d of list) {
+                        clearUpgradeSuppressedIfVersionChanged(d.deviceId, d.version)
+                      }
+                      tick()
+                    }
+                    tick()
+                  }}
                  />
               )}
             </For>

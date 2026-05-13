@@ -19,6 +19,7 @@ type WorkspaceContextValue = {
   openSidebar: () => void
   closeSidebar: () => void
   toggleSidebar: () => void
+  refreshDevices: () => void
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue>()

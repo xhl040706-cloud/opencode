@@ -164,3 +164,16 @@ export interface DeviceCommandAck {
   status: "accepted" | "rejected" | "executing"
   message: string
 }
+
+export interface CommandStatusResponse {
+  command_id: string
+  type: string
+  status: "accepted" | "executing" | "completed" | "failed"
+  phase?: "checking" | "downloading" | "verifying" | "replacing" | "restarting"
+  progress?: number
+  message?: string
+  started_at?: string
+  completed_at?: string
+  result?: any
+  error?: string
+}

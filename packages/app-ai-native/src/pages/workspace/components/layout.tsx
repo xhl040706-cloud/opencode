@@ -268,6 +268,7 @@ export default function WorkspaceLayout(props: ParentProps) {
     openSidebar: () => setSidebarOpened(true),
     closeSidebar: () => setSidebarOpened(false),
     toggleSidebar: () => setSidebarOpened((v) => !v),
+    refreshDevices: loadDevices,
   }
 
   return (
