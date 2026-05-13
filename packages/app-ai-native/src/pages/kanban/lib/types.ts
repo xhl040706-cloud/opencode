@@ -314,6 +314,7 @@ export type TaskRow = EfficiencyRow & {
   repo_branch?: string
   work_dir?: string
   work_dir_id?: string
+  workDirId?: string
   title?: string
   diff_lines?: number
   task_real_minutes?: number | null

@@ -68,7 +68,7 @@ export default function KanbanRepoList() {
     {
       prop: "repo_branch",
       label: language.t("kanban.metric.branch"),
-      minWidth: 120,
+      minWidth: 100,
       showOverflowTooltip: true,
       filter: { type: "multi-select" },
     },
@@ -92,7 +92,7 @@ export default function KanbanRepoList() {
         return (
           <button
             type="button"
-            class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
+            class="text-left text-sm text-(--native-primary) transition-colors hover:text-(--native-foreground) cursor-pointer"
             onClick={() => navigate(`/kanban/commit?${q}`)}
           >
             {count}
@@ -260,7 +260,7 @@ export default function KanbanRepoList() {
     <div class="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden p-[clamp(1rem,2vw,2rem)]">
       <header class="flex w-full flex-col gap-3">
         <Back />
-        <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.repo.listTitle")}</h1>
+        <h1 class="m-0 font-(--native-font-display) text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-(--native-foreground)">{language.t("kanban.repo.listTitle")}</h1>
       </header>
 
       <div class="flex min-h-0 w-full flex-1 flex-col gap-5">

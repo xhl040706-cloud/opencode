@@ -962,12 +962,14 @@ export async function loadCorrectionHistory(input: {
   }))
 }
 
-export async function getWorkDirDetail(workDirId: string): Promise<WorkDirDetailResult> {
+export async function getWorkDirDetail(workDirId: string, workAddr?: string, workBranch?: string): Promise<WorkDirDetailResult> {
   const id = workDirId.trim()
   if (!id) fail("workDirId is required")
 
   const raw = await get<unknown>(`${API}/v2/repos/detail`, {
-    work_dir_id: id,
+    workDirId: id,
+    repoAddr: workAddr?.trim() || undefined,
+    repoBranch: workBranch?.trim() || undefined,
   }, LONG)
 
   const data = unwrap(raw)

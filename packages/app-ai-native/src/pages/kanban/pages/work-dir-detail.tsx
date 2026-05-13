@@ -171,7 +171,7 @@ function SilicaBar(props: { value: number }) {
 export default function KanbanWorkDirDetail() {
   const language = useLanguage()
   const params = useParams()
-  const [searchParams] = useSearchParams<{ fromTaskId?: string }>()
+  const [searchParams] = useSearchParams<{ fromTaskId?: string; workAddr?: string; workBranch?: string }>()
 
   const backHref = createMemo(() => {
     const taskId = searchParams.fromTaskId?.trim()
@@ -180,13 +180,15 @@ export default function KanbanWorkDirDetail() {
   const backLabel = createMemo(() => searchParams.fromTaskId?.trim() ? language.t("kanban.backToTaskDetail") : language.t("kanban.back"))
 
   const workDirId = createMemo(() => decodeURIComponent(params.workDirId ?? "").trim())
+  const workAddr = createMemo(() => decodeURIComponent(searchParams.workAddr ?? "").trim())
+  const workBranch = createMemo(() => decodeURIComponent(searchParams.workBranch ?? "").trim())
 
   const [detail] = createResource(
-    () => workDirId(),
-    async (id) => {
+    () => ({ id: workDirId(), addr: workAddr(), branch: workBranch() }),
+    async ({ id, addr, branch }) => {
       if (!id) return null
       try {
-        return await getWorkDirDetail(id)
+        return await getWorkDirDetail(id, addr || undefined, branch || undefined)
       } catch (err) {
         showToast({
           variant: "error",
@@ -307,7 +309,11 @@ export default function KanbanWorkDirDetail() {
                             {(row) => (
                               <>
                                 <TableRow>
-                                  <TableCell>{shortId(row.commit_id)}</TableCell>
+                                  <TableCell>
+                                    <A href={`/kanban/commit/${encodeURIComponent(row.commit_id ?? "")}`} class="text-[var(--native-primary)] hover:underline">
+                                      {shortId(row.commit_id)}
+                                    </A>
+                                  </TableCell>
                                   <TableCell>{row.git_user_name || "-"}</TableCell>
                                   <TableCell>{formatLocalTime(row.commit_time)}</TableCell>
                                   <TableCell class="text-left tabular-nums">{row.diff_lines ?? "-"}</TableCell>
