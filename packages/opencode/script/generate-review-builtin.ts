@@ -296,4 +296,7 @@ async function generateBuiltinReview() {
   console.log("\n💡 Run 'bun run build' to compile the extension\n")
 }
 
-generateBuiltinReview().catch(console.error)
+generateBuiltinReview().catch((err) => {
+	console.error(err)
+	process.exit(1)
+})
