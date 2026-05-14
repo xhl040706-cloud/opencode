@@ -1532,7 +1532,7 @@ export const dict = {
   "workspace.home.step1.description": "按照安装教程安装 csc 命令行工具。",
   "workspace.home.step1.installGuide": "安装教程",
   "workspace.home.step2.title": "验证版本",
-  "workspace.home.step2.description": "确保版本在 3.0.29 及以上。",
+  "workspace.home.step2.description": "确保版本在 4.0.21 及以上。",
   "workspace.home.step2.cmd": "csc --version",
   "workspace.home.step3.title": "登录账号",
   "workspace.home.step3.description": "登录你的账号，完成后可按 y 接受服务启动。",
