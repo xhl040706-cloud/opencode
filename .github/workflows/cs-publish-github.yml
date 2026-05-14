@@ -121,9 +121,7 @@ jobs:
             bundled-skills-${{ runner.os }}-
 
       - name: Generate builtin agents and skills
-        run: |
-          bun run --cwd packages/opencode build:builtin-agents
-          bun run --cwd packages/opencode build:builtin-skills
+        run: bun run --cwd packages/opencode build:builtin
 
       # Build CLI binaries using the build script
       - name: Build
