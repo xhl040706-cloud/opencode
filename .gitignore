@@ -12,6 +12,7 @@ tmp
 dist
 ts-dist
 bundled-review
+bundled-skills
 .turbo
 **/.serena
 .serena/
