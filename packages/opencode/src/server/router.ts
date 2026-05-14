@@ -4,6 +4,7 @@ import { WorkspaceID } from "@/control-plane/schema"
 import { Workspace } from "@/control-plane/workspace"
 import { lazy } from "@/util/lazy"
 import { Filesystem } from "@/util/filesystem"
+import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { InstanceRoutes } from "./instance"
@@ -40,7 +41,7 @@ export const WorkspaceRouterMiddleware: MiddlewareHandler = async (c) => {
 
   const url = new URL(c.req.url)
   const t0 = Date.now()
-  console.log(`[perf.router] --> ${c.req.method} ${url.pathname} directory=${directory}`)
+  Log.Default.debug("[perf.router] -->", { method: c.req.method, path: url.pathname, directory })
   const workspaceParam = url.searchParams.get("workspace")
 
   if (!workspaceParam) {
@@ -50,11 +51,11 @@ export const WorkspaceRouterMiddleware: MiddlewareHandler = async (c) => {
       async fn() {
         const t1 = Date.now()
         const res = await routes().fetch(c.req.raw, c.env)
-        console.log(`[perf.router] <-- ${url.pathname} route.handler=${Date.now() - t1}ms total=${Date.now() - t0}ms`)
+        Log.Default.debug("[perf.router] <--", { path: url.pathname, routeHandlerMs: Date.now() - t1, totalMs: Date.now() - t0 })
         return res
       },
     }).then((res) => {
-      console.log(`[perf.router] <-- ${url.pathname} instance.provide+route total=${Date.now() - t0}ms`)
+      Log.Default.debug("[perf.router] <--", { path: url.pathname, instanceProvideAndRouteTotalMs: Date.now() - t0 })
       return res
     })
   }

@@ -788,12 +788,12 @@ export namespace Session {
         .limit(limit)
         .all(),
     )
-    console.log(`[perf.session] list DB query=${Date.now() - t0}ms rows=${rows.length} project=${project.id}`)
+    log.debug("[perf.session] list DB query", { durationMs: Date.now() - t0, rows: rows.length, project: project.id })
     const t1 = Date.now()
     for (const row of rows) {
       yield fromRow(row)
     }
-    console.log(`[perf.session] list fromRow=${Date.now() - t1}ms total=${Date.now() - t0}ms`)
+    log.debug("[perf.session] list fromRow", { fromRowMs: Date.now() - t1, totalMs: Date.now() - t0 })
   }
 
   export function* listGlobal(input?: {

@@ -246,12 +246,12 @@ export namespace Project {
           return { id, sandbox, worktree, vcs: "git" as const }
         })
 
-        console.log(`[perf.project] fromDirectory phase1.git-discovery=${Date.now() - t1}ms id=${data.id}`)
+        log.debug("[perf.project] fromDirectory phase1.git-discovery", { durationMs: Date.now() - t1, id: data.id })
 
         // Phase 2: upsert
         const t2 = Date.now()
         const row = yield* db((d) => d.select().from(ProjectTable).where(eq(ProjectTable.id, data.id)).get())
-        console.log(`[perf.project] fromDirectory phase2.db-select=${Date.now() - t2}ms`)
+        log.debug("[perf.project] fromDirectory phase2.db-select", { durationMs: Date.now() - t2 })
         const existing = row
           ? fromRow(row)
           : {
@@ -327,7 +327,7 @@ export namespace Project {
         }
 
         yield* emitUpdated(result)
-        console.log(`[perf.project] fromDirectory TOTAL=${Date.now() - t0}ms`)
+        log.debug("[perf.project] fromDirectory TOTAL", { durationMs: Date.now() - t0 })
         return { project: result, sandbox: data.sandbox }
       })
 
