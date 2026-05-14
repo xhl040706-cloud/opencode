@@ -1,4 +1,4 @@
-import { A, useParams } from "@solidjs/router"
+import { A, useParams, useNavigate } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -22,7 +22,6 @@ import { formatDuration, formatLocalTime, shortId } from "../lib/formatters"
 import type {
   ProjectDetailResult,
   ProjectManualPayload,
-  ProjectUserStat,
   GlobalConfig,
 } from "../lib/types"
 
@@ -207,6 +206,7 @@ function EditProjectDialog(props: { project: ProjectDetailResult; onSaved: () =>
 export default function KanbanProjectDetail() {
   const language = useLanguage()
   const params = useParams()
+  const navigate = useNavigate()
   const dialog = useDialog()
 
   const projectId = createMemo(() => decodeURIComponent(params.projectId ?? "").trim())
@@ -251,31 +251,7 @@ export default function KanbanProjectDetail() {
   const devEfficiencyRatio = createMemo(() => ancientWorkDays() && actualWorkDays() && actualWorkDays()! > 0 ? ancientWorkDays()! / actualWorkDays()! : null)
   const e2eEfficiencyRatio = createMemo(() => ancientWorkDays() && leadWorkDays() && leadWorkDays()! > 0 ? ancientWorkDays()! / leadWorkDays()! : null)
 
-  const userStats = createMemo<ProjectUserStat[]>(() => {
-    const map: Record<string, ProjectUserStat> = {}
-    for (const t of tasks()) {
-      const name = t.user_name || language.t("common.unknown")
-      if (!map[name]) map[name] = { user_name: name, task_count: 0, commit_count: 0, commit_diff_lines: 0, task_ancient_minutes: 0, task_real_minutes: 0, commit_ancient_minutes: 0, commit_real_minutes: 0, cost: 0, task_efficiency_ratio: 0, commit_efficiency_ratio: 0 }
-      map[name].task_count++
-      map[name].task_ancient_minutes += (t.task_ancient_minutes_manual ?? t.task_ancient_minutes) ?? 0
-      map[name].task_real_minutes += (t.task_real_minutes_manual ?? t.task_real_minutes) ?? 0
-      map[name].cost += t.cost ?? 0
-    }
-    for (const c of commits()) {
-      const name = c.user_name || language.t("common.unknown")
-      if (!map[name]) map[name] = { user_name: name, task_count: 0, commit_count: 0, commit_diff_lines: 0, task_ancient_minutes: 0, task_real_minutes: 0, commit_ancient_minutes: 0, commit_real_minutes: 0, cost: 0, task_efficiency_ratio: 0, commit_efficiency_ratio: 0 }
-      map[name].commit_count++
-      map[name].commit_diff_lines += c.diff_lines ?? 0
-      map[name].commit_ancient_minutes += (c.commit_ancient_minutes_manual ?? c.commit_ancient_minutes) ?? 0
-      map[name].commit_real_minutes += (c.commit_real_minutes_manual ?? c.commit_real_minutes) ?? 0
-      map[name].cost += c.cost ?? 0
-    }
-    return Object.values(map).map((u) => ({
-      ...u,
-      task_efficiency_ratio: u.task_real_minutes > 0 ? (u.task_ancient_minutes / u.task_real_minutes) * 100 : 0,
-      commit_efficiency_ratio: u.commit_real_minutes > 0 ? (u.commit_ancient_minutes / u.commit_real_minutes) * 100 : 0,
-    }))
-  })
+  const members = createMemo(() => project().members ?? [])
 
   const openManual = () => dialog.show(() => <ManualDialog project={project()} onSaved={() => void refetch()} />)
   const openEdit = () => dialog.show(() => <EditProjectDialog project={project()} onSaved={() => void refetch()} />)
@@ -377,37 +353,87 @@ export default function KanbanProjectDetail() {
                 </section>
 
                   {/* 用户视角 */}
-                  <Show when={userStats().length > 0}>
+                  <Show when={members().length > 0}>
                     <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                       <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                        {language.t("kanban.section.userPerspectiveCount", { count: userStats().length })}
+                        {language.t("kanban.section.userPerspectiveCount", { count: members().length })}
                       </div>
                       <div class="overflow-auto">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead class="min-w-[100px]">{language.t("kanban.table.user")}</TableHead>
-                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.taskCount")}</TableHead>
-                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.commitCount")}</TableHead>
-                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.codeLines")}</TableHead>
-                              <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskTraditionalEst")}</TableHead>
+                              <TableHead class="min-w-[140px]">{language.t("kanban.table.userName")}</TableHead>
+                              <TableHead class="min-w-[180px]">{language.t("kanban.table.org")}</TableHead>
                               <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskActualTime")}</TableHead>
-                              <TableHead class="min-w-[90px] text-left">{language.t("kanban.table.taskEfficiency")}</TableHead>
-                              <TableHead class="min-w-[80px] text-left">{language.t("kanban.table.cost")}</TableHead>
+                              <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskTraditionalEst")}</TableHead>
+                              <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.commitActualTime")}</TableHead>
+                              <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.commitTraditionalEst")}</TableHead>
+                              <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskEfficiency")}</TableHead>
+                              <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.commitEfficiency")}</TableHead>
+                              <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.tokensConsumed")}</TableHead>
+                              <TableHead class="min-w-[90px] text-left">{language.t("kanban.table.cost")}</TableHead>
+                              <TableHead class="min-w-[110px] text-left">{language.t("kanban.table.taskCodeLines")}</TableHead>
+                              <TableHead class="min-w-[120px] text-left">{language.t("kanban.table.commitCodeLines")}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            <For each={userStats()}>
+                            <For each={members()}>
                               {(row) => (
                                 <TableRow>
-                                  <TableCell>{row.user_name}</TableCell>
-                                  <TableCell class="text-left tabular-nums">{row.task_count}</TableCell>
-                                  <TableCell class="text-left tabular-nums">{row.commit_count}</TableCell>
-                                  <TableCell class="text-left tabular-nums">{row.commit_diff_lines.toLocaleString()}</TableCell>
-                                  <TableCell class="text-left">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
+                                  <TableCell>
+                                    {(() => {
+                                      const txt = row.user_name?.trim() || row.user_id?.trim()
+                                      return txt ? (
+                                        <button
+                                          type="button"
+                                          class="block max-w-[12rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
+                                          title={txt}
+                                          onClick={() => {
+                                            const id = row.user_id?.trim()
+                                            if (id) navigate(`/kanban/user/${encodeURIComponent(id)}`)
+                                          }}
+                                        >
+                                          {txt}
+                                        </button>
+                                      ) : (
+                                        <span>-</span>
+                                      )
+                                    })()}
+                                  </TableCell>
+                                  <TableCell>
+                                    {(() => {
+                                      const txt = row.org_display?.trim()
+                                      if (!txt) return <span>-</span>
+                                      return (
+                                        <button
+                                          type="button"
+                                          class="block max-w-[18rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
+                                          title={txt}
+                                          onClick={() => {
+                                            const path = [row.org1, row.org2, row.org3, row.org4].filter(Boolean).join("/")
+                                            if (path) navigate(`/kanban/org/${encodeURIComponent(path)}`)
+                                          }}
+                                        >
+                                          {txt}
+                                        </button>
+                                      )
+                                    })()}
+                                  </TableCell>
                                   <TableCell class="text-left">{formatDuration(row.task_real_minutes, language.t)}</TableCell>
+                                  <TableCell class="text-left">{formatDuration(row.task_ancient_minutes, language.t)}</TableCell>
+                                  <TableCell class="text-left">{formatDuration(row.commit_real_minutes, language.t)}</TableCell>
+                                  <TableCell class="text-left">{formatDuration(row.commit_ancient_minutes, language.t)}</TableCell>
                                   <TableCell class="text-left"><RatioPill value={row.task_efficiency_ratio} /></TableCell>
-                                  <TableCell class="text-left tabular-nums">{row.cost > 0 ? fmtCost(row.cost) : "-"}</TableCell>
+                                  <TableCell class="text-left"><RatioPill value={row.commit_efficiency_ratio} /></TableCell>
+                                  <TableCell class="text-left tabular-nums">
+                                    {(() => {
+                                      const total = (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)
+                                      return total > 0 ? total.toLocaleString() : "-"
+                                    })()}
+                                  </TableCell>
+                                  <TableCell class="text-left tabular-nums">{fmtCost(row.cost)}</TableCell>
+                                  <TableCell class="text-left tabular-nums">{row.task_diff_lines ?? "-"}</TableCell>
+                                  <TableCell class="text-left tabular-nums">{row.commit_diff_lines ?? "-"}</TableCell>
                                 </TableRow>
                               )}
                             </For>

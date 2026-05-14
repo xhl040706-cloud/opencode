@@ -1108,6 +1108,7 @@ export async function getProjectDetail(projectId: string): Promise<ProjectDetail
     repos: toObjects<ProjectRepoRow>(projectObj.repos),
     tasks: toObjects<ProjectTaskRow>(data.tasks),
     commits: toObjects<ProjectCommitRow>(data.commits),
+    members: toObjects<UserAggregateRow>(data.members),
     user_count: toNumber(data.user_count),
   }
 }

@@ -65,13 +65,15 @@ function rangePages(page: number, totalPages: number) {
 
 type SortState = "asc" | "desc" | "none"
 
-function sortState(order: string | undefined, field: string): SortState {
+function sortState(order: string | undefined, field: string | undefined): SortState {
+  if (!field) return "none"
   if (order === field) return "asc"
   if (order === `-${field}`) return "desc"
   return "none"
 }
 
-function nextOrder(current: string | undefined, field: string): string | undefined {
+function nextOrder(current: string | undefined, field: string | undefined): string | undefined {
+  if (!field) return undefined
   const state = sortState(current, field)
   if (state === "none") return field
   if (state === "asc") return `-${field}`

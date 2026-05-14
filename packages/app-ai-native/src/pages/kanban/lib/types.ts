@@ -796,6 +796,7 @@ export type ProjectDetailResult = {
   repos: ProjectRepoRow[]
   tasks: ProjectTaskRow[]
   commits: ProjectCommitRow[]
+  members?: UserAggregateRow[]
   user_count: number
 }
 
