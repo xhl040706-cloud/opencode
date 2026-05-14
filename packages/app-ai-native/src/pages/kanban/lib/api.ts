@@ -485,6 +485,7 @@ export async function queryRepoRows(input: RepoListQuery): Promise<RepoListResul
     ...range(input.dateRange),
     page: currentPage,
     pageSize: currentSize,
+    order: input.order,
   }, LONG)
 
   const rows = toObjects<RepoAggregateRow>(takeArray(raw, ["data", "items"]) ?? [])
@@ -507,6 +508,7 @@ export async function queryUserRows(input: UserListQuery): Promise<UserListResul
     pageSize: currentSize,
     granularity: toGranularity(input.granularity),
     ...org(input.org),
+    order: input.order,
   }, LONG)
 
   const data = unwrap(raw)
@@ -608,6 +610,7 @@ export async function queryTaskRows(input: TaskListQuery): Promise<TaskListResul
     repoAddr: input.repoAddr?.trim() || undefined,
     repoBranch: input.repoBranch?.trim() || undefined,
     ...org(input.org),
+    order: input.order,
   }, LONG)
 
   const result = pageResult(raw)
@@ -684,6 +687,7 @@ export async function queryCommitRows(input: CommitListQuery): Promise<CommitLis
     repoAddr: input.repoAddr?.trim() || undefined,
     repoBranch: input.repoBranch?.trim() || undefined,
     ...org(input.org),
+    order: input.order,
   }, LONG)
 
   const result = pageResult(raw)
@@ -749,6 +753,7 @@ export async function queryOrgRows(input: OrgAggregateQuery): Promise<OrgAggrega
     parent: scope.parent,
     ...range(input.dateRange),
     granularity: toGranularity(input.granularity),
+    order: input.order,
   }, LONG)
 
   const data = unwrap(raw)
@@ -1016,8 +1021,8 @@ export async function getWorkDirDetail(workDirId: string, workAddr?: string, wor
   }
 }
 
-export async function getProjects(): Promise<ProjectRow[]> {
-  const raw = await get<unknown>(`${API}/v2/projects`, undefined, LONG)
+export async function getProjects(input: { order?: string } = {}): Promise<ProjectRow[]> {
+  const raw = await get<unknown>(`${API}/v2/projects`, { order: input.order }, LONG)
   const list = takeArray(raw, ["data", "items"])
   if (!list) return [] as ProjectRow[]
   return list.filter(plain).map((item) => ({
@@ -1075,30 +1080,32 @@ export async function getProjectDetail(projectId: string): Promise<ProjectDetail
     return { repos: [], tasks: [], commits: [], user_count: 0 }
   }
 
+  const projectObj = plain(data.project) ? (data.project as Record<string, unknown>) : data
+
   return {
-    project_id: toText(data.project_id) ?? toText(data.id) ?? id,
-    name: toText(data.name),
-    description: toText(data.description),
-    start_time: toText(data.start_time),
-    start_time_manual: toText(data.start_time_manual),
-    end_time: toText(data.end_time),
-    end_time_manual: toText(data.end_time_manual),
-    upstream_tokens: toNumber(data.upstream_tokens),
-    downstream_tokens: toNumber(data.downstream_tokens),
-    cost: data.cost == null ? null : toNumber(data.cost),
-    project_ancient_minutes: data.project_ancient_minutes == null ? null : toNumber(data.project_ancient_minutes),
-    project_ancient_minutes_manual: data.project_ancient_minutes_manual == null ? null : toNumber(data.project_ancient_minutes_manual),
-    project_ancient_minutes_reason: toText(data.project_ancient_minutes_reason),
-    project_ancient_minutes_reason_manual: toText(data.project_ancient_minutes_reason_manual),
-    project_real_process_minutes: data.project_real_process_minutes == null ? null : toNumber(data.project_real_process_minutes),
-    project_real_process_minutes_manual: data.project_real_process_minutes_manual == null ? null : toNumber(data.project_real_process_minutes_manual),
-    project_real_process_minutes_reason: toText(data.project_real_process_minutes_reason),
-    project_real_process_minutes_reason_manual: toText(data.project_real_process_minutes_reason_manual),
-    project_real_lead_minutes: data.project_real_lead_minutes == null ? null : toNumber(data.project_real_lead_minutes),
-    project_real_lead_minutes_manual: data.project_real_lead_minutes_manual == null ? null : toNumber(data.project_real_lead_minutes_manual),
-    project_real_lead_minutes_reason: toText(data.project_real_lead_minutes_reason),
-    project_real_lead_minutes_reason_manual: toText(data.project_real_lead_minutes_reason_manual),
-    repos: toObjects<ProjectRepoRow>(data.repos),
+    project_id: toText(projectObj.project_id) ?? toText(projectObj.id) ?? id,
+    name: toText(projectObj.name),
+    description: toText(projectObj.description),
+    start_time: toText(projectObj.start_time),
+    start_time_manual: toText(projectObj.start_time_manual),
+    end_time: toText(projectObj.end_time),
+    end_time_manual: toText(projectObj.end_time_manual),
+    upstream_tokens: toNumber(projectObj.upstream_tokens),
+    downstream_tokens: toNumber(projectObj.downstream_tokens),
+    cost: projectObj.cost == null ? null : toNumber(projectObj.cost),
+    project_ancient_minutes: projectObj.project_ancient_minutes == null ? null : toNumber(projectObj.project_ancient_minutes),
+    project_ancient_minutes_manual: projectObj.project_ancient_minutes_manual == null ? null : toNumber(projectObj.project_ancient_minutes_manual),
+    project_ancient_minutes_reason: toText(projectObj.project_ancient_minutes_reason),
+    project_ancient_minutes_reason_manual: toText(projectObj.project_ancient_minutes_reason_manual),
+    project_real_process_minutes: projectObj.project_real_process_minutes == null ? null : toNumber(projectObj.project_real_process_minutes),
+    project_real_process_minutes_manual: projectObj.project_real_process_minutes_manual == null ? null : toNumber(projectObj.project_real_process_minutes_manual),
+    project_real_process_minutes_reason: toText(projectObj.project_real_process_minutes_reason),
+    project_real_process_minutes_reason_manual: toText(projectObj.project_real_process_minutes_reason_manual),
+    project_real_lead_minutes: projectObj.project_real_lead_minutes == null ? null : toNumber(projectObj.project_real_lead_minutes),
+    project_real_lead_minutes_manual: projectObj.project_real_lead_minutes_manual == null ? null : toNumber(projectObj.project_real_lead_minutes_manual),
+    project_real_lead_minutes_reason: toText(projectObj.project_real_lead_minutes_reason),
+    project_real_lead_minutes_reason_manual: toText(projectObj.project_real_lead_minutes_reason_manual),
+    repos: toObjects<ProjectRepoRow>(projectObj.repos),
     tasks: toObjects<ProjectTaskRow>(data.tasks),
     commits: toObjects<ProjectCommitRow>(data.commits),
     user_count: toNumber(data.user_count),

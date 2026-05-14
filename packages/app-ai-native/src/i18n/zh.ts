@@ -1869,6 +1869,7 @@ export const dict = {
   "kanban.metric.userCount": "用户数",
   "kanban.metric.relatedTaskCount": "关联Task数",
   "kanban.metric.relatedCommitCount": "关联Commit数",
+  "kanban.metric.projectName": "项目名称",
   "kanban.metric.projectId": "项目ID",
   "kanban.metric.startTime": "起始时间",
   "kanban.metric.endTime": "结束时间",

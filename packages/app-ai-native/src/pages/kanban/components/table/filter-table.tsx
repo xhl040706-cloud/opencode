@@ -28,6 +28,8 @@ type Props<Row extends EfficiencyRow> = {
   actions?: JSX.Element
   dateRange?: DateRangeValue
   emptyText?: string
+  order?: string
+  onOrderChange?: (order: string | undefined) => void
   onPageChange: (page: number) => void
   onPageSizeChange: (size: number) => void
   onRowClick?: (row: Row) => void
@@ -61,6 +63,34 @@ function rangePages(page: number, totalPages: number) {
   return Array.from({ length: size }, (_, i) => start + i)
 }
 
+type SortState = "asc" | "desc" | "none"
+
+function sortState(order: string | undefined, field: string): SortState {
+  if (order === field) return "asc"
+  if (order === `-${field}`) return "desc"
+  return "none"
+}
+
+function nextOrder(current: string | undefined, field: string): string | undefined {
+  const state = sortState(current, field)
+  if (state === "none") return field
+  if (state === "asc") return `-${field}`
+  return undefined
+}
+
+function SortIcon(props: { state: SortState }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-3.5 w-3.5">
+      <Show when={props.state !== "desc"}>
+        <path d="M8 9l4-4 4 4" opacity={props.state === "asc" ? 1 : 0.4} />
+      </Show>
+      <Show when={props.state !== "asc"}>
+        <path d="M8 15l4 4 4-4" opacity={props.state === "desc" ? 1 : 0.4} />
+      </Show>
+    </svg>
+  )
+}
+
 export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
   const language = useLanguage()
   const pages = () => Math.max(1, Math.ceil(props.total / props.pageSize))
@@ -84,11 +114,15 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
         <Show when={props.rows.length > 0} fallback={<div class="px-4 py-10 text-center text-sm text-[var(--native-muted)]">{props.emptyText ?? language.t("kanban.empty.noData")}</div>}>
           <div class={cn("relative min-w-0 overflow-x-auto", props.scrollClass)}>
             <Show when={showOverlay()}>
-              <div class="absolute inset-0 z-10 flex items-center justify-center bg-[color:color-mix(in_oklab,var(--native-panel)_70%,transparent)] backdrop-blur-[4px]">
+              <div class="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
                 <div class="h-8 w-8 animate-spin rounded-full border-[3px] border-[color:color-mix(in_srgb,var(--native-border)_30%,transparent)] border-t-[var(--native-primary)]" />
               </div>
             </Show>
-            <Table class="min-w-max" wrapClass="contents">
+            <div class="relative inline-block min-w-full">
+              <Show when={showOverlay()}>
+                <div class="absolute inset-0 z-10 bg-[color:color-mix(in_oklab,var(--native-panel)_70%,transparent)] backdrop-blur-[4px]" />
+              </Show>
+              <Table class="min-w-max" wrapClass="contents">
             <TableHeader>
               <TableRow>
                 <For each={props.columns}>
@@ -99,46 +133,63 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
                     >
                       <div class="flex items-center justify-between gap-2">
                         <span>{column.label}</span>
-                        {column.filter ? (
-                          <Popover
-                            open={props.controller.openColumn() === column.prop}
-                            onOpenChange={(open) => {
-                              if (open) props.controller.edit(column.prop)
-                              else props.controller.close()
-                            }}
-                            placement="bottom-end"
-                            gutter={8}
-                            class="max-w-none rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-0 shadow-[var(--native-shadow-lg)]"
-                            triggerAs="button"
-                            triggerProps={{
-                              type: "button",
-                              class: cn(
-                                "inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors",
-                                filterDisplay(column, props.controller.filters[column.prop]) || props.controller.openColumn() === column.prop
+                        <div class="flex items-center gap-1">
+                          {column.sortable && column.sortField ? (
+                            <button
+                              type="button"
+                              class={cn(
+                                "inline-flex items-center rounded-md px-1.5 py-1 text-xs transition-colors",
+                                sortState(props.order, column.sortField) !== "none"
                                   ? "bg-[var(--native-primary-soft)] text-[var(--native-primary)]"
                                   : "text-[var(--native-dim)] hover:bg-[color:color-mix(in_oklab,var(--native-border)_14%,transparent)] hover:text-[var(--native-foreground)]",
-                              ),
-                              "aria-label": language.t("kanban.aria.filterLabel", { label: column.label }),
-                            }}
-                            trigger={
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-3.5 w-3.5">
-                                <path d="M4 6h16" />
-                                <path d="M7 12h10" />
-                                <path d="M10 18h4" />
-                              </svg>
-                            }
-                          >
-                            <FilterPanel
-                              column={column}
-                              rows={props.rawRows ?? props.rows}
-                              value={props.controller.draft[column.prop]}
-                              dateRange={props.dateRange}
-                              onChange={(value) => props.controller.setDraftValue(column.prop, value)}
-                              onApply={() => props.controller.apply(column.prop)}
-                              onReset={() => props.controller.reset(column.prop)}
-                            />
-                          </Popover>
-                        ) : null}
+                              )}
+                              onClick={() => props.onOrderChange?.(nextOrder(props.order, column.sortField))}
+                              aria-label={language.t("kanban.aria.sortLabel", { label: column.label })}
+                            >
+                              <SortIcon state={sortState(props.order, column.sortField)} />
+                            </button>
+                          ) : null}
+                          {column.filter ? (
+                            <Popover
+                              open={props.controller.openColumn() === column.prop}
+                              onOpenChange={(open) => {
+                                if (open) props.controller.edit(column.prop)
+                                else props.controller.close()
+                              }}
+                              placement="bottom-end"
+                              gutter={8}
+                              class="max-w-none rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-0 shadow-[var(--native-shadow-lg)]"
+                              triggerAs="button"
+                              triggerProps={{
+                                type: "button",
+                                class: cn(
+                                  "inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors",
+                                  filterDisplay(column, props.controller.filters[column.prop]) || props.controller.openColumn() === column.prop
+                                    ? "bg-[var(--native-primary-soft)] text-[var(--native-primary)]"
+                                    : "text-[var(--native-dim)] hover:bg-[color:color-mix(in_oklab,var(--native-border)_14%,transparent)] hover:text-[var(--native-foreground)]",
+                                ),
+                                "aria-label": language.t("kanban.aria.filterLabel", { label: column.label }),
+                              }}
+                              trigger={
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-3.5 w-3.5">
+                                  <path d="M4 6h16" />
+                                  <path d="M7 12h10" />
+                                  <path d="M10 18h4" />
+                                </svg>
+                              }
+                            >
+                              <FilterPanel
+                                column={column}
+                                rows={props.rawRows ?? props.rows}
+                                value={props.controller.draft[column.prop]}
+                                dateRange={props.dateRange}
+                                onChange={(value) => props.controller.setDraftValue(column.prop, value)}
+                                onApply={() => props.controller.apply(column.prop)}
+                                onReset={() => props.controller.reset(column.prop)}
+                              />
+                            </Popover>
+                          ) : null}
+                        </div>
                       </div>
                     </TableHead>
                   )}
@@ -161,6 +212,7 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
               </For>
             </TableBody>
             </Table>
+            </div>
           </div>
         </Show>
       </Show>

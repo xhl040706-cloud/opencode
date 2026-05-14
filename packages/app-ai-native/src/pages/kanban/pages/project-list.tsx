@@ -161,12 +161,14 @@ export default function KanbanProjectList() {
     dateTo?: string
     startFrom?: string
     startTo?: string
+    order?: string
   }>()
 
   const [state, setState] = createStore({
     filterName: "",
     filterRange: null as [string, string] | null,
     filterOngoing: false,
+    order: search.order?.trim() || undefined as string | undefined,
   })
 
   function parseDateStr(s?: string | null) {
@@ -183,6 +185,7 @@ export default function KanbanProjectList() {
         : search.startFrom && search.startTo
           ? [parseDateStr(search.startFrom), parseDateStr(search.startTo)] as [string, string]
         : null,
+      order: search.order?.trim() || undefined,
     })
   }
 
@@ -194,6 +197,7 @@ export default function KanbanProjectList() {
       query.dateFrom = state.filterRange[0].replace(/-/g, "")
       query.dateTo = state.filterRange[1].replace(/-/g, "")
     }
+    if (state.order) query.order = state.order
     setSearch(query, { replace: true })
   }
 
@@ -223,14 +227,16 @@ export default function KanbanProjectList() {
           ? <span class="font-medium text-[var(--native-success)]">{language.t("kanban.status.ongoing")}</span>
           : <span>{row._end_time_fmt}</span>,
     },
-    { prop: "user_count", label: language.t("kanban.table.peopleCount"), minWidth: 80, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] } },
-    { prop: "repo_count", label: language.t("kanban.table.repoCount"), minWidth: 90, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] } },
-    { prop: "task_count", label: language.t("kanban.table.taskCount"), minWidth: 90, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] } },
+    { prop: "user_count", label: language.t("kanban.table.peopleCount"), minWidth: 80, align: "left", sortable: true, sortField: "userCount", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] } },
+    { prop: "repo_count", label: language.t("kanban.table.repoCount"), minWidth: 90, align: "left", sortable: true, sortField: "repoCount", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] } },
+    { prop: "task_count", label: language.t("kanban.table.taskCount"), minWidth: 90, align: "left", sortable: true, sortField: "taskCount", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] } },
     {
       prop: "total_code_lines",
       label: language.t("kanban.table.generatedCode"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "totalCodeLines",
       display: (row) => row.total_code_lines && row.total_code_lines > 0 ? row.total_code_lines.toLocaleString() + " " + language.t("kanban.repo.lines") : "-",
     },
     {
@@ -238,6 +244,8 @@ export default function KanbanProjectList() {
       label: language.t("kanban.table.actualLinesPerDay"),
       minWidth: 130,
       align: "left",
+      sortable: true,
+      sortField: "actualLinesPerDay",
       display: (row) => row.actual_lines_per_day != null ? Math.round(row.actual_lines_per_day).toLocaleString() + " " + language.t("kanban.unit.linesPerManDay") : "-",
     },
     {
@@ -245,6 +253,8 @@ export default function KanbanProjectList() {
       label: language.t("kanban.table.cost"),
       minWidth: 100,
       align: "left",
+      sortable: true,
+      sortField: "cost",
       display: (row) => fmtCost(row.cost),
     },
     {
@@ -260,6 +270,8 @@ export default function KanbanProjectList() {
       label: language.t("kanban.table.traditionalEst"),
       minWidth: 130,
       align: "left",
+      sortable: true,
+      sortField: "projectAncientMinutes",
       display: (row) => formatDuration(row.project_ancient_minutes_manual ?? row.project_ancient_minutes, language.t),
       filter: { type: "number", valueGetter: (row) => ((row.project_ancient_minutes_manual ?? row.project_ancient_minutes) ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
@@ -268,10 +280,12 @@ export default function KanbanProjectList() {
       label: language.t("kanban.table.actualTime"),
       minWidth: 120,
       align: "left",
+      sortable: true,
+      sortField: "projectRealProcessMinutes",
       display: (row) => formatDuration(row.project_real_process_minutes_manual ?? row.project_real_process_minutes, language.t),
       filter: { type: "number", valueGetter: (row) => ((row.project_real_process_minutes_manual ?? row.project_real_process_minutes) ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
-    { prop: "efficiency_ratio", label: language.t("kanban.table.efficiencyRatio"), minWidth: 110, align: "left", render: (row) => <RatioPill value={row.efficiency_ratio} /> },
+    { prop: "efficiency_ratio", label: language.t("kanban.table.efficiencyRatio"), minWidth: 110, align: "left", sortable: true, sortField: "efficiencyRatio", render: (row) => <RatioPill value={row.efficiency_ratio} /> },
     {
       prop: "_actions",
       label: language.t("kanban.table.action"),
@@ -297,14 +311,17 @@ export default function KanbanProjectList() {
     onChange: () => {},
   })
 
-  const [data, { refetch }] = createResource(async () => {
-    try {
-      const result = await getProjects()
-      return enrichData(result)
-    } catch {
-      return [] as EnrichedProjectRow[]
-    }
-  })
+  const [data, { refetch }] = createResource(
+    () => ({ order: state.order }),
+    async (input) => {
+      try {
+        const result = await getProjects({ order: input.order })
+        return enrichData(result)
+      } catch {
+        return [] as EnrichedProjectRow[]
+      }
+    },
+  )
 
   const filteredData = createMemo(() => {
     let rows = data() ?? []
@@ -487,6 +504,8 @@ export default function KanbanProjectList() {
             page={1}
             pageSize={filteredData().length || 1}
             pageSizeOptions={[250, 500, 1000]}
+            order={state.order}
+            onOrderChange={(order) => setState("order", order)}
             emptyText={data.loading ? language.t("kanban.loading.projects") : language.t("kanban.empty.noProjectData")}
             onPageChange={() => {}}
             onPageSizeChange={() => {}}

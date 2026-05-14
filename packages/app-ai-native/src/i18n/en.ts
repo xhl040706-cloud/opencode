@@ -1897,6 +1897,7 @@ export const dict = {
   "kanban.metric.userCount": "Users",
   "kanban.metric.relatedTaskCount": "Related Tasks",
   "kanban.metric.relatedCommitCount": "Related Commits",
+  "kanban.metric.projectName": "Project Name",
   "kanban.metric.projectId": "Project ID",
   "kanban.metric.startTime": "Start Time",
   "kanban.metric.endTime": "End Time",

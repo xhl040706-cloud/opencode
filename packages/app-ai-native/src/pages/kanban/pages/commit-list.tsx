@@ -48,12 +48,13 @@ function tokens(row: CommitRow) {
 export default function KanbanCommitList() {
   const language = useLanguage()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; repoAddr?: string; repoBranch?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; repoAddr?: string; repoBranch?: string; org1?: string; org2?: string; org3?: string; org4?: string; order?: string }>()
   const [state, setState] = createStore({
     page: 1,
     pageSize: 250,
     dateRange: parseQueryRange(search.startDate, search.endDate),
     org: parseOrg(search),
+    order: search.order?.trim() || undefined,
   })
 
   const routeQuery = createMemo(() => searchQuery([
@@ -104,12 +105,14 @@ export default function KanbanCommitList() {
   })
 
   createEffect(on(
-    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4],
+    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.order],
     () => {
       const next = readQueryRange(search.startDate, search.endDate)
       if (next && !sameRange(untrack(() => state.dateRange), next)) setState("dateRange", next)
       const org = parseOrg(search)
       if (!sameOrg(untrack(() => state.org), org)) setState("org", org)
+      const order = search.order?.trim() || undefined
+      if (untrack(() => state.order) !== order) setState("order", order)
     },
   ))
 
@@ -125,6 +128,7 @@ export default function KanbanCommitList() {
       ["org2", state.org.org2],
       ["org3", state.org.org3],
       ["org4", state.org.org4],
+      ["order", state.order],
     ])
     const current = searchQuery([
       ["startDate", search.startDate],
@@ -136,6 +140,7 @@ export default function KanbanCommitList() {
       ["org2", search.org2],
       ["org3", search.org3],
       ["org4", search.org4],
+      ["order", search.order],
     ])
     if (query.toString() !== current.toString()) setSearch(Object.fromEntries(query.entries()))
   })
@@ -245,6 +250,8 @@ export default function KanbanCommitList() {
       label: language.t("kanban.table.codeLines"),
       minWidth: 120,
       align: "right",
+      sortable: true,
+      sortField: "diffLines",
       filter: {
         type: "number",
         shortcuts: [
@@ -259,6 +266,8 @@ export default function KanbanCommitList() {
       label: language.t("kanban.metric.actualTime"),
       minWidth: 110,
       align: "right",
+      sortable: true,
+      sortField: "commitRealMinutes",
       display: (row) => formatDuration(real(row), language.t),
       filter: {
         type: "number",
@@ -275,6 +284,8 @@ export default function KanbanCommitList() {
       label: language.t("kanban.metric.traditionalEst"),
       minWidth: 190,
       align: "right",
+      sortable: true,
+      sortField: "commitAncientMinutes",
       display: (row) => formatDuration(ancient(row), language.t),
       filter: {
         type: "number",
@@ -291,6 +302,8 @@ export default function KanbanCommitList() {
       label: language.t("kanban.metric.efficiencyRatio"),
       minWidth: 110,
       align: "center",
+      sortable: true,
+      sortField: "efficiencyRatio",
       render: (row) => <RatioPill value={row.efficiency_ratio} />,
       filter: {
         type: "number",
@@ -317,12 +330,14 @@ export default function KanbanCommitList() {
         ],
       },
     },
-    { prop: "commit_time", label: language.t("kanban.table.time"), minWidth: 170, display: (row) => formatLocalTime(row.commit_time) },
+    { prop: "commit_time", label: language.t("kanban.table.time"), minWidth: 170, sortable: true, sortField: "commitTime", display: (row) => formatLocalTime(row.commit_time) },
     {
       prop: "cost",
       label: language.t("kanban.table.cost"),
       minWidth: 100,
       align: "right",
+      sortable: true,
+      sortField: "cost",
       display: (row) => fmtCost(row.cost),
       filter: {
         type: "number",
@@ -345,7 +360,7 @@ export default function KanbanCommitList() {
   })
 
   const [data, { refetch }] = createResource(
-    () => ({ userId: search.userId?.trim() || undefined, repoAddr: search.repoAddr?.trim() || undefined, repoBranch: search.repoBranch?.trim() || undefined, dateRange: state.dateRange, org: { org1: state.org.org1, org2: state.org.org2, org3: state.org.org3, org4: state.org.org4 }, page: state.page, pageSize: state.pageSize }),
+    () => ({ userId: search.userId?.trim() || undefined, repoAddr: search.repoAddr?.trim() || undefined, repoBranch: search.repoBranch?.trim() || undefined, dateRange: state.dateRange, org: { org1: state.org.org1, org2: state.org.org2, org3: state.org.org3, org4: state.org.org4 }, page: state.page, pageSize: state.pageSize, order: state.order }),
     async (input) => {
       try {
         return await queryCommitRows(input)
@@ -395,6 +410,8 @@ export default function KanbanCommitList() {
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[100, 250, 500]}
+          order={state.order}
+          onOrderChange={(order) => setState("order", order)}
           emptyText={data.loading ? language.t("kanban.loading.commitList") : language.t("kanban.empty.noCommitData")}
           onPageChange={(page) => setState("page", page)}
           onPageSizeChange={(pageSize) => {

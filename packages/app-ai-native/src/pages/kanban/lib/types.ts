@@ -62,6 +62,7 @@ export type KanbanColumn<Row extends EfficiencyRow = EfficiencyRow> = {
   display?: (row: Row) => string
   render?: (row: Row) => JSX.Element
   sortable?: boolean
+  sortField?: string
   showOverflowTooltip?: boolean
   filter?: {
     type: FilterType
@@ -155,6 +156,7 @@ export type RepoListQuery = {
   dateRange: DateRangeValue
   page?: number
   pageSize?: number
+  order?: string
 }
 
 export type RepoListResult = {
@@ -216,6 +218,7 @@ export type UserListQuery = {
   pageSize?: number
   granularity?: Granularity
   org?: OrgCascadeValue
+  order?: string
 }
 
 export type UserListResult = {
@@ -377,6 +380,7 @@ export type TaskListQuery = {
   org?: OrgCascadeValue
   repoAddr?: string
   repoBranch?: string
+  order?: string
 }
 
 export type TaskListResult = {
@@ -452,6 +456,7 @@ export type CommitListQuery = {
   org?: OrgCascadeValue
   repoAddr?: string
   repoBranch?: string
+  order?: string
 }
 
 export type CommitListResult = {
@@ -503,6 +508,7 @@ export type OrgAggregateQuery = {
   dateRange: DateRangeValue
   granularity?: Granularity
   org?: OrgCascadeValue
+  order?: string
 }
 
 export type OrgAggregateResult = {
@@ -644,6 +650,7 @@ export type OrgListQuery = {
   level: OrgLevel
   parent?: string
   dateRange?: DateRangeValue
+  order?: string
 }
 
 export type DimensionKeysQuery = {
@@ -711,6 +718,10 @@ export type ProjectRow = {
   project_real_process_minutes?: number
   project_real_process_minutes_manual?: number
   efficiency_ratio?: number | null
+}
+
+export type ProjectListQuery = {
+  order?: string
 }
 
 export type ProjectCreatePayload = {
