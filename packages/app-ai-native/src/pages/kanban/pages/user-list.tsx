@@ -79,6 +79,7 @@ export default function KanbanUserList() {
     org3?: string
     org4?: string
     granularity?: string
+    order?: string
   }>()
   const [state, setState] = createStore({
     page: 1,
@@ -86,6 +87,7 @@ export default function KanbanUserList() {
     dateRange: parseQueryRange(search.startDate, search.endDate),
     org: parseOrg(search),
     granularity: parseGranularity(search.granularity),
+    order: search.order?.trim() || undefined,
   })
 
   const routeQuery = createMemo(() => {
@@ -103,7 +105,7 @@ export default function KanbanUserList() {
 
   createEffect(
     on(
-      () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.granularity],
+      () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.granularity, search.order],
       () => {
         const next = readQueryRange(search.startDate, search.endDate)
         if (
@@ -126,6 +128,9 @@ export default function KanbanUserList() {
 
         const granularity = parseGranularity(search.granularity)
         if (untrack(() => state.granularity) !== granularity) setState("granularity", granularity)
+
+        const order = search.order?.trim() || undefined
+        if (untrack(() => state.order) !== order) setState("order", order)
       },
     ),
   )
@@ -143,6 +148,7 @@ export default function KanbanUserList() {
       ["org2", state.org.org2],
       ["org3", state.org.org3],
       ["org4", state.org.org4],
+      ["order", state.order],
     ])
     const current = searchQuery([
       ["startDate", search.startDate],
@@ -152,6 +158,7 @@ export default function KanbanUserList() {
       ["org2", search.org2],
       ["org3", search.org3],
       ["org4", search.org4],
+      ["order", search.order],
     ])
     if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
   })
@@ -215,6 +222,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.taskCount"),
       minWidth: 90,
       align: "left",
+      sortable: true,
+      sortField: "taskCount",
       render: (row) => {
         const count = row.task_count ?? 0
         if (count <= 0) return <span>{count}</span>
@@ -242,6 +251,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.commitCount"),
       minWidth: 100,
       align: "left",
+      sortable: true,
+      sortField: "commitCount",
       render: (row) => {
         const count = row.commit_count ?? 0
         if (count <= 0) return <span>{count}</span>
@@ -269,6 +280,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.taskActualTime"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "taskRealMinutes",
       display: (row) => formatDuration(row.task_real_minutes, language.t),
       filter: { type: "number", valueGetter: (row) => (row.task_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
@@ -277,6 +290,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.taskTraditionalEst"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "taskAncientMinutes",
       display: (row) => formatDuration(row.task_ancient_minutes, language.t),
       filter: { type: "number", valueGetter: (row) => (row.task_ancient_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
@@ -285,6 +300,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.commitActualTime"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "commitRealMinutes",
       display: (row) => formatDuration(row.commit_real_minutes, language.t),
       filter: { type: "number", valueGetter: (row) => (row.commit_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
@@ -293,6 +310,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.commitTraditionalEst"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "commitAncientMinutes",
       display: (row) => formatDuration(row.commit_ancient_minutes, language.t),
       filter: { type: "number", valueGetter: (row) => (row.commit_ancient_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
     },
@@ -301,6 +320,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.taskEfficiency"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "taskEfficiencyRatio",
       render: (row) => <RatioPill value={row.task_efficiency_ratio} />,
       filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] },
     },
@@ -309,6 +330,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.commitEfficiency"),
       minWidth: 120,
       align: "left",
+      sortable: true,
+      sortField: "commitEfficiencyRatio",
       render: (row) => <RatioPill value={row.commit_efficiency_ratio} />,
       filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] },
     },
@@ -328,6 +351,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.cost"),
       minWidth: 90,
       align: "left",
+      sortable: true,
+      sortField: "cost",
       display: (row) =>
         row.cost == null || row.cost === 0
           ? "-"
@@ -339,6 +364,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.taskCodeLines"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "taskDiffLines",
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
     },
     {
@@ -346,6 +373,8 @@ export default function KanbanUserList() {
       label: language.t("kanban.table.commitCodeLines"),
       minWidth: 120,
       align: "left",
+      sortable: true,
+      sortField: "commitDiffLines",
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
     },
   ])
@@ -374,6 +403,7 @@ export default function KanbanUserList() {
     granularity: state.granularity,
     page: state.page,
     pageSize: state.pageSize,
+    order: state.order,
   }))
 
   const [data, { refetch }] = createResource(query, async (input) => {
@@ -586,6 +616,8 @@ export default function KanbanUserList() {
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[50, 100, 250]}
+          order={state.order}
+          onOrderChange={(order) => setState("order", order)}
           emptyText={data.loading ? language.t("kanban.loading.userAggregate") : language.t("kanban.empty.noUserData")}
           onPageChange={(page) => setState("page", page)}
           onPageSizeChange={(pageSize) => {

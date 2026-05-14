@@ -55,7 +55,7 @@ function orgPath(value: OrgCascadeValue) {
   return [value.org1, value.org2, value.org3, value.org4].filter(Boolean).join("/")
 }
 
-function queryOf(range: [string, string], granularity: Granularity, org: OrgCascadeValue) {
+function queryOf(range: [string, string], granularity: Granularity, org: OrgCascadeValue, order?: string) {
   const dates = rangeQuery(range)
   return searchQuery([
     ["startDate", dates.startDate],
@@ -65,6 +65,7 @@ function queryOf(range: [string, string], granularity: Granularity, org: OrgCasc
     ["org2", org.org2],
     ["org3", org.org3],
     ["org4", org.org4],
+    ["order", order],
   ]).toString()
 }
 
@@ -75,17 +76,18 @@ function values(series: OrgAggregateSeries, field: keyof OrgAggregateSeries["poi
 export default function KanbanOrgList() {
   const language = useLanguage()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; org1?: string; org2?: string; org3?: string; org4?: string; granularity?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; org1?: string; org2?: string; org3?: string; org4?: string; granularity?: string; order?: string }>()
   const [state, setState] = createStore({
     page: 1,
     pageSize: 50,
     dateRange: parseQueryRange(search.startDate, search.endDate),
     org: parseOrg(search),
     granularity: parseGranularity(search.granularity),
+    order: search.order?.trim() || undefined,
   })
 
   createEffect(on(
-    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.granularity],
+    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.granularity, search.order],
     () => {
       const next = readQueryRange(search.startDate, search.endDate)
       if (next && !sameRange(untrack(() => state.dateRange), next)) setState("dateRange", next)
@@ -95,6 +97,9 @@ export default function KanbanOrgList() {
 
       const granularity = parseGranularity(search.granularity)
       if (untrack(() => state.granularity) !== granularity) setState("granularity", granularity)
+
+      const order = search.order?.trim() || undefined
+      if (untrack(() => state.order) !== order) setState("order", order)
     },
   ))
 
@@ -102,7 +107,7 @@ export default function KanbanOrgList() {
     const next = normalizeDateRange(state.dateRange)
     if (!next) return
 
-    const mirror = queryOf(next, state.granularity, state.org)
+    const mirror = queryOf(next, state.granularity, state.org, state.order)
     const current = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
@@ -111,6 +116,7 @@ export default function KanbanOrgList() {
       ["org2", search.org2],
       ["org3", search.org3],
       ["org4", search.org4],
+      ["order", search.order],
     ]).toString()
     if (mirror !== current) setSearch(Object.fromEntries(new URLSearchParams(mirror).entries()))
   })
@@ -119,9 +125,10 @@ export default function KanbanOrgList() {
     dateRange: state.dateRange,
     org: { org1: state.org.org1, org2: state.org.org2, org3: state.org.org3, org4: state.org.org4 },
     granularity: state.granularity,
+    order: state.order,
   }))
 
-  const routeQuery = (org: OrgCascadeValue) => queryOf(state.dateRange, state.granularity, org)
+  const routeQuery = (org: OrgCascadeValue) => queryOf(state.dateRange, state.granularity, org, state.order)
 
   const columns = createMemo<KanbanColumn<OrgAggregateRow>[]>(() => [
     {
@@ -146,6 +153,8 @@ export default function KanbanOrgList() {
       label: language.t("kanban.metric.memberCount"),
       minWidth: 90,
       align: "left",
+      sortable: true,
+      sortField: "userCount",
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
         return (row.user_count ?? 0) > 0 ? (
@@ -161,6 +170,8 @@ export default function KanbanOrgList() {
       label: language.t("kanban.table.taskCount"),
       minWidth: 90,
       align: "left",
+      sortable: true,
+      sortField: "taskCount",
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
         return (row.task_count ?? 0) > 0 ? (
@@ -171,13 +182,15 @@ export default function KanbanOrgList() {
       },
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
-    { prop: "task_diff_lines", label: language.t("kanban.metric.taskCodeAmount"), minWidth: 110, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
-    { prop: "task_efficiency_ratio", label: language.t("kanban.table.taskEfficiencyRatio"), minWidth: 120, align: "left", render: (row) => <RatioPill value={row.task_efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
+    { prop: "task_diff_lines", label: language.t("kanban.metric.taskCodeAmount"), minWidth: 110, align: "left", sortable: true, sortField: "taskDiffLines", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
+    { prop: "task_efficiency_ratio", label: language.t("kanban.table.taskEfficiencyRatio"), minWidth: 120, align: "left", sortable: true, sortField: "taskEfficiencyRatio", render: (row) => <RatioPill value={row.task_efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
     {
       prop: "commit_count",
       label: language.t("kanban.table.commitCount"),
       minWidth: 100,
       align: "left",
+      sortable: true,
+      sortField: "commitCount",
       render: (row) => {
         const scope = nextOrg(state.org, row.org_name)
         return (row.commit_count ?? 0) > 0 ? (
@@ -188,10 +201,10 @@ export default function KanbanOrgList() {
       },
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
-    { prop: "commit_diff_lines", label: language.t("kanban.metric.commitCodeAmount"), minWidth: 120, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
-    { prop: "commit_efficiency_ratio", label: language.t("kanban.table.commitEfficiencyRatio"), minWidth: 130, align: "left", render: (row) => <RatioPill value={row.commit_efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
-    { prop: "total_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "left", display: (row) => (row.total_tokens ?? 0) > 0 ? (row.total_tokens ?? 0).toLocaleString() : "-", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 10k", value: { min: 10000 } }, { label: "> 100k", value: { min: 100000 } }] } },
-    { prop: "total_cost", label: language.t("kanban.metric.totalCost"), minWidth: 100, align: "left", display: (row) => fmtCost(row.total_cost), filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] } },
+    { prop: "commit_diff_lines", label: language.t("kanban.metric.commitCodeAmount"), minWidth: 120, align: "left", sortable: true, sortField: "commitDiffLines", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
+    { prop: "commit_efficiency_ratio", label: language.t("kanban.table.commitEfficiencyRatio"), minWidth: 130, align: "left", sortable: true, sortField: "commitEfficiencyRatio", render: (row) => <RatioPill value={row.commit_efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
+    { prop: "total_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "left", sortable: true, sortField: "totalTokens", display: (row) => (row.total_tokens ?? 0) > 0 ? (row.total_tokens ?? 0).toLocaleString() : "-", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 10k", value: { min: 10000 } }, { label: "> 100k", value: { min: 100000 } }] } },
+    { prop: "total_cost", label: language.t("kanban.metric.totalCost"), minWidth: 100, align: "left", sortable: true, sortField: "totalCost", display: (row) => fmtCost(row.total_cost), filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] } },
   ])
 
   const table = useTableFilters<OrgAggregateRow>({
@@ -317,6 +330,8 @@ export default function KanbanOrgList() {
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[25, 50, 100, 200]}
+          order={state.order}
+          onOrderChange={(order) => setState("order", order)}
           emptyText={data.loading ? language.t("kanban.loading.orgList") : language.t("kanban.empty.noOrgData")}
           onPageChange={(page) => setState("page", page)}
           onPageSizeChange={(pageSize) => {

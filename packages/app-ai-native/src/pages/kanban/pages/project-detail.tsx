@@ -347,6 +347,7 @@ export default function KanbanProjectDetail() {
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
                   <div class="mb-4 text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.basicInfo")}</div>
                   <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <MetricCard label={language.t("kanban.metric.projectName")} value={project().name || "-"} />
                     <MetricCard label={language.t("kanban.metric.projectId")} value={project().project_id || "-"} />
                     <MetricCard label={language.t("kanban.metric.startTime")} value={formatLocalTime(project().start_time_manual || project().start_time)} />
                     <MetricCard label={language.t("kanban.metric.endTime")} value={formatLocalTime(project().end_time_manual || project().end_time)} />

@@ -18,11 +18,12 @@ import type { DateRangeValue, KanbanColumn, RepoAggregateRow } from "../lib/type
 export default function KanbanRepoList() {
   const language = useLanguage()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; order?: string }>()
   const [state, setState] = createStore({
     page: 1,
     pageSize: 250,
     serverRange: parseQueryRange(search.startDate, search.endDate),
+    order: search.order?.trim() || undefined,
   })
 
   const routeQuery = createMemo(() => {
@@ -77,6 +78,8 @@ export default function KanbanRepoList() {
       label: language.t("kanban.table.commitCount"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "commitCount",
       render: (row) => {
         const count = row.commit_count ?? 0
         if (count <= 0) return <span>{count}</span>
@@ -113,6 +116,8 @@ export default function KanbanRepoList() {
       label: language.t("kanban.table.taskCount"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "taskCount",
       render: (row) => {
         const count = row.task_count ?? 0
         if (count <= 0) return <span>{count}</span>
@@ -149,6 +154,8 @@ export default function KanbanRepoList() {
       label: language.t("kanban.metric.traditionalEst"),
       minWidth: 150,
       align: "left",
+      sortable: true,
+      sortField: "sumAncientMinutes",
       display: (row) => formatDuration(row.sum_ancient_minutes, language.t),
       filter: {
         type: "number",
@@ -165,6 +172,8 @@ export default function KanbanRepoList() {
       label: language.t("kanban.metric.actualTime"),
       minWidth: 130,
       align: "left",
+      sortable: true,
+      sortField: "sumRealMinutes",
       display: (row) => formatDuration(row.sum_real_minutes, language.t),
       filter: {
         type: "number",
@@ -181,6 +190,8 @@ export default function KanbanRepoList() {
       label: language.t("kanban.metric.efficiencyRatio"),
       minWidth: 110,
       align: "left",
+      sortable: true,
+      sortField: "efficiencyRatio",
       render: (row) => <RatioPill value={row.efficiency_ratio} />,
       filter: {
         type: "number",
@@ -195,6 +206,8 @@ export default function KanbanRepoList() {
       prop: "start_time",
       label: language.t("kanban.metric.startTime"),
       minWidth: 150,
+      sortable: true,
+      sortField: "startTime",
     },
   ])
 
@@ -204,10 +217,12 @@ export default function KanbanRepoList() {
   })
 
   createEffect(on(
-    () => [search.startDate, search.endDate],
+    () => [search.startDate, search.endDate, search.order],
     () => {
       const next = parseQueryRange(search.startDate, search.endDate)
       if (!sameRange(state.serverRange, next)) setState("serverRange", next)
+      const order = search.order?.trim() || undefined
+      if (state.order !== order) setState("order", order)
     },
   ))
 
@@ -216,10 +231,12 @@ export default function KanbanRepoList() {
     const mirror = searchQuery([
       ["startDate", query.startDate],
       ["endDate", query.endDate],
+      ["order", state.order],
     ])
     const current = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
+      ["order", search.order],
     ])
     if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
   })
@@ -230,6 +247,7 @@ export default function KanbanRepoList() {
       end: state.serverRange[1],
       page: state.page,
       pageSize: state.pageSize,
+      order: state.order,
     }),
     async (input) => {
       try {
@@ -237,6 +255,7 @@ export default function KanbanRepoList() {
           dateRange: [input.start, input.end],
           page: input.page,
           pageSize: input.pageSize,
+          order: input.order,
         })
       } catch (err) {
         showToast({
@@ -276,6 +295,8 @@ export default function KanbanRepoList() {
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[250, 500, 1000]}
+          order={state.order}
+          onOrderChange={(order) => setState("order", order)}
           dateRange={state.serverRange}
           emptyText={repoRows.loading ? language.t("kanban.repo.loading") : language.t("kanban.repo.empty")}
           actions={

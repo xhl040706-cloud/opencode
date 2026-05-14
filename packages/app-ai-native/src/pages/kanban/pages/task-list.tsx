@@ -39,12 +39,13 @@ export default function KanbanTaskList() {
   const language = useLanguage()
   const navigate = useNavigate()
   const dialog = useDialog()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; repoAddr?: string; repoBranch?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; repoAddr?: string; repoBranch?: string; org1?: string; org2?: string; org3?: string; org4?: string; order?: string }>()
   const [state, setState] = createStore({
     page: 1,
     pageSize: 250,
     dateRange: parseQueryRange(search.startDate, search.endDate),
     org: parseOrg(search),
+    order: search.order?.trim() || undefined,
     estimating: false,
     selectedIds: [] as string[],
   })
@@ -106,12 +107,14 @@ export default function KanbanTaskList() {
   })
 
   createEffect(on(
-    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4],
+    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.order],
     () => {
       const next = readQueryRange(search.startDate, search.endDate)
       if (next && !sameRange(untrack(() => state.dateRange), next)) setState("dateRange", next)
       const org = parseOrg(search)
       if (!sameOrg(untrack(() => state.org), org)) setState("org", org)
+      const order = search.order?.trim() || undefined
+      if (untrack(() => state.order) !== order) setState("order", order)
     },
   ))
 
@@ -127,6 +130,7 @@ export default function KanbanTaskList() {
       ["org2", state.org.org2],
       ["org3", state.org.org3],
       ["org4", state.org.org4],
+      ["order", state.order],
     ])
     const current = searchQuery([
       ["startDate", search.startDate],
@@ -138,6 +142,7 @@ export default function KanbanTaskList() {
       ["org2", search.org2],
       ["org3", search.org3],
       ["org4", search.org4],
+      ["order", search.order],
     ])
     if (query.toString() !== current.toString()) setSearch(Object.fromEntries(query.entries()))
   })
@@ -168,7 +173,7 @@ export default function KanbanTaskList() {
         return id ? <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(`/kanban/task/${encodeURIComponent(id)}?${routeQuery()}`)}>{shortId(id, 6)}</button> : <span>-</span>
       },
     },
-    { prop: "start_time", label: language.t("kanban.table.time"), minWidth: 170, display: (row) => formatLocalTime(row.start_time) },
+    { prop: "start_time", label: language.t("kanban.table.time"), minWidth: 170, sortable: true, sortField: "startTime", display: (row) => formatLocalTime(row.start_time) },
     {
       prop: "org_display",
       label: language.t("kanban.table.org"),
@@ -213,12 +218,12 @@ export default function KanbanTaskList() {
       filter: { type: "multi-select" },
     },
     { prop: "title", label: language.t("kanban.table.description"), minWidth: 220, showOverflowTooltip: true, filter: { type: "text" } },
-    { prop: "diff_lines", label: language.t("kanban.table.codeLines"), minWidth: 90, align: "left", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
-    { prop: "task_real_minutes", label: language.t("kanban.table.actualTime"), minWidth: 110, align: "left", display: (row) => formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t), filter: { type: "number", valueGetter: (row) => (row.task_real_minutes_manual ?? row.task_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] } },
-    { prop: "task_ancient_minutes", label: language.t("kanban.table.traditionalEst"), minWidth: 160, align: "left", display: (row) => formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t), filter: { type: "number", valueGetter: (row) => (row.task_ancient_minutes_manual ?? row.task_ancient_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] } },
-    { prop: "efficiency_ratio", label: language.t("kanban.table.efficiencyRatio"), minWidth: 100, align: "left", render: (row) => <RatioPill value={row.efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
+    { prop: "diff_lines", label: language.t("kanban.table.codeLines"), minWidth: 90, align: "left", sortable: true, sortField: "diffLines", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
+    { prop: "task_real_minutes", label: language.t("kanban.table.actualTime"), minWidth: 110, align: "left", sortable: true, sortField: "taskRealMinutes", display: (row) => formatDuration(row.task_real_minutes_manual ?? row.task_real_minutes, language.t), filter: { type: "number", valueGetter: (row) => (row.task_real_minutes_manual ?? row.task_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] } },
+    { prop: "task_ancient_minutes", label: language.t("kanban.table.traditionalEst"), minWidth: 160, align: "left", sortable: true, sortField: "taskAncientMinutes", display: (row) => formatDuration(row.task_ancient_minutes_manual ?? row.task_ancient_minutes, language.t), filter: { type: "number", valueGetter: (row) => (row.task_ancient_minutes_manual ?? row.task_ancient_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] } },
+    { prop: "efficiency_ratio", label: language.t("kanban.table.efficiencyRatio"), minWidth: 100, align: "left", sortable: true, sortField: "efficiencyRatio", render: (row) => <RatioPill value={row.efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
     { prop: "_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "left", display: (row) => ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)) > 0 ? ((row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)).toLocaleString() : "-", filter: { type: "number", valueGetter: (row) => (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0), shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 10k", value: { min: 10000 } }, { label: "> 100k", value: { min: 100000 } }] } },
-    { prop: "cost", label: language.t("kanban.table.cost"), minWidth: 100, align: "left", display: (row) => fmtCost(row.cost), filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] } }
+    { prop: "cost", label: language.t("kanban.table.cost"), minWidth: 100, align: "left", sortable: true, sortField: "cost", display: (row) => fmtCost(row.cost), filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] } }
   ])
 
   const table = useTableFilters<TaskRow>({
@@ -231,7 +236,7 @@ export default function KanbanTaskList() {
   })
 
   const [data, { refetch }] = createResource(
-    () => ({ userId: search.userId?.trim() || undefined, repoAddr: search.repoAddr?.trim() || undefined, repoBranch: search.repoBranch?.trim() || undefined, dateRange: state.dateRange, org: { org1: state.org.org1, org2: state.org.org2, org3: state.org.org3, org4: state.org.org4 }, page: state.page, pageSize: state.pageSize }),
+    () => ({ userId: search.userId?.trim() || undefined, repoAddr: search.repoAddr?.trim() || undefined, repoBranch: search.repoBranch?.trim() || undefined, dateRange: state.dateRange, org: { org1: state.org.org1, org2: state.org.org2, org3: state.org.org3, org4: state.org.org4 }, page: state.page, pageSize: state.pageSize, order: state.order }),
     async (input) => {
       try {
         return await queryTaskRows(input)
@@ -331,6 +336,8 @@ export default function KanbanTaskList() {
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[100, 250, 500]}
+          order={state.order}
+          onOrderChange={(order) => setState("order", order)}
           emptyText={data.loading ? language.t("kanban.loading.taskList") : language.t("kanban.empty.noTaskData")}
           onPageChange={(page) => setState("page", page)}
           onPageSizeChange={(pageSize) => {
