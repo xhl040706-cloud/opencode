@@ -47,9 +47,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Generate builtin agents and skills
-        run: |
-          bun run --cwd packages/opencode build:builtin-agents
-          bun run --cwd packages/opencode build:builtin-skills
+        run: bun run --cwd packages/opencode build:builtin
 
       - name: Publish to npm
         run: ./packages/opencode/script/publish.ts
