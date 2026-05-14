@@ -68,7 +68,7 @@ export const Instance = {
     const t0 = Date.now()
     let existing = cache.get(directory)
     if (!existing) {
-      console.log(`[perf.instance] CACHE MISS, booting instance for ${directory}`)
+      Log.Default.debug("[perf.instance] CACHE MISS, booting instance", { directory })
       Log.Default.info("creating instance", { directory })
       existing = track(
         directory,
@@ -78,15 +78,15 @@ export const Instance = {
         }),
       )
     } else {
-      console.log(`[perf.instance] CACHE HIT for ${directory}`)
+      Log.Default.debug("[perf.instance] CACHE HIT", { directory })
     }
     const ctx = await existing
-    console.log(`[perf.instance] instance.resolve=${Date.now() - t0}ms (includes boot if miss)`)
+    Log.Default.debug("[perf.instance] instance.resolve", { durationMs: Date.now() - t0 })
     const t1 = Date.now()
     const result = await context.provide(ctx, async () => {
       return input.fn()
     })
-    console.log(`[perf.instance] context.provide+fn=${Date.now() - t1}ms`)
+    Log.Default.debug("[perf.instance] context.provide+fn", { durationMs: Date.now() - t1 })
     return result
   },
   get current() {

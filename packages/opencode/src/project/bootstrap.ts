@@ -17,16 +17,16 @@ export async function InstanceBootstrap() {
   Log.Default.info("bootstrapping", { directory: Instance.directory })
   const t0 = Date.now()
   let t1: number
-  t1 = Date.now(); await Plugin.init(); console.log(`[perf.bootstrap] Plugin.init=${Date.now() - t1}ms`)
-  t1 = Date.now(); ShareNext.init(); console.log(`[perf.bootstrap] ShareNext.init=${Date.now() - t1}ms`)
-  t1 = Date.now(); Format.init(); console.log(`[perf.bootstrap] Format.init=${Date.now() - t1}ms`)
-  t1 = Date.now(); await LSP.init(); console.log(`[perf.bootstrap] LSP.init=${Date.now() - t1}ms`)
-  t1 = Date.now(); File.init(); console.log(`[perf.bootstrap] File.init=${Date.now() - t1}ms`)
-  t1 = Date.now(); FileWatcher.init(); console.log(`[perf.bootstrap] FileWatcher.init=${Date.now() - t1}ms`)
-  t1 = Date.now(); Vcs.init(); console.log(`[perf.bootstrap] Vcs.init=${Date.now() - t1}ms`)
-  t1 = Date.now(); Snapshot.init(); console.log(`[perf.bootstrap] Snapshot.init=${Date.now() - t1}ms`)
-  t1 = Date.now(); registerDynamicConfigReload(); console.log(`[perf.bootstrap] registerDynamicConfigReload=${Date.now() - t1}ms`)
-  console.log(`[perf.bootstrap] TOTAL=${Date.now() - t0}ms`)
+  t1 = Date.now(); await Plugin.init(); Log.Default.debug("[perf.bootstrap] Plugin.init", { durationMs: Date.now() - t1 })
+  t1 = Date.now(); ShareNext.init(); Log.Default.debug("[perf.bootstrap] ShareNext.init", { durationMs: Date.now() - t1 })
+  t1 = Date.now(); Format.init(); Log.Default.debug("[perf.bootstrap] Format.init", { durationMs: Date.now() - t1 })
+  t1 = Date.now(); await LSP.init(); Log.Default.debug("[perf.bootstrap] LSP.init", { durationMs: Date.now() - t1 })
+  t1 = Date.now(); File.init(); Log.Default.debug("[perf.bootstrap] File.init", { durationMs: Date.now() - t1 })
+  t1 = Date.now(); FileWatcher.init(); Log.Default.debug("[perf.bootstrap] FileWatcher.init", { durationMs: Date.now() - t1 })
+  t1 = Date.now(); Vcs.init(); Log.Default.debug("[perf.bootstrap] Vcs.init", { durationMs: Date.now() - t1 })
+  t1 = Date.now(); Snapshot.init(); Log.Default.debug("[perf.bootstrap] Snapshot.init", { durationMs: Date.now() - t1 })
+  t1 = Date.now(); registerDynamicConfigReload(); Log.Default.debug("[perf.bootstrap] registerDynamicConfigReload", { durationMs: Date.now() - t1 })
+  Log.Default.debug("[perf.bootstrap] TOTAL", { durationMs: Date.now() - t0 })
 
   Bus.subscribe(Command.Event.Executed, async (payload) => {
     if (payload.properties.name === Command.Default.INIT) {
