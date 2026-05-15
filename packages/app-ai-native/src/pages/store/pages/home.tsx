@@ -73,7 +73,7 @@ const STORE_TYPES = [
 type StoreType = (typeof STORE_TYPES)[number]["value"]
 type ListData = Awaited<ReturnType<typeof itemApi.list>>
 type SecurityFilterValue = SecurityRiskGroup
-const PAGE_SIZE = 10
+const PAGE_SIZE = 15
 
 export default function Home() {
   const language = useLanguage()
