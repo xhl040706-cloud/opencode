@@ -149,6 +149,36 @@ export function createSessionComposerState(options?: { closeMs?: number | (() =>
       })
   }
 
+  const autoAccept = () => {
+    const id = params.id
+    if (!id) return
+
+    // Enable auto-accept first so any newly-arriving permissions
+    // are caught by the permission.asked websocket handler.
+    const dir = sdk.directory
+    permission.enableAutoAccept(id, dir)
+
+    // Walk every queued permission across all sessions and respond.
+    // Use Object.entries to avoid sessionTreeIDs omitting any entries.
+    const perms = sync.data.permission
+    for (const [sessionID, list] of Object.entries(perms)) {
+      if (!Array.isArray(list)) continue
+      for (const perm of list) {
+        sdk.client.permission
+          .respond({ sessionID: perm.sessionID, permissionID: perm.id, response: "once" })
+          .catch(() => {})
+          .finally(() => {
+            if (sessionID) {
+              sync.set("permission", sessionID, produce((draft) => {
+                const idx = draft.findIndex((p) => p.id === perm.id)
+                if (idx !== -1) draft.splice(idx, 1)
+              }))
+            }
+          })
+      }
+    }
+  }
+
   let timer: number | undefined
   let raf: number | undefined
 
@@ -245,6 +275,7 @@ export function createSessionComposerState(options?: { closeMs?: number | (() =>
     permissionRequest,
     permissionResponding,
     decide,
+    autoAccept,
     todos,
     dock: () => store.dock,
     closing: () => store.closing,

@@ -68,6 +68,27 @@ export function createDeviceSessionComposerState(options?: { closeMs?: number | 
       })
   }
 
+  const autoAccept = () => {
+    // Enable auto-accept first so any newly-arriving permissions
+    // are caught by the permission.asked websocket handler.
+    session.permission.enableAutoAccept()
+
+    // Walk every queued permission across all sessions and respond.
+    // Use Object.entries to avoid sessionTreeIDs omitting any entries.
+    const perms = workspace.data.permissions
+    for (const [sessionID, list] of Object.entries(perms)) {
+      if (!Array.isArray(list)) continue
+      for (const perm of list) {
+        device.client.permission
+          .respond(perm.id, { decision: "once" })
+          .catch(() => {})
+          .finally(() => {
+            workspace.session.removePermission(sessionID, perm.id)
+          })
+      }
+    }
+  }
+
   const done = createMemo(
     () => todos().length > 0 && todos().every((todo) => todo.status === "completed" || todo.status === "cancelled"),
   )
@@ -148,6 +169,7 @@ export function createDeviceSessionComposerState(options?: { closeMs?: number | 
     permissionRequest,
     permissionResponding,
     decide,
+    autoAccept,
     todos,
     dock: () => store.dock,
     closing: () => store.closing,

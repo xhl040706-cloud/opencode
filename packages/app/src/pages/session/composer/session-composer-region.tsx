@@ -154,6 +154,10 @@ export function SessionComposerRegion(props: {
                   props.onResponseSubmit()
                   props.state.decide(response)
                 }}
+                onAutoAccept={() => {
+                  props.onResponseSubmit()
+                  props.state.autoAccept()
+                }}
               />
             </div>
           )}
