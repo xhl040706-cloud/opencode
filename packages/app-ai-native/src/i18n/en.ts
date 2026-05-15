@@ -1762,7 +1762,7 @@ export const dict = {
   "workspace.home.step1.description": "Follow the installation guide to install csc CLI.",
   "workspace.home.step1.installGuide": "Installation Guide",
   "workspace.home.step2.title": "Verify Version",
-  "workspace.home.step2.description": "Ensure the version is 4.0.21 or above.",
+  "workspace.home.step2.description": "Ensure the version is 4.1.0 or above.",
   "workspace.home.step2.cmd": "csc --version",
   "workspace.home.step3.title": "Login",
   "workspace.home.step3.description": "Login with your account, press y to accept service startup.",
