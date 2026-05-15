@@ -5,6 +5,16 @@ import { Toast } from "@opencode-ai/ui/toast"
 
 const KANBAN_BACK_STACK = "kanban_back_stack"
 const KANBAN_BACK_NAV_KEY = "kanban_back_navigating"
+const BASE_PATH = (import.meta.env.BASE_URL || "/").replace(/\/$/, "")
+
+function toRelativePath(pathname: string): string {
+  if (!BASE_PATH || BASE_PATH === "/") return pathname
+  if (pathname.startsWith(BASE_PATH + "/")) {
+    return pathname.slice(BASE_PATH.length)
+  }
+  if (pathname === BASE_PATH) return "/"
+  return pathname
+}
 
 function getPageType(pathname: string): string {
   const parts = pathname.split('/').filter(Boolean)
@@ -18,7 +28,7 @@ export default function KanbanLayout(props: ParentProps) {
   const location = useLocation()
 
   createEffect(() => {
-    const pathname = location.pathname
+    const pathname = toRelativePath(location.pathname)
     if (sessionStorage.getItem(KANBAN_BACK_NAV_KEY) === "true") {
       sessionStorage.removeItem(KANBAN_BACK_NAV_KEY)
       return

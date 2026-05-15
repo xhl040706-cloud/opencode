@@ -3,6 +3,16 @@ import { useLanguage } from "@/context/language"
 
 const KANBAN_BACK_STACK = "kanban_back_stack"
 const KANBAN_BACK_NAV_KEY = "kanban_back_navigating"
+const BASE_PATH = (import.meta.env.BASE_URL || "/").replace(/\/$/, "")
+
+function toRelativePath(pathname: string): string {
+  if (!BASE_PATH || BASE_PATH === "/") return pathname
+  if (pathname.startsWith(BASE_PATH + "/")) {
+    return pathname.slice(BASE_PATH.length)
+  }
+  if (pathname === BASE_PATH) return "/"
+  return pathname
+}
 
 export default function Back() {
   const language = useLanguage()
@@ -11,7 +21,7 @@ export default function Back() {
 
   const handleClick = () => {
     const stack = JSON.parse(sessionStorage.getItem(KANBAN_BACK_STACK) || "[]")
-    const current = location.pathname
+    const current = toRelativePath(location.pathname)
 
     if (stack.length > 0 && stack[stack.length - 1] === current) {
       stack.pop()
