@@ -113,7 +113,6 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     questions: {},
   })
 
-  const [pendingAccept, setPendingAccept] = createSignal(false)
   const [permissionStore, setPermissionStore] = createStore<Record<string, boolean>>({})
 
   const [persistedAccept, setPersistedAccept] = persisted(
@@ -121,35 +120,24 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     createStore<Record<string, boolean>>({}),
   )
 
-  const permKey = (sid?: string) => {
+  const permKey = () => {
     const wid = workspace.workspaceId
-    const id = sid ?? props.sessionID
-    if (!wid || !id) return ""
-    return `${wid}/${id}`
+    if (!wid) return ""
+    return wid
   }
 
-  const isAutoAccepting = (sid?: string) => {
-    const key = permKey(sid)
-    if (!key) return pendingAccept()
+  const isAutoAccepting = (_sid?: string) => {
+    const key = permKey()
+    if (!key) return false
     return persistedAccept[key] ?? permissionStore[key] ?? false
   }
 
-  const setAutoAccept = (v: boolean, sid?: string) => {
-    const key = permKey(sid)
-    if (!key) {
-      setPendingAccept(v)
-      return
-    }
-    setPendingAccept(false)
+  const setAutoAccept = (v: boolean, _sid?: string) => {
+    const key = permKey()
+    if (!key) return
     setPermissionStore(key, v)
     setPersistedAccept(key, v)
   }
-
-  createEffect(() => {
-    const id = props.sessionID
-    if (!id || !pendingAccept()) return
-    setAutoAccept(true, id)
-  })
 
   const inflight = new Map<string, Promise<void>>()
 
@@ -307,14 +295,6 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
   const unsubscribe = workspace.subscribe((payload) => {
     const eventSID = payload.sessionID ?? (payload.properties as any)?.sessionID ?? ((payload.properties as any)?.part as any)?.sessionID ?? ((payload.properties as any)?.info as any)?.sessionID ?? ((payload.properties as any)?.status as any)?.sessionID ?? ((payload.properties as any)?.diff as any[])?.[0]?.sessionID ?? ((payload.properties as any)?.todos as any[])?.[0]?.sessionID
     if (!treeEvent({ root: sid(), eventSID, type: payload.type, tree: tree() })) {
-      if (payload.type === "permission.asked" && isAutoAccepting()) {
-        const perm = payload.properties as PermissionRequest
-        if (perm?.id) {
-          device.client.permission.respond(perm.id, { decision: "once" }).catch(() => {
-            if (perm.sessionID) workspace.session.removePermission(perm.sessionID, perm.id)
-          })
-        }
-      }
       return
     }
 
@@ -372,17 +352,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           if (props.todos) setStore("todos", reconcile(props.todos, { key: "id" }))
           break
         }
-        case "permission.asked": {
-          const perm = payload.properties as PermissionRequest
-          if (perm?.id && isAutoAccepting()) {
-            device.client.permission.respond(perm.id, {
-              decision: "once",
-            }).catch(() => {
-              if (perm.sessionID) workspace.session.removePermission(perm.sessionID, perm.id)
-            })
-          }
-          break
-        }
+
       }
     })
   })

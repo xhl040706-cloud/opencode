@@ -6,6 +6,21 @@ import { syncSummary, clearSummary } from "./workspace-summary-store"
 import type { Session, Command, Agent, VcsInfo, SessionStatus, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 import type { ProviderCapabilitiesResponse } from "./global-sync/types"
 
+function readAutoAcceptFromStorage(workspaceId: string | undefined): boolean {
+  if (!workspaceId) return false
+  const id = workspaceId.slice(0, 8) || "default"
+  const fullKey = `opencode.device.${id}.dat:permission.auto-accept`
+  try {
+    const raw = localStorage.getItem(fullKey)
+    if (!raw) return false
+    const parsed = JSON.parse(raw)
+    return parsed[workspaceId] === true
+  } catch {
+    return false
+  }
+}
+
+
 function groupBy<T extends { id?: string; sessionID?: string }>(items: T[]): Record<string, T[]> {
   const map: Record<string, T[]> = {}
   for (const item of items) {
@@ -409,6 +424,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   setSessionStatus(id, sp.status)
                   if (wasBusy && nowIdle) {
                     setStore("unread", id, true)
+                  } else if (sp.status.type === "busy" || sp.status.type === "retry") {
+                    setStore("unread", produce((draft) => { delete draft[id] }))
                   }
                   summaryChanged = true
                   break
@@ -427,7 +444,15 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                 }
                 case "permission.asked": {
                   const p = payload.properties as PermissionRequest
-                  if (p?.id) { addPermission(p); summaryChanged = true }
+                  if (p?.id) {
+                    addPermission(p)
+                    summaryChanged = true
+                    if (readAutoAcceptFromStorage(props.workspaceId)) {
+                      device.client.permission.respond(p.id, { decision: "once" }).catch(() => {
+                        removePermission(p.sessionID ?? "", p.id)
+                      })
+                    }
+                  }
                   break
                 }
                 case "permission.replied": {
