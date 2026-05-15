@@ -2,10 +2,11 @@ import type { ParentProps } from "solid-js"
 import { createEffect } from "solid-js"
 import { useLocation } from "@solidjs/router"
 import { Toast } from "@opencode-ai/ui/toast"
+import { env } from "@/lib/env"
 
 const KANBAN_BACK_STACK = "kanban_back_stack"
 const KANBAN_BACK_NAV_KEY = "kanban_back_navigating"
-const BASE_PATH = (import.meta.env.BASE_URL || "/").replace(/\/$/, "")
+const BASE_PATH = (env.BASE_PATH || import.meta.env.BASE_URL || "/").replace(/\/$/, "")
 
 function toRelativePath(pathname: string): string {
   if (!BASE_PATH || BASE_PATH === "/") return pathname
