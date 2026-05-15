@@ -194,30 +194,18 @@ export default function KanbanRepoDetail() {
   const params = useParams()
   const navigate = useNavigate()
   const dialog = useDialog()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; back?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string }>()
 
   const repoAddr = createMemo(() => decodeURIComponent(params.repoAddr ?? "").trim())
   const repoBranch = createMemo(() => decodeURIComponent(params.repoBranch ?? "").trim())
   const repoKey = createMemo(() => `${repoAddr()}::${repoBranch()}`)
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
-  const listHref = createMemo(() => {
-    const back = search.back?.trim()
-    if (back) return decodeURIComponent(back)
-    const q = searchQuery([
-      ["startDate", search.startDate],
-      ["endDate", search.endDate],
-    ])
-    const txt = q.toString()
-    return txt ? `/kanban/repo?${txt}` : "/kanban/repo"
-  })
-
   const detailHref = (branch?: string) => {
     const next = rangeQuery(dateRange())
     const q = searchQuery([
       ["startDate", next.startDate],
       ["endDate", next.endDate],
     ])
-    if (search.back?.trim()) q.set("back", search.back.trim())
     const txt = q.toString()
     return branch
       ? `/kanban/repo/${encodeURIComponent(repoAddr())}/${encodeURIComponent(branch)}?${txt}`
@@ -346,7 +334,7 @@ export default function KanbanRepoDetail() {
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <header class="flex w-full flex-col gap-3">
-        <Back href={listHref()} label={language.t("kanban.repo.backToList")} />
+        <Back />
         <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">
           {language.t("kanban.repo.detailTitle")}
         </h1>
@@ -391,8 +379,7 @@ export default function KanbanRepoDetail() {
                 ["startDate", rangeQuery(next).startDate],
                 ["endDate", rangeQuery(next).endDate],
               ])
-              if (search.back?.trim()) q.set("back", search.back.trim())
-              setSearch(Object.fromEntries(q.entries()))
+              setSearch(Object.fromEntries(q.entries()), { replace: true })
             }}
             placeholder={language.t("kanban.filter.selectDateRange")}
           />

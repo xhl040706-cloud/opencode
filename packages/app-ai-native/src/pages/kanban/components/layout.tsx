@@ -1,7 +1,53 @@
 import type { ParentProps } from "solid-js"
+import { createEffect } from "solid-js"
+import { useLocation } from "@solidjs/router"
 import { Toast } from "@opencode-ai/ui/toast"
 
+const KANBAN_BACK_STACK = "kanban_back_stack"
+const KANBAN_BACK_NAV_KEY = "kanban_back_navigating"
+
+function getPageType(pathname: string): string {
+  const parts = pathname.split('/').filter(Boolean)
+  if (parts.length >= 3) {
+    return parts.slice(0, -1).join('/')
+  }
+  return pathname
+}
+
 export default function KanbanLayout(props: ParentProps) {
+  const location = useLocation()
+
+  createEffect(() => {
+    const pathname = location.pathname
+    if (sessionStorage.getItem(KANBAN_BACK_NAV_KEY) === "true") {
+      sessionStorage.removeItem(KANBAN_BACK_NAV_KEY)
+      return
+    }
+    const stack = JSON.parse(sessionStorage.getItem(KANBAN_BACK_STACK) || "[]")
+
+    const currentType = getPageType(pathname)
+    const lastType = stack.length > 0 ? getPageType(stack[stack.length - 1]) : null
+    if (lastType === currentType) {
+      stack[stack.length - 1] = pathname
+      sessionStorage.setItem(KANBAN_BACK_STACK, JSON.stringify(stack))
+      return
+    }
+
+    if (stack.length > 0 && stack[stack.length - 1] === pathname) {
+      return
+    }
+
+    const existingIndex = stack.lastIndexOf(pathname)
+    if (existingIndex !== -1) {
+      stack.length = existingIndex + 1
+      sessionStorage.setItem(KANBAN_BACK_STACK, JSON.stringify(stack))
+      return
+    }
+
+    stack.push(pathname)
+    sessionStorage.setItem(KANBAN_BACK_STACK, JSON.stringify(stack))
+  })
+
   return (
     <div class="thin-scrollbar relative h-full w-full min-h-0 overflow-x-hidden overflow-y-auto bg-background-base">
       <div class="pointer-events-none absolute inset-0 overflow-hidden">

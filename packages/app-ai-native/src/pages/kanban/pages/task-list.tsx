@@ -62,50 +62,6 @@ export default function KanbanTaskList() {
     ["org4", search.org4],
   ]).toString())
 
-  const backHref = createMemo(() => {
-    if (search.repoAddr?.trim()) {
-      const addr = search.repoAddr?.trim()
-      const branch = search.repoBranch?.trim()
-      const txt = searchQuery([
-        ["startDate", search.startDate],
-        ["endDate", search.endDate],
-      ]).toString()
-      const repoUrl = branch
-        ? `/kanban/repo/${encodeURIComponent(addr!)}/${encodeURIComponent(branch)}`
-        : `/kanban/repo/${encodeURIComponent(addr!)}`
-      return txt ? `${repoUrl}?${txt}` : repoUrl
-    }
-
-    if (search.userId?.trim()) {
-      const txt = searchQuery([
-        ["startDate", search.startDate],
-        ["endDate", search.endDate],
-      ]).toString()
-      return txt ? `/kanban/user?${txt}` : "/kanban/user"
-    }
-
-    if (state.org.org1 || state.org.org2 || state.org.org3 || state.org.org4) {
-      const txt = searchQuery([
-        ["startDate", search.startDate],
-        ["endDate", search.endDate],
-        ["org1", state.org.org1],
-        ["org2", state.org.org2],
-        ["org3", state.org.org3],
-        ["org4", state.org.org4],
-      ]).toString()
-      return txt ? `/kanban/org?${txt}` : "/kanban/org"
-    }
-
-    return "/kanban"
-  })
-
-  const backLabel = createMemo(() => {
-    if (search.repoAddr?.trim()) return language.t("kanban.backToRepoView")
-    if (search.userId?.trim()) return language.t("kanban.backToUserView")
-    if (state.org.org1 || state.org.org2 || state.org.org3 || state.org.org4) return language.t("kanban.backToOrgList")
-    return language.t("kanban.back")
-  })
-
   createEffect(on(
     () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.order],
     () => {
@@ -144,7 +100,7 @@ export default function KanbanTaskList() {
       ["org4", search.org4],
       ["order", search.order],
     ])
-    if (query.toString() !== current.toString()) setSearch(Object.fromEntries(query.entries()))
+    if (query.toString() !== current.toString()) setSearch(Object.fromEntries(query.entries()), { replace: true })
   })
 
   const columns = createMemo<KanbanColumn<TaskRow>[]>(() => [
@@ -184,8 +140,7 @@ export default function KanbanTaskList() {
         return <button type="button" class="block max-w-[18rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" title={txt} onClick={() => {
           const path = [row.org1, row.org2, row.org3, row.org4].filter(Boolean).join("/")
           if (!path) return
-          const backUrl = `/kanban/task?${routeQuery()}`
-          navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}&back=${encodeURIComponent(backUrl)}`)
+          navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}`)
         }}>{txt}</button>
       },
     },
@@ -198,21 +153,7 @@ export default function KanbanTaskList() {
         return txt ? <button type="button" class="block max-w-[12rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" title={txt} onClick={() => {
           const id = row.user_id?.trim()
           if (!id) return
-          const back = searchQuery([
-            ["startDate", search.startDate],
-            ["endDate", search.endDate],
-            ["userId", search.userId],
-            ["org1", search.org1],
-            ["org2", search.org2],
-            ["org3", search.org3],
-            ["org4", search.org4],
-          ]).toString()
-          const backUrl = back ? `/kanban/task?${back}` : "/kanban/task"
-          const q = routeQuery()
-          const url = q
-            ? `/kanban/user/${encodeURIComponent(id)}?${q}&back=${encodeURIComponent(backUrl)}`
-            : `/kanban/user/${encodeURIComponent(id)}?back=${encodeURIComponent(backUrl)}`
-          navigate(url)
+          navigate(`/kanban/user/${encodeURIComponent(id)}?${routeQuery()}`)
         }}>{txt}</button> : <span>-</span>
       },
       filter: { type: "multi-select" },
@@ -293,7 +234,7 @@ export default function KanbanTaskList() {
     <div class="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden p-[clamp(1rem,2vw,2rem)]">
       <div class="flex min-h-0 w-full flex-1 flex-col gap-5">
         <header class="flex w-full flex-col gap-3">
-          <Back href={backHref()} label={backLabel()} />
+          <Back />
           <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.home.nav.task")}</h1>
         </header>
         <Show when={missingEstimateCount() > 0}>

@@ -107,20 +107,12 @@ export default function KanbanOrgDetail() {
   const language = useLanguage()
   const params = useParams()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string; back?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string }>()
 
   const org = createMemo(() => parsePath(params.orgPath ?? ""))
   const orgKey = createMemo(() => orgPath(org()))
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
   const granularity = createMemo(() => parseGranularity(search.granularity))
-  const listHref = createMemo(() => {
-    const back = search.back?.trim()
-    if (back) return decodeURIComponent(back)
-    const scope = parentOrg(org())
-    const q = queryOf(dateRange(), granularity(), scope)
-    return `/kanban/org?${q.toString()}`
-  })
-
   const granularityItems = createMemo(() =>
     createListCollection({
       items: [
@@ -215,7 +207,7 @@ export default function KanbanOrgDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex w-full flex-col gap-3">
-          <Back href={listHref()} />
+          <Back />
           <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.detail.org")}</h1>
         </header>
 
@@ -227,7 +219,7 @@ export default function KanbanOrgDetail() {
           showOrg
           onDateRangeChange={(value) => {
             const next = value ?? defaultWideRange()
-            setSearch(Object.fromEntries(queryOf(next, granularity(), org()).entries()))
+            setSearch(Object.fromEntries(queryOf(next, granularity(), org()).entries()), { replace: true })
           }}
           onOrgChange={(value) => {
             navigate(`/kanban/org/${encodeURIComponent(orgPath(value))}?${queryOf(dateRange(), granularity(), value).toString()}`)
@@ -241,7 +233,7 @@ export default function KanbanOrgDetail() {
                   onValueChange={(details) => {
                     const val = details.value[0]
                     if (val) {
-                      setSearch(Object.fromEntries(queryOf(dateRange(), val as Granularity, org()).entries()))
+                      setSearch(Object.fromEntries(queryOf(dateRange(), val as Granularity, org()).entries()), { replace: true })
                     }
                   }}
                   positioning={{ fitViewport: true, sameWidth: true }}

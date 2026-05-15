@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import Back from "../components/back"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
-import { searchQuery } from "../lib/date-range"
 import { getTaskDetail, updateTaskManual } from "../lib/api"
 import { formatDuration, formatLocalTime } from "../lib/formatters"
 import type { TaskConversation, TaskManualPayload, TaskRow, TimeSegment } from "../lib/types"
@@ -144,19 +143,6 @@ export default function KanbanTaskDetail() {
   const [expand, setExpand] = createStore<Record<string, boolean>>({})
 
   const taskId = createMemo(() => decodeURIComponent(params.taskId ?? "").trim())
-  const listHref = createMemo(() => {
-    const txt = searchQuery([
-      ["startDate", search.startDate],
-      ["endDate", search.endDate],
-      ["userId", search.userId],
-      ["org1", search.org1],
-      ["org2", search.org2],
-      ["org3", search.org3],
-      ["org4", search.org4],
-    ]).toString()
-    return txt ? `/kanban/task?${txt}` : "/kanban/task"
-  })
-
   const [data, { refetch }] = createResource(taskId, async (id) => {
     if (!id) return null
     try {
@@ -237,7 +223,7 @@ export default function KanbanTaskDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex flex-col gap-3">
-          <Back href={listHref()} />
+          <Back />
           <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h1 class="font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.home.nav.task")}</h1>

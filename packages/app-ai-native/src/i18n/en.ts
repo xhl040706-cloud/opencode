@@ -2106,6 +2106,7 @@ export const dict = {
   "kanban.section.userList": "User List",
   "kanban.section.commitList": "Commit List",
   "kanban.section.taskList": "Task List",
+  "kanban.section.repoList": "Repository List",
   "kanban.section.dailyEfficiency": "Daily Efficiency",
   "kanban.section.participantList": "Participants",
   "kanban.section.silicaRatio": "Silica Ratio (by Task)",

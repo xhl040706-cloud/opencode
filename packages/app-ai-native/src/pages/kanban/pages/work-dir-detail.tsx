@@ -173,12 +173,6 @@ export default function KanbanWorkDirDetail() {
   const params = useParams()
   const [searchParams] = useSearchParams<{ fromTaskId?: string; workAddr?: string; workBranch?: string }>()
 
-  const backHref = createMemo(() => {
-    const taskId = searchParams.fromTaskId?.trim()
-    return taskId ? `/kanban/task/${encodeURIComponent(taskId)}` : "/kanban"
-  })
-  const backLabel = createMemo(() => searchParams.fromTaskId?.trim() ? language.t("kanban.backToTaskDetail") : language.t("kanban.back"))
-
   const workDirId = createMemo(() => decodeURIComponent(params.workDirId ?? "").trim())
   const workAddr = createMemo(() => decodeURIComponent(searchParams.workAddr ?? "").trim())
   const workBranch = createMemo(() => decodeURIComponent(searchParams.workBranch ?? "").trim())
@@ -254,7 +248,7 @@ export default function KanbanWorkDirDetail() {
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <header class="mx-auto flex w-full max-w-[1320px] flex-col gap-3">
-        <Back href={backHref()} label={backLabel()} />
+        <Back />
         <div>
           <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--native-success)]">{language.t("kanban.breadcrumb.workDirDetail")}</p>
           <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">

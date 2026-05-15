@@ -205,7 +205,7 @@ export default function KanbanHome() {
       ["startDate", search.startDate],
       ["endDate", search.endDate],
     ])
-    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
+    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()), { replace: true })
   })
 
   const [summary] = createResource(
