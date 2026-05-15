@@ -832,6 +832,25 @@
       padding-left: 12px;
       padding-right: 12px;
     }
+
+    [data-action="permission-auto-accept"] {
+      background-color: #0091ff !important;
+      color: white !important;
+      border-color: transparent !important;
+      transition: background-color 0.15s ease, transform 0.1s ease;
+
+      &:hover:not(:disabled) {
+        background-color: #389eff !important;
+      }
+
+      &:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+
+      svg {
+        color: white !important;
+      }
+    }
   }
 }
 

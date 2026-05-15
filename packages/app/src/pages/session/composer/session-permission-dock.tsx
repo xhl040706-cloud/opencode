@@ -9,6 +9,7 @@ export function SessionPermissionDock(props: {
   request: PermissionRequest
   responding: boolean
   onDecide: (response: "once" | "always" | "reject") => void
+  onAutoAccept: () => void
 }) {
   const language = useLanguage()
 
@@ -45,8 +46,18 @@ export function SessionPermissionDock(props: {
             >
               {language.t("ui.permission.allowAlways")}
             </Button>
-            <Button variant="primary" size="normal" onClick={() => props.onDecide("once")} disabled={props.responding}>
+            <Button variant="secondary" size="normal" onClick={() => props.onDecide("once")} disabled={props.responding}>
               {language.t("ui.permission.allowOnce")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="normal"
+              icon="circle-check"
+              data-action="permission-auto-accept"
+              onClick={() => props.onAutoAccept()}
+              disabled={props.responding}
+            >
+              {language.t("command.permissions.autoaccept.enable")}
             </Button>
           </div>
         </>

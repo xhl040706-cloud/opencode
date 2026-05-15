@@ -4,6 +4,7 @@ export type SessionComposerState = {
   permissionRequest: () => any
   permissionResponding: () => boolean
   decide: (response: "once" | "always" | "reject") => void
+  autoAccept: () => void
   todos: () => any[]
   dock: () => boolean
   closing: () => boolean
