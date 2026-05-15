@@ -80,7 +80,7 @@ export default function KanbanUserDetail() {
   const language = useLanguage()
   const params = useParams()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string; back?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; granularity?: string }>()
 
   const userId = createMemo(() => decodeURIComponent(params.userId ?? "").trim())
   const dateRange = createMemo(() => parseQueryRange(search.startDate, search.endDate))
@@ -100,13 +100,6 @@ export default function KanbanUserDetail() {
       }
     },
   )
-
-  const listHref = createMemo(() => {
-    const back = search.back?.trim()
-    if (back) return decodeURIComponent(back)
-    const q = queryOf(dateRange(), granularity())
-    return `/kanban/user?${q.toString()}`
-  })
 
   const detailHref = (id: string) => {
     const q = queryOf(dateRange(), granularity())
@@ -261,7 +254,7 @@ export default function KanbanUserDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex flex-col gap-3">
-          <Back href={listHref()} />
+          <Back />
 
           <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
@@ -291,7 +284,7 @@ export default function KanbanUserDetail() {
                   value={dateRange()}
                   onChange={(value) => {
                     const next = value ?? defaultWideRange()
-                    setSearch(Object.fromEntries(queryOf(next, granularity()).entries()))
+                    setSearch(Object.fromEntries(queryOf(next, granularity()).entries()), { replace: true })
                   }}
                   clearable={false}
                   placeholder={language.t("kanban.filter.selectDateRange")}
@@ -305,7 +298,7 @@ export default function KanbanUserDetail() {
                   onValueChange={(details) => {
                     const val = details.value[0]
                     if (val) {
-                      setSearch(Object.fromEntries(queryOf(dateRange(), val as Granularity).entries()))
+                      setSearch(Object.fromEntries(queryOf(dateRange(), val as Granularity).entries()), { replace: true })
                     }
                   }}
                   positioning={{ fitViewport: true, sameWidth: true }}

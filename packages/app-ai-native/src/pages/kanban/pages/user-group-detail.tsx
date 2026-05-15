@@ -29,8 +29,6 @@ export default function KanbanUserGroupDetail() {
     ["startDate", search.startDate],
     ["endDate", search.endDate],
   ]).toString())
-  const listHref = createMemo(() => routeQuery() ? `/kanban/user?${routeQuery()}` : "/kanban/user")
-
   createEffect(() => {
     const next = rangeQuery(dateRange())
     const mirror = searchQuery([
@@ -41,7 +39,7 @@ export default function KanbanUserGroupDetail() {
       ["startDate", search.startDate],
       ["endDate", search.endDate],
     ])
-    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
+    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()), { replace: true })
   })
 
   const [data, { refetch }] = createResource(
@@ -105,7 +103,7 @@ export default function KanbanUserGroupDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="mx-auto flex w-full max-w-[1320px] flex-col gap-5">
         <header class="flex flex-col gap-3">
-          <Back href={listHref()} />
+          <Back />
 
           <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] p-4 shadow-[var(--native-shadow-sm)]">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -123,7 +121,7 @@ export default function KanbanUserGroupDetail() {
                       setSearch(Object.fromEntries(searchQuery([
                         ["startDate", rangeQuery(next).startDate],
                         ["endDate", rangeQuery(next).endDate],
-                      ]).entries()))
+                      ]).entries()), { replace: true })
                     }}
                     clearable={false}
                     placeholder={language.t("kanban.filter.selectDateRange")}

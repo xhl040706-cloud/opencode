@@ -118,7 +118,7 @@ export default function KanbanOrgList() {
       ["org4", search.org4],
       ["order", search.order],
     ]).toString()
-    if (mirror !== current) setSearch(Object.fromEntries(new URLSearchParams(mirror).entries()))
+    if (mirror !== current) setSearch(Object.fromEntries(new URLSearchParams(mirror).entries()), { replace: true })
   })
 
   const query = createMemo<OrgAggregateQuery>(() => ({

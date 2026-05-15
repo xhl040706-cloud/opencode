@@ -160,7 +160,7 @@ export default function KanbanUserList() {
       ["org4", search.org4],
       ["order", search.order],
     ])
-    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
+    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()), { replace: true })
   })
 
   const columns = createMemo<KanbanColumn<UserAggregateRow>[]>(() => [
@@ -208,8 +208,7 @@ export default function KanbanUserList() {
             onClick={() => {
               const path = [row.org1, row.org2, row.org3, row.org4].filter(Boolean).join("/")
               if (!path) return
-              const backUrl = `/kanban/user?${routeQuery()}`
-              navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}&back=${encodeURIComponent(backUrl)}`)
+              navigate(`/kanban/org/${encodeURIComponent(path)}?${routeQuery()}`)
             }}
           >
             {txt}

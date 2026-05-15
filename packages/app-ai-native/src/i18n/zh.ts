@@ -2078,6 +2078,7 @@ export const dict = {
   "kanban.section.userList": "用户列表",
   "kanban.section.commitList": "Commits 列表",
   "kanban.section.taskList": "Tasks 列表",
+  "kanban.section.repoList": "Repos 列表",
   "kanban.section.dailyEfficiency": "每日效能",
   "kanban.section.participantList": "参与者列表",
   "kanban.section.silicaRatio": "硅比例（按Task）",

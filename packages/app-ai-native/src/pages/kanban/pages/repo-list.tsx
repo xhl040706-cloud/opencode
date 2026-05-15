@@ -238,7 +238,7 @@ export default function KanbanRepoList() {
       ["endDate", search.endDate],
       ["order", search.order],
     ])
-    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()))
+    if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()), { replace: true })
   })
 
   const [repoRows, { refetch }] = createResource(

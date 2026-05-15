@@ -1,9 +1,11 @@
 import { A, useParams, useNavigate } from "@solidjs/router"
-import { createMemo, createResource, For, Show } from "solid-js"
+import { createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
+import { Icon } from "@opencode-ai/ui/icon"
 import { useLanguage } from "@/context/language"
+import { cn } from "@/lib/utils"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -35,6 +37,13 @@ function toNumberOrNull(value: string) {
   if (!txt) return null
   const next = Number(txt)
   return Number.isNaN(next) ? null : next
+}
+
+function rangePages(page: number, totalPages: number) {
+  const size = 5
+  if (totalPages <= size) return Array.from({ length: totalPages }, (_, i) => i + 1)
+  const start = Math.max(1, Math.min(page - 2, totalPages - size + 1))
+  return Array.from({ length: size }, (_, i) => start + i)
 }
 
 function MetricCard(props: { label: string; value: string; hint?: string; accent?: string }) {
@@ -161,6 +170,56 @@ function ManualDialog(props: { project: ProjectDetailResult; onSaved: () => void
   )
 }
 
+function PaginationBar(props: { page: number; pageSize: number; total: number; onChange: (page: number) => void }) {
+  const language = useLanguage()
+  const pages = () => Math.max(1, Math.ceil(props.total / props.pageSize))
+  const visiblePages = () => rangePages(props.page, pages())
+  const from = () => (props.total === 0 ? 0 : Math.min((props.page - 1) * props.pageSize + 1, props.total))
+  const to = () => Math.min(props.page * props.pageSize, props.total)
+
+  return (
+    <div class="flex flex-col gap-3 border-t border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div class="text-[0.8125rem] leading-[1.55] text-[var(--native-muted)]">
+        <Show when={props.total > 0} fallback={language.t("kanban.empty.noData")}>
+          {language.t("kanban.pagination.showing", { from: from(), to: to(), total: props.total })}
+        </Show>
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
+          disabled={props.page <= 1}
+          onClick={() => props.onChange(props.page - 1)}
+        >
+          <Icon name="chevron-left" />
+        </button>
+        <For each={visiblePages()}>
+          {(page) => (
+            <button
+              type="button"
+              class={cn(
+                "inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]",
+                page === props.page && "border-[color:color-mix(in_srgb,var(--native-primary)_28%,transparent)] bg-[var(--native-primary)] text-[var(--native-primary-foreground)]",
+              )}
+              onClick={() => props.onChange(page)}
+            >
+              {page}
+            </button>
+          )}
+        </For>
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-[var(--native-radius-full)] border border-transparent bg-transparent text-[var(--native-muted)] transition-[background-color,color,border-color] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_72%,transparent)] hover:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
+          disabled={props.page >= pages()}
+          onClick={() => props.onChange(props.page + 1)}
+        >
+          <Icon name="chevron-right" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function EditProjectDialog(props: { project: ProjectDetailResult; onSaved: () => void | Promise<void> }) {
   const language = useLanguage()
   const dialog = useDialog()
@@ -253,6 +312,28 @@ export default function KanbanProjectDetail() {
 
   const members = createMemo(() => project().members ?? [])
 
+  const [taskPage, setTaskPage] = createSignal(1)
+  const taskPageSize = 10
+  const safeTaskPage = createMemo(() => {
+    const max = Math.max(1, Math.ceil(tasks().length / taskPageSize))
+    return Math.min(taskPage(), max)
+  })
+  const paginatedTasks = createMemo(() => {
+    const start = (safeTaskPage() - 1) * taskPageSize
+    return tasks().slice(start, start + taskPageSize)
+  })
+
+  const [commitPage, setCommitPage] = createSignal(1)
+  const commitPageSize = 10
+  const safeCommitPage = createMemo(() => {
+    const max = Math.max(1, Math.ceil(commits().length / commitPageSize))
+    return Math.min(commitPage(), max)
+  })
+  const paginatedCommits = createMemo(() => {
+    const start = (safeCommitPage() - 1) * commitPageSize
+    return commits().slice(start, start + commitPageSize)
+  })
+
   const openManual = () => dialog.show(() => <ManualDialog project={project()} onSaved={() => void refetch()} />)
   const openEdit = () => dialog.show(() => <EditProjectDialog project={project()} onSaved={() => void refetch()} />)
 
@@ -296,7 +377,7 @@ export default function KanbanProjectDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex w-full flex-col gap-3">
-          <Back href="/kanban/project" label={language.t("kanban.backToProjectList")} />
+          <Back />
           <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h1 class="mt-2 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.projectDetail")}</h1>
@@ -446,7 +527,7 @@ export default function KanbanProjectDetail() {
                 {/* Repos */}
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                   <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                    {language.t("kanban.label.repos")} ({repos().length})
+                    {language.t("kanban.section.repoList")} ({repos().length})
                   </div>
                   <div class="overflow-auto">
                     <Table>
@@ -485,7 +566,7 @@ export default function KanbanProjectDetail() {
                 {/* Tasks */}
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
                   <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                    {language.t("kanban.label.tasks")} ({tasks().length})
+                    {language.t("kanban.section.taskList")} ({tasks().length})
                   </div>
                   <div class="overflow-auto">
                     <Table>
@@ -502,7 +583,7 @@ export default function KanbanProjectDetail() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <For each={tasks()}>
+                        <For each={paginatedTasks()}>
                           {(row) => (
                             <TableRow>
                               <TableCell>
@@ -524,6 +605,7 @@ export default function KanbanProjectDetail() {
                       </TableBody>
                     </Table>
                   </div>
+                  <PaginationBar page={safeTaskPage()} pageSize={taskPageSize} total={tasks().length} onChange={setTaskPage} />
                 </section>
 
                 {/* Commits */}
@@ -547,7 +629,7 @@ export default function KanbanProjectDetail() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            <For each={commits()}>
+                            <For each={paginatedCommits()}>
                               {(row) => (
                                 <TableRow>
                                   <TableCell>
@@ -566,6 +648,7 @@ export default function KanbanProjectDetail() {
                           </TableBody>
                         </Table>
                       </div>
+                      <PaginationBar page={safeCommitPage()} pageSize={commitPageSize} total={commits().length} onChange={setCommitPage} />
                     </section>
                 </Show>
               </>

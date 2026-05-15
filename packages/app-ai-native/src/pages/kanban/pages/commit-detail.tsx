@@ -11,7 +11,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import Back from "../components/back"
 import { MetricCard } from "../components/metric-card"
 import { RatioPill } from "../components/ratio-pill"
-import { searchQuery } from "../lib/date-range"
 import { getCommitDetail, updateCommitManual } from "../lib/api"
 import { formatDuration, formatLocalTime } from "../lib/formatters"
 import type { CommitManualPayload, CommitRow } from "../lib/types"
@@ -130,19 +129,6 @@ export default function KanbanCommitDetail() {
   const [search] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
 
   const commitId = createMemo(() => decodeURIComponent(params.commitId ?? "").trim())
-  const listHref = createMemo(() => {
-    const txt = searchQuery([
-      ["startDate", search.startDate],
-      ["endDate", search.endDate],
-      ["userId", search.userId],
-      ["org1", search.org1],
-      ["org2", search.org2],
-      ["org3", search.org3],
-      ["org4", search.org4],
-    ]).toString()
-    return txt ? `/kanban/commit?${txt}` : "/kanban/commit"
-  })
-
   const [data, { refetch }] = createResource(commitId, async (id) => {
     if (!id) return null
     try {
@@ -182,7 +168,7 @@ export default function KanbanCommitDetail() {
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
       <div class="flex w-full flex-col gap-5">
         <header class="flex w-full flex-col gap-3">
-          <Back href={listHref()} />
+          <Back />
 
           <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
