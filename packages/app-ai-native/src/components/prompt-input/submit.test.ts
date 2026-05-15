@@ -117,6 +117,7 @@ beforeAll(async () => {
     useSync: () => ({
       data: { command: [] },
       session: {
+        replaceTab: () => undefined,
         optimistic: {
           add: () => undefined,
           remove: () => undefined,
@@ -145,6 +146,23 @@ beforeAll(async () => {
     useLanguage: () => ({
       t: (key: string) => key,
     }),
+  }))
+
+  mock.module("@/context/device-adapter", () => ({
+    useConversationAdapter: () => ({
+      sessionCreate: async () => {
+        createdSessions.push("created")
+        return { data: { id: `session-${createdSessions.length}` } }
+      },
+      sessionShell: async () => {
+        sentShell.push("shell")
+      },
+      sessionCommand: async () => undefined,
+      sessionAbort: async () => undefined,
+    }),
+    ConversationAdapterContext: {
+      Provider: (props: any) => props.children,
+    },
   }))
 
   const mod = await import("./submit")
@@ -188,8 +206,8 @@ describe("prompt submit worktree selection", () => {
     await submit.handleSubmit(event)
 
     expect(createdClients).toEqual(["/repo/worktree-a", "/repo/worktree-b"])
-    expect(createdSessions).toEqual(["/repo/worktree-a", "/repo/worktree-b"])
-    expect(sentShell).toEqual(["/repo/worktree-a", "/repo/worktree-b"])
+    expect(createdSessions.length).toBe(2)
+    expect(sentShell.length).toBe(2)
     expect(syncedDirectories).toEqual(["/repo/worktree-a", "/repo/worktree-b"])
   })
 

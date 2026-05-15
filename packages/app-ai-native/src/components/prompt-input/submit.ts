@@ -245,6 +245,10 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     if (mode === "shell") {
       clearInput()
+      if (isNewSession) {
+        sync.session.replaceTab({ sessionID: session.id, title: session.title })
+        if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
+      }
       void conversation
         .sessionShell({
           sessionID: session.id,
@@ -269,6 +273,10 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       const customCommand = commands.find((c) => c.name === commandName || c.aliases?.includes(commandName))
       if (customCommand && (customCommand.scope === "prompt" || !customCommand.scope)) {
         clearInput()
+        if (isNewSession) {
+          sync.session.replaceTab({ sessionID: session.id, title: session.title })
+          if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
+        }
         void conversation
           .sessionCommand({
             sessionID: session.id,
