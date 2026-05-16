@@ -130,6 +130,37 @@ export function formatStoreTablePaginationSummary(props: {
   })
 }
 
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function HighlightText(props: { text: string; query?: string }) {
+  const segments = createMemo(() => {
+    const query = props.query?.trim()
+    if (!query) return [{ text: props.text, highlight: false }]
+    const regex = new RegExp(`(${escapeRegExp(query)})`, "gi")
+    const parts = props.text.split(regex)
+    const lowerQuery = query.toLowerCase()
+    return parts.map((part) => ({
+      text: part,
+      highlight: part.toLowerCase() === lowerQuery,
+    }))
+  })
+  return (
+    <For each={segments()}>
+      {(segment) =>
+        segment.highlight ? (
+          <mark class="rounded-sm bg-[color:color-mix(in_srgb,var(--native-primary)_18%,transparent)] px-0.5 text-[var(--native-primary)]">
+            {segment.text}
+          </mark>
+        ) : (
+          <>{segment.text}</>
+        )
+      }
+    </For>
+  )
+}
+
 function compareTags(a: Pick<ItemTag, "tagClass" | "slug">, b: Pick<ItemTag, "tagClass" | "slug">) {
   const aPriority = a.tagClass === "system" ? 0 : 1
   const bPriority = b.tagClass === "system" ? 0 : 1
@@ -646,6 +677,8 @@ export function StoreTableFooter(props: {
 
 export const StoreTablePagination = StoreTableFooter
 
+export { HighlightText }
+
 export function StoreCapabilityTable(props: {
   rows: CapabilityItem[]
   visibleColumns: Record<TableColumnKey, boolean>
@@ -757,6 +790,7 @@ export function StoreCapabilityTable(props: {
   typeLabel?: (value: string) => string
   maxVisibleRows?: number
   fixedRows?: boolean
+  searchQuery?: string
 }) {
   const isColumnVisible = (key: TableColumnKey) => props.visibleColumns[key]
   const stickyHeadClass = "sticky top-0 z-10 bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))]"
@@ -964,10 +998,10 @@ export function StoreCapabilityTable(props: {
                       </div>
                       <div class="min-w-0">
                         <div class={cn(sx.item, "truncate text-[14px] font-bold leading-5 text-[color:color-mix(in_oklab,var(--native-foreground)_80%,white_20%)]")} style={{ "font-weight": 700 }} title={item.name}>
-                          {item.name}
+                          <HighlightText text={item.name} query={props.searchQuery} />
                         </div>
                         <div class="block min-w-0 truncate whitespace-nowrap text-[11px] leading-4 text-[color:color-mix(in_oklab,var(--native-muted)_82%,white_18%)]" title={`${item.repoName || item.repoId || "repo"}/${item.slug}`}>
-                          {item.repoName || item.repoId || "repo"}/{item.slug}
+                          <HighlightText text={`${item.repoName || item.repoId || "repo"}/${item.slug}`} query={props.searchQuery} />
                         </div>
                       </div>
                     </div>
@@ -976,18 +1010,18 @@ export function StoreCapabilityTable(props: {
                 <Show when={isColumnVisible("description")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colDescription, sx.mut)}>
                     <span class="block max-h-10 overflow-hidden leading-5" style={MULTILINE_CLAMP_STYLE} title={item.description || "—"}>
-                      {item.description || "—"}
+                      <HighlightText text={item.description || "—"} query={props.searchQuery} />
                     </span>
                   </td>
                 </Show>
                 <Show when={isColumnVisible("type")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, "w-[6.5rem] min-w-[6.5rem]", sx.mut)}>
-                    {props.typeLabel ? props.typeLabel(item.itemType) : item.itemType}
+                    <HighlightText text={props.typeLabel ? props.typeLabel(item.itemType) : item.itemType} query={props.searchQuery} />
                   </td>
                 </Show>
                 <Show when={isColumnVisible("category")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colCategory, sx.mut)}>
-                    {item.category ? props.categoryLabel(item.category) || item.category : "—"}
+                    {item.category ? <HighlightText text={props.categoryLabel(item.category) || item.category} query={props.searchQuery} /> : "—"}
                   </td>
                 </Show>
                 <Show when={isColumnVisible("security")}>
@@ -1002,10 +1036,10 @@ export function StoreCapabilityTable(props: {
                 </Show>
                 <Show when={isColumnVisible("source")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colSource, sx.mut)}>
-                    <Show when={props.sourceUrl(item.source)} fallback={<span class="block max-h-10 overflow-hidden leading-5" style={MULTILINE_CLAMP_STYLE} title={props.sourceLabel(item.source) || item.source || "—"}>{props.sourceLabel(item.source) || item.source || "—"}</span>}>
+                    <Show when={props.sourceUrl(item.source)} fallback={<span class="block max-h-10 overflow-hidden leading-5" style={MULTILINE_CLAMP_STYLE} title={props.sourceLabel(item.source) || item.source || "—"}><HighlightText text={props.sourceLabel(item.source) || item.source || "—"} query={props.searchQuery} /></span>}>
                       {(url) => (
                         <a href={url()} target="_blank" rel="noreferrer" class="block max-h-10 cursor-pointer overflow-hidden leading-5 text-[#478be6] underline-offset-2 hover:text-[#478be6] hover:underline" style={MULTILINE_CLAMP_STYLE} title={props.sourceLabel(item.source) || item.source || "—"} onClick={(e) => e.stopPropagation()}>
-                          {props.sourceLabel(item.source) || item.source || "—"}
+                          <HighlightText text={props.sourceLabel(item.source) || item.source || "—"} query={props.searchQuery} />
                         </a>
                       )}
                     </Show>
