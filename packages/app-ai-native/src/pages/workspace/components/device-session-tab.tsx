@@ -23,7 +23,7 @@ import { useFile } from "@/context/file"
 import { SyncContext } from "@/context/sync"
 import { LocalContext } from "@/context/local"
 import { SDKContext } from "@/context/sdk"
-import { PromptContext } from "@/context/prompt"
+import { PromptProvider } from "@/context/prompt"
 import { CommentsContext } from "@/context/comments"
 import { PermissionContext } from "@/context/permission"
 import { CommandContext } from "@/context/command"
@@ -605,37 +605,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
   // LocalContext value
   const localValue = local
 
-  // PromptContext value — minimal standalone prompt state
-  const [promptParts, setPromptParts] = createStore<{ items: any[] }>({ items: [] })
-  const [promptCursor, setPromptCursor] = createSignal(0)
-  const isDefaultPrompt = (parts: any[]) => {
-    if (parts.length === 0) return true
-    if (parts.length === 1 && parts[0].type === "text" && (parts[0].content ?? "") === "") return true
-    return false
-  }
-  const promptValue = {
-    ready: () => true,
-    current: () => promptParts.items,
-    cursor: () => promptCursor(),
-    dirty: () => !isDefaultPrompt(promptParts.items),
-    set(parts: any[], cursor: number) {
-      setPromptParts("items", parts)
-      setPromptCursor(cursor)
-    },
-    reset() {
-      setPromptParts("items", [])
-      setPromptCursor(0)
-    },
-    context: {
-      items: () => [],
-      add() {},
-      remove() {},
-      replaceComments() {},
-      updateComment() {},
-      removeComment() {},
-    },
-  }
-
   // CommentsContext value
   const commentsValue = {
     add() {},
@@ -872,7 +841,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
     <SDKContext.Provider value={sdkValue as any}>
       <SyncContext.Provider value={syncValue as any}>
         <LocalContext.Provider value={localValue as any}>
-          <PromptContext.Provider value={promptValue as any}>
+          <PromptProvider>
             <CommentsContext.Provider value={commentsValue as any}>
               <PermissionContext.Provider value={permissionValue as any}>
                 <CommandContext.Provider value={commandValue as any}>
@@ -1066,7 +1035,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
                 </CommandContext.Provider>
               </PermissionContext.Provider>
             </CommentsContext.Provider>
-          </PromptContext.Provider>
+          </PromptProvider>
         </LocalContext.Provider>
       </SyncContext.Provider>
     </SDKContext.Provider>
