@@ -24,6 +24,7 @@ import {
   formatSourceMetric,
   formatStoreDate,
   formatStoreTablePaginationSummary,
+  HighlightText,
   StoreCapabilityTable,
   StoreTableFooter,
   type TableColumnKey,
@@ -749,7 +750,7 @@ export default function Home() {
                       <Icon name={typeMeta().icon} />
                     </div>
                     <div class="min-w-0 flex-1">
-                      <div class="truncate text-[0.8125rem] font-bold text-[var(--native-foreground)]">{item.name}</div>
+                      <div class="truncate text-[0.8125rem] font-bold text-[var(--native-foreground)]"><HighlightText text={item.name} query={debouncedSearch()} /></div>
                       <div class="mt-0.5 flex gap-2.5 text-[12px] text-[var(--native-muted)] [font-variant-numeric:tabular-nums]">
                         <span class="inline-flex items-center gap-0.5">
                           <LocalIcon name="star" size="small" />
@@ -931,6 +932,7 @@ export default function Home() {
                 formatDate={formatDate}
                 formatSourceMetric={formatSourceMetric}
                 formatCompact={formatCompact}
+                searchQuery={debouncedSearch()}
                 filters={{
                   category: {
                     open: categoryFilterOpen(),
