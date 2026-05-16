@@ -177,9 +177,14 @@
   --font-sans: var(--native-font-body);
   --font-mono: var(--native-font-mono);
   --color-background: var(--native-bg);
+  --color-background-base: var(--native-bg);
   --color-foreground: var(--native-foreground);
   --color-muted: var(--native-bg-subtle);
   --color-muted-foreground: var(--native-muted);
+  --color-text-strong: var(--native-foreground);
+  --color-text-weak: var(--native-muted);
+  --color-border-weak-base: color-mix(in srgb, var(--native-border) 32%, var(--native-panel));
+  --color-bg-muted: var(--native-bg-subtle);
   --color-popover: var(--native-panel);
   --color-popover-foreground: var(--native-foreground);
   --color-card: var(--native-panel);

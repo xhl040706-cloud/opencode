@@ -1,7 +1,8 @@
-import { createEffect, onCleanup, onMount } from "solid-js"
+import { createEffect, onCleanup, onMount, untrack } from "solid-js"
 import * as echarts from "echarts"
 import type { EChartsOption } from "echarts"
 import { useLanguage } from "@/context/language"
+import { useTheme } from "@opencode-ai/ui/theme"
 
 type Props = {
   option?: EChartsOption
@@ -9,26 +10,42 @@ type Props = {
   empty?: string
 }
 
+function isDarkScheme(scheme: string): boolean {
+  if (scheme === "dark") return true
+  if (scheme === "light") return false
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+}
+
 export function ChartCard(props: Props) {
   let el: HTMLDivElement | undefined
   let chart: echarts.ECharts | undefined
   const language = useLanguage()
+  const theme = useTheme()
 
   onMount(() => {
-    if (!el) return
-    chart = echarts.init(el)
-
     const resize = () => chart?.resize()
+    let obs: ResizeObserver | undefined
     if (typeof ResizeObserver === "function") {
-      const obs = new ResizeObserver(resize)
-      obs.observe(el)
-      onCleanup(() => obs.disconnect())
+      obs = new ResizeObserver(resize)
+      if (el) obs.observe(el)
     } else {
       window.addEventListener("resize", resize)
-      onCleanup(() => window.removeEventListener("resize", resize))
     }
 
-    onCleanup(() => chart?.dispose())
+    onCleanup(() => {
+      if (obs) obs.disconnect()
+      else window.removeEventListener("resize", resize)
+      chart?.dispose()
+    })
+  })
+
+  createEffect(() => {
+    if (!el) return
+    const dark = isDarkScheme(theme.colorScheme())
+    chart?.dispose()
+    chart = echarts.init(el, dark ? "dark" : undefined)
+    const next = untrack(() => props.option)
+    if (next) chart.setOption(next, true)
   })
 
   createEffect(() => {

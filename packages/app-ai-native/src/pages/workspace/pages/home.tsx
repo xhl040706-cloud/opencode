@@ -3,6 +3,7 @@ import { usePlatform } from "@/context/platform"
 import { useNavigate } from "@solidjs/router"
 import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js"
+import { SHENMA_ORIGIN } from "@/pages/store/lib/constants"
 import { useWorkspace } from "../context"
 
 export default function WorkspaceHome() {
@@ -12,16 +13,87 @@ export default function WorkspaceHome() {
   const work = useWorkspace()
   const installUrl = "https://docs.costrict.ai/csc/overview#%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B"
   const [copiedId, setCopiedId] = createSignal<string | null>(null)
-  const steps: { id: string; tone: string; titleKey: string; descKey: string; kind: string; cmdKey?: string }[] = [
-    { id: "01", tone: "var(--native-warning)", titleKey: "workspace.home.step1.title", descKey: "workspace.home.step1.description", kind: "link" },
-    { id: "02", tone: "var(--native-primary)", titleKey: "workspace.home.step2.title", descKey: "workspace.home.step2.description", kind: "cmd", cmdKey: "workspace.home.step2.cmd" },
-    { id: "03", tone: "var(--native-primary)", titleKey: "workspace.home.step3.title", descKey: "workspace.home.step3.description", kind: "cmd", cmdKey: "workspace.home.step3.cmd" },
-    { id: "04", tone: "var(--native-success)", titleKey: "workspace.home.step4.title", descKey: "workspace.home.step4.description", kind: "cmd", cmdKey: "workspace.home.step4.cmd" },
-    { id: "05", tone: "var(--native-success)", titleKey: "workspace.home.step5.title", descKey: "workspace.home.step5.description", kind: "cta" },
+  const isShenmaEnv = typeof window !== "undefined" && window.location.origin === SHENMA_ORIGIN
+  const steps: {
+    id: string
+    tone: string
+    titleKey: string
+    descKey: string
+    kind: string
+    cmdKey?: string
+    cmdValue?: string
+    descValue?: string
+    titleValue?: string
+  }[] = [
+    {
+      id: "01",
+      tone: "var(--native-warning)",
+      titleKey: "workspace.home.step1.title",
+      descKey: "workspace.home.step1.description",
+      kind: isShenmaEnv ? "cmd" : "link",
+      cmdValue: isShenmaEnv
+        ? "npm install -g @costrict/csc --registry=http://npm.uedc.sangfor.com.cn:80"
+        : undefined,
+    },
+    {
+      id: "02",
+      tone: "var(--native-primary)",
+      titleKey: "workspace.home.step2.title",
+      descKey: "workspace.home.step2.description",
+      kind: "cmd",
+      cmdKey: "workspace.home.step2.cmd",
+    },
+    {
+      id: "03",
+      tone: "var(--native-primary)",
+      titleKey: "workspace.home.step3.title",
+      descKey: "workspace.home.step3.description",
+      kind: "cmd",
+      cmdKey: "workspace.home.step3.cmd",
+      cmdValue: isShenmaEnv
+        ? t("workspace.home.step3.shenma.cmd", { url: SHENMA_ORIGIN })
+        : undefined,
+      descValue: isShenmaEnv ? t("workspace.home.step3.shenma.description") : undefined,
+      titleValue: isShenmaEnv ? t("workspace.home.step3.shenma.title") : undefined,
+    },
+    {
+      id: "04",
+      tone: "var(--native-success)",
+      titleKey: "workspace.home.step4.title",
+      descKey: "workspace.home.step4.description",
+      kind: "cmd",
+      cmdKey: "workspace.home.step4.cmd",
+      cmdValue: isShenmaEnv ? "csc cloud login" : undefined,
+    },
+    {
+      id: "05",
+      tone: "var(--native-success)",
+      titleKey: "workspace.home.step5.title",
+      descKey: "workspace.home.step5.description",
+      kind: "cta",
+    },
   ]
   const acts = [
-    { icon: "store" as const, titleKey: "workspace.home.browseStore", tone: "var(--native-primary)", soft: "var(--native-primary-soft)", trail: "arrow-right" as const, run: () => navigate("/store") },
-    { icon: "help" as const, titleKey: "workspace.home.viewDocs", tone: "var(--native-muted)", soft: "var(--native-surface)", trail: "square-arrow-top-right" as const, run: () => platform.openLink("https://docs.costrict.ai") },
+    {
+      icon: "store" as const,
+      titleKey: "workspace.home.browseStore",
+      tone: "var(--native-primary)",
+      soft: "var(--native-primary-soft)",
+      trail: "arrow-right" as const,
+      run: () => navigate("/store"),
+    },
+    ...(isShenmaEnv
+      ? []
+      : [
+          {
+            icon: "help" as const,
+            titleKey: "workspace.home.viewDocs",
+            tone: "var(--native-muted)",
+            soft: "var(--native-surface)",
+            trail: "square-arrow-top-right" as const,
+            run: () => platform.openLink("https://docs.costrict.ai"),
+          },
+        ]),
   ]
   const run = createMemo(() => {
     const ids = work.enabledWorkspaceIds()
@@ -60,76 +132,81 @@ export default function WorkspaceHome() {
       </header>
 
       <div class="mx-auto flex min-h-0 min-w-0 max-w-[1080px] flex-1 flex-col gap-5 w-full">
-        <section class="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(18.5rem,0.9fr)]">
+        <section class={`grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(18.5rem,0.9fr)] ${isShenmaEnv ? "items-start" : ""}`}>
           <div class="rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_86%,var(--native-bg-subtle))] shadow-[var(--native-shadow-sm)] overflow-hidden">
             <For each={steps}>
-              {(step, idx) => (
-                <div
-                  class="flex items-center gap-4 px-5 py-4"
-                  classList={{ "border-t border-[color:color-mix(in_oklab,var(--native-border)_22%,transparent)]": idx() > 0 }}
-                  style={{ "--step-tone": step.tone }}
-                >
-                  <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--native-radius-full)] bg-[color:color-mix(in_oklab,var(--step-tone)_10%,transparent)] font-[var(--native-font-mono)] text-[0.8125rem] font-semibold text-[var(--step-tone)]">
-                    {step.id}
-                  </span>
-
-                  <div class="flex-1 min-w-0">
-                    <h2 class="m-0 text-[0.9375rem] font-semibold tracking-[-0.02em] text-[var(--native-foreground)]">
-                      {t(step.titleKey)}
-                    </h2>
-                    <p class="m-0 mt-0.5 text-[0.8125rem] leading-[1.5] text-[var(--native-muted)]">
-                      {t(step.descKey)}
-                    </p>
-                  </div>
-
-                  <Show when={step.kind === "link"}>
-                    <a
-                      href={installUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-3 py-2 text-[0.8125rem] text-[var(--native-primary)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-primary-soft)_80%,var(--native-panel))]"
-                    >
-                      <Icon name="download" class="shrink-0" />
-                      <span>{t("workspace.home.step1.installGuide")}</span>
-                      <Icon name="square-arrow-top-right" class="shrink-0 text-[var(--native-dim)]" />
-                    </a>
-                  </Show>
-
-                  <Show when={step.kind === "cmd"}>
-                    <div class="inline-flex shrink-0 items-center gap-2 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-3 py-2 font-[var(--native-font-mono)] text-[0.8125rem] text-[var(--native-foreground)]">
-                      <span class="truncate">{t(step.cmdKey!)}</span>
-                      <button
-                        type="button"
-                        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-all motion-reduce:transition-none hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--native-ring)]"
-                        onClick={() => step.cmdKey && copy(t(step.cmdKey), step.id)}
-                        aria-label="Copy command"
-                        title="Copy command"
-                      >
-                        <Icon name={copiedId() === step.id ? "check" : "copy"} />
-                      </button>
-                    </div>
-                  </Show>
-
-                  <Show when={step.kind === "cta"}>
-                    <Show when={dir()} fallback={
-                      <span class="shrink-0 text-[0.8125rem] text-[var(--native-dim)]">
-                         <Icon name="arrow-left" />
+              {(step, idx) => {
+                const vertical = isShenmaEnv && step.id !== "05"
+                return (
+                  <div
+                    class={`px-5 py-4 ${vertical ? "flex flex-col items-start gap-4" : "flex items-center gap-4"}`}
+                    classList={{ "border-t border-[color:color-mix(in_oklab,var(--native-border)_22%,transparent)]": idx() > 0 }}
+                    style={{ "--step-tone": step.tone }}
+                  >
+                    <div class={`${vertical ? "flex w-full items-center gap-4" : "flex flex-1 items-center gap-4 min-w-0"}`}>
+                      <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--native-radius-full)] bg-[color:color-mix(in_oklab,var(--step-tone)_10%,transparent)] font-[var(--native-font-mono)] text-[0.8125rem] font-semibold text-[var(--step-tone)]">
+                        {step.id}
                       </span>
-                    }>
-                      {(entry) => (
-                        <div class="flex shrink-0 flex-col gap-0.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--step-tone)_16%,transparent)] bg-[color:color-mix(in_oklab,var(--native-success-soft)_55%,var(--native-panel))] px-3 py-1.5">
-                          <span class="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--native-success-foreground)]">
-                            {run()?.name}
-                          </span>
-                          <span class="truncate text-[0.75rem] leading-[1.4] text-[var(--native-muted)]" title={entry().path}>
-                            {entry().path}
-                          </span>
-                        </div>
-                      )}
+
+                      <div class="flex-1 min-w-0">
+                        <h2 class="m-0 text-[0.9375rem] font-semibold tracking-[-0.02em] text-[var(--native-foreground)]">
+                          {step.titleValue ?? t(step.titleKey)}
+                        </h2>
+                        <p class="m-0 mt-0.5 text-[0.8125rem] leading-[1.5] text-[var(--native-muted)]">
+                          {step.descValue ?? t(step.descKey)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Show when={step.kind === "link"}>
+                      <a
+                        href={installUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-3 py-2 text-[0.8125rem] text-[var(--native-primary)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-primary-soft)_80%,var(--native-panel))]"
+                      >
+                        <Icon name="download" class="shrink-0" />
+                        <span>{t("workspace.home.step1.installGuide")}</span>
+                        <Icon name="square-arrow-top-right" class="shrink-0 text-[var(--native-dim)]" />
+                      </a>
                     </Show>
-                  </Show>
-                </div>
-              )}
+
+                    <Show when={step.kind === "cmd"}>
+                      <div class={`${vertical ? "flex w-full" : "inline-flex shrink-0"} items-center gap-2 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-3 py-2 font-[var(--native-font-mono)] text-[0.8125rem] text-[var(--native-foreground)] max-w-full`}>
+                        <span class={`whitespace-pre-line break-all min-w-0 ${vertical ? "flex-1" : ""}`}>{step.cmdValue ?? t(step.cmdKey!)}</span>
+                        <button
+                          type="button"
+                          class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-all motion-reduce:transition-none hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--native-ring)]"
+                          onClick={() => copy(step.cmdValue ?? t(step.cmdKey!), step.id)}
+                          aria-label="Copy command"
+                          title="Copy command"
+                        >
+                          <Icon name={copiedId() === step.id ? "check" : "copy"} />
+                        </button>
+                      </div>
+                    </Show>
+
+                    <Show when={step.kind === "cta"}>
+                      <Show when={dir()} fallback={
+                        <span class="shrink-0 text-[0.8125rem] text-[var(--native-dim)]">
+                           <Icon name="arrow-left" />
+                        </span>
+                      }>
+                        {(entry) => (
+                          <div class="flex shrink-0 flex-col gap-0.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--step-tone)_16%,transparent)] bg-[color:color-mix(in_oklab,var(--native-success-soft)_55%,var(--native-panel))] px-3 py-1.5">
+                            <span class="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--native-success-foreground)]">
+                              {run()?.name}
+                            </span>
+                            <span class="truncate text-[0.75rem] leading-[1.4] text-[var(--native-muted)]" title={entry().path}>
+                              {entry().path}
+                            </span>
+                          </div>
+                        )}
+                      </Show>
+                    </Show>
+                  </div>
+                )
+              }}
             </For>
           </div>
 
