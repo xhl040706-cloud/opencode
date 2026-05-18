@@ -1,2 +1,5 @@
 export { default as WorkspaceLayout } from "./components/layout"
 export { default as WorkspaceHome } from "./pages/home"
+export { default as MobileWorkspaceLayout } from "./mobile/layout"
+export { MobileWorkspaceHome } from "./mobile/home"
+export { MobileWorkspaceDetail } from "./mobile/detail"

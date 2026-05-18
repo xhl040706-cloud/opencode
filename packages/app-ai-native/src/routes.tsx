@@ -31,6 +31,9 @@ const KanbanProjectDetail = lazy(() => import("@/pages/kanban").then((m) => ({ d
 const KanbanProjectList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanProjectList })))
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
+const MobileWorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.MobileWorkspaceLayout })))
+const MobileWorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.MobileWorkspaceHome })))
+const MobileWorkspaceDetail = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.MobileWorkspaceDetail })))
 const CapabilityEditorLayout = lazy(() => import("@/pages/capability-editor-layout"))
 const consoleImport = import("@/pages/console")
 const ConsoleLayout = lazy(() => consoleImport.then((m) => ({ default: m.ConsoleLayout })))
@@ -108,6 +111,15 @@ export const routeConfig: RouteConfig[] = [
     children: [
       { path: "/", component: WorkspaceHome },
       { path: "/:workspaceID", component: WorkspaceLayout },
+    ],
+  },
+  {
+    path: "/m/workspace",
+    component: MobileWorkspaceLayout,
+    auth: true,
+    children: [
+      { path: "/", component: MobileWorkspaceHome },
+      { path: "/:workspaceID", component: MobileWorkspaceDetail },
     ],
   },
   {
