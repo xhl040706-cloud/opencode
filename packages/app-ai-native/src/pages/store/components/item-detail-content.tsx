@@ -17,10 +17,10 @@ const TYPE_META: Record<
   string,
   { accent: string; bg: string; label: string; icon: "sparkles" | "brain" | "console" | "mcp" }
 > = {
-  skill: { accent: "#ffa000", bg: "#FEF3C7", label: "store.sidebar.nav.skills", icon: "sparkles" },
-  subagent: { accent: "#1670ff", bg: "#DBEAFE", label: "store.sidebar.nav.subagents", icon: "brain" },
-  command: { accent: "#09b179", bg: "#D1FAE5", label: "store.sidebar.nav.commands", icon: "console" },
-  mcp: { accent: "#7338f9", bg: "#EDE9FE", label: "store.sidebar.nav.mcpServers", icon: "mcp" },
+  skill: { accent: "#ffa000", bg: "color-mix(in srgb, #ffa000 12%, var(--native-panel))", label: "store.sidebar.nav.skills", icon: "sparkles" },
+  subagent: { accent: "#1670ff", bg: "color-mix(in srgb, #1670ff 12%, var(--native-panel))", label: "store.sidebar.nav.subagents", icon: "brain" },
+  command: { accent: "#09b179", bg: "color-mix(in srgb, #09b179 12%, var(--native-panel))", label: "store.sidebar.nav.commands", icon: "console" },
+  mcp: { accent: "#7338f9", bg: "color-mix(in srgb, #7338f9 12%, var(--native-panel))", label: "store.sidebar.nav.mcpServers", icon: "mcp" },
 }
 
 const THEMES = { light: "light-plus", dark: "dark-plus" } as const
@@ -93,7 +93,7 @@ function tagStyle(tagClass?: string) {
   const accent = tagClass === "system" ? TAG_COLOR_BY_CLASS.system : TAG_COLOR_BY_CLASS.custom
   return {
     color: accent.color,
-    "background-color": accent.background,
+    "background-color": `color-mix(in srgb, ${accent.color} 14%, var(--native-panel))`,
   }
 }
 
@@ -271,7 +271,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                     <Show when={data().sourceType === "archive"}>
                       <span
                         class="mt-0.5 inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-xs"
-                        style={{ "background-color": "rgba(59,130,246,0.12)", color: "rgb(59,130,246)" }}
+                        style={{ "background-color": "color-mix(in srgb, rgb(59,130,246) 14%, var(--native-panel))", color: "rgb(59,130,246)" }}
                         title={language.t("store.sourceType.archive")}
                       >
                         <Icon name="cloud-upload" size="small" />
@@ -422,7 +422,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                                 when={verified}
                                 fallback={
                                   <span
-                                    class="inline-flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border border-[rgba(156,163,175,0.65)] px-3 py-2 text-[14px] font-bold leading-5 text-[rgb(107,114,128)] transition-colors hover:bg-[rgba(156,163,175,0.08)]"
+                                    class="inline-flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border border-border-weak-base px-3 py-2 text-[14px] font-bold leading-5 text-text-weak transition-colors hover:bg-bg-muted"
                                     title={`${language.t("store.home.table.source")}: ${sourceLabel}`}
                                   >
                                     {sourceLabel}
@@ -433,7 +433,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                                   href={sourceUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  class="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-[0.5rem] border border-[rgba(245,138,25,0.9)] px-3 py-2 text-[14px] font-bold leading-5 text-[#f58b19] transition-colors hover:bg-[rgba(245,138,25,0.07)]"
+                                  class="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-[0.5rem] border border-[rgba(245,138,25,0.9)] px-3 py-2 text-[14px] font-bold leading-5 text-[#f58b19] transition-colors hover:bg-[color-mix(in_srgb,rgb(245,138,25)_10%,var(--native-bg-subtle))]"
                                   title={`${language.t("store.home.table.source")}: ${sourceLabel}`}
                                 >
                                   <svg

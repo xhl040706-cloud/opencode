@@ -1,12 +1,13 @@
-import { type JSX, type ParentProps, Show, createEffect } from "solid-js"
+import { type JSX, type ParentProps, Show, createEffect, createMemo } from "solid-js"
 import { useLocation, useNavigate } from "@solidjs/router"
-import { Gauge } from "lucide-solid"
+import { Gauge, Sun, Moon } from "lucide-solid"
 import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { RadioGroup } from "@opencode-ai/ui/radio-group"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
+import { useTheme } from "@opencode-ai/ui/theme"
 import AvatarDisplay from "@/components/avatar-display"
 import { usePlatform } from "@/context/platform"
 import { type Locale, useLanguage } from "@/context/language"
@@ -47,6 +48,7 @@ function NavButton(props: {
 function UserButton() {
   const { user, logout } = useAuth()
   const language = useLanguage()
+  const theme = useTheme()
   const displayName = () => user()?.name || user()?.preferred_username || user()?.email || ""
   const username = () => user()?.preferred_username || user()?.email || user()?.name || ""
   const subjectId = () => user()?.subjectId || user()?.id || ""
@@ -67,6 +69,13 @@ function UserButton() {
   }
 
   const languageOptions: Locale[] = ["zh", "en"]
+
+  const isDarkMode = () => {
+    const scheme = theme.colorScheme()
+    if (scheme === "dark") return true
+    if (scheme === "light") return false
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+  }
 
   return (
     <Show
@@ -131,6 +140,19 @@ function UserButton() {
                 label={(locale) => language.label(locale)}
                 onSelect={(locale) => locale && language.setLocale(locale as Locale)}
               />
+            </div>
+            <DropdownMenu.Separator class="my-0 mx-0" />
+            <div class="px-3 py-2 flex items-center justify-between gap-3">
+              <span class="text-12-medium leading-none text-text-strong">{language.t("settings.general.row.appearance.title")}</span>
+              <button
+                type="button"
+                data-action="user-menu-color-scheme"
+                onClick={() => theme.setColorScheme(isDarkMode() ? "light" : "dark")}
+                class="flex size-7 items-center justify-center rounded-md transition-colors hover:bg-[var(--native-surface)] text-[var(--native-dim)] hover:text-[var(--native-foreground)]"
+                aria-label={isDarkMode() ? language.t("theme.scheme.light") : language.t("theme.scheme.dark")}
+              >
+                {isDarkMode() ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
             </div>
             <DropdownMenu.Separator class="my-0 mx-0" />
             <DropdownMenu.Item onSelect={() => window.open("/credit/manager/?tab=usage", "_blank")}>
@@ -226,7 +248,6 @@ export default function RootLayout(props: ParentProps) {
             active={isConsole()}
             onClick={() => navigate("/console/devices")}
           />
-          {/* TODO: 未来恢复设置入口后，再重新展示设置按钮，并放开语言/主题切换能力。 */}
           <Tooltip placement="right" value={language.t("sidebar.help")}>
             <button
               type="button"

@@ -985,7 +985,7 @@ export function StoreCapabilityTable(props: {
             <Show when={props.rows.length > 0} fallback={<StoreTableEmptyState colSpan={visibleColumnCount()} message={props.emptyMessage} />}>
               <For each={props.rows}>
                 {(item) => (
-                  <tr class={cn("border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", sx.row)} onClick={() => props.onRowClick(item)}>
+                  <tr class={cn("border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted h-[3.9375rem]", sx.row)} onClick={() => props.onRowClick(item)}>
                 <Show when={isColumnVisible("title")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colTitle)}>
                     <div class="flex min-w-0 items-center gap-2">

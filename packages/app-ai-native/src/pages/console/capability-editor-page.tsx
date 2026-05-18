@@ -1904,13 +1904,21 @@ export default function CapabilityEditorPage() {
               />
               <div class="flex min-h-0 flex-1 flex-col gap-5">
                 <section class="space-y-3">
-                  <div>
+                  <div class="flex items-center justify-between">
                     <div
                       class="text-[11px] font-semibold uppercase tracking-[0.12em]"
                       style={{ color: `color-mix(in srgb, ${accent()} 52%, var(--native-muted))` }}
                     >
                       {isEdit() ? language.t("store.capabilityEditor.header.version") : language.t("store.capabilityDialog.create.type")}
                     </div>
+                    <button
+                      type="button"
+                      onClick={toggleSidebar}
+                      class="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-[color:color-mix(in_srgb,var(--native-border)_48%,transparent)] text-[var(--native-muted)] transition-all duration-150 hover:bg-[var(--native-hover)] hover:text-[var(--native-foreground)]"
+                      title={layout.sidebarCollapsed ? language.t("store.capabilityEditor.sidebarExpand") : language.t("store.capabilityEditor.sidebarCollapse")}
+                    >
+                      <Icon name={layout.sidebarCollapsed ? "chevron-right" : "chevron-left"} size="small" />
+                    </button>
                   </div>
 
                   <Show
@@ -2195,27 +2203,33 @@ export default function CapabilityEditorPage() {
             <div class="relative z-10 flex items-center justify-between gap-3 border-b border-[color:color-mix(in_srgb,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--native-panel)_80%,var(--native-surface))] px-4 py-2.5 shadow-[0_2px_4px_-1px_rgba(15,23,42,0.08)]">
               <div class="min-w-0 flex flex-1 items-center overflow-hidden">
                 <div class="flex min-w-0 w-full max-w-[48rem] items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={toggleSidebar}
-                    class="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-[color:color-mix(in_srgb,var(--native-border)_48%,transparent)] text-[var(--native-muted)] transition-all duration-150 hover:bg-[var(--native-hover)] hover:text-[var(--native-foreground)]"
-                    title={layout.sidebarCollapsed ? language.t("store.capabilityEditor.sidebarExpand") : language.t("store.capabilityEditor.sidebarCollapse")}
-                  >
-                    <Icon name={layout.sidebarCollapsed ? "chevron-right" : "chevron-left"} size="small" />
-                  </button>
-                  <span class="shrink-0 text-xs text-[var(--native-muted)]">{language.t("store.capabilityEditor.commandPreview")}</span>
-                  <div class="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg px-3" style="background-color: var(--native-surface-strong)">
-                  <div class="thin-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto">
-                    <code class="select-all whitespace-nowrap text-12-mono text-[var(--native-muted)]">{installCommand()}</code>
-                  </div>
-                  <button
-                    onClick={() => void copyInstallCommand()}
-                    class="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-[var(--native-muted)] transition-all duration-150 hover:bg-[var(--native-hover)] hover:text-[var(--native-foreground)]"
-                    title={language.t("store.itemCard.copyInstall")}
-                  >
-                    <Icon name={form.installCommandCopied ? "check-small" : "copy"} size="small" class={form.installCommandCopied ? "text-green-500" : ""} />
-                  </button>
-                  </div>
+                  <Show when={layout.sidebarCollapsed}>
+                    <button
+                      type="button"
+                      onClick={toggleSidebar}
+                      class="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-[color:color-mix(in_srgb,var(--native-border)_48%,transparent)] text-[var(--native-muted)] transition-all duration-150 hover:bg-[var(--native-hover)] hover:text-[var(--native-foreground)]"
+                      title={language.t("store.capabilityEditor.sidebarExpand")}
+                    >
+                      <Icon name="chevron-right" size="small" />
+                    </button>
+                  </Show>
+                  {false && (
+                    <>
+                      <span class="shrink-0 text-xs text-[var(--native-muted)]">{language.t("store.capabilityEditor.commandPreview")}</span>
+                      <div class="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg px-3" style="background-color: var(--native-surface-strong)">
+                        <div class="thin-scrollbar flex min-w-0 flex-1 items-center overflow-x-auto">
+                          <code class="select-all whitespace-nowrap text-12-mono text-[var(--native-muted)]">{installCommand()}</code>
+                        </div>
+                        <button
+                          onClick={() => void copyInstallCommand()}
+                          class="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-[var(--native-muted)] transition-all duration-150 hover:bg-[var(--native-hover)] hover:text-[var(--native-foreground)]"
+                          title={language.t("store.itemCard.copyInstall")}
+                        >
+                          <Icon name={form.installCommandCopied ? "check-small" : "copy"} size="small" class={form.installCommandCopied ? "text-green-500" : ""} />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -2226,7 +2240,7 @@ export default function CapabilityEditorPage() {
                 <Show
                   when={!isEdit()}
                   fallback={
-                    <Button type="button" size="sm" class="h-8 px-3" onClick={() => void handleSubmit()} disabled={loading() || form.saving || isViewingHistoricalVersion()}>
+                    <Button type="button" size="sm" class="h-8 px-3" style={{ color: "white" }} onClick={() => void handleSubmit()} disabled={loading() || form.saving || isViewingHistoricalVersion()}>
                       {form.saving ? language.t("common.saving") : language.t("store.capabilityEditor.saveAndReturn")}
                     </Button>
                   }
@@ -2236,7 +2250,7 @@ export default function CapabilityEditorPage() {
                       {language.t("common.reset")}
                     </Button>
                     <div class="flex items-center overflow-hidden rounded-[8px]">
-                    <Button type="button" size="sm" class="h-8 rounded-r-none px-3" onClick={() => void handleSubmit("return")} disabled={loading() || form.saving || isViewingHistoricalVersion()}>
+                    <Button type="button" size="sm" class="h-8 rounded-r-none px-3" style={{ color: "white" }} onClick={() => void handleSubmit("return")} disabled={loading() || form.saving || isViewingHistoricalVersion()}>
                       {form.saving ? language.t("common.saving") : language.t("store.capabilityEditor.createAction")}
                     </Button>
                     <DropdownMenu placement="bottom-end" gutter={4}>
@@ -2291,8 +2305,7 @@ export default function CapabilityEditorPage() {
 
               <Show when={showPreview()}>
                 <section
-                  class="flex min-h-0 flex-col"
-                  style={{ background: "#ffffff" }}
+                  class="flex min-h-0 flex-col bg-[var(--native-bg)]"
                 >
                   <div ref={previewScrollEl} class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
                     <Show

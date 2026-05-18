@@ -32,10 +32,6 @@ function FixedExperienceGuards(props: ParentProps) {
     if (theme.themeId() !== "vercel") {
       theme.setTheme("vercel")
     }
-
-    if (theme.colorScheme() !== "light") {
-      theme.setColorScheme("light")
-    }
   })
 
   return props.children

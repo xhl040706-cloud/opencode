@@ -27,6 +27,8 @@ export function typeKey(type: string) {
   return `store.capability.type.${type}`
 }
 
+export const SHENMA_ORIGIN = "https://shenma.sangfor.com.cn"
+
 export function isArchive(name: string) {
   const file = name.toLowerCase()
   return archives.some((ext) => file.endsWith(ext))

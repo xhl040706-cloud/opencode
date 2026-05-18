@@ -1767,6 +1767,9 @@ export const dict = {
   "workspace.home.step3.title": "Login",
   "workspace.home.step3.description": "Login with your account, press y to accept service startup.",
   "workspace.home.step3.cmd": "csc cloud login",
+  "workspace.home.step3.shenma.title": "Set Environment Variable",
+  "workspace.home.step3.shenma.description": "Set Environment Variable",
+  "workspace.home.step3.shenma.cmd": "Example: export COSTRICT_BASE_URL=\"{{url}}\"",
   "workspace.home.step4.title": "Start Service",
   "workspace.home.step4.description": "Start the cloud service on your device.",
   "workspace.home.step4.cmd": "csc cloud start",
@@ -1782,6 +1785,7 @@ export const dict = {
   // ── Kanban ──
   "kanban.back": "Back to Dashboard",
   "kanban.home.title": "AI Coding Dashboard",
+  "kanban.home.toggleTheme": "Toggle theme",
   "kanban.home.loadFailed": "Failed to load dashboard",
   "kanban.home.metric.totalRepos": "Total Repos",
   "kanban.home.metric.totalUsers": "Total Users",

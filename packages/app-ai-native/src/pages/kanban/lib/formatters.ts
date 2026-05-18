@@ -29,7 +29,8 @@ export function formatLocalTime(value?: string | null) {
 
 export function formatPercent(value?: number | null, digits = 0) {
   if (value == null) return "-"
-  return `${value.toFixed(digits)}%`
+  const result = value.toFixed(digits)
+  return `${result === "-0" ? "0" : result}%`
 }
 
 export function shortId(value?: string | null, size = 8) {
