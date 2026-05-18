@@ -1,4 +1,4 @@
-import { createContext, useContext, type ParentProps } from "solid-js"
+import { batch, createContext, useContext, type ParentProps } from "solid-js"
 import { createStore } from "solid-js/store"
 import type { Workspace } from "./types"
 
@@ -18,12 +18,17 @@ function createActiveWorkspace() {
       return store.workspace
     },
     setActive(id: string, workspace?: Workspace) {
-      set("id", id)
-      if (workspace) set("workspace", workspace)
+      batch(() => {
+        set("id", id)
+        set("workspace", undefined as Workspace | undefined)
+        if (workspace) set("workspace", { ...workspace })
+      })
     },
     clear() {
-      set("id", undefined)
-      set("workspace", undefined)
+      batch(() => {
+        set("id", undefined)
+        set("workspace", undefined)
+      })
     },
   }
 }

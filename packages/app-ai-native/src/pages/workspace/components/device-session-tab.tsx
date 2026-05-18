@@ -729,7 +729,8 @@ export function DeviceSessionTab(props: { tabId: string }) {
           orphanCreated = true
         }
         if (m.parentID !== orphanID) {
-          ;(m as any).parentID = orphanID
+          enriched.push({ ...m, parentID: orphanID })
+          continue
         }
       }
       enriched.push(m)
