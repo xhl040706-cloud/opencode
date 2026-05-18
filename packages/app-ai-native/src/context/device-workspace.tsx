@@ -461,12 +461,22 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   summaryChanged = true
                   break
                 }
-                case "vcs.branch.updated": {
-                  const props = payload.properties as { branch?: string }
-                  if (props?.branch == null) break
+                case "host.git.branch.changed": {
+                  const props = payload.properties as { new_branch?: string; old_branch?: string }
+                  if (props?.new_branch == null) break
                   const prev = store.vcs
-                  if (prev?.branch === props.branch) break
-                  setStore("vcs", { ...prev, branch: props.branch })
+                  if (prev?.branch === props.new_branch) break
+                  setStore("vcs", { ...prev, branch: props.new_branch })
+                  summaryChanged = true
+                  break
+                }
+                case "host.git.commit": {
+                  // New commit detected - could trigger UI updates
+                  summaryChanged = true
+                  break
+                }
+                case "host.git.status.changed": {
+                  // Git status changed - could refresh diff or file status
                   summaryChanged = true
                   break
                 }

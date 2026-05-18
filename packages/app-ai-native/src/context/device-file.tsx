@@ -12,7 +12,7 @@ import { createPathHelpers } from "./file/path"
 import { createFileTreeStore } from "./file/tree-store"
 import { createDiffStore } from "./file/diff-store"
 import { createRefreshScheduler } from "./file/refresh-scheduler"
-import { invalidateFromWatcher } from "./file/watcher"
+import { invalidateFromHostWatcher } from "./file/watcher"
 import {
   approxBytes,
   evictContentLru,
@@ -155,8 +155,9 @@ export function DeviceFileProvider(props: DeviceFileProviderProps) {
       ? payload.properties
       : undefined) as Record<string, unknown> | undefined
 
-    if (type === "file.watcher.updated") {
-      invalidateFromWatcher(
+    // Handle cs-cloud host events only
+    if (type.startsWith("host.file.")) {
+      invalidateFromHostWatcher(
         { type, properties: props },
         {
           normalize: path.normalize,
