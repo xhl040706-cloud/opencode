@@ -7,6 +7,26 @@ import type { Message, Part, Session, SessionStatus, FileDiff, Todo, PermissionR
 import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
 import { Persist, persisted } from "@/utils/persist"
 
+export type SessionError = {
+  subtype?: string
+  level?: string
+  message?: string
+  retryInMs?: number
+  retryAttempt?: number
+  maxRetries?: number
+}
+
+export type TaskState = {
+  taskID: string
+  status: "running" | "completed" | "failed" | "stopped"
+  description: string
+  taskType?: string
+  summary?: string
+  usage?: { total_tokens: number; tool_uses: number; duration_ms: number }
+  startTime: number
+  endTime?: number
+}
+
 type SessionData = {
   session: Session | undefined
   messages: Message[]
@@ -16,6 +36,9 @@ type SessionData = {
   todos: Todo[]
   permissions: Record<string, PermissionRequest[]>
   questions: Record<string, QuestionRequest[]>
+  error: SessionError | undefined
+  toolProgress: Record<string, string>
+  tasks: Record<string, TaskState>
 }
 
 type DeviceSessionValue = {
@@ -93,7 +116,10 @@ export function treeEvent(input: {
     input.type === "permission.replied" ||
     input.type === "question.asked" ||
     input.type === "question.replied" ||
-    input.type === "question.rejected"
+    input.type === "question.rejected" ||
+    input.type === "task.started" ||
+    input.type === "task.progress" ||
+    input.type === "task.completed"
   if (request) return input.tree.has(input.eventSID)
   return input.eventSID === input.root
 }
@@ -111,6 +137,9 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     todos: [],
     permissions: {},
     questions: {},
+    error: undefined,
+    toolProgress: {},
+    tasks: {},
   })
 
   const [permissionStore, setPermissionStore] = createStore<Record<string, boolean>>({})
@@ -230,7 +259,31 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           if (result) setStore("session", result as Session)
         }),
         loadMessages(MESSAGE_PAGE_SIZE),
+        loadTasks(id),
       ])
+    } catch {}
+  }
+
+  const loadTasks = async (id: string) => {
+    try {
+      const result = await device.client.conversation.tasks(id) as any
+      if (!result?.tasks || !Array.isArray(result.tasks)) return
+      const taskMap: Record<string, TaskState> = {}
+      for (const t of result.tasks) {
+        if (t?.taskID) {
+          taskMap[t.taskID] = {
+            taskID: t.taskID,
+            status: t.status ?? "completed",
+            description: t.description ?? "",
+            taskType: t.taskType,
+            summary: t.summary,
+            usage: t.usage,
+            startTime: t.startTime ?? Date.now(),
+            endTime: t.endTime,
+          }
+        }
+      }
+      setStore("tasks", reconcile(taskMap, { key: "taskID" }))
     } catch {}
   }
 
@@ -304,6 +357,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         case "message.updated": {
           const info = (payload.properties as { info?: Message })?.info
           if (!info?.id) break
+          if (info.role === "user" && store.error) setStore("error", undefined)
           setStore("messages", produce((draft: Message[]) => {
             const idx = draft.findIndex((m) => m.id === info.id)
             if (idx !== -1) draft[idx] = info
@@ -350,6 +404,69 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         case "todo.updated": {
           const props = payload.properties as { sessionID?: string; todos?: Todo[] }
           if (props.todos) setStore("todos", reconcile(props.todos, { key: "id" }))
+          break
+        }
+        case "session.error": {
+          const props = payload.properties as { sessionID?: string; error?: SessionError }
+          if (props.error) setStore("error", props.error)
+          break
+        }
+        case "message.removed": {
+          const props = payload.properties as { sessionID?: string; messageID?: string }
+          if (!props.messageID) break
+          setStore(produce((draft) => {
+            const idx = draft.messages.findIndex((m) => m.id === props.messageID)
+            if (idx !== -1) draft.messages.splice(idx, 1)
+            delete draft.parts[props.messageID!]
+          }))
+          break
+        }
+        case "tool.progress": {
+          const props = payload.properties as { sessionID?: string; toolUseID?: string; parentToolUseID?: string; data?: string }
+          const toolUseID = props.toolUseID ?? props.parentToolUseID
+          if (!toolUseID || !props.data) break
+          setStore("toolProgress", toolUseID, (existing: string | undefined) => (existing ?? "") + props.data)
+          break
+        }
+        case "task.started": {
+          const props = payload.properties as { sessionID?: string; taskID?: string; description?: string; taskType?: string }
+          if (!props.taskID) break
+          setStore("tasks", props.taskID, {
+            taskID: props.taskID,
+            status: "running",
+            description: props.description ?? "",
+            taskType: props.taskType,
+            startTime: Date.now(),
+          })
+          break
+        }
+        case "task.progress": {
+          const props = payload.properties as { sessionID?: string; taskID?: string; description?: string; usage?: { total_tokens: number; tool_uses: number; duration_ms: number }; summary?: string }
+          if (!props.taskID) break
+          const existing = store.tasks[props.taskID]
+          if (!existing) break
+          setStore("tasks", props.taskID, produce((draft: TaskState) => {
+            if (props.description) draft.description = props.description
+            if (props.usage) draft.usage = props.usage
+            if (props.summary) draft.summary = props.summary
+          }))
+          break
+        }
+        case "task.completed": {
+          const props = payload.properties as { sessionID?: string; taskID?: string; status?: string; summary?: string; usage?: { total_tokens: number; tool_uses: number; duration_ms: number } }
+          if (!props.taskID) break
+          const existing = store.tasks[props.taskID]
+          const endTime = Date.now()
+          setStore("tasks", props.taskID, {
+            taskID: props.taskID,
+            status: (props.status === "completed" || props.status === "failed" || props.status === "stopped") ? props.status : "completed",
+            description: existing?.description ?? "",
+            taskType: existing?.taskType,
+            summary: props.summary ?? existing?.summary,
+            usage: props.usage ?? existing?.usage,
+            startTime: existing?.startTime ?? endTime,
+            endTime,
+          })
           break
         }
 

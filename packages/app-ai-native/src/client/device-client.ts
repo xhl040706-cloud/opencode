@@ -120,6 +120,7 @@ export type DeviceClient = {
     promptAsync: (id: string, body: unknown) => Promise<unknown>
     messages: (id: string, input?: QueryInput) => Promise<unknown>
     todo: (id: string) => Promise<unknown>
+    tasks: (id: string) => Promise<unknown>
     diff: (id: string) => Promise<unknown>
     shell: (id: string, body: unknown) => Promise<unknown>
     command: (id: string, body: unknown) => Promise<unknown>
@@ -237,6 +238,7 @@ export function createDeviceClient(opts: ClientOpts): DeviceClient {
       promptAsync: (id: string, body: unknown) => http.post(`/api/v1/conversations/${id}/prompt/async`, body),
       messages: (id: string, input?: QueryInput) => http.get(`/api/v1/conversations/${id}/messages`, input),
       todo: (id: string) => http.get(`/api/v1/conversations/${id}/todo`),
+      tasks: (id: string) => http.get(`/api/v1/conversations/${id}/tasks`),
       diff: (id: string) => http.get(`/api/v1/conversations/${id}/diff`),
       shell: (id: string, body: unknown) => http.post(`/api/v1/conversations/${id}/shell`, body),
       command: (id: string, body: unknown) => http.post(`/api/v1/conversations/${id}/command`, body),

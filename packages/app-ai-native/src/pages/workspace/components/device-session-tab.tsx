@@ -11,6 +11,7 @@ import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { Button } from "@opencode-ai/ui/button"
+import { Card } from "@opencode-ai/ui/card"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
@@ -992,6 +993,19 @@ export function DeviceSessionTab(props: { tabId: string }) {
                             />
                           </Show>
                         </div>
+
+                        <Show when={session.data.error}>
+                          {(err) => (
+                            <div class="shrink-0 px-4 py-2">
+                              <Card variant="error" class="error-card">
+                                <div class="flex items-center gap-2">
+                                  <Icon name="circle-x" class="size-4 shrink-0 text-red-500" />
+                                  <span class="text-13-regular min-w-0 break-words">{err().message ?? language.t("notification.session.error.fallbackDescription")}</span>
+                                </div>
+                              </Card>
+                            </div>
+                          )}
+                        </Show>
 
                         <Show when={workspace.agentAvailable() && composerMounted()}>
                           <SessionComposerRegion
