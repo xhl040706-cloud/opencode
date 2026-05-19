@@ -244,7 +244,7 @@ export default function StoreManagerPage() {
     if (state.favoritedLoading) return
     setState("favoritedLoading", true)
     try {
-      const res = await itemApi.list({ ...buildListParams(), favorited: true })
+      const res = await itemApi.list({ ...buildListParams(), favorited: true, paginated: true })
       setState({ favoritedItems: res.items ?? [], favoritedTotal: res.total ?? 0, favoritedLoaded: true })
     }
     catch (error) {
