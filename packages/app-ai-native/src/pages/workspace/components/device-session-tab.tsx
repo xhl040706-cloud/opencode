@@ -1013,16 +1013,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
                           </Show>
                         </div>
 
-                        <Show when={session.data.error}>
-                          {(err) => (
-                            <div class="shrink-0 px-4 py-2">
-                              <Card variant="error" class="error-card">
-                                {err().message ?? language.t("notification.session.error.fallbackDescription")}
-                              </Card>
-                            </div>
-                          )}
-                        </Show>
-
                         <Show when={workspace.agentAvailable() && composerMounted()}>
                           <SessionComposerRegion
                             state={composer}
