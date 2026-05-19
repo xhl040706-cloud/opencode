@@ -377,8 +377,19 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           }
           setStore("parts", messageID, produce((draft: Part[]) => {
             const idx = draft.findIndex((p) => p.id === part.id)
-            if (idx !== -1) draft[idx] = part
-            else draft.push(part)
+            if (idx !== -1) {
+              draft[idx] = part
+            } else {
+              const callID = (part as any).callID
+              if (callID) {
+                const byCall = draft.findIndex((p) => (p as any).callID === callID)
+                if (byCall !== -1) {
+                  ;(draft[byCall] as any) = { ...draft[byCall], state: part.state }
+                  return
+                }
+              }
+              draft.push(part)
+            }
           }))
           break
         }

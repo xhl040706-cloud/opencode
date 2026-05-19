@@ -348,8 +348,19 @@ export function DeviceSessionTab(props: { tabId: string }) {
           }
           setLoadedParts(messageID, produce((draft: Part[]) => {
             const idx = draft.findIndex((p) => p.id === part.id)
-            if (idx !== -1) draft[idx] = part
-            else draft.push(part)
+            if (idx !== -1) {
+              draft[idx] = part
+            } else {
+              const callID = (part as any).callID
+              if (callID) {
+                const byCall = draft.findIndex((p) => (p as any).callID === callID)
+                if (byCall !== -1) {
+                  ;(draft[byCall] as any) = { ...draft[byCall], state: part.state }
+                  return
+                }
+              }
+              draft.push(part)
+            }
           }))
           break
         }
@@ -998,10 +1009,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
                           {(err) => (
                             <div class="shrink-0 px-4 py-2">
                               <Card variant="error" class="error-card">
-                                <div class="flex items-center gap-2">
-                                  <Icon name="circle-x" class="size-4 shrink-0 text-red-500" />
-                                  <span class="text-13-regular min-w-0 break-words">{err().message ?? language.t("notification.session.error.fallbackDescription")}</span>
-                                </div>
+                                {err().message ?? language.t("notification.session.error.fallbackDescription")}
                               </Card>
                             </div>
                           )}
