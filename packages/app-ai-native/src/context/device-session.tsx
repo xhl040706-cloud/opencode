@@ -38,6 +38,7 @@ type SessionData = {
   questions: Record<string, QuestionRequest[]>
   error: SessionError | undefined
   toolProgress: Record<string, string>
+  partProgress: Record<string, string[]>
   tasks: Record<string, TaskState>
 }
 
@@ -139,6 +140,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     questions: {},
     error: undefined,
     toolProgress: {},
+    partProgress: {},
     tasks: {},
   })
 
@@ -220,6 +222,15 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
               const existing = store.parts[mid]
               if (!existing || existing.length !== data.parts.length) {
                 setStore("parts", mid, data.parts)
+              } else {
+                for (let i = 0; i < data.parts.length; i++) {
+                  const existingPart = existing[i] as any
+                  const newPart = data.parts[i] as any
+                  if (existingPart?.state?.status === "running" && newPart?.state?.status !== "running") {
+                    continue
+                  }
+                  setStore("parts", mid, i, newPart)
+                }
               }
             }
           }
@@ -370,27 +381,40 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           if (!part?.id) break
           const messageID = part.messageID
           if (!messageID) break
+          const partTool = (part as any).tool as string | undefined
+          const partStatus = (part as any).state?.status as string | undefined
+          const partCallID = (part as any).callID as string | undefined
+          const partProgress = (part as any).state?.progress as string[] | undefined
+          if (partCallID) {
+            const partStatus = (part as any).state?.status as string | undefined
+            if (partStatus === "completed" || partStatus === "error") {
+              console.log('[partProgress] CLEAR on', partStatus, partCallID)
+              setStore("partProgress", partCallID, undefined as any)
+            } else if (Array.isArray(partProgress)) {
+              console.log('[partProgress] SET', partCallID, 'len:', partProgress.length, 'items:', partProgress)
+              setStore("partProgress", partCallID, partProgress.length > 10 ? partProgress.slice(-10) : partProgress)
+            }
+          }
           const existing = store.parts[messageID]
           if (!existing) {
             setStore("parts", messageID, [part])
             break
           }
-          setStore("parts", messageID, produce((draft: Part[]) => {
-            const idx = draft.findIndex((p) => p.id === part.id)
-            if (idx !== -1) {
-              draft[idx] = part
-            } else {
-              const callID = (part as any).callID
-              if (callID) {
-                const byCall = draft.findIndex((p) => (p as any).callID === callID)
-                if (byCall !== -1) {
-                  ;(draft[byCall] as any) = { ...draft[byCall], state: part.state }
-                  return
-                }
+          const idx = existing.findIndex((p) => p.id === part.id)
+          if (idx !== -1) {
+            setStore("parts", messageID, idx, part)
+          } else {
+            const callID = (part as any).callID
+            if (callID) {
+              const byCall = existing.findIndex((p) => (p as any).callID === callID)
+              if (byCall !== -1) {
+                const patched = { ...part, id: existing[byCall].id }
+                setStore("parts", messageID, byCall, patched)
+                break
               }
-              draft.push(part)
             }
-          }))
+            setStore("parts", messageID, existing.length, part)
+          }
           break
         }
         case "message.part.delta": {
@@ -424,8 +448,8 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         }
         case "message.removed": {
           const props = payload.properties as { sessionID?: string; messageID?: string }
-          if (!props.messageID) break
-          setStore(produce((draft) => {
+           if (!props.messageID) break
+           setStore(produce((draft) => {
             const idx = draft.messages.findIndex((m) => m.id === props.messageID)
             if (idx !== -1) draft.messages.splice(idx, 1)
             delete draft.parts[props.messageID!]

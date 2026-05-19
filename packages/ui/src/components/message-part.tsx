@@ -1214,6 +1214,7 @@ export interface ToolProps {
   tool: string
   output?: string
   status?: string
+  progress?: string[]
   hideDetails?: boolean
   defaultOpen?: boolean
   forceOpen?: boolean
@@ -1354,6 +1355,11 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
               // @ts-expect-error
               output={part().state.output}
               status={part().state.status}
+              // @ts-expect-error
+              progress={part().state.progress}
+              // @ts-expect-error
+              callID={(part() as any).callID}
+              messageID={(part() as any).messageID}
               hideDetails={props.hideDetails}
               defaultOpen={props.defaultOpen}
             />
@@ -1755,7 +1761,21 @@ ToolRegistry.register({
       if (typeof value === "string" && value) return value
       return childSessionId()
     })
-    const running = createMemo(() => props.status === "pending" || props.status === "running")
+    const callID = () => (props as any).callID as string | undefined
+
+    const progress = createMemo<string[]>(() => {
+      const cid = callID()
+      const fromStore = cid ? (data.store as any).partProgress?.[cid] : undefined
+      if (cid) {
+        console.log('[partProgress] task render', { callID: cid, fromStore: fromStore?.length, propsProgress: Array.isArray(props.progress) ? props.progress.length : 'no-props', storeKeys: Object.keys((data.store as any).partProgress ?? {}) })
+      }
+      if (Array.isArray(fromStore)) return fromStore.filter((v: unknown) => typeof v === "string")
+      const raw = props.progress
+      if (!Array.isArray(raw)) return []
+      return raw.filter((v: unknown) => typeof v === "string")
+    })
+
+    const running = createMemo(() => progress().length > 0 || props.status === "pending" || props.status === "running")
 
     const href = createMemo(() => sessionLink(childSessionId(), location.pathname, data.sessionHref))
 
@@ -1788,7 +1808,23 @@ ToolRegistry.register({
       </div>
     )
 
-    return <BasicTool icon="task" status={props.status} trigger={trigger()} hideDetails />
+    const showProgress = createMemo(() => running() && progress().length > 0)
+    return (
+      <>
+        <BasicTool icon="task" status={props.status} trigger={trigger()} hideDetails />
+        <Show when={showProgress()}>
+          <div data-component="task-progress" style={{ "margin-left": "24px" }}>
+            <For each={progress()}>
+              {(item) => (
+                <div data-slot="task-progress-item" class="text-12-regular text-text-weak" style={{ "padding-left": "8px" }}>
+                  {item}
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
+      </>
+    )
   },
 })
 

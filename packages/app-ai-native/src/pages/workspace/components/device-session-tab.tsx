@@ -355,7 +355,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
               if (callID) {
                 const byCall = draft.findIndex((p) => (p as any).callID === callID)
                 if (byCall !== -1) {
-                  ;(draft[byCall] as any) = { ...draft[byCall], state: part.state }
+                  draft[byCall] = { ...part, id: draft[byCall].id }
                   return
                 }
               }
@@ -436,6 +436,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
     limit: number
     message: Record<string, Message[]>
     part: Record<string, Part[]>
+    partProgress: Record<string, string[]>
   }
 
   const [syncData, setSyncData] = createStore<SyncDataShape>({
@@ -461,6 +462,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
     limit: 50,
     message: {},
     part: {},
+    partProgress: {},
   })
 
   createEffect(() => {
@@ -497,6 +499,11 @@ export function DeviceSessionTab(props: { tabId: string }) {
     const msgs = effectiveMessages()
     const cid = currentSessionID() ?? ""
     setSyncData("message", { [cid]: msgs, "": msgs, undefined: msgs })
+  })
+  createEffect(() => {
+    const pp = session.data.partProgress
+    console.log('[partProgress] sync to syncData, keys:', Object.keys(pp), 'counts:', Object.fromEntries(Object.entries(pp).map(([k, v]) => [k, (v as string[]).length])))
+    setSyncData("partProgress", pp)
   })
 
   const syncSet = (...args: any[]) => {
@@ -819,6 +826,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
       limit: 50,
       message: {} as Record<string, Message[]>,
       part: {} as Record<string, Part[]>,
+      partProgress: {} as Record<string, string[]>,
     }
     return result
   })
