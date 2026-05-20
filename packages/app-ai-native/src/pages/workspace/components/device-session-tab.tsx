@@ -11,6 +11,7 @@ import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { Button } from "@opencode-ai/ui/button"
+import { Card } from "@opencode-ai/ui/card"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
@@ -340,6 +341,8 @@ export function DeviceSessionTab(props: { tabId: string }) {
           if (!part?.id) break
           const messageID = part.messageID
           if (!messageID) break
+          const partCallID = (part as any).callID as string | undefined
+          const partStatus = (part as any).state?.status as string | undefined
           const existing = loadedParts[messageID]
           if (!existing) {
             setLoadedParts(messageID, [part])
@@ -347,8 +350,19 @@ export function DeviceSessionTab(props: { tabId: string }) {
           }
           setLoadedParts(messageID, produce((draft: Part[]) => {
             const idx = draft.findIndex((p) => p.id === part.id)
-            if (idx !== -1) draft[idx] = part
-            else draft.push(part)
+            if (idx !== -1) {
+              draft[idx] = part
+            } else {
+              const callID = (part as any).callID
+              if (callID) {
+                const byCall = draft.findIndex((p) => (p as any).callID === callID)
+                if (byCall !== -1) {
+                  draft[byCall] = { ...part, id: draft[byCall].id }
+                  return
+                }
+              }
+              draft.push(part)
+            }
           }))
           break
         }
@@ -424,6 +438,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
     limit: number
     message: Record<string, Message[]>
     part: Record<string, Part[]>
+    partProgress: Record<string, string[]>
   }
 
   const [syncData, setSyncData] = createStore<SyncDataShape>({
@@ -449,6 +464,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
     limit: 50,
     message: {},
     part: {},
+    partProgress: {},
   })
 
   createEffect(() => {
@@ -485,6 +501,9 @@ export function DeviceSessionTab(props: { tabId: string }) {
     const msgs = effectiveMessages()
     const cid = currentSessionID() ?? ""
     setSyncData("message", { [cid]: msgs, "": msgs, undefined: msgs })
+  })
+  createEffect(() => {
+    setSyncData("partProgress", session.data.partProgress)
   })
 
   const syncSet = (...args: any[]) => {
@@ -729,7 +748,8 @@ export function DeviceSessionTab(props: { tabId: string }) {
           orphanCreated = true
         }
         if (m.parentID !== orphanID) {
-          ;(m as any).parentID = orphanID
+          enriched.push({ ...m, parentID: orphanID })
+          continue
         }
       }
       enriched.push(m)
@@ -806,6 +826,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
       limit: 50,
       message: {} as Record<string, Message[]>,
       part: {} as Record<string, Part[]>,
+      partProgress: {} as Record<string, string[]>,
     }
     return result
   })
@@ -827,10 +848,12 @@ export function DeviceSessionTab(props: { tabId: string }) {
 
   const dataProps = createMemo(() => {
     const cid = currentSessionID()
+    const parts = effectiveParts()
     return {
       ...syncData,
       message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() } as Record<string, Message[]>,
-      part: effectiveParts() as Record<string, Part[]>,
+      part: { ...parts } as Record<string, Part[]>,
+      partProgress: session.data.partProgress,
       provider: legacyProvider(workspace.data.provider),
     }
   })

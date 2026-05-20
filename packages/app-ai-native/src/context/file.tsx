@@ -22,7 +22,7 @@ import {
 } from "./file/content-cache"
 import { createFileViewCache } from "./file/view-cache"
 import { createFileTreeStore } from "./file/tree-store"
-import { invalidateFromWatcher } from "./file/watcher"
+import { invalidateFromHostWatcher } from "./file/watcher"
 import {
   selectionFromLines,
   type FileContentChunk,
@@ -256,7 +256,7 @@ export const { use: useFile, provider: FileProvider, context: FileContext } = cr
       })
 
     const stop = sdk.event.listen((e) => {
-      invalidateFromWatcher(e.details, {
+      invalidateFromHostWatcher(e.details, {
         normalize: path.normalize,
         hasFile: (file) => Boolean(store.file[file]),
         isOpen: (file) => tabs.all().some((tab) => path.pathFromTab(tab) === file),

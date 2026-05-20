@@ -1,16 +1,17 @@
 import { describe, expect, test } from "bun:test"
-import { invalidateFromWatcher } from "./watcher"
+import { invalidateFromHostWatcher } from "./watcher"
 
-describe("file watcher invalidation", () => {
-  test("reloads open files and refreshes loaded parent on add", () => {
+describe("cs-cloud host file watcher invalidation", () => {
+  test("handles host.file.created events", () => {
     const loads: string[] = []
     const refresh: string[] = []
-    invalidateFromWatcher(
+
+    invalidateFromHostWatcher(
       {
-        type: "file.watcher.updated",
+        type: "host.file.created",
         properties: {
           file: "src/new.ts",
-          event: "add",
+          timestamp: 1234567890,
         },
       },
       {
@@ -27,78 +28,49 @@ describe("file watcher invalidation", () => {
     expect(refresh).toEqual(["src"])
   })
 
-  test("reloads files that are open in tabs", () => {
+  test("handles host.file.updated events", () => {
     const loads: string[] = []
-
-    invalidateFromWatcher(
-      {
-        type: "file.watcher.updated",
-        properties: {
-          file: "src/open.ts",
-          event: "change",
-        },
-      },
-      {
-        normalize: (input) => input,
-        hasFile: () => false,
-        isOpen: (path) => path === "src/open.ts",
-        loadFile: (path) => loads.push(path),
-        node: () => ({
-          path: "src/open.ts",
-          type: "file",
-          name: "open.ts",
-          absolute: "/repo/src/open.ts",
-          ignored: false,
-        }),
-        isDirLoaded: () => false,
-        refreshDir: () => {},
-      },
-    )
-
-    expect(loads).toEqual(["src/open.ts"])
-  })
-
-  test("refreshes only changed loaded directory nodes", () => {
     const refresh: string[] = []
 
-    invalidateFromWatcher(
+    invalidateFromHostWatcher(
       {
-        type: "file.watcher.updated",
+        type: "host.file.updated",
         properties: {
-          file: "src",
-          event: "change",
+          file: "src/updated.ts",
+          timestamp: 1234567890,
         },
       },
       {
         normalize: (input) => input,
-        hasFile: () => false,
-        loadFile: () => {},
-        node: () => ({ path: "src", type: "directory", name: "src", absolute: "/repo/src", ignored: false }),
+        hasFile: (path) => path === "src/updated.ts",
+        loadFile: (path) => loads.push(path),
+        node: () => undefined,
         isDirLoaded: (path) => path === "src",
         refreshDir: (path) => refresh.push(path),
       },
     )
 
-    invalidateFromWatcher(
+    expect(loads).toEqual(["src/updated.ts"])
+    expect(refresh).toEqual(["src"])
+  })
+
+  test("handles host.file.deleted events", () => {
+    const refresh: string[] = []
+
+    invalidateFromHostWatcher(
       {
-        type: "file.watcher.updated",
+        type: "host.file.deleted",
         properties: {
-          file: "src/file.ts",
-          event: "change",
+          file: "src/deleted.ts",
+          timestamp: 1234567890,
         },
       },
       {
         normalize: (input) => input,
         hasFile: () => false,
         loadFile: () => {},
-        node: () => ({
-          path: "src/file.ts",
-          type: "file",
-          name: "file.ts",
-          absolute: "/repo/src/file.ts",
-          ignored: false,
-        }),
-        isDirLoaded: () => true,
+        node: () => undefined,
+        isDirLoaded: (path) => path === "src",
         refreshDir: (path) => refresh.push(path),
       },
     )
@@ -106,44 +78,79 @@ describe("file watcher invalidation", () => {
     expect(refresh).toEqual(["src"])
   })
 
-  test("ignores invalid or git watcher updates", () => {
+  test("handles host.file.renamed events", () => {
     const refresh: string[] = []
 
-    invalidateFromWatcher(
+    invalidateFromHostWatcher(
       {
-        type: "file.watcher.updated",
+        type: "host.file.renamed",
         properties: {
-          file: ".git/index.lock",
-          event: "change",
+          file: "src/old.ts",
+          timestamp: 1234567890,
         },
-      },
-      {
-        normalize: (input) => input,
-        hasFile: () => true,
-        loadFile: () => {
-          throw new Error("should not load")
-        },
-        node: () => undefined,
-        isDirLoaded: () => true,
-        refreshDir: (path) => refresh.push(path),
-      },
-    )
-
-    invalidateFromWatcher(
-      {
-        type: "project.updated",
-        properties: {},
       },
       {
         normalize: (input) => input,
         hasFile: () => false,
         loadFile: () => {},
         node: () => undefined,
+        isDirLoaded: (path) => path === "src",
+        refreshDir: (path) => refresh.push(path),
+      },
+    )
+
+    expect(refresh).toEqual(["src"])
+  })
+
+  test("ignores git files in host events", () => {
+    const loads: string[] = []
+    const refresh: string[] = []
+
+    invalidateFromHostWatcher(
+      {
+        type: "host.file.updated",
+        properties: {
+          file: ".git/index",
+          timestamp: 1234567890,
+        },
+      },
+      {
+        normalize: (input) => input,
+        hasFile: () => true,
+        loadFile: (path) => loads.push(path),
+        node: () => undefined,
         isDirLoaded: () => true,
         refreshDir: (path) => refresh.push(path),
       },
     )
 
+    expect(loads).toEqual([])
+    expect(refresh).toEqual([])
+  })
+
+  test("ignores non-host events", () => {
+    const loads: string[] = []
+    const refresh: string[] = []
+
+    invalidateFromHostWatcher(
+      {
+        type: "file.watcher.updated",
+        properties: {
+          file: "test.ts",
+          event: "change",
+        },
+      },
+      {
+        normalize: (input) => input,
+        hasFile: () => true,
+        loadFile: (path) => loads.push(path),
+        node: () => undefined,
+        isDirLoaded: () => true,
+        refreshDir: (path) => refresh.push(path),
+      },
+    )
+
+    expect(loads).toEqual([])
     expect(refresh).toEqual([])
   })
 })

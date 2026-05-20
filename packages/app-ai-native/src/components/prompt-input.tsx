@@ -1506,7 +1506,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 <span class="truncate text-13-medium text-text-strong">{language.t("prompt.mode.shell")}</span>
                 <div class="size-4 shrink-0" />
               </div>
-              <div class="flex items-center gap-1.5 min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
                 <TooltipKeybind
                   placement="top"
                   gutter={4}
@@ -1518,7 +1518,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     options={agentNames()}
                     current={local.agent.current()?.name ?? ""}
                     onSelect={local.agent.set}
-                    class="capitalize max-w-[160px]"
+                    class="capitalize max-w-[72px] min-w-0 shrink"
                     valueClass="truncate text-13-regular"
                     triggerStyle={{
                       height: "28px",
@@ -1543,7 +1543,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         as="div"
                         variant="ghost"
                         size="normal"
-                        class="min-w-0 max-w-[320px] text-13-regular group"
+                        class="min-w-0 max-w-[120px] shrink text-13-regular group"
                         style={{
                           height: "28px",
                           opacity: buttonsSpring(),
@@ -1586,7 +1586,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                           filter: `blur(${(1 - buttonsSpring()) * 2}px)`,
                           "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
                         },
-                        class: "min-w-0 max-w-[320px] text-13-regular group",
+                        class: "min-w-0 max-w-[120px] shrink text-13-regular group",
                       }}
                     >
                       <Show when={local.model.current()?.provider?.id}>
@@ -1616,7 +1616,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       current={local.model.variant.current() ?? "default"}
                       label={(x) => (x === "default" ? language.t("common.default") : x)}
                       onSelect={(x) => local.model.variant.set(x === "default" ? undefined : x)}
-                      class="capitalize max-w-[160px]"
+                      class="capitalize max-w-[72px] min-w-0 shrink"
                       valueClass="truncate text-13-regular"
                       triggerStyle={{
                         height: "28px",
@@ -1640,8 +1640,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     )}
                     keybind={command.keybind("permissions.autoaccept")}
                   >
+                    {/* Full label (wider screens) */}
                     <label
-                      class="flex items-center gap-1.5 shrink-0 cursor-pointer select-none h-7"
+                      class="hidden sm:flex items-center gap-1.5 shrink-0 cursor-pointer select-none h-7"
                       style={{
                         opacity: buttonsSpring(),
                         transform: `scale(${0.95 + buttonsSpring() * 0.05})`,
@@ -1659,6 +1660,25 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         {language.t("command.permissions.autoaccept.enable")}
                       </span>
                     </label>
+                    {/* Icon-only (smaller screens) */}
+                    <IconButton
+                      class="sm:hidden"
+                      icon="check"
+                      variant={accepting() ? "primary" : "ghost"}
+                      size="small"
+                      style={{
+                        opacity: buttonsSpring(),
+                        transform: `scale(${0.95 + buttonsSpring() * 0.05})`,
+                        filter: `blur(${(1 - buttonsSpring()) * 2}px)`,
+                        "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
+                      }}
+                      onClick={() => permission.toggleAutoAccept(sid(), sdk.directory)}
+                      aria-label={language.t(
+                        accepting()
+                          ? "command.permissions.autoaccept.disable"
+                          : "command.permissions.autoaccept.enable",
+                      )}
+                    />
                   </TooltipKeybind>
                 </Show>
               </div>

@@ -13,6 +13,7 @@ import { usePlatform } from "@/context/platform"
 import { type Locale, useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
 import { appPath } from "@/lib/router"
+import { useSyncMobileRoute } from "@/lib/mobile"
 import { getLoginUrl } from "@/pages/store/lib/auth"
 
 function item(on: boolean) {
@@ -173,7 +174,14 @@ export default function RootLayout(props: ParentProps) {
   const language = useLanguage()
   const auth = useAuth()
 
+  useSyncMobileRoute()
+
   const appPathname = () => appPath(location.pathname)
+
+  const isMobileWorkspace = () => {
+    const path = appPathname()
+    return path === "/m/workspace" || path.startsWith("/m/workspace/")
+  }
 
   const isWorkspace = () => {
     const path = appPathname()
@@ -206,59 +214,47 @@ export default function RootLayout(props: ParentProps) {
 
   return (
     <div class="flex h-full w-full overflow-hidden">
-      <aside
-        data-component="root-layout-nav"
-        class="fixed inset-y-0 left-0 z-40 flex w-12 flex-col items-center border-r border-[color:color-mix(in_srgb,var(--native-border)_20%,transparent)] bg-[var(--native-panel)] py-4 transition-opacity duration-200"
-      >
-        <nav class="flex flex-1 flex-col gap-2">
-          <NavButton
-            icon="store"
-            label={language.t("sidebar.store")}
-            active={isStore()}
-            onClick={() => navigate("/store")}
-          />
-          {/* <NavButton
-            icon="inbox"
-            label={language.t("sidebar.projects")}
-            active={isProjects()}
-            onClick={() => navigate("/projects")}
-          /> */}
-          <NavButton
-            icon="folder"
-            label={language.t("sidebar.workspace")}
-            active={isWorkspace()}
-            onClick={() => navigate(lastWorkspace)}
-          />
-          <Show when={auth.canAccessMenu("kanban")}>
+      <Show when={!isMobileWorkspace()}>
+        <aside
+          data-component="root-layout-nav"
+          class="fixed inset-y-0 left-0 z-40 flex w-12 flex-col items-center border-r border-[color:color-mix(in_srgb,var(--native-border)_20%,transparent)] bg-[var(--native-panel)] py-4 transition-opacity duration-200"
+        >
+          <nav class="flex flex-1 flex-col gap-2">
             <NavButton
-              label={language.t("sidebar.kanban")}
-              active={isKanban()}
-              onClick={() => navigate("/kanban")}
-              node={<Gauge size={18} strokeWidth={1.75} aria-hidden="true" />}
+              icon="store"
+              label={language.t("sidebar.store")}
+              active={isStore()}
+              onClick={() => navigate("/store")}
             />
-          </Show>
-        </nav>
-        <div class="mt-auto flex flex-col gap-2">
-          <UserButton />
-          <NavButton
-            icon="configuration"
-            label={language.t("sidebar.console")}
-            active={isConsole()}
-            onClick={() => navigate("/console/devices")}
-          />
-          <Tooltip placement="right" value={language.t("sidebar.help")}>
-            <button
-              type="button"
-              onClick={() => platform.openLink("https://docs.costrict.ai/cli/guide/installation")}
-              class={item(false)}
-              aria-label={language.t("sidebar.help")}
-            >
-              <Icon name="help" size="normal" />
-            </button>
-          </Tooltip>
-        </div>
-      </aside>
-      <div class="flex-1 min-w-0 h-full overflow-hidden ml-[48px] flex flex-col">{props.children}</div>
+            <NavButton
+              icon="folder"
+              label={language.t("sidebar.workspace")}
+              active={isWorkspace()}
+              onClick={() => navigate(lastWorkspace)}
+            />
+          </nav>
+          <div class="mt-auto flex flex-col gap-2">
+            <UserButton />
+            <NavButton
+              icon="configuration"
+              label={language.t("sidebar.console")}
+              active={isConsole()}
+              onClick={() => navigate("/console/devices")}
+            />
+            <Tooltip placement="right" value={language.t("sidebar.help")}>
+              <button
+                type="button"
+                onClick={() => platform.openLink("https://docs.costrict.ai/cli/guide/installation")}
+                class={item(false)}
+                aria-label={language.t("sidebar.help")}
+              >
+                <Icon name="help" size="normal" />
+              </button>
+            </Tooltip>
+          </div>
+        </aside>
+      </Show>
+      <div class="flex-1 min-w-0 h-full overflow-hidden flex flex-col" classList={{ "ml-[48px]": !isMobileWorkspace() }}>{props.children}</div>
     </div>
   )
 }

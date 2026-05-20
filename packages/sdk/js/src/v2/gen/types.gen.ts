@@ -732,6 +732,7 @@ export type ToolStateRunning = {
   metadata?: {
     [key: string]: unknown
   }
+  progress?: string[]
   time: {
     start: number
   }

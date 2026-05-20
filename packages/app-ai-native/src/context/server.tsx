@@ -106,7 +106,9 @@ export const { use: useServer, provider: ServerProvider } = createSimpleContext(
     const healthy = () => state.healthy
 
     function setActive(input: ServerConnection.Key) {
-      if (state.active !== input) setState("active", input)
+      if (state.active !== input) {
+        setState("active", input)
+      }
     }
 
     function add(input: ServerConnection.Http) {
