@@ -76,6 +76,12 @@ export const env = {
   get API_URL() {
     return getEnv("VITE_API_URL", "")
   },
+  get QUOTA_PREFIX() {
+    return getEnv("VITE_QUOTA_PREFIX", "")
+  },
+  get QUOTA_URL() {
+    return getEnv("VITE_QUOTA_URL", "")
+  },
 
   // Base path for subdirectory deployment (e.g., "/costrict-web-portal")
   get BASE_PATH() {

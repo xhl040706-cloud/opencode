@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
   const cloudTarget = `https://${cloudHost}`
   const appPort = parseInt(env.VITE_APP_PORT ?? "3000")
   const prefix = env.VITE_API_PREFIX ?? ""
+  const quotaPrefix = env.VITE_QUOTA_PREFIX ?? ""
   const basePath = env.VITE_BASE_PATH ?? "/"
   const apiPrefix = `${prefix}/api`
   const v2Prefix = `${prefix}/api/v2`
@@ -70,7 +71,7 @@ export default defineConfig(({ mode }) => {
             return path.replace(new RegExp(`^${prefix}`), "/cloud-api")
           },
         },
-        '/quota-manager': {
+        [`${quotaPrefix}/quota-manager`]: {
           target: cloudTarget,
           changeOrigin: true,
           headers: {

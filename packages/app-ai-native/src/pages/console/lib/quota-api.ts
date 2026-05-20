@@ -1,4 +1,21 @@
-import { apiFetch } from "@/pages/store/lib/api"
+import { env } from "@/lib/env"
+
+const QUOTA_PREFIX = env.QUOTA_PREFIX
+const QUOTA_BASE = env.QUOTA_URL || QUOTA_PREFIX
+
+export async function quotaApiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers =
+    options?.body instanceof FormData ? options?.headers : { "Content-Type": "application/json", ...options?.headers }
+  const res = await fetch(`${QUOTA_BASE}${path}`, {
+    ...options,
+    headers,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }))
+    throw new Error(err.error || err.message || `Request failed: ${res.status}`)
+  }
+  return res.json()
+}
 
 function getAuthHeaders(): Record<string, string> {
   const match = document.cookie.match(/(?:^|;\s*)zgsmAdminToken=([^;]+)/)
@@ -54,7 +71,7 @@ export interface ApiResponse<T = unknown> {
 }
 
 export async function getUserQuota(): Promise<GetUserQuotaRes> {
-  const res = await apiFetch<ApiResponse<GetUserQuotaRes>>("/quota-manager/api/v1/quota", {
+  const res = await quotaApiFetch<ApiResponse<GetUserQuotaRes>>("/quota-manager/api/v1/quota", {
     credentials: "include",
     headers: getAuthHeaders(),
   })
@@ -69,7 +86,7 @@ export async function getUsageStatistics(params: GetUsageStatisticsReq): Promise
   if (params.end_time) query.set("end_time", params.end_time)
   if (params.time_range) query.set("time_range", params.time_range)
 
-  const res = await apiFetch<ApiResponse<GetUsageStatisticsRes>>(
+  const res = await quotaApiFetch<ApiResponse<GetUsageStatisticsRes>>(
     `/quota-manager/api/v1/usage/statistics?${query.toString()}`,
     { credentials: "include", headers: getAuthHeaders() }
   )
