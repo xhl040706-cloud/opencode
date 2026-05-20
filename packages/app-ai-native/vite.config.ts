@@ -15,6 +15,16 @@ export default defineConfig(({ mode }) => {
   const v2Prefix = `${prefix}/api/v2`
   const cookie = env.VITE_API_COOKIE
 
+  // Extract JWT from cookie string for Authorization header
+  // Cookie format: zgsmAdminToken=<jwt>
+  let authToken = ""
+  if (cookie) {
+    const match = cookie.match(/zgsmAdminToken=([^;]+)/)
+    if (match) {
+      authToken = `Bearer ${match[1]}`
+    }
+  }
+
   return {
     base: basePath,
     plugins: [desktopPlugin] as any,
@@ -58,6 +68,14 @@ export default defineConfig(({ mode }) => {
             }
 
             return path.replace(new RegExp(`^${prefix}`), "/cloud-api")
+          },
+        },
+        '/quota-manager': {
+          target: cloudTarget,
+          changeOrigin: true,
+          headers: {
+            Cookie: cookie,
+            Authorization: authToken,
           },
         },
       },

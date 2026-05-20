@@ -49,6 +49,7 @@ function UserButton() {
   const { user, logout } = useAuth()
   const language = useLanguage()
   const theme = useTheme()
+  const navigate = useNavigate()
   const displayName = () => user()?.name || user()?.preferred_username || user()?.email || ""
   const username = () => user()?.preferred_username || user()?.email || user()?.name || ""
   const subjectId = () => user()?.subjectId || user()?.id || ""
@@ -155,9 +156,6 @@ function UserButton() {
               </button>
             </div>
             <DropdownMenu.Separator class="my-0 mx-0" />
-            <DropdownMenu.Item onSelect={() => window.open("/credit/manager/?tab=usage", "_blank")}>
-              <DropdownMenu.ItemLabel>{language.t("sidebar.user.creditUsage")}</DropdownMenu.ItemLabel>
-            </DropdownMenu.Item>
             <DropdownMenu.Item onSelect={logout}>
               <DropdownMenu.ItemLabel>{language.t("sidebar.user.signOut")}</DropdownMenu.ItemLabel>
             </DropdownMenu.Item>
