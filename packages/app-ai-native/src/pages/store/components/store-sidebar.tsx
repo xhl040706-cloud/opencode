@@ -12,9 +12,10 @@ const BROWSE_NAV = [
   { href: "/store?type=subagent", labelKey: "store.sidebar.nav.subagents", icon: "brain" as IconProps["name"], statKey: "subagent" },
   { href: "/store?type=command", labelKey: "store.sidebar.nav.commands", icon: "console" as IconProps["name"], statKey: "command" },
   { href: "/store?type=mcp", labelKey: "store.sidebar.nav.mcpServers", icon: "mcp" as IconProps["name"], statKey: "mcp" },
+  { href: "/store?type=plugin", labelKey: "store.sidebar.nav.plugins", icon: "configuration" as IconProps["name"], statKey: "plugin" },
 ] as const
 
-type StoreType = "skill" | "subagent" | "command" | "mcp"
+type StoreType = "skill" | "subagent" | "command" | "mcp" | "plugin"
 
 export default function StoreSidebar() {
   const location = useLocation()

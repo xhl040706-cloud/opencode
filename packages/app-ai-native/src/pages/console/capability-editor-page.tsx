@@ -27,7 +27,7 @@ import { getInstallCommand } from "@/pages/store/components/item-detail-content"
 import { TagInput } from "@/pages/console/components/tag-input"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
 
-type ItemType = "skill" | "subagent" | "command" | "mcp"
+type ItemType = "skill" | "subagent" | "command" | "mcp" | "plugin"
 
 type NamespaceOption = {
   value: string
@@ -73,6 +73,7 @@ const TYPE_DROPDOWN_LABELS_ZH: Record<ItemType, string> = {
   subagent: "子智能体（Subagent）",
   command: "命令（Command）",
   mcp: "MCP 服务器（MCP Server）",
+  plugin: "插件（Plugin）",
 }
 
 const TEXT_FILE_EXTENSIONS = new Set([
