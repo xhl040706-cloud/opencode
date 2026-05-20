@@ -69,6 +69,14 @@ const STORE_TYPES = [
     color: "#7338f9",
     bg: "#EDE9FE",
   },
+  {
+    value: "plugin",
+    labelKey: "store.sidebar.nav.plugins",
+    descKey: "store.home.type.plugin.description",
+    icon: "configuration" as IconProps["name"],
+    color: "#EC4899",
+    bg: "#FCE7F3",
+  },
 ] as const
 
 type StoreType = (typeof STORE_TYPES)[number]["value"]
@@ -190,6 +198,7 @@ export default function Home() {
       subagent: "store.searchSubagents",
       command: "store.searchCommands",
       mcp: "store.searchMcpServers",
+      plugin: "store.searchPlugins",
     }
     return map[activeType()]
   })
