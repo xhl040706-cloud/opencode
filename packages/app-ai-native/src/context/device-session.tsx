@@ -386,12 +386,9 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           const partCallID = (part as any).callID as string | undefined
           const partProgress = (part as any).state?.progress as string[] | undefined
           if (partCallID) {
-            const partStatus = (part as any).state?.status as string | undefined
             if (partStatus === "completed" || partStatus === "error") {
-              console.log('[partProgress] CLEAR on', partStatus, partCallID)
               setStore("partProgress", partCallID, undefined as any)
             } else if (Array.isArray(partProgress)) {
-              console.log('[partProgress] SET', partCallID, 'len:', partProgress.length, 'items:', partProgress)
               setStore("partProgress", partCallID, partProgress.length > 10 ? partProgress.slice(-10) : partProgress)
             }
           }

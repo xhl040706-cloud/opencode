@@ -341,6 +341,8 @@ export function DeviceSessionTab(props: { tabId: string }) {
           if (!part?.id) break
           const messageID = part.messageID
           if (!messageID) break
+          const partCallID = (part as any).callID as string | undefined
+          const partStatus = (part as any).state?.status as string | undefined
           const existing = loadedParts[messageID]
           if (!existing) {
             setLoadedParts(messageID, [part])
@@ -501,9 +503,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
     setSyncData("message", { [cid]: msgs, "": msgs, undefined: msgs })
   })
   createEffect(() => {
-    const pp = session.data.partProgress
-    console.log('[partProgress] sync to syncData, keys:', Object.keys(pp), 'counts:', Object.fromEntries(Object.entries(pp).map(([k, v]) => [k, (v as string[]).length])))
-    setSyncData("partProgress", pp)
+    setSyncData("partProgress", session.data.partProgress)
   })
 
   const syncSet = (...args: any[]) => {
@@ -848,10 +848,12 @@ export function DeviceSessionTab(props: { tabId: string }) {
 
   const dataProps = createMemo(() => {
     const cid = currentSessionID()
+    const parts = effectiveParts()
     return {
       ...syncData,
       message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() } as Record<string, Message[]>,
-      part: effectiveParts() as Record<string, Part[]>,
+      part: { ...parts } as Record<string, Part[]>,
+      partProgress: session.data.partProgress,
       provider: legacyProvider(workspace.data.provider),
     }
   })

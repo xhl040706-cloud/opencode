@@ -1766,9 +1766,6 @@ ToolRegistry.register({
     const progress = createMemo<string[]>(() => {
       const cid = callID()
       const fromStore = cid ? (data.store as any).partProgress?.[cid] : undefined
-      if (cid) {
-        console.log('[partProgress] task render', { callID: cid, fromStore: fromStore?.length, propsProgress: Array.isArray(props.progress) ? props.progress.length : 'no-props', storeKeys: Object.keys((data.store as any).partProgress ?? {}) })
-      }
       if (Array.isArray(fromStore)) return fromStore.filter((v: unknown) => typeof v === "string")
       const raw = props.progress
       if (!Array.isArray(raw)) return []
