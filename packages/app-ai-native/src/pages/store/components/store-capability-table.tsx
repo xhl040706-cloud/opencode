@@ -11,7 +11,7 @@ import { tagApi, type CapabilityItem, type Category, type ItemOrder, type ItemSo
 import { st, sx } from "../lib/styles"
 import SecurityTag from "./security-tag"
 
-export type TableColumnKey = "title" | "description" | "type" | "category" | "security" | "tag" | "source" | "experienceScore" | "favorite" | "updated" | "action"
+export type TableColumnKey = "title" | "description" | "type" | "category" | "security" | "tag" | "source" | "experienceScore" | "favorite" | "updated"
 
 type SecurityFilterValue = SecurityRiskGroup
 type TagLayout = { visibleCount: number, hiddenCount: number }
@@ -58,7 +58,6 @@ export const DEFAULT_VISIBLE_COLUMNS: Record<TableColumnKey, boolean> = {
   experienceScore: true,
   favorite: true,
   updated: true,
-  action: false,
 }
 
 export function buildStoreTableColumnOptions(t: (key: string) => string) {
@@ -73,7 +72,6 @@ export function buildStoreTableColumnOptions(t: (key: string) => string) {
     { key: "experienceScore" as const, label: t("store.home.table.experienceScore") },
     { key: "favorite" as const, label: t("store.home.table.favoriteCount") },
     { key: "updated" as const, label: t("store.detail.updated") },
-    { key: "action" as const, label: t("store.home.table.action") },
   ]
 }
 
@@ -774,7 +772,6 @@ export function StoreCapabilityTable(props: {
     unfavoriteTooltip: string
     favoriteSignInTooltip: string
     updated: string
-    action: string
     toggleColumns: string
     noResults: string
     reset: string
@@ -786,7 +783,6 @@ export function StoreCapabilityTable(props: {
     tagLimitHint: string
   }
   emptyMessage: string
-  renderActions: (item: CapabilityItem) => JSX.Element
   typeLabel?: (value: string) => string
   maxVisibleRows?: number
   fixedRows?: boolean
@@ -966,11 +962,6 @@ export function StoreCapabilityTable(props: {
                   </button>
                 </th>
               </Show>
-              <Show when={isColumnVisible("action")}>
-                <th class={cn("h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0", sx.th, sx.colAction, stickyHeadClass, "text-right")}>
-                  {props.labels.action}
-                </th>
-              </Show>
               <th class={cn("h-10 w-8 min-w-8 px-1 align-middle", stickyHeadClass)}>
                 <ColumnToggleMenu
                   columnOptions={props.columnOptions}
@@ -1064,7 +1055,7 @@ export function StoreCapabilityTable(props: {
                             props.onToggleFavorite?.(item)
                           }}
                         >
-                          <LocalIcon name={item.favorited ? "star-filled" : "star"} size="small" style={{ color: props.favoriteIconColor(item.favorited, item.itemType) }} />
+                          <LocalIcon name={item.favorited ? "subscribe-filled" : "subscribe"} size="small" style={{ color: props.favoriteIconColor(item.favorited, item.itemType) }} />
                         </button>
                         <span class="inline-flex h-4 items-center leading-4" title={(item.favoriteCount ?? 0).toLocaleString()}>
                           {props.formatCompact(item.favoriteCount ?? 0)}
@@ -1076,11 +1067,6 @@ export function StoreCapabilityTable(props: {
                 <Show when={isColumnVisible("updated")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colUpdated, sx.mut)}>
                     {props.formatDate(item.updatedAt)}
-                  </td>
-                </Show>
-                <Show when={isColumnVisible("action")}>
-                  <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colAction, "text-right")} onClick={(e: MouseEvent) => e.stopPropagation()}>
-                    {props.renderActions(item)}
                   </td>
                 </Show>
                 <td class="w-8 min-w-8 px-1"></td>

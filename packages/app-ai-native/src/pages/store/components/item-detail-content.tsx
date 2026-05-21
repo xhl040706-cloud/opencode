@@ -307,7 +307,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                       >
                         <span class="inline-flex items-center" style={{ width: "14px", height: "14px" }}>
                           <LocalIcon
-                            name={props.favorited ? "star-filled" : "star"}
+                            name={props.favorited ? "subscribe-filled" : "subscribe"}
                             size="small"
                             style={{
                               color: props.favorited
@@ -393,7 +393,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             class="inline-flex items-center gap-1.5"
                             title={`${language.t("store.detail.favoriteCount")}: ${(props.favoriteCount ?? data().favoriteCount ?? 0).toLocaleString()}`}
                           >
-                            <LocalIcon name="star" size="small" />
+                            <LocalIcon name="subscribe" size="small" />
                             <span>{formatCompactCount(props.favoriteCount ?? data().favoriteCount ?? 0)}</span>
                           </span>
                           <Show when={data().source}>
