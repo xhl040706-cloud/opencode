@@ -333,10 +333,11 @@ export function Markdown(
         wasHidden = true
       } else if (wasHidden) {
         wasHidden = false
-        // 页面重新可见时，强制全量渲染以显示最新完整内容
-        if (content) {
-          render(container, content)
-          prevContent = content
+        // 页面重新可见时，重新获取最新内容并强制全量渲染
+        const latestContent = local.text ? (html.latest ?? html() ?? "") : ""
+        if (latestContent) {
+          render(container, latestContent)
+          prevContent = latestContent
         }
       }
     }
