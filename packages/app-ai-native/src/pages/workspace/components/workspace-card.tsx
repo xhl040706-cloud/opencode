@@ -272,27 +272,27 @@ export function WorkspaceCard(props: WorkspaceCardProps) {
                   >
                     <div class="flex items-center gap-1.5">
                       <span class="flex items-center gap-1 shrink-0">
-                        <Show when={summary()?.dirty === undefined || (summary()?.aheadCount ?? 0) === 0 && (summary()?.behindCount ?? 0) === 0}>
-                          <span
-                            class={`size-2 rounded-full ${
-                              summary()?.dirty === undefined
-                                ? "bg-sidebar-foreground/30"
-                                : summary()?.dirty
-                                ? "bg-git-dirty"
-                                : "bg-git-clean"
-                            }`}
-                            title={summary()?.dirty === undefined ? "" : summary()?.dirty ? "Dirty" : "Clean"}
-                          />
+                        <Show when={summary()?.dirty === undefined || summary()?.dirty === true}>
+                          <Show when={(summary()?.aheadCount ?? 0) === 0 && (summary()?.behindCount ?? 0) === 0}>
+                            <span
+                              class={`size-2 rounded-full ${
+                                summary()?.dirty === undefined
+                                  ? "bg-sidebar-foreground/30"
+                                  : "bg-git-dirty"
+                              }`}
+                              title={summary()?.dirty ? "Dirty" : ""}
+                            />
+                          </Show>
                         </Show>
                         <Show when={(summary()?.aheadCount ?? 0) > 0 || (summary()?.behindCount ?? 0) > 0}>
                           <span
                             class="rounded-full text-[10px] font-medium tabular-nums"
                             style={
                               summary()?.dirty === undefined
-                                ? { "background-color": "var(--sidebar-foreground)", color: "var(--sidebar-foreground)", padding: "2px 6px", "line-height": "1" }
+                                ? { "background-color": "color-mix(in oklab, var(--sidebar-foreground) 15%, transparent)", color: "var(--sidebar-foreground)", padding: "2px 6px", "line-height": "1" }
                                 : summary()?.dirty
-                                ? { "background-color": "var(--git-dirty)", color: "var(--git-dirty-foreground)", padding: "2px 6px", "line-height": "1" }
-                                : { "background-color": "var(--git-clean)", color: "var(--git-clean-foreground)", padding: "2px 6px", "line-height": "1" }
+                                ? { "background-color": "var(--git-dirty-soft)", color: "var(--git-dirty)", padding: "2px 6px", "line-height": "1" }
+                                : { "background-color": "var(--git-clean-soft)", color: "var(--git-clean)", padding: "2px 6px", "line-height": "1" }
                             }
                             title={summary()?.dirty === undefined ? "" : summary()?.dirty ? "Dirty" : "Clean"}
                           >

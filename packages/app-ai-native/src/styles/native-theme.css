@@ -76,11 +76,12 @@
   --native-info-soft: oklch(95.9% 0.025 248);
   --native-info-foreground: oklch(39.8% 0.064 248);
 
-  --git-dirty: oklch(70% 0.19 50);
-  --git-dirty-soft: oklch(96% 0.04 50);
-  --git-dirty-foreground: oklch(68% 0.19 50);
+  --git-dirty: oklch(62% 0.2 50);
+  --git-dirty-soft: oklch(88% 0.1 50);
+  --git-dirty-foreground: oklch(62% 0.2 50);
   --git-clean: oklch(44.9% 0.018 255);
-  --git-clean-foreground: oklch(59.6% 0.014 255);
+  --git-clean-soft: oklch(92% 0.008 255);
+  --git-clean-foreground: oklch(44.9% 0.018 255);
 
   --native-ring: var(--native-primary);
   --native-hover: color-mix(in oklab, var(--native-primary) 6%, transparent);
@@ -174,9 +175,10 @@
 
   --git-dirty: oklch(79.6% 0.128 66);
   --git-dirty-soft: oklch(32.8% 0.064 68);
-  --git-dirty-foreground: oklch(95.8% 0.032 72);
+  --git-dirty-foreground: oklch(79.6% 0.128 66);
   --git-clean: oklch(60.8% 0.011 255);
-  --git-clean-foreground: oklch(76.1% 0.011 255);
+  --git-clean-soft: oklch(28% 0.01 255);
+  --git-clean-foreground: oklch(60.8% 0.011 255);
 
   --native-ring: var(--native-primary);
   --native-hover: color-mix(in oklab, white 8%, transparent);
