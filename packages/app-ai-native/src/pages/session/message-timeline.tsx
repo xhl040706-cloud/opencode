@@ -301,6 +301,26 @@ export function MessageTimeline(props: {
     ),
   )
 
+  // 页面可见性检测：当页面从隐藏变为可见时，触发数据刷新
+  createEffect(() => {
+    const id = sessionID()
+    if (!id) return
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // 页面重新可见时，触发数据刷新以确保所有内容正确显示
+        // 这会让所有正在等待显示的 part 立即更新
+        sync.set(produce((draft: any) => ({ ...draft })))
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    onCleanup(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    })
+  })
+
   const openTitleEditor = () => {
     if (!sessionID()) return
     setTitle({ editing: true, draft: titleValue() ?? "" })
