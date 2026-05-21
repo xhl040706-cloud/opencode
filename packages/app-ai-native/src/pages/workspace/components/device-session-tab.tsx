@@ -374,9 +374,14 @@ export function DeviceSessionTab(props: { tabId: string }) {
           const idx = parts.findIndex((p) => p.id === d.partID)
           if (idx === -1) break
           setLoadedParts(d.messageID, idx, produce((draft: any) => {
-            const field = d.field as keyof typeof draft
-            const existing = draft[field] as string | undefined
-            ;(draft[field] as string) = (existing ?? "") + d.delta
+            if (d.field === "input" && draft.type === "tool" && draft.state) {
+              const existing = (draft.state.input as string) ?? ""
+              draft.state.input = existing + d.delta
+            } else {
+              const field = d.field as keyof typeof draft
+              const existing = draft[field] as string | undefined
+              ;(draft[field] as string) = (existing ?? "") + d.delta
+            }
           }))
           break
         }
