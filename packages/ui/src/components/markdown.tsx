@@ -287,7 +287,6 @@ export function Markdown(
   let copyCleanup: (() => void) | undefined
   let pendingRaf: number | undefined
   let prevContent: string | undefined
-  let wasHidden = false
 
   const render = (container: HTMLDivElement, content: string) => {
     const labels = {
@@ -324,24 +323,10 @@ export function Markdown(
   createEffect(() => {
     const container = root()
     const content = local.text ? (html.latest ?? html() ?? "") : ""
+    const isStreaming = local.streaming ?? false
+
     if (!container) return
     if (isServer) return
-
-    // 页面可见性检测：当页面从隐藏变为可见时，强制全量渲染
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        wasHidden = true
-      } else if (wasHidden) {
-        wasHidden = false
-        // 页面重新可见时，强制全量渲染以显示最新完整内容
-        if (content) {
-          render(container, content)
-          prevContent = content
-        }
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     if (!content) {
       container.innerHTML = ""
@@ -351,8 +336,6 @@ export function Markdown(
 
     if (content === prevContent) return
 
-    const isStreaming = local.streaming ?? false
-
     // 非流式场景（初始化加载、切换消息等）：立即全量渲染
     if (!isStreaming) {
       render(container, content)
@@ -360,36 +343,16 @@ export function Markdown(
       return
     }
 
-    // 流式场景：用 RAF 合并高频更新 + 增量追加
+    // 流式场景：用 RAF 合并高频更新，全量渲染由 morphdom 做 DOM diff
     if (pendingRaf !== undefined) return
     pendingRaf = requestAnimationFrame(() => {
       pendingRaf = undefined
       const container = root()
       if (!container) return
-
-      const prev = prevContent ?? ""
-      if (prev && content.startsWith(prev)) {
-        // 增量追加：只渲染新增部分
-        const labels = {
-          copy: i18n.t("ui.message.copy"),
-          copied: i18n.t("ui.message.copied"),
-        }
-        const newContent = content.slice(prev.length)
-        const temp = new DOMParser().parseFromString(newContent, "text/html").body as HTMLDivElement
-        decorate(temp, labels)
-        while (temp.firstChild) {
-          container.appendChild(temp.firstChild)
-        }
-      } else {
-        // 流式中内容被替换（非追加），全量渲染
-        render(container, content)
-      }
-
-      prevContent = content
-    })
-
-    onCleanup(() => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      const currentContent = local.text ? (html.latest ?? html() ?? "") : ""
+      if (currentContent === prevContent) return
+      render(container, currentContent)
+      prevContent = currentContent
     })
   })
 
