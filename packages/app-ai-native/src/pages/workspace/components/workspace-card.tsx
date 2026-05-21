@@ -262,9 +262,54 @@ export function WorkspaceCard(props: WorkspaceCardProps) {
                   <span class="shrink-0 w-2 flex items-center justify-center text-sidebar-foreground/40">
                     <Icon name="branch" size="small" class="size-3" />
                   </span>
-                  <span class="text-sm truncate text-sidebar-foreground/40">
-                    {summary()?.branch || t("workspace.sidebar.notGitRepo")}
-                  </span>
+                  <Show
+                    when={summary()?.branch}
+                    fallback={
+                      <span class="text-sm truncate text-sidebar-foreground/40">
+                        {t("workspace.sidebar.notGitRepo")}
+                      </span>
+                    }
+                  >
+                    <div class="flex items-center gap-1.5">
+                      <span class="flex items-center gap-1 shrink-0">
+                        <Show when={summary()?.dirty === undefined || (summary()?.aheadCount ?? 0) === 0 && (summary()?.behindCount ?? 0) === 0}>
+                          <span
+                            class={`size-2 rounded-full ${
+                              summary()?.dirty === undefined
+                                ? "bg-sidebar-foreground/30"
+                                : summary()?.dirty
+                                ? "bg-git-dirty"
+                                : "bg-git-clean"
+                            }`}
+                            title={summary()?.dirty === undefined ? "" : summary()?.dirty ? "Dirty" : "Clean"}
+                          />
+                        </Show>
+                        <Show when={(summary()?.aheadCount ?? 0) > 0 || (summary()?.behindCount ?? 0) > 0}>
+                          <span
+                            class="rounded-full text-[10px] font-medium tabular-nums"
+                            style={
+                              summary()?.dirty === undefined
+                                ? { "background-color": "var(--sidebar-foreground)", color: "var(--sidebar-foreground)", padding: "2px 6px", "line-height": "1" }
+                                : summary()?.dirty
+                                ? { "background-color": "var(--git-dirty)", color: "var(--git-dirty-foreground)", padding: "2px 6px", "line-height": "1" }
+                                : { "background-color": "var(--git-clean)", color: "var(--git-clean-foreground)", padding: "2px 6px", "line-height": "1" }
+                            }
+                            title={summary()?.dirty === undefined ? "" : summary()?.dirty ? "Dirty" : "Clean"}
+                          >
+                            <Show when={(summary()?.aheadCount ?? 0) > 0}>
+                              ↑{summary()?.aheadCount}
+                            </Show>
+                            <Show when={(summary()?.behindCount ?? 0) > 0}>
+                              ↓{summary()?.behindCount}
+                            </Show>
+                          </span>
+                        </Show>
+                      </span>
+                      <span class="text-sm truncate text-sidebar-foreground/40">
+                        {summary()?.branch}
+                      </span>
+                    </div>
+                  </Show>
                 </div>
                 <div class="flex items-center gap-2">
                   <span class="shrink-0 w-2 flex items-center justify-center text-sidebar-foreground/40">
