@@ -309,8 +309,9 @@ export function MessageTimeline(props: {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         // 页面重新可见时，触发数据刷新以确保所有内容正确显示
-        // 这会让所有正在等待显示的 part 立即更新
-        sync.set(produce((draft: any) => ({ ...draft })))
+        // 强制更新session messages引用，触发所有依赖的memo和effect重新执行
+        const currentMessages = sync.data.message[id] ?? []
+        sync.data.message[id] = [...currentMessages]
       }
     }
 
