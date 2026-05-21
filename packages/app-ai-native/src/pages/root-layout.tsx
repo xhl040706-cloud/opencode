@@ -232,6 +232,14 @@ export default function RootLayout(props: ParentProps) {
               active={isWorkspace()}
               onClick={() => navigate(lastWorkspace)}
             />
+            <Show when={auth.canAccessMenu("console.kanban")}>
+              <NavButton
+                label={language.t("sidebar.kanban")}
+                active={isKanban()}
+                onClick={() => navigate("/kanban")}
+                node={<Gauge size={18} strokeWidth={1.75} aria-hidden="true" />}
+              />
+            </Show>
           </nav>
           <div class="mt-auto flex flex-col gap-2">
             <UserButton />
