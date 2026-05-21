@@ -72,6 +72,7 @@ export const createScrollSpy = (input: Input) => {
   let frame: number | undefined
   let active: string | undefined
   let dirty = true
+  let moTimer: ReturnType<typeof setTimeout> | undefined
 
   const node = new Map<string, HTMLElement>()
   const id = new WeakMap<HTMLElement, string>()
@@ -84,6 +85,15 @@ export const createScrollSpy = (input: Input) => {
       frame = undefined
       update()
     })
+  }
+
+  const scheduleFromMutation = () => {
+    dirty = true
+    if (moTimer !== undefined) return
+    moTimer = setTimeout(() => {
+      moTimer = undefined
+      schedule()
+    }, 150)
   }
 
   const refreshOffset = () => {
@@ -185,10 +195,9 @@ export const createScrollSpy = (input: Input) => {
     mo = undefined
     if (CtorMO) {
       mo = new CtorMO(() => {
-        dirty = true
-        schedule()
+        scheduleFromMutation()
       })
-      mo.observe(el, { subtree: true, childList: true, characterData: true })
+      mo.observe(el, { subtree: true, childList: true })
     }
 
     dirty = true
@@ -251,7 +260,9 @@ export const createScrollSpy = (input: Input) => {
 
   const destroy = () => {
     if (frame !== undefined) caf(frame)
+    if (moTimer !== undefined) clearTimeout(moTimer)
     frame = undefined
+    moTimer = undefined
     clear()
     io?.disconnect()
     ro?.disconnect()

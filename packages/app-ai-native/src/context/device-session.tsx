@@ -422,9 +422,14 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           const idx = parts.findIndex((p) => p.id === props.partID)
           if (idx === -1) break
           setStore("parts", props.messageID, idx, produce((draft: any) => {
-            const field = props.field as keyof typeof draft
-            const existing = draft[field] as string | undefined
-            ;(draft[field] as string) = (existing ?? "") + props.delta
+            if (props.field === "input" && draft.type === "tool" && draft.state) {
+              const existing = (draft.state.input as string) ?? ""
+              draft.state.input = existing + props.delta
+            } else {
+              const field = props.field as keyof typeof draft
+              const existing = draft[field] as string | undefined
+              ;(draft[field] as string) = (existing ?? "") + props.delta
+            }
           }))
           break
         }
