@@ -76,9 +76,9 @@
   --native-info-soft: oklch(95.9% 0.025 248);
   --native-info-foreground: oklch(39.8% 0.064 248);
 
-  --git-dirty: oklch(62% 0.2 50);
-  --git-dirty-soft: oklch(88% 0.1 50);
-  --git-dirty-foreground: oklch(62% 0.2 50);
+  --git-dirty: oklch(80% 0.32 85);
+  --git-dirty-soft: oklch(90% 0.16 85);
+  --git-dirty-foreground: oklch(80% 0.32 85);
   --git-clean: oklch(44.9% 0.018 255);
   --git-clean-soft: oklch(92% 0.008 255);
   --git-clean-foreground: oklch(44.9% 0.018 255);
