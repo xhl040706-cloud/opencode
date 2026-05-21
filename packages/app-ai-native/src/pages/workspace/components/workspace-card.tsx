@@ -262,9 +262,56 @@ export function WorkspaceCard(props: WorkspaceCardProps) {
                   <span class="shrink-0 w-2 flex items-center justify-center text-sidebar-foreground/40">
                     <Icon name="branch" size="small" class="size-3" />
                   </span>
-                  <span class="text-sm truncate text-sidebar-foreground/40">
-                    {summary()?.branch || t("workspace.sidebar.notGitRepo")}
-                  </span>
+                  <Show
+                    when={summary()?.branch}
+                    fallback={
+                      <span class="text-sm truncate text-sidebar-foreground/40">
+                        {t("workspace.sidebar.notGitRepo")}
+                      </span>
+                    }
+                  >
+                    <div class="flex items-center gap-1.5">
+                      <Show when={summary()?.dirty === undefined || summary()?.dirty === true || (summary()?.aheadCount ?? 0) > 0 || (summary()?.behindCount ?? 0) > 0}>
+                        <span class="flex items-center gap-1 shrink-0">
+                          <Show when={summary()?.dirty === undefined || summary()?.dirty === true}>
+                            <Show when={(summary()?.aheadCount ?? 0) === 0 && (summary()?.behindCount ?? 0) === 0}>
+                              <span
+                                class={`size-2 rounded-full ${
+                                  summary()?.dirty === undefined
+                                    ? "bg-sidebar-foreground/30"
+                                    : "bg-git-dirty"
+                                }`}
+                                title={summary()?.dirty ? "Dirty" : ""}
+                              />
+                            </Show>
+                          </Show>
+                          <Show when={(summary()?.aheadCount ?? 0) > 0 || (summary()?.behindCount ?? 0) > 0}>
+                            <span
+                              class="rounded-full text-[10px] font-medium tabular-nums"
+                              style={
+                                summary()?.dirty === undefined
+                                  ? { "background-color": "color-mix(in oklab, var(--sidebar-foreground) 15%, transparent)", color: "var(--sidebar-foreground)", padding: "2px 6px", "line-height": "1" }
+                                  : summary()?.dirty
+                                  ? { "background-color": "var(--git-dirty-soft)", color: "var(--git-dirty)", padding: "2px 6px", "line-height": "1" }
+                                  : { "background-color": "var(--git-clean-soft)", color: "var(--git-clean)", padding: "2px 6px", "line-height": "1" }
+                              }
+                              title={summary()?.dirty === undefined ? "" : summary()?.dirty ? "Dirty" : "Clean"}
+                            >
+                              <Show when={(summary()?.aheadCount ?? 0) > 0}>
+                                ↑{summary()?.aheadCount}
+                              </Show>
+                              <Show when={(summary()?.behindCount ?? 0) > 0}>
+                                ↓{summary()?.behindCount}
+                              </Show>
+                            </span>
+                          </Show>
+                        </span>
+                      </Show>
+                      <span class="text-sm truncate text-sidebar-foreground/40">
+                        {summary()?.branch}
+                      </span>
+                    </div>
+                  </Show>
                 </div>
                 <div class="flex items-center gap-2">
                   <span class="shrink-0 w-2 flex items-center justify-center text-sidebar-foreground/40">

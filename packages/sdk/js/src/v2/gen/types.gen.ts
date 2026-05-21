@@ -2004,6 +2004,15 @@ export type Path = {
 
 export type VcsInfo = {
   branch?: string
+  remoteBranch?: string
+  dirty?: boolean
+  stagedCount?: number
+  unstagedCount?: number
+  untrackedCount?: number
+  aheadCount?: number
+  behindCount?: number
+  lastCommitHash?: string
+  lastCommitTime?: number
 }
 
 export type Command = {

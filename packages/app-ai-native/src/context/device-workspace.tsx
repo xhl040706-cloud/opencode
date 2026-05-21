@@ -3,6 +3,7 @@ import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
 import { syncSummary, clearSummary } from "./workspace-summary-store"
+import { getDirectory } from "@opencode-ai/util/path"
 import type { Session, Command, Agent, VcsInfo, SessionStatus, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 import type { ProviderCapabilitiesResponse } from "./global-sync/types"
 
@@ -351,6 +352,36 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     }
   }
 
+  let vcsRefreshTimer: ReturnType<typeof setTimeout> | undefined
+  let vcsRefreshDelay = 500
+
+  const refreshVcs = (delay?: number) => {
+    const actualDelay = delay ?? vcsRefreshDelay
+
+    if (vcsRefreshTimer) {
+      clearTimeout(vcsRefreshTimer)
+    }
+
+    vcsRefreshTimer = setTimeout(async () => {
+      vcsRefreshTimer = undefined
+      try {
+        const result = await device.client.runtime.vcs()
+        batch(() => {
+          setStore("vcs", result as VcsInfo | undefined)
+          if (props.workspaceId) {
+            syncSummary(props.workspaceId, {
+              vcs: result as VcsInfo | undefined,
+              sessionStatus: store.sessionStatus,
+              questions: store.questions,
+              permissions: store.permissions,
+              hasUnreadSession: store.session.some((s) => !s.parentID && store.unread[s.id]),
+            })
+          }
+        })
+      } catch {}
+    }, actualDelay)
+  }
+
   const listeners = new Set<(payload: EventPayload) => void>()
 
   const subscribe = (fn: (payload: EventPayload) => void) => {
@@ -462,8 +493,14 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   break
                 }
                 case "host.git.branch.changed": {
-                  const props = payload.properties as { new_branch?: string; old_branch?: string }
+                  const props = payload.properties as { new_branch?: string; old_branch?: string; repo_path?: string }
                   if (props?.new_branch == null) break
+
+                  // Filter events by repo path
+                  const eventRepoPath = props.repo_path ? getDirectory(props.repo_path) : ""
+                  const currentRepoPath = getDirectory(device.directory)
+                  if (eventRepoPath !== currentRepoPath) break
+
                   const prev = store.vcs
                   if (prev?.branch === props.new_branch) break
                   setStore("vcs", { ...prev, branch: props.new_branch })
@@ -471,12 +508,40 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   break
                 }
                 case "host.git.commit": {
-                  // New commit detected - could trigger UI updates
+                  const props = payload.properties as { repo_path?: string }
+
+                  // Filter events by repo path
+                  const eventRepoPath = props.repo_path ? getDirectory(props.repo_path) : ""
+                  const currentRepoPath = getDirectory(device.directory)
+                  if (eventRepoPath !== currentRepoPath) break
+
+                  // Git commit just completed, wait longer for status to settle
+                  refreshVcs(1000)
                   summaryChanged = true
                   break
                 }
                 case "host.git.status.changed": {
-                  // Git status changed - could refresh diff or file status
+                  const props = payload.properties as { repo_path?: string }
+
+                  // Filter events by repo path
+                  const eventRepoPath = props.repo_path ? getDirectory(props.repo_path) : ""
+                  const currentRepoPath = getDirectory(device.directory)
+                  if (eventRepoPath !== currentRepoPath) break
+
+                  refreshVcs()
+                  summaryChanged = true
+                  break
+                }
+                case "host.git.remote.changed": {
+                  const props = payload.properties as { repo_path?: string; branch?: string; old_head?: string; new_head?: string }
+
+                  // Filter events by repo path
+                  const eventRepoPath = props.repo_path ? getDirectory(props.repo_path) : ""
+                  const currentRepoPath = getDirectory(device.directory)
+                  if (eventRepoPath !== currentRepoPath) break
+
+                  // Remote branch changed (push/fetch), refresh VCS to update ahead/behind counts
+                  refreshVcs()
                   summaryChanged = true
                   break
                 }

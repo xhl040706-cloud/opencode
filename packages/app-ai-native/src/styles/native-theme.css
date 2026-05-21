@@ -75,6 +75,14 @@
   --native-info: oklch(64.2% 0.127 248);
   --native-info-soft: oklch(95.9% 0.025 248);
   --native-info-foreground: oklch(39.8% 0.064 248);
+
+  --git-dirty: oklch(62% 0.2 50);
+  --git-dirty-soft: oklch(88% 0.1 50);
+  --git-dirty-foreground: oklch(62% 0.2 50);
+  --git-clean: oklch(44.9% 0.018 255);
+  --git-clean-soft: oklch(92% 0.008 255);
+  --git-clean-foreground: oklch(44.9% 0.018 255);
+
   --native-ring: var(--native-primary);
   --native-hover: color-mix(in oklab, var(--native-primary) 6%, transparent);
   --native-active: color-mix(in oklab, var(--native-primary) 12%, transparent);
@@ -164,6 +172,14 @@
   --native-info: oklch(76.8% 0.092 248);
   --native-info-soft: oklch(31.5% 0.052 249);
   --native-info-foreground: oklch(93.7% 0.024 249);
+
+  --git-dirty: oklch(79.6% 0.128 66);
+  --git-dirty-soft: oklch(32.8% 0.064 68);
+  --git-dirty-foreground: oklch(79.6% 0.128 66);
+  --git-clean: oklch(60.8% 0.011 255);
+  --git-clean-soft: oklch(28% 0.01 255);
+  --git-clean-foreground: oklch(60.8% 0.011 255);
+
   --native-ring: var(--native-primary);
   --native-hover: color-mix(in oklab, white 8%, transparent);
   --native-active: color-mix(in oklab, var(--native-primary) 18%, transparent);
@@ -475,4 +491,29 @@
 @keyframes wsSlideOutToBottom {
   from { transform: translateY(0); opacity: 1; }
   to { transform: translateY(30%); opacity: 0; }
+}
+
+/* Git status colors */
+.text-git-dirty {
+  color: var(--git-dirty-foreground);
+}
+
+.text-git-clean {
+  color: var(--git-clean-foreground);
+}
+
+.bg-git-dirty {
+  background-color: var(--git-dirty);
+}
+
+.bg-git-clean {
+  background-color: var(--git-clean);
+}
+
+.bg-git-dirty-soft {
+  background-color: var(--git-dirty-soft);
+}
+
+.bg-git-clean-soft {
+  background-color: var(--git-clean-soft);
 }
