@@ -32,6 +32,8 @@ import {
 import { Icon, type IconProps } from "@opencode-ai/ui/icon"
 import { LocalIcon } from "@/components/local-icon"
 import { useAuth } from "../hooks/use-auth"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { DistributeDialog } from "../components/distribute-dialog"
 import { cn } from "@/lib/utils"
 import { typeKey } from "../lib/constants"
 import { sx } from "../lib/styles"
@@ -88,6 +90,7 @@ export default function Home() {
   const language = useLanguage()
   const itemFilterOptions = useItemFilterOptions()
   const auth = useAuth()
+  const dialog = useDialog()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -937,6 +940,14 @@ export default function Home() {
                 }
                 favoriteIconColor={favoriteIconColor}
                 onToggleFavorite={(item) => void toggleRowFavorite(item)}
+                currentUserId={currentUserId()}
+                currentUserRoles={auth.user()?.systemRoles ?? []}
+                onDistribute={(item) =>
+                  dialog.show(() => (
+                    <DistributeDialog itemId={item.id} itemName={item.name} />
+                  ))
+                }
+                distributeTooltip={language.t("store.distribute.tooltip")}
                 formatDate={formatDate}
                 formatSourceMetric={formatSourceMetric}
                 formatCompact={formatCompact}

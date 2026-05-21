@@ -1,5 +1,5 @@
 import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { Icon } from "@opencode-ai/ui/icon"
+import { Icon, type IconProps } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { useNavigate } from "@solidjs/router"
@@ -16,9 +16,10 @@ import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
 import ItemDetailContent from "@/pages/store/components/item-detail-content"
 import { ItemDetailLoadingSkeleton } from "@/pages/store/components/item-detail-loading-skeleton"
 import { MoveCapabilityDialog } from "@/pages/store/components/move-capability-dialog"
+import { DistributeDialog } from "@/pages/store/components/distribute-dialog"
 import { buildStoreTableColumnOptions, DEFAULT_VISIBLE_COLUMNS, formatCompact, formatSourceMetric, formatStoreDate, formatStoreTablePaginationSummary, StoreCapabilityTable, StoreTableFooter, type TableColumnKey } from "@/pages/store/components/store-capability-table"
 import { useAuth } from "@/pages/store/hooks/use-auth"
-import { behaviorApi, itemApi, repoApi, userApi, type CapabilityItem, type ItemOrder, type ItemSort, type Repository, type SecurityRiskGroup } from "@/pages/store/lib/api"
+import { behaviorApi, distributionApi, itemApi, repoApi, userApi, type CapabilityItem, type ItemOrder, type ItemSort, type Repository, type SecurityRiskGroup } from "@/pages/store/lib/api"
 import { getLoginUrl } from "@/pages/store/lib/auth"
 import { sx } from "@/pages/store/lib/styles"
 import { typeKey } from "@/pages/store/lib/constants"
@@ -32,7 +33,26 @@ const STORE_TYPES = [
   { value: "plugin", labelKey: "store.sidebar.nav.plugins", icon: "configuration" as const, color: "#EC4899", bg: "#FCE7F3" },
 ] as const
 
-type TabKey = "created" | "favorited"
+type TabKey = "created" | "favorited" | "received"
+
+type ReceiptItem = {
+  id: string
+  distributionId: string
+  userId: string
+  receiptStatus: string
+  distribution: {
+    id: string
+    itemId: string
+    distributorId: string
+    permissionMode: string
+    status: string
+    scopeType: string
+    targetId: string
+    message?: string
+    createdAt: string
+    item?: CapabilityItem
+  }
+}
 type StoreType = (typeof STORE_TYPES)[number]["value"]
 type SecurityFilterValue = SecurityRiskGroup
 
@@ -69,6 +89,9 @@ export default function StoreManagerPage() {
     favoritedTotal: 0,
     favoritedLoading: false,
     favoritedLoaded: false,
+    receivedItems: [] as ReceiptItem[],
+    receivedLoading: false,
+    receivedLoaded: false,
     repos: [] as Repository[],
     typeFilterOpen: false,
     typeFilterQuery: "",
@@ -103,13 +126,37 @@ export default function StoreManagerPage() {
 
   const userId = createMemo(() => auth.user()?.id ?? auth.user()?.subjectId ?? auth.user()?.sub ?? "")
   const detailOpen = createMemo(() => !!selectedItemId.value)
-  const activePage = createMemo(() => state.tab === "created" ? state.itemPage : state.favoritedPage)
-  const activeTotal = createMemo(() => state.tab === "created" ? state.totalItems : state.favoritedTotal)
-  const activeItems = createMemo(() => state.tab === "created" ? state.items : state.favoritedItems)
-  const activeLoading = createMemo(() => state.tab === "created" ? state.loadingItems : state.favoritedLoading)
+  const activePage = createMemo(() => {
+    if (state.tab === "created") return state.itemPage
+    if (state.tab === "favorited") return state.favoritedPage
+    return 1
+  })
+  const activeTotal = createMemo(() => {
+    if (state.tab === "created") return state.totalItems
+    if (state.tab === "favorited") return state.favoritedTotal
+    return filteredReceivedItems().length
+  })
+  const activeItems = createMemo(() => {
+    if (state.tab === "created") return state.items
+    if (state.tab === "favorited") return state.favoritedItems
+    return []
+  })
+  const activeLoading = createMemo(() => {
+    if (state.tab === "created") return state.loadingItems
+    if (state.tab === "favorited") return state.favoritedLoading
+    return state.receivedLoading
+  })
   const totalPages = createMemo(() => Math.max(1, Math.ceil(activeTotal() / PAGE_SIZE)))
   const statCards = createMemo(() => STORE_TYPES)
   const rows = createMemo(() => activeItems())
+  const filteredReceivedItems = createMemo(() => {
+    const query = state.debouncedSearch.trim().toLowerCase()
+    if (!query) return state.receivedItems
+    return state.receivedItems.filter((r) =>
+      r.distribution?.item?.name?.toLowerCase().includes(query) ||
+      r.distribution?.item?.description?.toLowerCase().includes(query),
+    )
+  })
   const categories = createMemo(() => itemFilterOptions.categories())
   const sourceOptions = createMemo(() => itemFilterOptions.sources())
   const securityOptions = createMemo(() => itemFilterOptions.securityRiskGroups())
@@ -260,14 +307,74 @@ export default function StoreManagerPage() {
     }
   }
 
+  const [receivedActionLoading, setReceivedActionLoading] = createStore<Record<string, boolean>>({})
+
+  const loadReceived = async () => {
+    if (state.receivedLoading) return
+    setState("receivedLoading", true)
+    try {
+      const res = await distributionApi.listMyReceived()
+      setState({ receivedItems: res.receipts ?? [], receivedLoaded: true })
+    }
+    catch (error) {
+      showToast({
+        title: language.t("store.received.toast.loadFailed"),
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
+    finally {
+      setState("receivedLoading", false)
+    }
+  }
+
+  const handleDismissReceipt = async (distributionId: string) => {
+    setReceivedActionLoading(distributionId, true)
+    try {
+      await distributionApi.dismiss(distributionId)
+      showToast({ variant: "success", title: language.t("store.received.toast.dismissSuccess") })
+      setState("receivedItems", (prev) => prev.filter((r) => r.distributionId !== distributionId))
+    }
+    catch (err) {
+      showToast({ variant: "error", title: language.t("store.received.toast.dismissFailed"), description: err instanceof Error ? err.message : String(err) })
+    }
+    finally {
+      setReceivedActionLoading(distributionId, false)
+    }
+  }
+
+  const handleMarkReadReceipt = async (distributionId: string) => {
+    setReceivedActionLoading(distributionId, true)
+    try {
+      await distributionApi.markRead(distributionId)
+      setState("receivedItems", (prev) => prev.map((r) => r.distributionId === distributionId ? { ...r, receiptStatus: "read" } : r))
+    }
+    catch (err) {
+      showToast({ variant: "error", title: language.t("store.received.toast.markReadFailed"), description: err instanceof Error ? err.message : String(err) })
+    }
+    finally {
+      setReceivedActionLoading(distributionId, false)
+    }
+  }
+
+  const [distributorInfoMap] = createResource(
+    () => {
+      const list = state.receivedItems
+      if (state.tab !== "received" || list.length === 0) return []
+      return [...new Set(list.map((r) => r.distribution?.distributorId).filter(Boolean))]
+    },
+    (ids) => userApi.getInfo(ids),
+  )
+
   const refreshActiveTab = () => {
     if (state.tab === "created") return void loadCreated()
-    return void loadFavorited()
+    if (state.tab === "favorited") return void loadFavorited()
+    return void loadReceived()
   }
 
   const refreshBothTabs = () => {
     void loadCreated()
     if (state.favoritedLoaded || state.tab === "favorited") void loadFavorited()
+    if (state.receivedLoaded || state.tab === "received") void loadReceived()
   }
 
   createEffect(() => {
@@ -348,6 +455,14 @@ export default function StoreManagerPage() {
       setDetailState("favoriteCount", result.favoriteCount)
       patchItemEverywhere(data.id, (item) => ({ ...item, favorited: result.favorited, favoriteCount: result.favoriteCount }))
       refreshBothTabs()
+    } catch (err) {
+      if (detailState.favorited) {
+        showToast({
+          variant: "error",
+          title: language.t("store.toast.unfavoriteReadonlyFailed"),
+          description: err instanceof Error ? err.message : String(err),
+        })
+      }
     }
     finally {
       setDetailState("favoritePending", false)
@@ -381,6 +496,14 @@ export default function StoreManagerPage() {
       }
 
       if (state.favoritedLoaded || state.tab === "favorited") void loadFavorited()
+    } catch (err) {
+      if (item.favorited) {
+        showToast({
+          variant: "error",
+          title: language.t("store.toast.unfavoriteReadonlyFailed"),
+          description: err instanceof Error ? err.message : String(err),
+        })
+      }
     }
     finally {
       setState("favoriteActionItemId", (current) => current === item.id ? null : current)
@@ -452,7 +575,11 @@ export default function StoreManagerPage() {
       if (!state.createdLoaded) void loadCreated()
       return
     }
-    if (!state.favoritedLoaded) void loadFavorited()
+    if (tab === "favorited") {
+      if (!state.favoritedLoaded) void loadFavorited()
+      return
+    }
+    if (!state.receivedLoaded) void loadReceived()
   }
 
   const togglePendingTypeFilter = (value: string) => {
@@ -491,14 +618,17 @@ export default function StoreManagerPage() {
       void loadCreated()
       return
     }
-    setState("favoritedPage", nextPage)
-    void loadFavorited()
+    if (state.tab === "favorited") {
+      setState("favoritedPage", nextPage)
+      void loadFavorited()
+      return
+    }
   }
 
   const handleSortChange = (by: ItemSort) => {
     setSelectedItemId("value", null)
     if (state.tab === "created") setState("itemPage", 1)
-    else setState("favoritedPage", 1)
+    else if (state.tab === "favorited") setState("favoritedPage", 1)
 
     if (state.sort.by !== by) {
       setState("sort", { by, order: "desc" })
@@ -610,6 +740,14 @@ export default function StoreManagerPage() {
           securityLabel={(value, option) => itemFilterOptions.securityRiskGroupLabel(value, option as Parameters<typeof itemFilterOptions.securityRiskGroupLabel>[1])}
           favoriteIconColor={favoriteIconColor}
           onToggleFavorite={(item) => void toggleRowFavorite(item)}
+          currentUserId={userId()}
+          currentUserRoles={auth.user()?.systemRoles ?? []}
+          onDistribute={(item) =>
+            dialog.show(() => (
+              <DistributeDialog itemId={item.id} itemName={item.name} />
+            ))
+          }
+          distributeTooltip={language.t("store.distribute.tooltip")}
           formatDate={formatDate}
           formatSourceMetric={formatSourceMetric}
           formatCompact={formatCompact}
@@ -763,8 +901,8 @@ export default function StoreManagerPage() {
           <header class="relative overflow-hidden bg-[linear-gradient(135deg,color-mix(in_srgb,var(--native-primary)_2%,var(--native-bg)),color-mix(in_srgb,var(--native-primary)_10%,var(--native-panel))_62%,color-mix(in_srgb,var(--native-primary)_14%,var(--native-panel)))] before:pointer-events-none before:absolute before:right-[-10%] before:top-[-60%] before:h-[340px] before:w-[340px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--native-primary)_8%,transparent),transparent_70%)] before:content-['']">
             <div class="relative flex flex-row items-center justify-between gap-4 px-5 py-3 lg:gap-6">
               <div class="min-w-0 flex flex-1 items-center gap-4">
-                <h1 class="relative m-0 shrink-0 text-[1.625rem] leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t("store.console.capabilities.title")}</h1>
-                <p class="relative m-0 min-w-0 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t("store.console.capabilities.description")}</p>
+                <h1 class="relative m-0 shrink-0 text-[1.625rem] leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t(state.tab === "received" ? "store.received.title" : "store.console.capabilities.title")}</h1>
+                <p class="relative m-0 min-w-0 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t(state.tab === "received" ? "store.received.description" : "store.console.capabilities.description")}</p>
               </div>
               <div class="flex shrink-0 items-center justify-end gap-3">
                 <Button type="button" variant="outline" size="sm" class="h-8 px-3" onClick={() => navigate("/store")}>
@@ -788,11 +926,11 @@ export default function StoreManagerPage() {
             </div>
           </header>
 
-          <div class="flex min-h-[5rem] w-full flex-1 items-center justify-center overflow-hidden">
+          <div class="flex min-h-[5rem] w-full items-center overflow-hidden">
             <section class={sx.section}>
               <div class="mx-auto flex w-full max-w-[64rem] items-center gap-3 px-4 max-[768px]:flex-col max-[768px]:items-stretch max-[640px]:gap-2">
-              <div class="relative min-w-0 flex-1 rounded-full transition-shadow hover:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))] focus-within:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))]">
-                <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-4 text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
+                <div class="relative min-w-0 flex-1">
+                  <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-4 text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
                     <circle cx="11" cy="11" r="7" />
                     <path d="m20 20 -3.5 -3.5" />
@@ -825,8 +963,8 @@ export default function StoreManagerPage() {
                     </svg>
                   </button>
                 </Show>
-              </div>
-              <div class="inline-flex h-12 shrink-0 items-center gap-1 rounded-full border border-[color:color-mix(in_srgb,var(--native-border)_60%,transparent)] bg-[color:color-mix(in_srgb,var(--native-panel)_92%,white)] px-1 shadow-[var(--native-shadow-sm)]">
+                </div>
+                <div class="inline-flex h-12 shrink-0 items-center gap-1 rounded-full border border-[color:color-mix(in_srgb,var(--native-border)_60%,transparent)] bg-[color:color-mix(in_srgb,var(--native-panel)_92%,white)] px-1 shadow-[var(--native-shadow-sm)]">
                 <Tooltip value={language.t("store.console.capabilities.myCreated")} placement="bottom">
                   <button
                     type="button"
@@ -862,40 +1000,171 @@ export default function StoreManagerPage() {
                     <LocalIcon name={state.tab === "favorited" ? "subscribe-filled" : "subscribe"} size="small" style={state.tab === "favorited" ? { color: "#ffffff" } : undefined} />
                   </button>
                 </Tooltip>
+                <Tooltip value={language.t("store.received.title")} placement="bottom">
+                  <button
+                    type="button"
+                    class={cn(
+                      "inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+                      state.tab === "received"
+                        ? "bg-[var(--native-primary)] !text-white shadow-[var(--native-shadow-sm)]"
+                        : "text-[var(--native-muted)] hover:bg-[color:color-mix(in_srgb,var(--native-foreground)_8%,transparent)] hover:text-[var(--native-foreground)]",
+                    )}
+                    aria-label={language.t("store.received.title")}
+                    aria-pressed={state.tab === "received"}
+                    onClick={() => switchTab("received")}
+                  >
+                    <Icon name="inbox" size="small" style={state.tab === "received" ? { color: "#ffffff" } : undefined} />
+                  </button>
+                </Tooltip>
               </div>
             </div>
           </section>
           </div>
 
-          <section class={cn(sx.section, "flex min-h-0 shrink-0 flex-col px-2 sm:px-3")}>
+          <section class={cn(sx.section, "flex min-h-0 flex-1 flex-col px-2 sm:px-3")}>
             <div class={cn(sx.tableShell, "flex min-h-0 flex-1 flex-col")}>
-              <Show when={state.createdLoaded || state.favoritedLoaded}>
-                <Show when={activeLoading()}>
+              <Show when={state.tab !== "received"}>
+                <Show when={state.createdLoaded || state.favoritedLoaded}>
+                  <Show when={activeLoading()}>
+                    <div class={sx.overlay}>
+                      <div class={sx.spinner} />
+                    </div>
+                  </Show>
+                  <TableContent />
+                </Show>
+                <Show when={!state.createdLoaded && !state.favoritedLoaded}>
+                  <div class={sx.state}>{language.t(state.tab === "created" ? "store.console.capabilities.loading" : "store.console.capabilities.favorited.loading")}</div>
+                </Show>
+              </Show>
+
+              <Show when={state.tab === "received"}>
+                <Show when={state.receivedLoading}>
                   <div class={sx.overlay}>
                     <div class={sx.spinner} />
                   </div>
                 </Show>
-                <TableContent />
-              </Show>
-              <Show when={!state.createdLoaded && !state.favoritedLoaded}>
-                <div class={sx.state}>{language.t(state.tab === "created" ? "store.console.capabilities.loading" : "store.console.capabilities.favorited.loading")}</div>
+                <Show when={!state.receivedLoading && state.receivedLoaded}>
+                  <Show when={filteredReceivedItems().length > 0} fallback={
+                    <div class="flex flex-1 items-center justify-center">
+                      <div class={sx.state}>
+                        <p class="mb-1 text-[0.9375rem] font-medium">{language.t("store.received.empty")}</p>
+                        <p class="text-[0.8125rem] opacity-60">{language.t("store.received.emptyDesc")}</p>
+                      </div>
+                    </div>
+                  }>
+                    <table class={sx.dt}>
+                      <thead>
+                        <tr>
+                          <th class={sx.th}>{language.t("store.home.table.title")}</th>
+                          <th class={cn(sx.th, "w-[16rem]")}>{language.t("store.home.table.description")}</th>
+                          <th class={sx.th}>{language.t("store.console.capabilities.type")}</th>
+                          <th class={sx.th}>{language.t("store.received.from")}</th>
+                          <th class={sx.th}>{language.t("store.distribute.permission.title")}</th>
+                          <th class={sx.th}>{language.t("store.received.status.label")}</th>
+                          <th class={cn(sx.th, "text-right")}>{language.t("store.home.table.action")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <For each={filteredReceivedItems()}>
+                          {(receipt) => {
+                            const dist = receipt.distribution
+                            const item = dist?.item
+                            const distributorInfo = distributorInfoMap()?.[dist?.distributorId ?? ""]
+                            const isUnread = receipt.receiptStatus === "unread"
+                            const canDismiss = dist?.permissionMode === "dismissible"
+                            const isLoading = receivedActionLoading[receipt.distributionId]
+                            return (
+                              <tr class={sx.row}>
+                                <td class={sx.td}>
+                                  <div class="flex items-center gap-2">
+                                    <button
+                                      class="text-left font-semibold text-[var(--native-foreground)] hover:text-[var(--native-primary)] transition-colors truncate"
+                                      onClick={() => item && openItemDetail(item)}
+                                    >
+                                      {item?.name ?? language.t("store.received.unknownItem")}
+                                    </button>
+                                    {isUnread && (
+                                      <span class="inline-flex h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--native-primary)" }} />
+                                    )}
+                                  </div>
+                                  <Show when={dist?.message}>
+                                    <div class="mt-0.5 text-[0.75rem] text-[var(--native-muted)] truncate">{dist?.message}</div>
+                                  </Show>
+                                </td>
+                                <td class={cn(sx.td, "max-w-[16rem]")}>
+                                  <span class="text-[var(--native-muted)] line-clamp-2">{item?.description ?? "—"}</span>
+                                </td>
+                                <td class={sx.td}>
+                                  <span class="text-[var(--native-muted)]">{item ? language.t(typeKey(item.itemType)) : "—"}</span>
+                                </td>
+                                <td class={sx.td}>
+                                  <div class="flex flex-col gap-px">
+                                    <span class="text-[var(--native-foreground)]">{distributorInfo?.name || dist?.distributorId}</span>
+                                    <span class="text-[11px] text-[var(--native-muted)]">{dist?.distributorId}</span>
+                                  </div>
+                                </td>
+                                <td class={sx.td}>
+                                  <span class="inline-flex items-center rounded-[var(--native-radius-sm)] border px-2 py-0.5 text-[11px] font-medium" style={{ color: "var(--native-muted)", "border-color": "color-mix(in oklab, var(--native-border) 50%, transparent)" }}>
+                                    {language.t(dist?.permissionMode === "readonly" ? "store.distribute.permission.readonly" : "store.distribute.permission.dismissible")}
+                                  </span>
+                                </td>
+                                <td class={sx.td}>
+                                  <span class="text-[var(--native-muted)]">{language.t(dist?.status === "active" ? "store.received.status.active" : dist?.status === "paused" ? "store.received.status.paused" : "store.received.status.revoked")}</span>
+                                </td>
+                                <td class={cn(sx.td, "text-right")}>
+                                  <div class="inline-flex items-center gap-1">
+                                    <Show when={isUnread}>
+                                      <button
+                                        class="inline-flex h-7 w-7 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-muted)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_6%,transparent)] hover:text-[var(--native-foreground)] disabled:opacity-50"
+                                        disabled={isLoading}
+                                        onClick={() => handleMarkReadReceipt(receipt.distributionId)}
+                                        title={language.t("store.received.markRead")}
+                                      >
+                                        <Icon name="eye" size="small" />
+                                      </button>
+                                    </Show>
+                                    <Show when={canDismiss}>
+                                      <button
+                                        class="inline-flex h-7 w-7 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-muted)] transition-colors hover:bg-[color:color-mix(in_oklab,#ef4444_8%,transparent)] hover:text-[#ef4444] disabled:opacity-50"
+                                        disabled={isLoading}
+                                        onClick={() => handleDismissReceipt(receipt.distributionId)}
+                                        title={language.t("store.received.dismiss")}
+                                      >
+                                        <Icon name="close" size="small" />
+                                      </button>
+                                    </Show>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          }}
+                        </For>
+                      </tbody>
+                    </table>
+                  </Show>
+                </Show>
+                <Show when={!state.receivedLoaded}>
+                  <div class={sx.state}>{language.t("store.loading")}</div>
+                </Show>
               </Show>
             </div>
 
-            <StoreTableFooter
-              page={activePage()}
-              pageSize={PAGE_SIZE}
-              totalPages={totalPages()}
-              totalItems={activeTotal()}
-              summary={formatStoreTablePaginationSummary({
-                page: activePage(),
-                pageSize: PAGE_SIZE,
-                totalItems: activeTotal(),
-                showingLabel: (args) => language.t("store.console.capabilities.showing", args),
-                emptyLabel: language.t("store.home.pagination.empty"),
-              })}
-              onPageChange={handlePageChange}
-            />
+            <Show when={state.tab !== "received"}>
+              <StoreTableFooter
+                page={activePage()}
+                pageSize={PAGE_SIZE}
+                totalPages={totalPages()}
+                totalItems={activeTotal()}
+                summary={formatStoreTablePaginationSummary({
+                  page: activePage(),
+                  pageSize: PAGE_SIZE,
+                  totalItems: activeTotal(),
+                  showingLabel: (args) => language.t("store.console.capabilities.showing", args),
+                  emptyLabel: language.t("store.home.pagination.empty"),
+                })}
+                onPageChange={handlePageChange}
+              />
+            </Show>
           </section>
 
           <Sheet open={detailOpen()} onOpenChange={(open) => !open && setSelectedItemId("value", null)} modal={false}>

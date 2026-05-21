@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const cloudHost = env.VITE_CLOUD_SERVER_HOST ?? "localhost"
   const cloudPort = env.VITE_CLOUD_SERVER_PORT ?? "8080"
   const cloudTarget = `http://${cloudHost}:${cloudPort}`
-  // const cloudTarget = `https://${cloudHost}`
+  // const cloudTarget = `http://${cloudHost}`
   const appPort = parseInt(env.VITE_APP_PORT ?? "3000")
   const prefix = env.VITE_API_PREFIX ?? ""
   const quotaPrefix = env.VITE_QUOTA_PREFIX ?? ""
@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
               return path.replace(new RegExp(`^${prefix}`), "/cloud-dashboard")
             }
 
-            return path.replace(new RegExp(`^${prefix}`), "/cloud-api")
+            return path
           },
         },
         [`${quotaPrefix}/quota-manager`]: {

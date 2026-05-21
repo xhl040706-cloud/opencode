@@ -18,6 +18,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   const headers =
     options?.body instanceof FormData ? options.headers : { "Content-Type": "application/json", ...options?.headers }
   const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
     ...options,
     headers,
   })
@@ -116,6 +117,7 @@ export interface SearchedUser {
   picture: string
   preferred_username: string
   sub: string
+  subject_id?: string
 }
 
 export interface Invitation {
@@ -904,6 +906,65 @@ export const itemApi = {
       method: "POST",
       body: JSON.stringify({ tags }),
     }),
+}
+
+export interface DistributionTarget {
+  scopeType: "user" | "organization"
+  targetId: string
+}
+
+export interface DistributionResult {
+  distribution: {
+    id: string
+    itemId: string
+    distributorId: string
+    permissionMode: string
+    status: string
+    scopeType: string
+    targetId: string
+    message?: string
+    createdAt: string
+  }
+  recipientCount: number
+}
+
+export const distributionApi = {
+  distribute: (itemId: string, data: {
+    targets: DistributionTarget[]
+    permissionMode: "readonly" | "dismissible"
+    message?: string
+  }) =>
+    apiFetch<{ distributions: DistributionResult[] }>(`/api/items/${itemId}/distribute`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  listByItem: (itemId: string) =>
+    apiFetch<{ distributions: DistributionResult["distribution"][] }>(`/api/items/${itemId}/distributions`),
+
+  listMySent: () =>
+    apiFetch<{ distributions: DistributionResult["distribution"][] }>("/api/distributions/my/sent"),
+
+  listMyReceived: () =>
+    apiFetch<{ receipts: { id: string; distributionId: string; userId: string; receiptStatus: string; forkedItemId?: string; distribution: DistributionResult["distribution"] & { item?: CapabilityItem } }[] }>("/api/distributions/my/received"),
+
+  update: (id: string, data: { status?: string; permissionMode?: string; message?: string }) =>
+    apiFetch<DistributionResult["distribution"]>(`/api/distributions/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  revoke: (id: string) =>
+    apiFetch<{ message: string }>(`/api/distributions/${id}`, { method: "DELETE" }),
+
+  dismiss: (id: string) =>
+    apiFetch<{ message: string }>(`/api/distributions/${id}/dismiss`, { method: "POST" }),
+
+  markRead: (id: string) =>
+    apiFetch<{ message: string }>(`/api/distributions/${id}/read`, { method: "POST" }),
+
+  fork: (id: string) =>
+    apiFetch<CapabilityItem>(`/api/distributions/${id}/fork`, { method: "POST" }),
 }
 
 export const registryApi2 = {
