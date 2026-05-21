@@ -6,7 +6,7 @@
  * Date format: YYYY-MM-DD HH:mm:ss for API params, YYYY-MM-DD HH:mm for display
  */
 
-import { createEffect, createMemo, For, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Icon } from "@opencode-ai/ui/icon"
 import { useLanguage } from "@/context/language"
@@ -68,7 +68,7 @@ function UsageTable(props: {
 
   return (
     <div class={sx.tshell}>
-      <table class={sx.dt}>
+      <table class={sx.dtStatic}>
         <thead>
           <tr>
             <th class={sx.th}>{language.t("console.usage.table.startTime")}</th>
@@ -120,41 +120,98 @@ function UsageTable(props: {
 
 function QuotaValidityTable(props: { data: QuotaList[] }) {
   const language = useLanguage()
+  const [page, setPage] = createSignal(1)
+  const [pageSize, setPageSize] = createSignal(3)
+  const totalPages = () => Math.ceil(props.data.length / pageSize())
+  const displayData = () => {
+    const start = (page() - 1) * pageSize()
+    return props.data.slice(start, start + pageSize())
+  }
+  const visiblePages = () => rangePages(page(), totalPages())
+  const pageSizeOptions = [3, 5, 10]
 
   return (
-    <div class={sx.tshell}>
-      <table class={sx.dt}>
-        <thead>
-          <tr>
-            <th class={sx.th}>{language.t("console.usage.quota.expiryDate")}</th>
-            <th class={sx.th}>{language.t("console.usage.quota.amount")}</th>
-            <th class={sx.th}>{language.t("console.usage.quota.source")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <Show
-            when={props.data.length > 0}
-            fallback={
-              <tr>
-                <td colSpan={3} class={sx.state}>
-                  {language.t("console.usage.quota.empty")}
-                </td>
-              </tr>
-            }
-          >
-            <For each={props.data}>
-              {(row) => (
+    <>
+      <div class={sx.tshell}>
+        <table class={sx.dtStatic}>
+          <thead>
+            <tr>
+              <th class={sx.th}>{language.t("console.usage.quota.expiryDate")}</th>
+              <th class={sx.th}>{language.t("console.usage.quota.amount")}</th>
+              <th class={sx.th}>{language.t("console.usage.quota.source")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <Show
+              when={props.data.length > 0}
+              fallback={
                 <tr>
-                  <td class={sx.td}>{formatDate(row.expiry_date, "YYYY-MM-DD")}</td>
-                  <td class={sx.td}>{formatNumber(row.amount)}</td>
-                  <td class={sx.td}>{row.source || "-"}</td>
+                  <td colSpan={3} class={sx.state}>
+                    {language.t("console.usage.quota.empty")}
+                  </td>
                 </tr>
-              )}
-            </For>
-          </Show>
-        </tbody>
-      </table>
-    </div>
+              }
+            >
+              <For each={displayData()}>
+                {(row) => (
+                  <tr>
+                    <td class={sx.td}>{formatDate(row.expiry_date, "YYYY-MM-DD")}</td>
+                    <td class={sx.td}>{formatNumber(row.amount)}</td>
+                    <td class={sx.td}>{row.source || "-"}</td>
+                  </tr>
+                )}
+              </For>
+            </Show>
+          </tbody>
+        </table>
+      </div>
+      <Show when={props.data.length > 0}>
+        <div class={sx.pager}>
+          <div class={sx.pagerSum}>
+            {language.t("console.usage.pagination.summary", {
+              from: String((page() - 1) * pageSize() + 1),
+              to: String(Math.min(page() * pageSize(), props.data.length)),
+              total: String(props.data.length),
+            })}
+          </div>
+          <div class="flex items-center gap-3">
+            <select
+              class={sx.btn}
+              value={pageSize()}
+              onChange={(e) => {
+                setPageSize(Number(e.currentTarget.value))
+                setPage(1)
+              }}
+            >
+              <For each={pageSizeOptions}>
+                {(size) => <option value={size}>{size} / {language.t("console.usage.pagination.page")}</option>}
+              </For>
+            </select>
+            <div class={sx.pagerActs}>
+              <button class={st.page(false)} disabled={page() <= 1} onClick={() => setPage(1)}>
+                <span aria-hidden="true">&#171;</span>
+              </button>
+              <button class={st.page(false)} disabled={page() <= 1} onClick={() => setPage((p) => p - 1)}>
+                <Icon name="chevron-left" />
+              </button>
+              <For each={visiblePages()}>
+                {(pageNumber) => (
+                  <button class={st.page(pageNumber === page())} onClick={() => setPage(pageNumber)}>
+                    {pageNumber}
+                  </button>
+                )}
+              </For>
+              <button class={st.page(false)} disabled={page() >= totalPages()} onClick={() => setPage((p) => p + 1)}>
+                <Icon name="chevron-right" />
+              </button>
+              <button class={st.page(false)} disabled={page() >= totalPages()} onClick={() => setPage(totalPages())}>
+                <span aria-hidden="true">&#187;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
+    </>
   )
 }
 
