@@ -22,6 +22,7 @@ function normalizeAuthUser(raw: any): CasdoorUser | null {
     username,
     avatarUrl,
     casdoorUniversalId: raw.casdoorUniversalId,
+    systemRoles: raw.systemRoles ?? [],
 
     // backward-compatible aliases
     sub: raw.sub ?? raw.subjectId ?? raw.id,

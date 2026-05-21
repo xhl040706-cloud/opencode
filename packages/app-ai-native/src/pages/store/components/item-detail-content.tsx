@@ -3,6 +3,7 @@ import { createHighlighter } from "shiki"
 import { useTheme } from "@opencode-ai/ui/theme"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Markdown } from "@opencode-ai/ui/markdown"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { LocalIcon } from "@/components/local-icon"
 import AvatarDisplay from "@/components/avatar-display"
 import { useItemFilterOptions } from "@/context/item-filter-options"
@@ -11,6 +12,7 @@ import { useNavigate } from "@solidjs/router"
 import { itemApi, userApi, type CapabilityItem } from "../lib/api"
 import { useLanguage } from "@/context/language"
 import SecurityTag from "./security-tag"
+import { DistributeDialog } from "./distribute-dialog"
 import "@/styles/vscode-markdown.css"
 
 const TYPE_META: Record<
@@ -177,6 +179,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
   const auth = useAuth()
   const navigate = useNavigate()
   const theme = useTheme()
+  const dialog = useDialog()
   const [item] = createResource(
     () => props.itemId,
     (id) => itemApi.get(id),
@@ -210,6 +213,10 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
 
   const meta = () => TYPE_META[item()?.itemType ?? "skill"] ?? TYPE_META.skill
   const canEditItem = () => !!item() && !!auth.user() && item()!.createdBy === auth.user()!.id
+  const canDistributeItem = () =>
+    !!item() &&
+    !!auth.user() &&
+    (auth.user()!.systemRoles ?? []).includes("platform_admin")
 
   const copy = async () => {
     if (!item()) return
@@ -286,6 +293,23 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                       >
                         <Icon name="edit" size="small" />
                         <span>{language.t("common.edit")}</span>
+                      </button>
+                    </Show>
+                    <Show when={canDistributeItem()}>
+                      <button
+                        onClick={() =>
+                          dialog.show(() => (
+                            <DistributeDialog
+                              itemId={data().id}
+                              itemName={data().name}
+                            />
+                          ))
+                        }
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
+                        title={language.t("store.distribute.tooltip")}
+                      >
+                        <Icon name="share" size="small" />
+                        <span>{language.t("store.distribute.button")}</span>
                       </button>
                     </Show>
                     <Show when={props.onToggleFavorite && data().itemType !== "plugin"}>

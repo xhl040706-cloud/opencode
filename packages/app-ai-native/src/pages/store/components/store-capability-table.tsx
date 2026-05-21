@@ -692,6 +692,10 @@ export function StoreCapabilityTable(props: {
   securityLabel: (value: SecurityFilterValue, option?: unknown) => string
   favoriteIconColor: (favorited?: boolean, itemType?: string) => string
   onToggleFavorite?: (item: CapabilityItem) => void
+  currentUserId?: string
+  currentUserRoles?: string[]
+  onDistribute?: (item: CapabilityItem) => void
+  distributeTooltip?: string
   formatDate: (iso?: string) => string
   formatSourceMetric: (value?: number, source?: string) => string
   formatCompact: (value: number) => string
@@ -987,7 +991,7 @@ export function StoreCapabilityTable(props: {
                           )}
                         </Show>
                       </div>
-                      <div class="min-w-0">
+                      <div class="min-w-0 flex-1">
                         <div class={cn(sx.item, "truncate text-[14px] font-bold leading-5 text-[color:color-mix(in_oklab,var(--native-foreground)_80%,white_20%)]")} style={{ "font-weight": 700 }} title={item.name}>
                           <HighlightText text={item.name} query={props.searchQuery} />
                         </div>
@@ -995,6 +999,18 @@ export function StoreCapabilityTable(props: {
                           <HighlightText text={`${item.repoName || item.repoId || "repo"}/${item.slug}`} query={props.searchQuery} />
                         </div>
                       </div>
+                      <Show when={props.onDistribute && props.currentUserRoles?.includes("platform_admin")}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            props.onDistribute?.(item)
+                          }}
+                          class="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-[var(--native-muted)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] hover:text-[var(--native-foreground)]"
+                          title={props.distributeTooltip}
+                        >
+                          <Icon name="share" size="small" />
+                        </button>
+                      </Show>
                     </div>
                   </td>
                 </Show>

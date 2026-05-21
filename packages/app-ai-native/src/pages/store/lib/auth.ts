@@ -7,6 +7,7 @@ export interface CasdoorUser {
   username?: string
   avatarUrl?: string
   casdoorUniversalId?: string
+  systemRoles?: string[]
 
   // Backward-compatible aliases still used by existing UI code
   sub?: string
