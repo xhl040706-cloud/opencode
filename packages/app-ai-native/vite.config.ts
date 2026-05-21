@@ -6,8 +6,8 @@ export default defineConfig(({ mode }) => {
 
   const cloudHost = env.VITE_CLOUD_SERVER_HOST ?? "localhost"
   const cloudPort = env.VITE_CLOUD_SERVER_PORT ?? "8080"
-  // const cloudTarget = `http://${cloudHost}:${cloudPort}`
-  const cloudTarget = `https://${cloudHost}`
+  const cloudTarget = `http://${cloudHost}:${cloudPort}`
+  // const cloudTarget = `https://${cloudHost}`
   const appPort = parseInt(env.VITE_APP_PORT ?? "3000")
   const prefix = env.VITE_API_PREFIX ?? ""
   const quotaPrefix = env.VITE_QUOTA_PREFIX ?? ""
@@ -43,9 +43,11 @@ export default defineConfig(({ mode }) => {
           target: cloudTarget,
           changeOrigin: true,
           ws: true,
-          headers: {
-            Cookie: cookie,
-          },
+          ...(cookie && {
+            headers: {
+              Cookie: cookie,
+            },
+          }),
           rewrite: (path) => {
             return path.replace(new RegExp(`^${prefix}`), "/cloud-api")
           },
@@ -60,9 +62,11 @@ export default defineConfig(({ mode }) => {
         [apiPrefix]: {
           target: cloudTarget,
           changeOrigin: true,
-          headers: {
-            Cookie: cookie,
-          },
+          ...(cookie && {
+            headers: {
+              Cookie: cookie,
+            },
+          }),
           rewrite: (path) => {
             if (path.startsWith(v2Prefix)) {
               return path.replace(new RegExp(`^${prefix}`), "/cloud-dashboard")
@@ -74,10 +78,12 @@ export default defineConfig(({ mode }) => {
         [`${quotaPrefix}/quota-manager`]: {
           target: cloudTarget,
           changeOrigin: true,
-          headers: {
-            Cookie: cookie,
-            Authorization: authToken,
-          },
+          ...(cookie && {
+            headers: {
+              Cookie: cookie,
+              Authorization: authToken,
+            },
+          }),
         },
       },
     },
