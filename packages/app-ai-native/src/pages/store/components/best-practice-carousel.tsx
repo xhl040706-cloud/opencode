@@ -235,7 +235,7 @@ export default function BestPracticeCarousel(props: BestPracticeCarouselProps) {
                   <div class="mt-1 flex items-center justify-between">
                     <div class="flex gap-2.5 text-[12px] text-[var(--native-muted)]">
                       <span class="inline-flex items-center gap-[0.1875rem]" title={language.t("store.home.table.favoriteCount")}>
-                        <LocalIcon name="star" size="small" class="h-3 w-3 opacity-65" />
+                        <LocalIcon name="subscribe" size="small" class="h-3 w-3 opacity-65" />
                         {favCount(item.id).toLocaleString()}
                       </span>
                       <span class="inline-flex items-center gap-[0.1875rem]" title={language.t("store.home.table.installCount")}>
@@ -257,18 +257,18 @@ export default function BestPracticeCarousel(props: BestPracticeCarouselProps) {
                         <Icon name={copiedId() === item.id ? "check-small" : "copy"} size="small" />
                       </button>
                       <Show when={item.itemType !== "plugin"}>
-                        <button
-                          class={[
-                            isFavorited(item.id)
-                              ? "inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-[rgb(234,179,8)] transition-[background-color,color] hover:bg-[color-mix(in_srgb,var(--native-surface)_60%,transparent)] hover:text-[rgb(234,179,8)] [&_[data-component=icon]]:text-[rgb(234,179,8)] [&_[data-slot=icon-svg]]:text-[rgb(234,179,8)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
-                              : "inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-[var(--native-muted)] transition-[background-color,color] hover:bg-[color-mix(in_srgb,var(--native-surface)_60%,transparent)] hover:text-[var(--native-foreground)] [&_[data-component=icon]]:text-[var(--native-muted)] [&_[data-slot=icon-svg]]:text-[var(--native-muted)] hover:[&_[data-component=icon]]:text-[var(--native-foreground)] hover:[&_[data-slot=icon-svg]]:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]",
-                          ].join(" ")}
-                          onClick={(e) => toggleFavorite(item, e)}
-                          title={isFavorited(item.id) ? language.t("store.detail.unfavoriteTooltip") : language.t("store.detail.favoriteTooltip")}
-                          disabled={favPending() === item.id}
-                        >
-                          <LocalIcon name={isFavorited(item.id) ? "star-filled" : "star"} size="small" class="h-3.5 w-3.5" />
-                        </button>
+                      <button
+                        class={[
+                          isFavorited(item.id)
+                            ? "inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-[rgb(234,179,8)] transition-[background-color,color] hover:bg-[color-mix(in_srgb,var(--native-surface)_60%,transparent)] hover:text-[rgb(234,179,8)] [&_[data-component=icon]]:text-[rgb(234,179,8)] [&_[data-slot=icon-svg]]:text-[rgb(234,179,8)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]"
+                            : "inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-[var(--native-muted)] transition-[background-color,color] hover:bg-[color-mix(in_srgb,var(--native-surface)_60%,transparent)] hover:text-[var(--native-foreground)] [&_[data-component=icon]]:text-[var(--native-muted)] [&_[data-slot=icon-svg]]:text-[var(--native-muted)] hover:[&_[data-component=icon]]:text-[var(--native-foreground)] hover:[&_[data-slot=icon-svg]]:text-[var(--native-foreground)] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]",
+                        ].join(" ")}
+                        onClick={(e) => toggleFavorite(item, e)}
+                        title={isFavorited(item.id) ? language.t("store.detail.unfavoriteTooltip") : language.t("store.detail.favoriteTooltip")}
+                        disabled={favPending() === item.id}
+                      >
+                        <LocalIcon name={isFavorited(item.id) ? "subscribe-filled" : "subscribe"} size="small" class="h-3.5 w-3.5" />
+                      </button>
                       </Show>
                     </div>
                   </div>

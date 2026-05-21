@@ -762,7 +762,7 @@ export default function Home() {
                       <div class="truncate text-[0.8125rem] font-bold text-[var(--native-foreground)]"><HighlightText text={item.name} query={debouncedSearch()} /></div>
                       <div class="mt-0.5 flex gap-2.5 text-[12px] text-[var(--native-muted)] [font-variant-numeric:tabular-nums]">
                         <span class="inline-flex items-center gap-0.5">
-                          <LocalIcon name="star" size="small" />
+                          <LocalIcon name="subscribe" size="small" />
                           {(item.favoriteCount ?? 0).toLocaleString()}
                         </span>
                         <span class="inline-flex items-center gap-0.5">
@@ -1031,7 +1031,6 @@ export default function Home() {
                   unfavoriteTooltip: language.t("store.detail.unfavoriteTooltip"),
                   favoriteSignInTooltip: language.t("store.detail.favoriteSignInTooltip"),
                   updated: language.t("store.detail.updated"),
-                  action: language.t("store.home.table.action"),
                   toggleColumns: language.t("store.home.table.toggleColumns"),
                   noResults: language.t("store.noResults"),
                   reset: language.t("common.reset"),
@@ -1044,39 +1043,6 @@ export default function Home() {
                 }}
                 emptyMessage={language.t("store.home.emptyCategory")}
                 maxVisibleRows={PAGE_SIZE}
-                renderActions={(item) => (
-                  <div class="flex items-center justify-end gap-1">
-                    <Show when={canEditItem(item)}>
-                      <button
-                        type="button"
-                        class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)]"
-                        title={language.t("common.edit")}
-                        onClick={() => navigate(`/capabilities/${item.id}/edit`)}
-                      >
-                        <Icon name="edit" size="small" />
-                      </button>
-                    </Show>
-                    <button
-                      type="button"
-                      disabled={!auth.user() || auth.loading() || favoriteActionItemId() === item.id}
-                      class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] disabled:cursor-not-allowed disabled:opacity-60"
-                      title={
-                        auth.user()
-                          ? item.favorited
-                            ? language.t("store.detail.unfavoriteTooltip")
-                            : language.t("store.detail.favoriteTooltip")
-                          : language.t("store.detail.favoriteSignInTooltip")
-                      }
-                      onClick={() => void toggleRowFavorite(item)}
-                    >
-                      <LocalIcon
-                        name={item.favorited ? "star-filled" : "star"}
-                        size="small"
-                        style={{ color: favoriteIconColor(item.favorited) }}
-                      />
-                    </button>
-                  </div>
-                )}
               />
             </Show>
           </Show>

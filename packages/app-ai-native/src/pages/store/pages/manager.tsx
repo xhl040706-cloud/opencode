@@ -726,7 +726,6 @@ export default function StoreManagerPage() {
             unfavoriteTooltip: language.t("store.detail.unfavoriteTooltip"),
             favoriteSignInTooltip: language.t("store.detail.favoriteSignInTooltip"),
             updated: language.t("store.detail.updated"),
-            action: language.t("store.home.table.action"),
             toggleColumns: language.t("store.home.table.toggleColumns"),
             noResults: language.t("store.noResults"),
             reset: language.t("common.reset"),
@@ -740,29 +739,6 @@ export default function StoreManagerPage() {
           emptyMessage={language.t(state.tab === "created" ? "store.console.capabilities.empty" : "store.console.capabilities.favorited.empty")}
           maxVisibleRows={PAGE_SIZE}
           fixedRows
-          renderActions={(item) => (
-            <div class="flex items-center justify-end gap-1">
-              <button
-                type="button"
-                disabled={!auth.user() || auth.loading() || state.favoriteActionItemId === item.id}
-                class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] disabled:cursor-not-allowed disabled:opacity-60"
-                title={auth.user() ? (item.favorited ? language.t("store.detail.unfavoriteTooltip") : language.t("store.detail.favoriteTooltip")) : language.t("store.detail.favoriteSignInTooltip")}
-                onClick={() => void toggleRowFavorite(item)}
-              >
-                <LocalIcon name={item.favorited ? "star-filled" : "star"} size="small" style={{ color: favoriteIconColor(item.favorited, item.itemType) }} />
-              </button>
-              <Show when={state.tab === "created"}>
-                <>
-                  <button type="button" class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)]" title={language.t("common.edit")} onClick={() => openEditCapability(item)}>
-                    <Icon name="edit" size="small" />
-                  </button>
-                  <button type="button" class="inline-flex size-8 min-w-8 items-center justify-center rounded-full bg-transparent text-destructive transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] hover:text-destructive" title={language.t("store.console.capabilities.delete")} onClick={() => handleDeleteItem(item.id)}>
-                    <Icon name="trash" size="small" />
-                  </button>
-                </>
-              </Show>
-            </div>
-          )}
         />
     )
   }
@@ -883,7 +859,7 @@ export default function StoreManagerPage() {
                     aria-pressed={state.tab === "favorited"}
                     onClick={() => switchTab("favorited")}
                   >
-                    <LocalIcon name={state.tab === "favorited" ? "star-filled" : "star"} size="small" style={state.tab === "favorited" ? { color: "#ffffff" } : undefined} />
+                    <LocalIcon name={state.tab === "favorited" ? "subscribe-filled" : "subscribe"} size="small" style={state.tab === "favorited" ? { color: "#ffffff" } : undefined} />
                   </button>
                 </Tooltip>
               </div>
