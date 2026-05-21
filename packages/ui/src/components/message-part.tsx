@@ -179,12 +179,15 @@ function next(text: string, start: number) {
 function createPacedValue(getValue: () => string, live?: () => boolean) {
   const [value, setValue] = createSignal(getValue())
   let shown = getValue()
-  let timeout: ReturnType<typeof setTimeout> | undefined
+  let frame: number | undefined
+  let lastTime: number | undefined
 
   const clear = () => {
-    if (!timeout) return
-    clearTimeout(timeout)
-    timeout = undefined
+    if (frame !== undefined) {
+      cancelAnimationFrame(frame)
+      frame = undefined
+    }
+    lastTime = undefined
   }
 
   const sync = (text: string) => {
@@ -192,8 +195,8 @@ function createPacedValue(getValue: () => string, live?: () => boolean) {
     setValue(text)
   }
 
-  const run = () => {
-    timeout = undefined
+  const tick = (now: number) => {
+    frame = undefined
     const text = getValue()
     if (!live?.()) {
       sync(text)
@@ -203,9 +206,20 @@ function createPacedValue(getValue: () => string, live?: () => boolean) {
       sync(text)
       return
     }
-    const end = next(text, shown.length)
+    const elapsed = lastTime !== undefined ? now - lastTime : TEXT_RENDER_PACE_MS
+    const ticks = Math.max(1, Math.floor(elapsed / TEXT_RENDER_PACE_MS))
+    let end = shown.length
+    for (let i = 0; i < ticks; i++) {
+      end = next(text, end)
+      if (end >= text.length) break
+    }
+    lastTime = now
     sync(text.slice(0, end))
-    if (end < text.length) timeout = setTimeout(run, TEXT_RENDER_PACE_MS)
+    if (end < text.length) {
+      frame = requestAnimationFrame(tick)
+    } else {
+      lastTime = undefined
+    }
   }
 
   createEffect(() => {
@@ -220,8 +234,9 @@ function createPacedValue(getValue: () => string, live?: () => boolean) {
       sync(text)
       return
     }
-    if (text.length === shown.length || timeout) return
-    timeout = setTimeout(run, TEXT_RENDER_PACE_MS)
+    if (text.length === shown.length || frame !== undefined) return
+    lastTime = undefined
+    frame = requestAnimationFrame(tick)
   })
 
   onCleanup(() => {

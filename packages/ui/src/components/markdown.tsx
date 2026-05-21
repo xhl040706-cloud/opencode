@@ -285,18 +285,10 @@ export function Markdown(
   )
 
   let copyCleanup: (() => void) | undefined
+  let pendingRaf: number | undefined
+  let prevContent: string | undefined
 
-  createEffect(() => {
-    const container = root()
-    const content = local.text ? (html.latest ?? html() ?? "") : ""
-    if (!container) return
-    if (isServer) return
-
-    if (!content) {
-      container.innerHTML = ""
-      return
-    }
-
+  const render = (container: HTMLDivElement, content: string) => {
     const labels = {
       copy: i18n.t("ui.message.copy"),
       copied: i18n.t("ui.message.copied"),
@@ -326,9 +318,62 @@ export function Markdown(
         copy: i18n.t("ui.message.copy"),
         copied: i18n.t("ui.message.copied"),
       }))
+  }
+
+  createEffect(() => {
+    const container = root()
+    const content = local.text ? (html.latest ?? html() ?? "") : ""
+    if (!container) return
+    if (isServer) return
+
+    if (!content) {
+      container.innerHTML = ""
+      prevContent = ""
+      return
+    }
+
+    if (content === prevContent) return
+
+    const isStreaming = local.streaming ?? false
+
+    // 非流式场景（初始化加载、切换消息等）：立即全量渲染
+    if (!isStreaming) {
+      render(container, content)
+      prevContent = content
+      return
+    }
+
+    // 流式场景：用 RAF 合并高频更新 + 增量追加
+    if (pendingRaf !== undefined) return
+    pendingRaf = requestAnimationFrame(() => {
+      pendingRaf = undefined
+      const container = root()
+      if (!container) return
+
+      const prev = prevContent ?? ""
+      if (prev && content.startsWith(prev)) {
+        // 增量追加：只渲染新增部分
+        const labels = {
+          copy: i18n.t("ui.message.copy"),
+          copied: i18n.t("ui.message.copied"),
+        }
+        const newContent = content.slice(prev.length)
+        const temp = new DOMParser().parseFromString(newContent, "text/html").body as HTMLDivElement
+        decorate(temp, labels)
+        while (temp.firstChild) {
+          container.appendChild(temp.firstChild)
+        }
+      } else {
+        // 流式中内容被替换（非追加），全量渲染
+        render(container, content)
+      }
+
+      prevContent = content
+    })
   })
 
   onCleanup(() => {
+    if (pendingRaf !== undefined) cancelAnimationFrame(pendingRaf)
     if (copyCleanup) copyCleanup()
   })
 
