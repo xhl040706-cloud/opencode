@@ -532,6 +532,19 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   summaryChanged = true
                   break
                 }
+                case "host.git.remote.changed": {
+                  const props = payload.properties as { repo_path?: string; branch?: string; old_head?: string; new_head?: string }
+
+                  // Filter events by repo path
+                  const eventRepoPath = props.repo_path ? getDirectory(props.repo_path) : ""
+                  const currentRepoPath = getDirectory(device.directory)
+                  if (eventRepoPath !== currentRepoPath) break
+
+                  // Remote branch changed (push/fetch), refresh VCS to update ahead/behind counts
+                  refreshVcs()
+                  summaryChanged = true
+                  break
+                }
               }
               if (summaryChanged && props.workspaceId) {
                 syncSummary(props.workspaceId, {
