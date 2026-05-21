@@ -287,6 +287,7 @@ export function Markdown(
   let copyCleanup: (() => void) | undefined
   let pendingRaf: number | undefined
   let prevContent: string | undefined
+  let wasHidden = false
 
   const render = (container: HTMLDivElement, content: string) => {
     const labels = {
@@ -325,6 +326,22 @@ export function Markdown(
     const content = local.text ? (html.latest ?? html() ?? "") : ""
     if (!container) return
     if (isServer) return
+
+    // 页面可见性检测：当页面从隐藏变为可见时，强制全量渲染
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        wasHidden = true
+      } else if (wasHidden) {
+        wasHidden = false
+        // 页面重新可见时，强制全量渲染以显示最新完整内容
+        if (content) {
+          render(container, content)
+          prevContent = content
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     if (!content) {
       container.innerHTML = ""
@@ -369,6 +386,10 @@ export function Markdown(
       }
 
       prevContent = content
+    })
+
+    onCleanup(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     })
   })
 
