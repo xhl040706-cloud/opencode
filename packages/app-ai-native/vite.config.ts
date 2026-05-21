@@ -43,9 +43,11 @@ export default defineConfig(({ mode }) => {
           target: cloudTarget,
           changeOrigin: true,
           ws: true,
-          headers: {
-            Cookie: cookie,
-          },
+          ...(cookie && {
+            headers: {
+              Cookie: cookie,
+            },
+          }),
           rewrite: (path) => {
             return path.replace(new RegExp(`^${prefix}`), "/cloud-api")
           },
@@ -60,9 +62,11 @@ export default defineConfig(({ mode }) => {
         [apiPrefix]: {
           target: cloudTarget,
           changeOrigin: true,
-          headers: {
-            Cookie: cookie,
-          },
+          ...(cookie && {
+            headers: {
+              Cookie: cookie,
+            },
+          }),
           rewrite: (path) => {
             if (path.startsWith(v2Prefix)) {
               return path.replace(new RegExp(`^${prefix}`), "/cloud-dashboard")
@@ -74,10 +78,12 @@ export default defineConfig(({ mode }) => {
         [`${quotaPrefix}/quota-manager`]: {
           target: cloudTarget,
           changeOrigin: true,
-          headers: {
-            Cookie: cookie,
-            Authorization: authToken,
-          },
+          ...(cookie && {
+            headers: {
+              Cookie: cookie,
+              Authorization: authToken,
+            },
+          }),
         },
       },
     },
