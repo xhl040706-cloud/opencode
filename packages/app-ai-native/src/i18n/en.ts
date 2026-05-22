@@ -108,10 +108,22 @@ export const dict = {
   "store.received.toast.dismissSuccess": "Dismissed",
   "store.received.toast.dismissFailed": "Failed to dismiss",
   "store.received.toast.markReadFailed": "Failed to mark as read",
+  "store.received.status.label": "Status",
   "store.toast.unfavoriteReadonlyFailed": "This skill is required and cannot be unsubscribed",
+
+  "store.sent.title": "Sent Distributions",
+  "store.sent.description": "Manage skills you've pushed to your team or individuals",
+  "store.sent.empty": "No distributions sent yet",
+  "store.sent.emptyDesc": "You can push skills to team members",
+  "store.sent.target": "Recipient",
+  "store.sent.revoke": "Revoke",
+  "store.sent.revokeConfirm": "Are you sure you want to revoke this push? Recipients will no longer see this skill.",
+  "store.sent.toast.revokeSuccess": "Revoked",
+  "store.sent.toast.revokeFailed": "Failed to revoke",
 
   "store.sidebar.manage": "Manage",
   "store.sidebar.nav.received": "Received",
+  "store.sidebar.nav.sent": "Sent",
 
   "store.console.repositories.descriptionFallback": "No description provided.",
   "store.console.repositories.syncSettings": "Sync settings",

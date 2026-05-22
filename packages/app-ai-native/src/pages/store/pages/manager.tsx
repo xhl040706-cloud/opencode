@@ -19,7 +19,7 @@ import { MoveCapabilityDialog } from "@/pages/store/components/move-capability-d
 import { DistributeDialog } from "@/pages/store/components/distribute-dialog"
 import { buildStoreTableColumnOptions, DEFAULT_VISIBLE_COLUMNS, formatCompact, formatSourceMetric, formatStoreDate, formatStoreTablePaginationSummary, StoreCapabilityTable, StoreTableFooter, type TableColumnKey } from "@/pages/store/components/store-capability-table"
 import { useAuth } from "@/pages/store/hooks/use-auth"
-import { behaviorApi, distributionApi, itemApi, repoApi, userApi, type CapabilityItem, type ItemOrder, type ItemSort, type Repository, type SecurityRiskGroup } from "@/pages/store/lib/api"
+import { behaviorApi, distributionApi, itemApi, repoApi, userApi, type CapabilityItem, type DistributionResult, type ItemOrder, type ItemSort, type Repository, type SecurityRiskGroup } from "@/pages/store/lib/api"
 import { getLoginUrl } from "@/pages/store/lib/auth"
 import { sx } from "@/pages/store/lib/styles"
 import { typeKey } from "@/pages/store/lib/constants"
@@ -33,7 +33,7 @@ const STORE_TYPES = [
   { value: "plugin", labelKey: "store.sidebar.nav.plugins", icon: "configuration" as const, color: "#EC4899", bg: "#FCE7F3" },
 ] as const
 
-type TabKey = "created" | "favorited" | "received"
+type TabKey = "created" | "favorited" | "received" | "sent"
 
 type ReceiptItem = {
   id: string
@@ -92,6 +92,9 @@ export default function StoreManagerPage() {
     receivedItems: [] as ReceiptItem[],
     receivedLoading: false,
     receivedLoaded: false,
+    sentItems: [] as DistributionResult["distribution"][],
+    sentLoading: false,
+    sentLoaded: false,
     repos: [] as Repository[],
     typeFilterOpen: false,
     typeFilterQuery: "",
@@ -134,6 +137,7 @@ export default function StoreManagerPage() {
   const activeTotal = createMemo(() => {
     if (state.tab === "created") return state.totalItems
     if (state.tab === "favorited") return state.favoritedTotal
+    if (state.tab === "sent") return filteredSentItems().length
     return filteredReceivedItems().length
   })
   const activeItems = createMemo(() => {
@@ -144,6 +148,7 @@ export default function StoreManagerPage() {
   const activeLoading = createMemo(() => {
     if (state.tab === "created") return state.loadingItems
     if (state.tab === "favorited") return state.favoritedLoading
+    if (state.tab === "sent") return state.sentLoading
     return state.receivedLoading
   })
   const totalPages = createMemo(() => Math.max(1, Math.ceil(activeTotal() / PAGE_SIZE)))
@@ -155,6 +160,14 @@ export default function StoreManagerPage() {
     return state.receivedItems.filter((r) =>
       r.distribution?.item?.name?.toLowerCase().includes(query) ||
       r.distribution?.item?.description?.toLowerCase().includes(query),
+    )
+  })
+  const filteredSentItems = createMemo(() => {
+    const query = state.debouncedSearch.trim().toLowerCase()
+    if (!query) return state.sentItems
+    return state.sentItems.filter((d) =>
+      d.item?.name?.toLowerCase().includes(query) ||
+      d.item?.description?.toLowerCase().includes(query),
     )
   })
   const categories = createMemo(() => itemFilterOptions.categories())
@@ -308,6 +321,7 @@ export default function StoreManagerPage() {
   }
 
   const [receivedActionLoading, setReceivedActionLoading] = createStore<Record<string, boolean>>({})
+  const [sentActionLoading, setSentActionLoading] = createStore<Record<string, boolean>>({})
 
   const loadReceived = async () => {
     if (state.receivedLoading) return
@@ -324,6 +338,39 @@ export default function StoreManagerPage() {
     }
     finally {
       setState("receivedLoading", false)
+    }
+  }
+
+  const loadSent = async () => {
+    if (state.sentLoading) return
+    setState("sentLoading", true)
+    try {
+      const res = await distributionApi.listMySent()
+      setState({ sentItems: res.distributions ?? [], sentLoaded: true })
+    }
+    catch (error) {
+      showToast({
+        title: language.t("store.received.toast.loadFailed"),
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
+    finally {
+      setState("sentLoading", false)
+    }
+  }
+
+  const handleRevokeDistribution = async (distributionId: string) => {
+    setSentActionLoading(distributionId, true)
+    try {
+      await distributionApi.revoke(distributionId)
+      showToast({ variant: "success", title: language.t("store.sent.toast.revokeSuccess") })
+      setState("sentItems", (prev) => prev.map((d) => d.id === distributionId ? { ...d, status: "revoked" } : d))
+    }
+    catch (err) {
+      showToast({ variant: "error", title: language.t("store.sent.toast.revokeFailed"), description: err instanceof Error ? err.message : String(err) })
+    }
+    finally {
+      setSentActionLoading(distributionId, false)
     }
   }
 
@@ -368,6 +415,7 @@ export default function StoreManagerPage() {
   const refreshActiveTab = () => {
     if (state.tab === "created") return void loadCreated()
     if (state.tab === "favorited") return void loadFavorited()
+    if (state.tab === "sent") return void loadSent()
     return void loadReceived()
   }
 
@@ -375,6 +423,7 @@ export default function StoreManagerPage() {
     void loadCreated()
     if (state.favoritedLoaded || state.tab === "favorited") void loadFavorited()
     if (state.receivedLoaded || state.tab === "received") void loadReceived()
+    if (state.sentLoaded || state.tab === "sent") void loadSent()
   }
 
   createEffect(() => {
@@ -577,6 +626,10 @@ export default function StoreManagerPage() {
     }
     if (tab === "favorited") {
       if (!state.favoritedLoaded) void loadFavorited()
+      return
+    }
+    if (tab === "sent") {
+      if (!state.sentLoaded) void loadSent()
       return
     }
     if (!state.receivedLoaded) void loadReceived()
@@ -901,8 +954,8 @@ export default function StoreManagerPage() {
           <header class="relative overflow-hidden bg-[linear-gradient(135deg,color-mix(in_srgb,var(--native-primary)_2%,var(--native-bg)),color-mix(in_srgb,var(--native-primary)_10%,var(--native-panel))_62%,color-mix(in_srgb,var(--native-primary)_14%,var(--native-panel)))] before:pointer-events-none before:absolute before:right-[-10%] before:top-[-60%] before:h-[340px] before:w-[340px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--native-primary)_8%,transparent),transparent_70%)] before:content-['']">
             <div class="relative flex flex-row items-center justify-between gap-4 px-5 py-3 lg:gap-6">
               <div class="min-w-0 flex flex-1 items-center gap-4">
-                <h1 class="relative m-0 shrink-0 text-[1.625rem] leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t(state.tab === "received" ? "store.received.title" : "store.console.capabilities.title")}</h1>
-                <p class="relative m-0 min-w-0 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t(state.tab === "received" ? "store.received.description" : "store.console.capabilities.description")}</p>
+                <h1 class="relative m-0 shrink-0 text-[1.625rem] leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t(state.tab === "received" ? "store.received.title" : state.tab === "sent" ? "store.sent.title" : "store.console.capabilities.title")}</h1>
+                <p class="relative m-0 min-w-0 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t(state.tab === "received" ? "store.received.description" : state.tab === "sent" ? "store.sent.description" : "store.console.capabilities.description")}</p>
               </div>
               <div class="flex shrink-0 items-center justify-end gap-3">
                 <Button type="button" variant="outline" size="sm" class="h-8 px-3" onClick={() => navigate("/store")}>
@@ -1016,6 +1069,22 @@ export default function StoreManagerPage() {
                     <Icon name="inbox" size="small" style={state.tab === "received" ? { color: "#ffffff" } : undefined} />
                   </button>
                 </Tooltip>
+                <Tooltip value={language.t("store.sent.title")} placement="bottom">
+                  <button
+                    type="button"
+                    class={cn(
+                      "inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+                      state.tab === "sent"
+                        ? "bg-[var(--native-primary)] !text-white shadow-[var(--native-shadow-sm)]"
+                        : "text-[var(--native-muted)] hover:bg-[color:color-mix(in_srgb,var(--native-foreground)_8%,transparent)] hover:text-[var(--native-foreground)]",
+                    )}
+                    aria-label={language.t("store.sent.title")}
+                    aria-pressed={state.tab === "sent"}
+                    onClick={() => switchTab("sent")}
+                  >
+                    <Icon name="square-arrow-top-right" size="small" style={state.tab === "sent" ? { color: "#ffffff" } : undefined} />
+                  </button>
+                </Tooltip>
               </div>
             </div>
           </section>
@@ -1023,7 +1092,7 @@ export default function StoreManagerPage() {
 
           <section class={cn(sx.section, "flex min-h-0 flex-1 flex-col px-2 sm:px-3")}>
             <div class={cn(sx.tableShell, "flex min-h-0 flex-1 flex-col")}>
-              <Show when={state.tab !== "received"}>
+              <Show when={state.tab !== "received" && state.tab !== "sent"}>
                 <Show when={state.createdLoaded || state.favoritedLoaded}>
                   <Show when={activeLoading()}>
                     <div class={sx.overlay}>
@@ -1147,9 +1216,107 @@ export default function StoreManagerPage() {
                   <div class={sx.state}>{language.t("store.loading")}</div>
                 </Show>
               </Show>
+
+              <Show when={state.tab === "sent"}>
+                <Show when={state.sentLoading}>
+                  <div class={sx.overlay}>
+                    <div class={sx.spinner} />
+                  </div>
+                </Show>
+                <Show when={!state.sentLoading && state.sentLoaded}>
+                  <Show when={filteredSentItems().length > 0} fallback={
+                    <div class="flex flex-1 items-center justify-center">
+                      <div class={sx.state}>
+                        <p class="mb-1 text-[0.9375rem] font-medium">{language.t("store.sent.empty")}</p>
+                        <p class="text-[0.8125rem] opacity-60">{language.t("store.sent.emptyDesc")}</p>
+                      </div>
+                    </div>
+                  }>
+                    <table class={sx.dt}>
+                      <thead>
+                        <tr>
+                          <th class={sx.th}>{language.t("store.home.table.title")}</th>
+                          <th class={cn(sx.th, "w-[16rem]")}>{language.t("store.home.table.description")}</th>
+                          <th class={sx.th}>{language.t("store.console.capabilities.type")}</th>
+                          <th class={sx.th}>{language.t("store.sent.target")}</th>
+                          <th class={sx.th}>{language.t("store.distribute.permission.title")}</th>
+                          <th class={sx.th}>{language.t("store.received.status.label")}</th>
+                          <th class={cn(sx.th, "text-right")}>{language.t("store.home.table.action")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <For each={filteredSentItems()}>
+                          {(dist) => {
+                            const item = dist.item
+                            const isLoading = sentActionLoading[dist.id]
+                            return (
+                              <tr class={sx.row}>
+                                <td class={sx.td}>
+                                  <button
+                                    class="text-left font-semibold text-[var(--native-foreground)] hover:text-[var(--native-primary)] transition-colors truncate"
+                                    onClick={() => item && openItemDetail(item)}
+                                  >
+                                    {item?.name ?? language.t("store.received.unknownItem")}
+                                  </button>
+                                  <Show when={dist.message}>
+                                    <div class="mt-0.5 text-[0.75rem] text-[var(--native-muted)] truncate">{dist.message}</div>
+                                  </Show>
+                                </td>
+                                <td class={cn(sx.td, "max-w-[16rem]")}>
+                                  <span class="text-[var(--native-muted)] line-clamp-2">{item?.description ?? "—"}</span>
+                                </td>
+                                <td class={sx.td}>
+                                  <span class="text-[var(--native-muted)]">{item ? language.t(typeKey(item.itemType)) : "—"}</span>
+                                </td>
+                                <td class={sx.td}>
+                                  <span class="inline-flex items-center rounded-[var(--native-radius-sm)] border px-2 py-0.5 text-[11px] font-medium" style={{ color: "var(--native-muted)", "border-color": "color-mix(in oklab, var(--native-border) 50%, transparent)" }}>
+                                    {dist.scopeType === "user" ? language.t("store.distribute.scope.user") : language.t("store.distribute.scope.organization")}: {dist.targetId}
+                                  </span>
+                                </td>
+                                <td class={sx.td}>
+                                  <span class="inline-flex items-center rounded-[var(--native-radius-sm)] border px-2 py-0.5 text-[11px] font-medium" style={{ color: "var(--native-muted)", "border-color": "color-mix(in oklab, var(--native-border) 50%, transparent)" }}>
+                                    {language.t(dist.permissionMode === "readonly" ? "store.distribute.permission.readonly" : "store.distribute.permission.dismissible")}
+                                  </span>
+                                </td>
+                                <td class={sx.td}>
+                                  <span class="text-[var(--native-muted)]">{language.t(dist.status === "active" ? "store.received.status.active" : dist.status === "paused" ? "store.received.status.paused" : "store.received.status.revoked")}</span>
+                                </td>
+                                <td class={cn(sx.td, "text-right")}>
+                                  <Show when={dist.status === "active"}>
+                                    <button
+                                      class="inline-flex h-7 w-7 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-muted)] transition-colors hover:bg-[color:color-mix(in_oklab,#ef4444_8%,transparent)] hover:text-[#ef4444] disabled:opacity-50"
+                                      disabled={isLoading}
+                                      onClick={() => {
+                                        dialog.show(() => (
+                                          <ConfirmDialog
+                                            title={language.t("store.sent.revoke")}
+                                            description={language.t("store.sent.revokeConfirm")}
+                                            confirm={language.t("store.sent.revoke")}
+                                            onConfirm={() => handleRevokeDistribution(dist.id)}
+                                          />
+                                        ))
+                                      }}
+                                      title={language.t("store.sent.revoke")}
+                                    >
+                                      <Icon name="circle-x" size="small" />
+                                    </button>
+                                  </Show>
+                                </td>
+                              </tr>
+                            )
+                          }}
+                        </For>
+                      </tbody>
+                    </table>
+                  </Show>
+                </Show>
+                <Show when={!state.sentLoaded}>
+                  <div class={sx.state}>{language.t("store.loading")}</div>
+                </Show>
+              </Show>
             </div>
 
-            <Show when={state.tab !== "received"}>
+            <Show when={state.tab !== "received" && state.tab !== "sent"}>
               <StoreTableFooter
                 page={activePage()}
                 pageSize={PAGE_SIZE}
