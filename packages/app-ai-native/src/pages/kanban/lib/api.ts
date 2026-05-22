@@ -359,6 +359,9 @@ function dashboard(raw: unknown): DashboardSummary {
     total_task_ancient_minutes: toNumber(data.total_task_ancient_minutes),
     total_real_minutes: toNumber(data.total_real_minutes),
     avg_efficiency_ratio: data.avg_efficiency_ratio == null ? null : toNumber(data.avg_efficiency_ratio),
+    total_commit_ancient_minutes: toNumber(data.total_commit_ancient_minutes),
+    total_commit_real_minutes: toNumber(data.total_commit_real_minutes),
+    commit_efficiency_ratio: data.commit_efficiency_ratio == null ? null : toNumber(data.commit_efficiency_ratio),
   }
 }
 

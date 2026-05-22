@@ -119,6 +119,9 @@ export type DashboardSummary = {
   total_task_ancient_minutes: number
   total_real_minutes: number
   avg_efficiency_ratio: number | null
+  total_commit_ancient_minutes: number
+  total_commit_real_minutes: number
+  commit_efficiency_ratio: number | null
 }
 
 export type EfficiencyQuery = {
