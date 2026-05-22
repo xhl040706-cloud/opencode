@@ -14,6 +14,7 @@ import { useNavigate } from "@solidjs/router"
 import { env } from "@/lib/env"
 import { itemApi, userApi, type CapabilityItem } from "../lib/api"
 import { useLanguage } from "@/context/language"
+import { pickItemDescription } from "../lib/item-description"
 import SecurityTag from "./security-tag"
 import { DistributeDialog } from "./distribute-dialog"
 import "@/styles/vscode-markdown.css"
@@ -415,8 +416,8 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
             <div class="detail-panel-body flex-1 overflow-auto px-6 py-5">
               <div class="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(14rem,0.6fr)]">
                 <div class="min-w-0 space-y-5">
-                  <Show when={data().description}>
-                    <p class="text-[13px] leading-6 text-text-weak">{data().description}</p>
+                  <Show when={pickItemDescription(data(), language.locale())}>
+                    <p class="text-[13px] leading-6 text-text-weak">{pickItemDescription(data(), language.locale())}</p>
                   </Show>
 
                   <Show when={data().content}>

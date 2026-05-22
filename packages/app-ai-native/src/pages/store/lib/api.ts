@@ -195,6 +195,7 @@ export interface CapabilityVersion {
   revision: number
   name?: string
   description?: string
+  descriptions?: Record<string, string>
   category?: string
   version?: string
   versionLabel?: string
@@ -244,6 +245,7 @@ export interface CapabilityItem {
   itemType: string
   name: string
   description: string
+  descriptions?: Record<string, string>
   category: string
   version: string
   content: string
