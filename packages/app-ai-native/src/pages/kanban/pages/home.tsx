@@ -37,7 +37,7 @@ function days(value?: number | null) {
 }
 
 function saved(summary: DashboardSummary) {
-  return Math.max(0, summary.total_task_ancient_minutes - summary.total_real_minutes)
+  return Math.max(0, summary.total_commit_ancient_minutes - summary.total_commit_real_minutes)
 }
 
 function blank(): DashboardSummary {
@@ -53,6 +53,9 @@ function blank(): DashboardSummary {
     total_task_ancient_minutes: 0,
     total_real_minutes: 0,
     avg_efficiency_ratio: null,
+    total_commit_ancient_minutes: 0,
+    total_commit_real_minutes: 0,
+    commit_efficiency_ratio: null,
   }
 }
 
@@ -342,12 +345,12 @@ export default function KanbanHome() {
     },
     {
       label: language.t("kanban.home.summary.traditionalEst"),
-      value: days(view().total_task_ancient_minutes),
+      value: days(view().total_commit_ancient_minutes),
       tone: "text-[var(--native-foreground)]",
     },
     {
       label: language.t("kanban.home.summary.actualTime"),
-      value: days(view().total_real_minutes),
+      value: days(view().total_commit_real_minutes),
       tone: "text-[var(--native-foreground)]",
     },
   ])
@@ -416,7 +419,7 @@ export default function KanbanHome() {
                   <div class="flex items-center gap-2 text-[var(--native-foreground)]">
                     <p class="m-0 text-[0.95rem] font-medium tracking-[-0.02em]">{language.t("kanban.home.summary.efficiency")}</p>
                   </div>
-                  <p class="mt-10 text-[clamp(2.4rem,5vw,4rem)] leading-none font-medium tracking-[-0.08em] text-[#2d6bff] tabular-nums">{fmtRatio(view().avg_efficiency_ratio)}</p>
+                  <p class="mt-10 text-[clamp(2.4rem,5vw,4rem)] leading-none font-medium tracking-[-0.08em] text-[#2d6bff] tabular-nums">{fmtRatio(view().commit_efficiency_ratio)}</p>
                 </div>
 
                 <div class="relative mx-auto h-[12rem] w-full max-w-[20rem] shrink-0 overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_50%_65%,color-mix(in_oklab,var(--native-primary)_12%,transparent)_54%,transparent_55%),radial-gradient(circle_at_68%_22%,color-mix(in_oklab,var(--native-primary)_14%,transparent)_28%,transparent_29%),transparent]">
