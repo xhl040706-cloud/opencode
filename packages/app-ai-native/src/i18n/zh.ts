@@ -1019,10 +1019,22 @@ export const dict = {
   "store.received.toast.dismissSuccess": "已忽略",
   "store.received.toast.dismissFailed": "忽略失败",
   "store.received.toast.markReadFailed": "标记已读失败",
+  "store.received.status.label": "状态",
   "store.toast.unfavoriteReadonlyFailed": "该技能为强制推送，无法取消订阅",
+
+  "store.sent.title": "我下发的",
+  "store.sent.description": "管理您推送给团队或个人的技能",
+  "store.sent.empty": "暂无下发记录",
+  "store.sent.emptyDesc": "您可以将技能推送给团队成员",
+  "store.sent.target": "接收方",
+  "store.sent.revoke": "收回",
+  "store.sent.revokeConfirm": "确认收回此推送？接收方将不再看到该技能。",
+  "store.sent.toast.revokeSuccess": "已收回",
+  "store.sent.toast.revokeFailed": "收回失败",
 
   "store.sidebar.manage": "管理",
   "store.sidebar.nav.received": "收到的推送",
+  "store.sidebar.nav.sent": "我下发的",
 
   "store.console.repositories.descriptionFallback": "暂无描述。",
   "store.console.repositories.syncSettings": "同步设置",

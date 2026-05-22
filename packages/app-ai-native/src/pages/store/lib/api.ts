@@ -924,6 +924,7 @@ export interface DistributionResult {
     targetId: string
     message?: string
     createdAt: string
+    item?: CapabilityItem
   }
   recipientCount: number
 }
