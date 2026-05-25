@@ -16,6 +16,10 @@ export default defineConfig(({ mode }) => {
   const v2Prefix = `${prefix}/api/v2`
   const cookie = env.VITE_API_COOKIE
 
+  // API prefix configuration for development/production environments
+  const cloudApiPrefix = env.VITE_CLOUD_API_PREFIX ?? "/cloud-api"
+  const cloudDashboardPrefix = env.VITE_CLOUD_DASHBOARD_PREFIX ?? "/cloud-dashboard"
+
   // Extract JWT from cookie string for Authorization header
   // Cookie format: zgsmAdminToken=<jwt>
   let authToken = ""
@@ -48,7 +52,7 @@ export default defineConfig(({ mode }) => {
             },
           }),
           rewrite: (path) => {
-            return path.replace(new RegExp(`^${prefix}`), "/cloud-api")
+            return path.replace(new RegExp(`^${prefix}/cloud`), cloudApiPrefix)
           },
           configure: (proxy) => {
             proxy.on("proxyReq", (proxyReq) => {
@@ -68,10 +72,10 @@ export default defineConfig(({ mode }) => {
           }),
           rewrite: (path) => {
             if (path.startsWith(v2Prefix)) {
-              return path.replace(new RegExp(`^${prefix}`), "/cloud-dashboard")
+              return path.replace(new RegExp(`^${apiPrefix}`), cloudDashboardPrefix)
             }
 
-            return path.replace(new RegExp(`^${prefix}`), "/cloud-api")
+            return path.replace(new RegExp(`^${apiPrefix}`), cloudApiPrefix)
           },
         },
         [`${quotaPrefix}/quota-manager`]: {
