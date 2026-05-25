@@ -37,11 +37,16 @@ export default defineConfig(({ mode }) => {
       allowedHosts: true,
       port: appPort,
       proxy: {
-        // "/cloud/device": {
-        //   target: cloudTarget,
-        //   changeOrigin: true,
-        //   ws: true,
-        // },
+        [`${prefix}/cloud/device`]: {
+          target: cloudTarget,
+          changeOrigin: true,
+          ws: true,
+          ...(cookie && {
+            headers: {
+              Cookie: cookie,
+            },
+          }),
+        },
         [`${prefix}/cloud`]: {
           target: cloudTarget,
           changeOrigin: true,
