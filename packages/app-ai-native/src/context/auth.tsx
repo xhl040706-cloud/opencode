@@ -51,6 +51,7 @@ interface AuthContextValue {
   permissions: () => UserPermissions | null
   loading: () => boolean
   logout: () => Promise<void>
+  refreshUser: () => Promise<void>
   canAccessMenu: (code: string) => boolean
   hasCapability: (cap: string) => boolean
 }
@@ -60,6 +61,7 @@ const AuthContext = createContext<AuthContextValue>({
   permissions: () => null,
   loading: () => true,
   logout: async () => {},
+  refreshUser: async () => {},
   canAccessMenu: () => false,
   hasCapability: () => false,
 })
@@ -127,7 +129,7 @@ export function AuthProvider(props: ParentProps) {
   }
 
   return (
-    <AuthContext.Provider value={{ user: () => state.user, permissions: () => state.permissions, loading: () => state.loading, logout, canAccessMenu, hasCapability }}>
+    <AuthContext.Provider value={{ user: () => state.user, permissions: () => state.permissions, loading: () => state.loading, logout, refreshUser: fetchUser, canAccessMenu, hasCapability }}>
       {props.children}
     </AuthContext.Provider>
   )

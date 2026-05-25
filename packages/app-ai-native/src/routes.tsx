@@ -46,6 +46,7 @@ const ConsoleDevices = lazy(() => consoleImport.then((m) => ({ default: m.Device
 const ConsoleNotifications = lazy(() => consoleImport.then((m) => ({ default: m.NotificationsPage })))
 const ConsoleUsage = lazy(() => consoleImport.then((m) => ({ default: m.UsagePage })))
 const ConsoleKanban = lazy(() => consoleImport.then((m) => ({ default: m.DashboardKanban })))
+const ConsoleIdentity = lazy(() => consoleImport.then((m) => ({ default: m.IdentityPage })))
 
 const ConsoleDevicesRoute: Component = () => <ConsoleDevices />
 const ConsoleNotificationsRoute: Component = () => <ConsoleNotifications />
@@ -184,6 +185,7 @@ export const routeConfig: RouteConfig[] = [
       { path: "/devices", component: ConsoleDevicesRoute },
       { path: "/notifications", component: ConsoleNotificationsRoute },
       { path: "/usage", component: ConsoleUsage },
+      { path: "/identity", component: ConsoleIdentity },
     ],
   },
   {

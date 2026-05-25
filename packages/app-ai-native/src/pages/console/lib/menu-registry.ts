@@ -19,4 +19,5 @@ export const ALL_CONSOLE_MENUS: readonly ConsoleMenuItem[] = [
   { code: "console.usage", href: "/console/usage", labelKey: "store.dashboard.nav.usage", localIcon: "chart-bar" as LocalIconName },
   // { code: "console.notifications", href: "/console/notifications", labelKey: "store.dashboard.nav.notifications", localIcon: "bell" as LocalIconName, badge: "channels" as Count },
   // { code: "console.kanban", href: "/console/kanban", labelKey: "store.dashboard.nav.kanban", icon: "chart" as IconProps["name"] },
+  { code: "console.identity", href: "/console/identity", labelKey: "store.dashboard.nav.identity", localIcon: "identity" as LocalIconName },
 ] as const
