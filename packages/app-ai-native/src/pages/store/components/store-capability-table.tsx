@@ -1062,25 +1062,23 @@ export function StoreCapabilityTable(props: {
                 </Show>
                 <Show when={isColumnVisible("favorite")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colFavorite, sx.mut)}>
-                    <Show when={item.itemType !== "plugin"} fallback={<span class="inline-flex h-4 items-center leading-4 text-text-weak">—</span>}>
-                      <div class="inline-flex h-4 items-center justify-center gap-1.5 align-middle">
-                        <button
-                          type="button"
-                          class="inline-flex size-6 items-center justify-center rounded-full transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] active:bg-[color:color-mix(in_oklab,var(--native-foreground)_16%,transparent)]]"
-                          disabled={!props.onToggleFavorite}
-                          title={item.favorited ? props.labels.unfavoriteTooltip : props.labels.favoriteTooltip}
-                          onClick={(e: MouseEvent) => {
-                            e.stopPropagation()
-                            props.onToggleFavorite?.(item)
-                          }}
-                        >
-                          <LocalIcon name={item.favorited ? "subscribe-filled" : "subscribe"} size="small" style={{ color: props.favoriteIconColor(item.favorited, item.itemType) }} />
-                        </button>
-                        <span class="inline-flex h-4 items-center leading-4" title={(item.favoriteCount ?? 0).toLocaleString()}>
-                          {props.formatCompact(item.favoriteCount ?? 0)}
-                        </span>
-                      </div>
-                    </Show>
+                    <div class="inline-flex h-4 items-center justify-center gap-1.5 align-middle">
+                      <button
+                        type="button"
+                        class="inline-flex size-6 items-center justify-center rounded-full transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] active:bg-[color:color-mix(in_oklab,var(--native-foreground)_16%,transparent)]]"
+                        disabled={!props.onToggleFavorite}
+                        title={item.favorited ? props.labels.unfavoriteTooltip : props.labels.favoriteTooltip}
+                        onClick={(e: MouseEvent) => {
+                          e.stopPropagation()
+                          props.onToggleFavorite?.(item)
+                        }}
+                      >
+                        <LocalIcon name={item.favorited ? "subscribe-filled" : "subscribe"} size="small" style={{ color: props.favoriteIconColor(item.favorited, item.itemType) }} />
+                      </button>
+                      <span class="inline-flex h-4 items-center leading-4" title={(item.favoriteCount ?? 0).toLocaleString()}>
+                        {props.formatCompact(item.favoriteCount ?? 0)}
+                      </span>
+                    </div>
                   </td>
                 </Show>
                 <Show when={isColumnVisible("updated")}>
