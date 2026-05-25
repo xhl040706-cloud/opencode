@@ -257,7 +257,6 @@ export default function BestPracticeCarousel(props: BestPracticeCarouselProps) {
                       >
                         <Icon name={copiedId() === item.id ? "check-small" : "copy"} size="small" />
                       </button>
-                      <Show when={item.itemType !== "plugin"}>
                       <button
                         class={[
                           isFavorited(item.id)
@@ -270,7 +269,6 @@ export default function BestPracticeCarousel(props: BestPracticeCarouselProps) {
                       >
                         <LocalIcon name={isFavorited(item.id) ? "subscribe-filled" : "subscribe"} size="small" class="h-3.5 w-3.5" />
                       </button>
-                      </Show>
                     </div>
                   </div>
                 </div>

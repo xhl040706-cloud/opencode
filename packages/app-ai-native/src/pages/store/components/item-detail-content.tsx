@@ -368,7 +368,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         <span>{language.t("store.distribute.button")}</span>
                       </button>
                     </Show>
-                    <Show when={props.onToggleFavorite && data().itemType !== "plugin"}>
+                    <Show when={props.onToggleFavorite}>
                       <button
                         onClick={() => void props.onToggleFavorite?.()}
                         disabled={!props.isAuthenticated || props.favoritePending}
