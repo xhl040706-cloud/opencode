@@ -4,6 +4,7 @@ import { LocalIcon } from "@/components/local-icon"
 import { useLanguage } from "@/context/language"
 import { behaviorApi, itemApi, type CapabilityItem } from "../lib/api"
 import { typeKey } from "../lib/constants"
+import { pickItemDescription } from "../lib/item-description"
 import { getInstallCommand } from "./item-detail-content"
 import { useAuth } from "../hooks/use-auth"
 import SecurityTag from "./security-tag"
@@ -230,7 +231,7 @@ export default function BestPracticeCarousel(props: BestPracticeCarouselProps) {
                   </div>
 
                   <h3 class="m-0 truncate text-[1rem] leading-[1.4] font-bold text-[var(--color-native-foreground)]">{item.name}</h3>
-                  <p class="line-clamp-2 min-h-[2.5em] flex-1 text-[0.8125rem] leading-[1.55] text-[var(--native-muted)]">{item.description}</p>
+                  <p class="line-clamp-2 min-h-[2.5em] flex-1 text-[0.8125rem] leading-[1.55] text-[var(--native-muted)]">{pickItemDescription(item, language.locale())}</p>
 
                   <div class="mt-1 flex items-center justify-between">
                     <div class="flex gap-2.5 text-[12px] text-[var(--native-muted)]">

@@ -8,6 +8,8 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { tagApi, type CapabilityItem, type Category, type ItemOrder, type ItemSort, type ItemTag, type SecurityRiskGroup } from "../lib/api"
+import { pickItemDescription } from "../lib/item-description"
+import { useLanguage } from "@/context/language"
 import { st, sx } from "../lib/styles"
 import SecurityTag from "./security-tag"
 
@@ -792,6 +794,7 @@ export function StoreCapabilityTable(props: {
   fixedRows?: boolean
   searchQuery?: string
 }) {
+  const language = useLanguage()
   const isColumnVisible = (key: TableColumnKey) => props.visibleColumns[key]
   const stickyHeadClass = "sticky top-0 z-10 bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))]"
   const stickyHeadRowClass = "sticky top-0 z-20 bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))]"
@@ -1016,8 +1019,8 @@ export function StoreCapabilityTable(props: {
                 </Show>
                 <Show when={isColumnVisible("description")}>
                   <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colDescription, sx.mut)}>
-                    <span class="block max-h-10 overflow-hidden leading-5" style={MULTILINE_CLAMP_STYLE} title={item.description || "—"}>
-                      <HighlightText text={item.description || "—"} query={props.searchQuery} />
+                    <span class="block max-h-10 overflow-hidden leading-5" style={MULTILINE_CLAMP_STYLE} title={pickItemDescription(item, language.locale()) || "—"}>
+                      <HighlightText text={pickItemDescription(item, language.locale()) || "—"} query={props.searchQuery} />
                     </span>
                   </td>
                 </Show>
