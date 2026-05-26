@@ -768,20 +768,20 @@ export function DeviceSessionTab(props: { tabId: string }) {
     respond(input: any) {
       session.permission.respond(input)
     },
-    autoResponds(...args: any[]) {
-      return session.permission.isAutoAccepting(...args)
+    autoResponds() {
+      return session.permission.isAutoAccepting()
     },
-    isAutoAccepting(...args: any[]) {
-      return session.permission.isAutoAccepting(...args)
+    isAutoAccepting() {
+      return session.permission.isAutoAccepting()
     },
-    toggleAutoAccept(...args: any[]) {
-      session.permission.toggleAutoAccept(...args)
+    toggleAutoAccept() {
+      session.permission.toggleAutoAccept()
     },
-    enableAutoAccept(...args: any[]) {
-      session.permission.enableAutoAccept(...args)
+    enableAutoAccept() {
+      session.permission.enableAutoAccept()
     },
-    disableAutoAccept(...args: any[]) {
-      session.permission.disableAutoAccept(...args)
+    disableAutoAccept() {
+      session.permission.disableAutoAccept()
     },
     permissionsEnabled: () => session.permission.enabled(),
   }

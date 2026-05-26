@@ -5,7 +5,6 @@ import { useDeviceSDK } from "./device-sdk"
 import { useDeviceWorkspace } from "./device-workspace"
 import type { Message, Part, Session, SessionStatus, FileDiff, Todo, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
-import { Persist, persisted } from "@/utils/persist"
 
 export type SessionError = {
   subtype?: string
@@ -66,10 +65,10 @@ type DeviceSessionValue = {
   }
   permission: {
     respond(input: { permissionID: string; response: "once" | "always" | "reject" }): void
-    isAutoAccepting(sid?: string): boolean
-    toggleAutoAccept(sid?: string): void
-    enableAutoAccept(sid?: string): void
-    disableAutoAccept(sid?: string): void
+    isAutoAccepting(): boolean
+    toggleAutoAccept(): void
+    enableAutoAccept(): void
+    disableAutoAccept(): void
     enabled(): boolean
   }
 }
@@ -143,32 +142,6 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     partProgress: {},
     tasks: {},
   })
-
-  const [permissionStore, setPermissionStore] = createStore<Record<string, boolean>>({})
-
-  const [persistedAccept, setPersistedAccept] = persisted(
-    Persist.device(workspace.workspaceId ?? "", "permission.auto-accept", ["permission.auto-accept.v1"]),
-    createStore<Record<string, boolean>>({}),
-  )
-
-  const permKey = () => {
-    const wid = workspace.workspaceId
-    if (!wid) return ""
-    return wid
-  }
-
-  const isAutoAccepting = (_sid?: string) => {
-    const key = permKey()
-    if (!key) return false
-    return persistedAccept[key] ?? permissionStore[key] ?? false
-  }
-
-  const setAutoAccept = (v: boolean, _sid?: string) => {
-    const key = permKey()
-    if (!key) return
-    setPermissionStore(key, v)
-    setPersistedAccept(key, v)
-  }
 
   const inflight = new Map<string, Promise<void>>()
 
@@ -547,17 +520,17 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     },
     permission: {
       respond: permissionRespond,
-      isAutoAccepting(sid?: string) {
-        return isAutoAccepting(sid)
+      isAutoAccepting() {
+        return workspace.autoAccept.enabled()
       },
-      toggleAutoAccept(sid?: string) {
-        setAutoAccept(!isAutoAccepting(sid), sid)
+      toggleAutoAccept() {
+        workspace.autoAccept.toggle()
       },
-      enableAutoAccept(sid?: string) {
-        setAutoAccept(true, sid)
+      enableAutoAccept() {
+        workspace.autoAccept.enable()
       },
-      disableAutoAccept(sid?: string) {
-        setAutoAccept(false, sid)
+      disableAutoAccept() {
+        workspace.autoAccept.disable()
       },
       enabled() {
         return workspace.agentAvailable()

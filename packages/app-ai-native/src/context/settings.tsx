@@ -47,9 +47,6 @@ export interface Settings {
     font: string
   }
   keybinds: Record<string, string>
-  permissions: {
-    autoApprove: boolean
-  }
   notifications: NotificationSettings
   sounds: SoundSettings
   channels: {
@@ -73,9 +70,6 @@ const defaultSettings: Settings = {
     font: "ibm-plex-mono",
   },
   keybinds: {},
-  permissions: {
-    autoApprove: false,
-  },
   notifications: {
     agent: true,
     permissions: true,
@@ -210,12 +204,6 @@ export const { use: useSettings, provider: SettingsProvider, context: SettingsCo
         },
         resetAll() {
           setStore("keybinds", reconcile({}))
-        },
-      },
-      permissions: {
-        autoApprove: withFallback(() => store.permissions?.autoApprove, defaultSettings.permissions.autoApprove),
-        setAutoApprove(value: boolean) {
-          setStore("permissions", "autoApprove", value)
         },
       },
       notifications: {

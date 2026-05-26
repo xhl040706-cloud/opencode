@@ -1,4 +1,4 @@
-import { createContext, useContext, type ParentProps } from "solid-js"
+import { createContext, createSignal, useContext, type ParentProps } from "solid-js"
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
@@ -6,20 +6,7 @@ import { syncSummary, clearSummary } from "./workspace-summary-store"
 import { getDirectory } from "@opencode-ai/util/path"
 import type { Session, Command, Agent, VcsInfo, SessionStatus, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 import type { ProviderCapabilitiesResponse } from "./global-sync/types"
-
-function readAutoAcceptFromStorage(workspaceId: string | undefined): boolean {
-  if (!workspaceId) return false
-  const id = workspaceId.slice(0, 8) || "default"
-  const fullKey = `opencode.device.${id}.dat:permission.auto-accept`
-  try {
-    const raw = localStorage.getItem(fullKey)
-    if (!raw) return false
-    const parsed = JSON.parse(raw)
-    return parsed[workspaceId] === true
-  } catch {
-    return false
-  }
-}
+import { workspaceApi } from "@/pages/workspace/lib/api"
 
 
 function groupBy<T extends { id?: string; sessionID?: string }>(items: T[]): Record<string, T[]> {
@@ -78,6 +65,12 @@ type DeviceWorkspaceValue = {
   subscribe(fn: (payload: EventPayload) => void): () => void
   directory: string
   workspaceId: string | undefined
+  autoAccept: {
+    enabled: () => boolean
+    toggle(): void
+    enable(): void
+    disable(): void
+  }
 }
 
 const DeviceWorkspaceContext = createContext<DeviceWorkspaceValue>()
@@ -138,6 +131,15 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
         device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory }).catch(() => undefined),
         device.client.runtime.vcs().catch(() => undefined),
       ])
+
+      if (props.workspaceId) {
+        workspaceApi.get(props.workspaceId)
+          .then((res) => {
+            const val = (res?.workspace?.settings as Record<string, any>)?.autoAccept
+            if (val === true) setAutoAcceptSignal(true)
+          })
+          .catch(() => {})
+      }
 
       const [allSessionsRes, sessionStatusRes, permsRes, questionsRes] = await Promise.all([
         device.client.conversation.list({ limit: 50 }).catch(() => undefined),
@@ -395,6 +397,24 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     }
   }
 
+  const [autoAcceptSignal, setAutoAcceptSignal] = createSignal(false)
+
+  const persistAutoAccept = async (value: boolean) => {
+    const wid = props.workspaceId
+    if (!wid) return
+    setAutoAcceptSignal(value)
+    try {
+      await workspaceApi.update(wid, { settings: { autoAccept: value } })
+    } catch {}
+  }
+
+  const autoAccept = {
+    enabled: () => autoAcceptSignal(),
+    toggle() { persistAutoAccept(!autoAcceptSignal()) },
+    enable() { persistAutoAccept(true) },
+    disable() { persistAutoAccept(false) },
+  }
+
   let streamAbort: AbortController | undefined
 
   const startEventStream = async () => {
@@ -478,7 +498,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   if (p?.id) {
                     addPermission(p)
                     summaryChanged = true
-                    if (readAutoAcceptFromStorage(props.workspaceId)) {
+                    if (autoAcceptSignal()) {
                       device.client.permission.respond(p.id, { decision: "once" }).catch(() => {
                         removePermission(p.sessionID ?? "", p.id)
                       })
@@ -615,6 +635,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     subscribe,
     directory: device.directory,
     workspaceId: props.workspaceId,
+    autoAccept,
   }
 
   return <DeviceWorkspaceContext.Provider value={value}>{props.children}</DeviceWorkspaceContext.Provider>

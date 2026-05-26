@@ -1123,7 +1123,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const variants = createMemo(() => ["default", ...local.model.variant.list()])
-  const accepting = createMemo(() => permission.isAutoAccepting(sid()))
+  const accepting = createMemo(() => permission.isAutoAccepting())
 
   const { abort, handleSubmit } = createPromptSubmit({
     info,
@@ -1674,7 +1674,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         type="checkbox"
                         class="size-3.5 accent-[var(--native-primary)] cursor-pointer"
                         checked={accepting()}
-                        onChange={() => permission.toggleAutoAccept(sid(), sdk.directory)}
+                        onChange={() => permission.toggleAutoAccept()}
                       />
                       <span class="text-12-regular text-text-weak truncate">
                         {language.t("command.permissions.autoaccept.enable")}
@@ -1698,8 +1698,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       <UiSwitch
                         checked={accepting()}
                         onChange={(checked) => {
-                          if (checked) permission.enableAutoAccept(sid(), sdk.directory)
-                          else permission.disableAutoAccept(sid())
+                          if (checked) permission.enableAutoAccept()
+                          else permission.disableAutoAccept()
                         }}
                         data-variant="quiet"
                         hideLabel
