@@ -255,16 +255,17 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     }))
   }
 
-  const addPermission = (item: PermissionRequest) => {
-    if (!item?.id || !item?.sessionID) return
+  const addPermission = (item: PermissionRequest): boolean => {
+    if (!item?.id || !item?.sessionID) return false
     if (!store.permissions[item.sessionID]) {
       setStore("permissions", item.sessionID, [item])
-      return
+      return true
     }
-    if (store.permissions[item.sessionID].some((r) => r.id === item.id)) return
+    if (store.permissions[item.sessionID].some((r) => r.id === item.id)) return false
     setStore("permissions", item.sessionID, produce((draft: PermissionRequest[]) => {
       draft.push(item)
     }))
+    return true
   }
 
   const removePermission = (sessionID: string, requestID: string) => {
@@ -496,9 +497,9 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                 case "permission.asked": {
                   const p = payload.properties as PermissionRequest
                   if (p?.id) {
-                    addPermission(p)
-                    summaryChanged = true
-                    if (autoAcceptSignal()) {
+                    const added = addPermission(p)
+                    if (added) summaryChanged = true
+                    if (added && autoAcceptSignal()) {
                       device.client.permission.respond(p.id, { decision: "once" }).catch(() => {
                         removePermission(p.sessionID ?? "", p.id)
                       })
