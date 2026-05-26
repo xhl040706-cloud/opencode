@@ -272,6 +272,25 @@ export interface CapabilityItem {
   artifacts?: CapabilityArtifact[]
   assets?: CapabilityItemAsset[]
   tags?: ItemTag[]
+  health?: {
+    score?: number
+    signals: { freshness: number; popularity: number; source_trust: number }
+    freshness_label?: string
+    last_commit?: string
+  }
+  evaluation?: {
+    coding_relevance?: number
+    doc_completeness?: number
+    desc_accuracy?: number
+    writing_quality?: number
+    specificity?: number
+    install_clarity?: number
+    final_score: number
+    decision?: string
+    model_id?: string
+    rubric_version?: string
+    evaluated_at?: string
+  }
 }
 
 export type ItemSort = "favoriteCount" | "installCount" | "previewCount" | "experienceScore" | "updatedAt"

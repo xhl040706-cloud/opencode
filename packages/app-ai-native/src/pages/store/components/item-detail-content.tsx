@@ -16,6 +16,7 @@ import { itemApi, userApi, type CapabilityItem } from "../lib/api"
 import { useLanguage } from "@/context/language"
 import { pickItemDescription } from "../lib/item-description"
 import SecurityTag from "./security-tag"
+import HealthRadar from "./health-radar"
 import { DistributeDialog } from "./distribute-dialog"
 import "@/styles/vscode-markdown.css"
 
@@ -28,6 +29,33 @@ const TYPE_META: Record<
   command: { accent: "#09b179", bg: "color-mix(in srgb, #09b179 12%, var(--native-panel))", label: "store.sidebar.nav.commands", icon: "console" },
   mcp: { accent: "#7338f9", bg: "color-mix(in srgb, #7338f9 12%, var(--native-panel))", label: "store.sidebar.nav.mcpServers", icon: "mcp" },
   plugin: { accent: "#EC4899", bg: "color-mix(in srgb, #EC4899 12%, var(--native-panel))", label: "store.sidebar.nav.plugins", icon: "configuration" },
+}
+
+const EVAL_DIMS = [
+  "coding_relevance",
+  "doc_completeness",
+  "desc_accuracy",
+  "writing_quality",
+  "specificity",
+  "install_clarity",
+] as const
+
+function hasHealthSignals(health?: CapabilityItem["health"]) {
+  const s = health?.signals
+  return !!s && (s.freshness != null || s.popularity != null || s.source_trust != null)
+}
+
+function hasEvaluation(e?: CapabilityItem["evaluation"]) {
+  if (!e) return false
+  return (
+    (e.final_score != null && e.final_score > 0) ||
+    e.coding_relevance != null ||
+    e.doc_completeness != null ||
+    e.desc_accuracy != null ||
+    e.writing_quality != null ||
+    e.specificity != null ||
+    e.install_clarity != null
+  )
 }
 
 const THEMES = { light: "light-plus", dark: "dark-plus" } as const
@@ -418,6 +446,89 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                 <div class="min-w-0 space-y-5">
                   <Show when={pickItemDescription(data(), language.locale())}>
                     <p class="text-[13px] leading-6 text-text-weak">{pickItemDescription(data(), language.locale())}</p>
+                  </Show>
+
+                  <Show when={hasHealthSignals(data().health) || hasEvaluation(data().evaluation)}>
+                    <div class="flex flex-wrap gap-4">
+                      <Show when={hasHealthSignals(data().health)}>
+                        <div class="flex-1 min-w-[260px] rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 p-4">
+                          <div
+                            class="mb-2 text-xs"
+                            style={{
+                              color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                              "font-weight": 700,
+                            }}
+                          >
+                            {language.t("store.detail.health.title")}
+                          </div>
+                          <HealthRadar signals={data().health!.signals} accent={meta().accent} />
+                        </div>
+                      </Show>
+
+                      <Show when={hasEvaluation(data().evaluation) && data().evaluation}>
+                        {(evaluation) => (
+                          <div class="flex-1 min-w-[260px] rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 p-4">
+                            <div class="mb-3 flex items-center justify-between gap-4">
+                              <div
+                                class="text-xs"
+                                style={{
+                                  color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                                  "font-weight": 700,
+                                }}
+                              >
+                                {language.t("store.detail.eval.title")}
+                              </div>
+                              <Show when={evaluation().final_score > 0}>
+                                <span class="text-lg font-bold" style={{ color: meta().accent }}>
+                                  {Math.round(evaluation().final_score)}
+                                </span>
+                              </Show>
+                            </div>
+                            <div class="space-y-2.5">
+                              <For each={EVAL_DIMS}>
+                                {(dim) => {
+                                  const val = evaluation()[dim]
+                                  return (
+                                    <Show when={val != null}>
+                                      <div class="flex items-center gap-3">
+                                        <span class="w-28 shrink-0 text-[11px] text-text-weak">
+                                          {language.t("store.detail.eval." + dim)}
+                                        </span>
+                                        <div class="flex flex-1 gap-1">
+                                          <For each={[1, 2, 3, 4, 5]}>
+                                            {(seg) => (
+                                              <div
+                                                class="h-2 flex-1 rounded-full"
+                                                style={{
+                                                  "background-color":
+                                                    seg <= (val as number)
+                                                      ? meta().accent
+                                                      : "color-mix(in srgb, var(--native-muted) 22%, var(--native-panel))",
+                                                }}
+                                              />
+                                            )}
+                                          </For>
+                                        </div>
+                                        <span class="w-4 text-right text-[11px] text-text-weak">{val as number}</span>
+                                      </div>
+                                    </Show>
+                                  )
+                                }}
+                              </For>
+                            </div>
+                            <Show when={evaluation().evaluated_at}>
+                              <p class="mt-3 text-[11px] text-text-weak">
+                                {language.t("store.detail.eval.evaluator")}:{" "}
+                                {evaluation().model_id === "__cached__"
+                                  ? "deepseek-chat"
+                                  : evaluation().model_id || "unknown"}{" "}
+                                · {formatDate(evaluation().evaluated_at!, language.locale())}
+                              </p>
+                            </Show>
+                          </div>
+                        )}
+                      </Show>
+                    </div>
                   </Show>
 
                   <Show when={data().content}>
