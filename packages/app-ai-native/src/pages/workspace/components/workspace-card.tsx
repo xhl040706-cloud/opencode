@@ -270,7 +270,7 @@ export function WorkspaceCard(props: WorkspaceCardProps) {
                       </span>
                     }
                   >
-                    <div class="flex items-center gap-1.5">
+                    <div class="flex items-center gap-1.5 min-w-0">
                       <Show when={summary()?.dirty === undefined || summary()?.dirty === true || (summary()?.aheadCount ?? 0) > 0 || (summary()?.behindCount ?? 0) > 0}>
                         <span class="flex items-center gap-1 shrink-0">
                           <Show when={summary()?.dirty === undefined || summary()?.dirty === true}>
