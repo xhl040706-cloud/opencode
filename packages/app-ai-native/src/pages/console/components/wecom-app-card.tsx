@@ -35,7 +35,7 @@ export function WecomAppCard(props: WecomAppCardProps) {
     <div class={sx.dashCard}>
       <div class={sx.dashHead}>
         <span class={cn(sx.dashName, "flex items-center gap-1.5")}>
-          <Icon name="message-square" size="small" />
+          <Icon name="bot" size="small" />
           {language.t("console.wecomApp.title")} — {props.channel.name}
         </span>
         <span

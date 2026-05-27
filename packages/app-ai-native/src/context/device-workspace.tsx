@@ -444,11 +444,12 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
   }
 
   const scheduleSummarySync = () => {
-    if (!props.workspaceId) return
+    const wid = props.workspaceId
+    if (!wid) return
     if (summaryTimer) clearTimeout(summaryTimer)
     summaryTimer = setTimeout(() => {
       summaryTimer = undefined
-      syncSummary(props.workspaceId, {
+      syncSummary(wid, {
         vcs: store.vcs,
         sessionStatus: store.sessionStatus,
         questions: store.questions,

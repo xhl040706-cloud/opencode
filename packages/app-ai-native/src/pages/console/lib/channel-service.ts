@@ -2,6 +2,7 @@ import { channelApi, type ChannelConfig } from "@/pages/store/lib/api"
 
 export interface WeComAppConfig {
   userId: string
+  [key: string]: string
 }
 
 export interface WeComAppChannel extends ChannelConfig {
@@ -11,7 +12,7 @@ export interface WeComAppChannel extends ChannelConfig {
 export const channelService = {
   async listWeComApps() {
     const channels = await channelApi.list()
-    return channels.filter((ch) => ch.channelType === "wecom")
+    return channels.filter((ch) => ch.channelType === "wecom") as WeComAppChannel[]
   },
 
   async getWeComApp(id: string) {
@@ -34,10 +35,10 @@ export const channelService = {
   async updateWeComApp(id: string, data: { name?: string; config?: Partial<WeComAppConfig>; enabled?: boolean }) {
     const res = await channelApi.update(id, {
       name: data.name,
-      config: data.config ? { userId: data.config.userId } : undefined,
+      config: data.config ? { userId: data.config.userId! } : undefined,
       enabled: data.enabled,
     })
-    return res.channel
+    return res.channel as WeComAppChannel
   },
 
   async removeWeComApp(id: string) {

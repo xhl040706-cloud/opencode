@@ -43,7 +43,7 @@ export function NotificationChannelListItem(props: NotificationChannelListItemPr
   }
 
   const getIcon = () => {
-    return props.channel.type === "wecom-bot" ? "comment" : "message-square"
+    return props.channel.type === "wecom-bot" ? "comment" : "bot"
   }
 
   const getTypeLabel = () => {
@@ -112,12 +112,12 @@ export function NotificationChannelListItem(props: NotificationChannelListItemPr
         >
           {toggling() ? (
             <>
-              <Icon name="loader-2" size="small" class="animate-spin" />
+              <Icon name="bot" size="small" class="animate-spin" />
               {language.t("common.saving")}
             </>
           ) : (
             <>
-              <Icon name={enabled() ? "toggle-right" : "toggle-left"} size="small" />
+              <Icon name={enabled() ? "check" : "close"} size="small" />
               {enabled() ? language.t("common.disable") : language.t("common.enable")}
             </>
           )}
@@ -128,7 +128,7 @@ export function NotificationChannelListItem(props: NotificationChannelListItemPr
           class="flex h-8 items-center gap-1.5 rounded-md bg-[color:color-mix(in_oklab,var(--native-border)_8%,transparent)] px-3 text-xs font-medium text-[var(--native-foreground)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-border)_16%,transparent)]"
           onClick={handleEdit}
         >
-          <Icon name="settings" size="small" />
+          <Icon name="settings-gear" size="small" />
           {language.t("common.configure")}
         </button>
       </div>
