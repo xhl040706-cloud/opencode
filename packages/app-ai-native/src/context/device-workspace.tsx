@@ -416,10 +416,94 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     disable() { persistAutoAccept(false) },
   }
 
+  // ── SSE event debounce infrastructure ──
+
+  const STATUS_DEBOUNCE_MS = 150
+  const UPDATE_DEBOUNCE_MS = 250
+  const SUMMARY_DEBOUNCE_MS = 100
+
+  const statusTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  const pendingStatus = new Map<string, SessionStatus>()
+
+  let updateTimer: ReturnType<typeof setTimeout> | undefined
+  const pendingUpdates = new Map<string, Record<string, unknown>>()
+
+  let summaryTimer: ReturnType<typeof setTimeout> | undefined
+
+  const mergeDeep = (target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> => {
+    const out = { ...target }
+    for (const key of Object.keys(source)) {
+      const sv = source[key]
+      if (sv !== null && typeof sv === "object" && !Array.isArray(sv)) {
+        out[key] = mergeDeep((out[key] as Record<string, unknown>) ?? {}, sv as Record<string, unknown>)
+      } else {
+        out[key] = sv
+      }
+    }
+    return out
+  }
+
+  const scheduleSummarySync = () => {
+    if (!props.workspaceId) return
+    if (summaryTimer) clearTimeout(summaryTimer)
+    summaryTimer = setTimeout(() => {
+      summaryTimer = undefined
+      syncSummary(props.workspaceId, {
+        vcs: store.vcs,
+        sessionStatus: store.sessionStatus,
+        questions: store.questions,
+        permissions: store.permissions,
+        hasUnreadSession: store.session.some((s) => !s.parentID && store.unread[s.id]),
+      })
+    }, SUMMARY_DEBOUNCE_MS)
+  }
+
+  const flushStatus = (id: string) => {
+    const status = pendingStatus.get(id)
+    if (!status) return
+    const prev = store.sessionStatus[id]
+    const wasBusy = prev?.type === "busy" || prev?.type === "retry"
+    const nowIdle = status.type === "idle"
+    setSessionStatus(id, status)
+    if (wasBusy && nowIdle) {
+      setStore("unread", id, true)
+    } else if (status.type === "busy" || status.type === "retry") {
+      setStore("unread", produce((d) => { delete d[id] }))
+    }
+    scheduleSummarySync()
+  }
+
+  const flushUpdates = () => {
+    updateTimer = undefined
+    if (pendingUpdates.size === 0) return
+    batch(() => {
+      for (const [id, partial] of pendingUpdates) {
+        setStore("session", produce((draft) => {
+          const idx = draft.findIndex((s) => s.id === id)
+          if (idx !== -1) {
+            draft[idx] = mergeDeep(draft[idx] as Record<string, unknown>, partial) as any
+          }
+        }))
+      }
+      pendingUpdates.clear()
+    })
+    scheduleSummarySync()
+  }
+
+  const clearDebounceTimers = () => {
+    for (const t of statusTimers.values()) clearTimeout(t)
+    statusTimers.clear()
+    pendingStatus.clear()
+    if (updateTimer) { clearTimeout(updateTimer); updateTimer = undefined }
+    pendingUpdates.clear()
+    if (summaryTimer) { clearTimeout(summaryTimer); summaryTimer = undefined }
+  }
+
   let streamAbort: AbortController | undefined
 
   const startEventStream = async () => {
     streamAbort?.abort()
+    clearDebounceTimers()
     streamAbort = new AbortController()
     const signal = streamAbort.signal
     try {
@@ -435,8 +519,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             batch(() => {
               let summaryChanged = false
               switch (payload.type) {
-                case "session.created":
-                case "session.updated": {
+                // ── session.created: no debounce, immediate ──
+                case "session.created": {
                   const info = (payload.properties as { info?: Session })?.info ?? payload.properties as Session
                   if (!info?.id) break
                   setStore("session", produce((draft) => {
@@ -447,8 +531,22 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                       draft.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
                     }
                   }))
+                  summaryChanged = true
                   break
                 }
+                // ── session.updated: debounce per sessionID with field merge ──
+                case "session.updated": {
+                  const p = payload.properties as { sessionID?: string; info?: Session; [k: string]: unknown }
+                  const id = p?.sessionID ?? payload.sessionID
+                  if (!id) break
+                  const partial = p.info ?? p
+                  const existing = pendingUpdates.get(id) ?? {}
+                  pendingUpdates.set(id, mergeDeep(existing, partial as Record<string, unknown>))
+                  if (updateTimer) clearTimeout(updateTimer)
+                  updateTimer = setTimeout(flushUpdates, UPDATE_DEBOUNCE_MS)
+                  break
+                }
+                // ── session.deleted: no debounce, immediate ──
                 case "session.deleted": {
                   const dp = payload.properties as { sessionID?: string; info?: Session }
                   const id = dp?.sessionID ?? dp?.info?.id ?? payload.sessionID
@@ -466,22 +564,37 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   summaryChanged = true
                   break
                 }
+                // ── session.status: debounce per sessionID, idle is immediate ──
                 case "session.status": {
                   const sp = payload.properties as { sessionID?: string; status?: SessionStatus }
                   const id = sp?.sessionID ?? payload.sessionID
                   if (!id || !sp?.status) break
-                  const prevStatus = store.sessionStatus[id]
-                  const wasBusy = prevStatus?.type === "busy" || prevStatus?.type === "retry"
-                  const nowIdle = sp.status.type === "idle"
-                  setSessionStatus(id, sp.status)
-                  if (wasBusy && nowIdle) {
-                    setStore("unread", id, true)
-                  } else if (sp.status.type === "busy" || sp.status.type === "retry") {
-                    setStore("unread", produce((draft) => { delete draft[id] }))
+                  // idle must be immediate
+                  if (sp.status.type === "idle") {
+                    const existingTimer = statusTimers.get(id)
+                    if (existingTimer) {
+                      clearTimeout(existingTimer)
+                      statusTimers.delete(id)
+                      if (pendingStatus.has(id)) flushStatus(id)
+                    }
+                    const prev = store.sessionStatus[id]
+                    const wasBusy = prev?.type === "busy" || prev?.type === "retry"
+                    setSessionStatus(id, sp.status)
+                    if (wasBusy) setStore("unread", id, true)
+                    scheduleSummarySync()
+                    break
                   }
-                  summaryChanged = true
+                  // busy/retry: debounce
+                  pendingStatus.set(id, sp.status)
+                  const existingTimer = statusTimers.get(id)
+                  if (existingTimer) clearTimeout(existingTimer)
+                  statusTimers.set(id, setTimeout(() => {
+                    statusTimers.delete(id)
+                    flushStatus(id)
+                  }, STATUS_DEBOUNCE_MS))
                   break
                 }
+                // ── question/permission: no debounce (low-freq + immediate response) ──
                 case "question.asked": {
                   const q = payload.properties as QuestionRequest
                   if (q?.id) { addQuestion(q); summaryChanged = true }
@@ -489,8 +602,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                 }
                 case "question.replied":
                 case "question.rejected": {
-                  const props = payload.properties as { sessionID?: string; requestID?: string }
-                  removeQuestion(props?.sessionID ?? "", props?.requestID ?? "")
+                  const p = payload.properties as { sessionID?: string; requestID?: string }
+                  removeQuestion(p?.sessionID ?? "", p?.requestID ?? "")
                   summaryChanged = true
                   break
                 }
@@ -508,73 +621,54 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   break
                 }
                 case "permission.replied": {
-                  const props = payload.properties as { sessionID?: string; requestID?: string }
-                  removePermission(props?.sessionID ?? "", props?.requestID ?? "")
+                  const p = payload.properties as { sessionID?: string; requestID?: string }
+                  removePermission(p?.sessionID ?? "", p?.requestID ?? "")
                   summaryChanged = true
                   break
                 }
+                // ── git events: no debounce on handler, refreshVcs already debounced ──
                 case "host.git.branch.changed": {
-                  const props = payload.properties as { new_branch?: string; old_branch?: string; repo_path?: string }
-                  if (props?.new_branch == null) break
-
-                  // Filter events by repo path
-                  const eventRepoPath = props.repo_path ? getDirectory(props.repo_path) : ""
+                  const p = payload.properties as { new_branch?: string; old_branch?: string; repo_path?: string }
+                  if (p?.new_branch == null) break
+                  const eventRepoPath = p.repo_path ? getDirectory(p.repo_path) : ""
                   const currentRepoPath = getDirectory(device.directory)
                   if (eventRepoPath !== currentRepoPath) break
-
                   const prev = store.vcs
-                  if (prev?.branch === props.new_branch) break
-                  setStore("vcs", { ...prev, branch: props.new_branch })
+                  if (prev?.branch === p.new_branch) break
+                  setStore("vcs", { ...prev, branch: p.new_branch })
                   summaryChanged = true
                   break
                 }
                 case "host.git.commit": {
-                  const props = payload.properties as { repo_path?: string }
-
-                  // Filter events by repo path
-                  const eventRepoPath = props.repo_path ? getDirectory(props.repo_path) : ""
+                  const p = payload.properties as { repo_path?: string }
+                  const eventRepoPath = p.repo_path ? getDirectory(p.repo_path) : ""
                   const currentRepoPath = getDirectory(device.directory)
                   if (eventRepoPath !== currentRepoPath) break
-
-                  // Git commit just completed, wait longer for status to settle
                   refreshVcs(1000)
                   summaryChanged = true
                   break
                 }
                 case "host.git.status.changed": {
-                  const props = payload.properties as { repo_path?: string }
-
-                  // Filter events by repo path
-                  const eventRepoPath = props.repo_path ? getDirectory(props.repo_path) : ""
+                  const p = payload.properties as { repo_path?: string }
+                  const eventRepoPath = p.repo_path ? getDirectory(p.repo_path) : ""
                   const currentRepoPath = getDirectory(device.directory)
                   if (eventRepoPath !== currentRepoPath) break
-
                   refreshVcs()
                   summaryChanged = true
                   break
                 }
                 case "host.git.remote.changed": {
-                  const props = payload.properties as { repo_path?: string; branch?: string; old_head?: string; new_head?: string }
-
-                  // Filter events by repo path
-                  const eventRepoPath = props.repo_path ? getDirectory(props.repo_path) : ""
+                  const p = payload.properties as { repo_path?: string; branch?: string; old_head?: string; new_head?: string }
+                  const eventRepoPath = p.repo_path ? getDirectory(p.repo_path) : ""
                   const currentRepoPath = getDirectory(device.directory)
                   if (eventRepoPath !== currentRepoPath) break
-
-                  // Remote branch changed (push/fetch), refresh VCS to update ahead/behind counts
                   refreshVcs()
                   summaryChanged = true
                   break
                 }
               }
               if (summaryChanged && props.workspaceId) {
-                syncSummary(props.workspaceId, {
-                  vcs: store.vcs,
-                  sessionStatus: store.sessionStatus,
-                  questions: store.questions,
-                  permissions: store.permissions,
-                  hasUnreadSession: store.session.some((s) => !s.parentID && store.unread[s.id]),
-                })
+                scheduleSummarySync()
               }
               dispatch(payload)
             })
@@ -592,6 +686,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
   onCleanup(() => {
     streamAbort?.abort()
     streamAbort = undefined
+    clearDebounceTimers()
     if (props.workspaceId) clearSummary(props.workspaceId)
   })
 

@@ -347,7 +347,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     if (isNewSession) {
       sync.session.replaceTab({ sessionID: session.id, title: session.title })
-      if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
+      if (shouldAutoAccept) permission.enableAutoAccept()
     }
 
     addOptimisticMessage()
