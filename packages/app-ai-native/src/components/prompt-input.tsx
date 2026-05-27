@@ -690,7 +690,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
-    return (sync.data.command ?? [])
+    const backend = (sync.data.command ?? [])
       .filter((cmd) => cmd.scope !== "tui-only")
       .map((cmd) => ({
         id: `cmd.${cmd.name}`,
@@ -702,17 +702,34 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         type: cmd.scope === "prompt" || !cmd.scope ? ("custom" as const) : ("builtin" as const),
         source: cmd.source as SlashCommand["source"],
       }))
+
+    const builtin: SlashCommand[] = [
+      {
+        id: "cmd.compact",
+        trigger: "compact",
+        title: language.t("command.session.compact"),
+        description: language.t("command.session.compact.description"),
+        type: "custom" as const,
+        autoSubmit: true,
+      },
+    ]
+
+    return [...backend, ...builtin]
   })
 
   const handleSlashSelect = (cmd: SlashCommand | undefined) => {
     if (!cmd) return
     closePopover()
 
-    if (cmd.scope === "prompt" || !cmd.scope) {
+    if (cmd.scope === "prompt" || !cmd.scope || cmd.autoSubmit) {
       const text = `/${cmd.trigger} `
       setEditorText(text)
       prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
-      focusEditorEnd()
+      if (cmd.autoSubmit) {
+        handleSubmit(new Event("submit"))
+      } else {
+        focusEditorEnd()
+      }
       return
     }
 

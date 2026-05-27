@@ -125,6 +125,7 @@ export const dict = {
   "command.session.rename.success": "会话重命名成功",
   "command.session.rename.error": "重命名会话失败",
   "command.session.compact.noSession": "没有可精简的会话",
+  "command.session.compact.success": "会话精简成功",
   "command.session.compact.error": "精简会话失败",
   "command.session.undo.noSession": "没有可撤销的会话",
   "command.session.undo.success": "撤销成功",

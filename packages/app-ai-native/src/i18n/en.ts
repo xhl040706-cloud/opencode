@@ -774,6 +774,7 @@ export const dict = {
   "command.session.rename.success": "Session renamed successfully",
   "command.session.rename.error": "Failed to rename session",
   "command.session.compact.noSession": "No active session to compact",
+  "command.session.compact.success": "Session compacted successfully",
   "command.session.compact.error": "Failed to compact session",
   "command.session.undo.noSession": "No active session to undo",
   "command.session.undo.success": "Undo successful",
