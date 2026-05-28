@@ -201,7 +201,8 @@ export default function WorkspaceLayout(props: ParentProps) {
       const response = await workspaceApi.create(request)
       const newWorkspace = response.workspace
       setWorkspaces((prev) => [...prev, newWorkspace])
-      setSelectedWorkspaceId(newWorkspace.id)
+      handleEnableWorkspace(newWorkspace.id)
+      navigate(`/workspace/${newWorkspace.id}`)
       await refreshWorkspaces()
       showToast({
         title: t("workspace.create.success"),

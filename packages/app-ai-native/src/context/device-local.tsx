@@ -1,5 +1,5 @@
 import { createContext, useContext, type ParentProps } from "solid-js"
-import { batch, createMemo } from "solid-js"
+import { batch, createMemo, createSignal } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
 import { useDeviceWorkspace } from "./device-workspace"
@@ -23,6 +23,7 @@ type AgentInfo = {
 
 type DeviceLocalValue = {
   slug: () => string
+  setActiveSession: (sessionID: string | undefined) => void
   agent: {
     list: () => AgentInfo[]
     current: () => AgentInfo | undefined
@@ -79,6 +80,24 @@ export function DeviceLocalProvider(props: ParentProps<{ workspaceId?: string }>
     } catch {}
   }
 
+  const sessionModelsKey = () => `opencode.device.sessionModels.${props.workspaceId ?? base64Encode(device.directory)}`
+
+  const sessionModels = (() => {
+    try {
+      const raw = localStorage.getItem(sessionModelsKey())
+      if (raw) return JSON.parse(raw) as Record<string, ModelKey>
+    } catch {}
+    return {} as Record<string, ModelKey>
+  })()
+
+  function saveSessionModels() {
+    try {
+      localStorage.setItem(sessionModelsKey(), JSON.stringify(sessionModels))
+    } catch {}
+  }
+
+  const [activeSessionID, setActiveSessionID] = createSignal<string | undefined>()
+
   const [store, setStore] = createStore<{
     currentAgent: string | undefined
     currentModel: ModelKey | undefined
@@ -86,6 +105,18 @@ export function DeviceLocalProvider(props: ParentProps<{ workspaceId?: string }>
     currentAgent: undefined,
     currentModel: undefined,
   })
+
+  const setActiveSession = (sessionID: string | undefined) => {
+    const prev = activeSessionID()
+    if (prev === sessionID) return
+    setActiveSessionID(sessionID)
+    if (sessionID) {
+      const cached = sessionModels[sessionID]
+      if (cached && cached.providerID) {
+        setStore("currentModel", { ...cached })
+      }
+    }
+  }
 
   const agentList = createMemo(() =>
     (sync.data.agent as any[]).filter((x) => x.mode !== "subagent" && !x.hidden),
@@ -112,8 +143,8 @@ export function DeviceLocalProvider(props: ParentProps<{ workspaceId?: string }>
     if (!value) return
     batch(() => {
       setStore("currentAgent", value.name)
-      if (value.model) {
-        setStore("currentModel", value.model)
+      if (value.model && value.model.providerID) {
+        setModel(value.model)
       }
     })
   }
@@ -175,10 +206,20 @@ export function DeviceLocalProvider(props: ParentProps<{ workspaceId?: string }>
   const setModel = (model: ModelKey | undefined) => {
     setStore("currentModel", model)
     savePersistedModel(model)
+    const sid = activeSessionID()
+    if (sid) {
+      if (model && model.providerID) {
+        sessionModels[sid] = model
+      } else {
+        delete sessionModels[sid]
+      }
+      saveSessionModels()
+    }
   }
 
   const value: DeviceLocalValue = {
     slug: () => base64Encode(device.directory),
+    setActiveSession,
     agent: {
       list: agentList,
       current: currentAgent,
