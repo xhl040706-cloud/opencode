@@ -1,4 +1,5 @@
 import { apiFetch } from "@/pages/store/lib/api"
+import { env } from "@/lib/env"
 
 export interface AuthIdentity {
   provider: string
@@ -15,15 +16,15 @@ export async function listIdentities(): Promise<AuthIdentity[]> {
 }
 
 export async function startBind(provider: string, redirectTo?: string): Promise<string> {
-  const prefix = (import.meta as any).env?.VITE_API_PREFIX ?? ""
-  const basePath = (import.meta as any).env?.VITE_BASE_PATH ?? "/"
+  const prefix = env.API_PREFIX
+  const basePath = env.BASE_PATH || "/"
 
   const res = await apiFetch<{ authUrl: string }>("/api/auth/bind/start", {
     method: "POST",
     body: JSON.stringify({
       provider,
       redirectTo: redirectTo ?? new URL((basePath === "/" ? "" : basePath) + "/console/identity?bind=success", window.location.origin).href,
-      callbackUrl: new URL((prefix || "/api") + "/auth/callback", window.location.origin).href,
+      callbackUrl: new URL(prefix + "/api/auth/callback", window.location.origin).href,
     }),
   })
   return res.authUrl
