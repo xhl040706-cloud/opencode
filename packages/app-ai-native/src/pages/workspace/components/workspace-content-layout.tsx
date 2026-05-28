@@ -261,7 +261,8 @@ function ContentTabPanel() {
                     </Show>
                     <span class="truncate flex-1 min-w-0 text-left">{tab.title}</span>
                     <button
-                      class="flex items-center justify-center h-full w-0 overflow-hidden group-hover:w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-[width,opacity]"
+                      class="flex items-center justify-center size-5 rounded-[4px] w-0 overflow-hidden group-hover:w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-[width,opacity] hover:bg-[var(--surface-base-hover)] hover:ring-1 hover:ring-border"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation()
                         closeTab(tab.id)
