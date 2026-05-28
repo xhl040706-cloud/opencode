@@ -9,7 +9,6 @@ import { Persist, persisted } from "@/utils/persist"
 import {
   behaviorApi,
   itemApi,
-  userApi,
   type CapabilityItem,
   type ItemOrder,
   type ItemSort,
@@ -39,6 +38,14 @@ import { typeKey } from "../lib/constants"
 import { sx } from "../lib/styles"
 
 const STORE_TYPES = [
+  {
+    value: "all",
+    labelKey: "store.sidebar.nav.all",
+    descKey: "store.home.type.all.description",
+    icon: "dot-grid" as IconProps["name"],
+    color: "#64748b",
+    bg: "#E2E8F0",
+  },
   {
     value: "skill",
     labelKey: "store.sidebar.nav.skills",
@@ -96,7 +103,7 @@ export default function Home() {
 
   const initialType = () => {
     const t = searchParams.type as StoreType | undefined
-    return STORE_TYPES.some((e) => e.value === t) ? t! : "skill"
+    return STORE_TYPES.some((e) => e.value === t) ? t! : "all"
   }
 
   const [activeType, setActiveType] = createSignal<StoreType>(initialType())
@@ -197,6 +204,7 @@ export default function Home() {
 
   const searchPlaceholderKey = createMemo(() => {
     const map: Record<StoreType, string> = {
+      all: "store.searchAll",
       skill: "store.searchSkills",
       subagent: "store.searchSubagents",
       command: "store.searchCommands",
@@ -207,7 +215,7 @@ export default function Home() {
   })
 
   const listParams = createMemo(() => ({
-    type: activeType(),
+    type: activeType() === "all" ? undefined : activeType(),
     search: debouncedSearch() || undefined,
     categories: appliedCategoryFilters().length ? appliedCategoryFilters() : undefined,
     source: appliedSourceFilters().length ? appliedSourceFilters() : undefined,
@@ -226,7 +234,7 @@ export default function Home() {
     data: await itemApi.list(src.params),
   }))
   const typeMeta = createMemo(() => STORE_TYPES.find((entry) => entry.value === activeType()) ?? STORE_TYPES[0])
-  const isTypeListMode = createMemo(() => !!searchParams.type && STORE_TYPES.some((e) => e.value === searchParams.type))
+  const isTypeListMode = createMemo(() => !!searchParams.type && searchParams.type !== "all" && STORE_TYPES.some((e) => e.value === searchParams.type))
   const currentUserId = createMemo(() => auth.user()?.id ?? auth.user()?.subjectId ?? auth.user()?.sub ?? "")
 
   // Popular items for type-list mode (top 3 by installCount)
@@ -390,13 +398,6 @@ export default function Home() {
   })
   const rows = createMemo(() => listData()?.items ?? [])
   const totalItems = createMemo(() => listData()?.total ?? 0)
-  const [creatorInfoMap] = createResource(
-    () =>
-      rows()
-        .map((item) => item.createdBy)
-        .filter(Boolean),
-    (ids) => userApi.getInfo(ids),
-  )
   const totalPages = createMemo(() => Math.max(1, Math.ceil(totalItems() / PAGE_SIZE)))
   const listError = createMemo(() => (list.error instanceof Error ? list.error.message : ""))
   const showError = createMemo(() => !!listError() && rows().length === 0)
@@ -446,7 +447,7 @@ export default function Home() {
   createEffect(() => {
     const urlType = searchParams.type as StoreType | undefined
     if (!urlType) return
-    const validType = STORE_TYPES.some((e) => e.value === urlType) ? urlType! : "skill"
+    const validType = STORE_TYPES.some((e) => e.value === urlType) ? urlType! : "all"
     if (validType !== activeType()) {
       resetToType(validType)
     }
@@ -554,7 +555,6 @@ export default function Home() {
     setSelectedItemId(null)
   }
 
-  const creatorInfo = (userId: string) => creatorInfoMap()?.[userId]
   const favoriteIconColor = (favorited?: boolean) =>
     favorited ? (typeMeta().color ?? "var(--native-primary)") : "var(--native-muted)"
   const typeLabel = (value: string) => language.t(typeKey(value))
@@ -835,7 +835,7 @@ export default function Home() {
     return (
       <section class={sx.section}>
         <div class="mx-auto flex w-full max-w-[64rem] items-center gap-3 px-3 sm:px-4 max-[640px]:gap-2">
-          <div class="relative min-w-0 flex-1 rounded-full transition-shadow hover:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))] focus-within:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))]">
+            <div class="relative min-w-0 flex-1 rounded-full transition-shadow hover:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))] focus-within:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))]">
             <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-4 text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -892,7 +892,7 @@ export default function Home() {
                 </svg>
               </button>
             </Show>
-          </div>
+            </div>
         </div>
       </section>
     )
@@ -925,8 +925,16 @@ export default function Home() {
                 sort={sort}
                 onSortChange={handleSortChange}
                 onRowClick={openItemDetail}
-                creatorInfo={creatorInfo}
                 typeLabel={typeLabel}
+                typeColor={activeType() === "all" ? undefined : (value) => STORE_TYPES.find((e) => e.value === value)?.color}
+                typeBadge={
+                  activeType() === "all"
+                    ? (value) => {
+                        const t = STORE_TYPES.find((e) => e.value === value)
+                        return t ? { icon: t.icon, color: t.color, bg: t.bg } : undefined
+                      }
+                    : undefined
+                }
                 categoryLabel={(slug, category) => itemFilterOptions.categoryLabel(slug, category)}
                 sourceLabel={(value, source) =>
                   itemFilterOptions.sourceLabel(value, source as Parameters<typeof itemFilterOptions.sourceLabel>[1])

@@ -1,10 +1,9 @@
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { TextField, TextFieldInput } from "@/components/ui/text-field"
-import AvatarDisplay from "@/components/avatar-display"
 import { LocalIcon } from "@/components/local-icon"
 import { cn } from "@/lib/utils"
-import { Icon } from "@opencode-ai/ui/icon"
+import { Icon, type IconProps } from "@opencode-ai/ui/icon"
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { tagApi, type CapabilityItem, type Category, type ItemOrder, type ItemSort, type ItemTag, type SecurityRiskGroup } from "../lib/api"
@@ -138,12 +137,21 @@ function HighlightText(props: { text: string; query?: string }) {
   const segments = createMemo(() => {
     const query = props.query?.trim()
     if (!query) return [{ text: props.text, highlight: false }]
-    const regex = new RegExp(`(${escapeRegExp(query)})`, "gi")
+    const terms = Array.from(
+      new Set(
+        query
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((term) => term.toLowerCase()),
+      ),
+    )
+    if (terms.length === 0) return [{ text: props.text, highlight: false }]
+    const regex = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "gi")
     const parts = props.text.split(regex)
-    const lowerQuery = query.toLowerCase()
+    const termSet = new Set(terms)
     return parts.map((part) => ({
       text: part,
-      highlight: part.toLowerCase() === lowerQuery,
+      highlight: termSet.has(part.toLowerCase()),
     }))
   })
   return (
@@ -687,7 +695,6 @@ export function StoreCapabilityTable(props: {
   sort: { by?: ItemSort, order?: ItemOrder }
   onSortChange: (by: ItemSort) => void
   onRowClick: (item: CapabilityItem) => void
-  creatorInfo: (userId: string) => { avatarUrl?: string, name?: string } | undefined
   categoryLabel: (slug?: string, category?: Category) => string
   sourceLabel: (value?: string, source?: unknown) => string
   sourceUrl: (value?: string) => string | undefined
@@ -790,6 +797,8 @@ export function StoreCapabilityTable(props: {
   }
   emptyMessage: string
   typeLabel?: (value: string) => string
+  typeColor?: (value: string) => string | undefined
+  typeBadge?: (value: string) => { icon: IconProps["name"]; color: string; bg: string } | undefined
   maxVisibleRows?: number
   fixedRows?: boolean
   searchQuery?: string
@@ -985,22 +994,41 @@ export function StoreCapabilityTable(props: {
                 {(item) => (
                   <tr class={cn("border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted h-[3.9375rem]", sx.row)} onClick={() => props.onRowClick(item)}>
                 <Show when={isColumnVisible("title")}>
-                  <td class={cn("p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colTitle)}>
+                  <td class={cn("relative p-2 align-middle [&:has([role=checkbox])]:pr-0", sx.td, sx.colTitle)}>
+                    <Show when={props.typeColor?.(item.itemType)}>
+                      {(color) => (
+                        <span
+                          aria-hidden="true"
+                          class="pointer-events-none absolute inset-y-2 left-0 w-[3px] rounded-r-full"
+                          style={{ "background-color": `color-mix(in oklab, ${color()} 55%, transparent)` }}
+                        />
+                      )}
+                    </Show>
                     <div class="flex min-w-0 items-center gap-2">
-                      <div class="shrink-0">
-                        <Show keyed when={props.creatorInfo(item.createdBy)} fallback={<AvatarDisplay avatarUrl={undefined} username={item.createdBy} class="size-6 shrink-0" title={item.createdBy} />}>
-                          {(info) => (
-                            <AvatarDisplay avatarUrl={info.avatarUrl} username={info.name ?? item.createdBy} class="size-6 shrink-0" title={info.name ?? item.createdBy} />
-                          )}
-                        </Show>
-                      </div>
-                      <div class="min-w-0 flex-1">
-                        <div class={cn(sx.item, "truncate text-[14px] font-bold leading-5 text-[color:color-mix(in_oklab,var(--native-foreground)_80%,white_20%)]")} style={{ "font-weight": 700 }} title={item.name}>
+                      <Show when={props.typeBadge?.(item.itemType)}>
+                        {(badge) => (
+                          <span
+                            class="inline-flex size-7 shrink-0 items-center justify-center rounded-lg"
+                            style={{ "background-color": badge().bg, color: badge().color }}
+                            title={props.typeLabel?.(item.itemType)}
+                          >
+                            <Icon name={badge().icon} size="small" />
+                          </span>
+                        )}
+                      </Show>
+                      <div class="flex min-w-0 flex-1 items-center gap-1.5">
+                        <span class={cn(sx.item, "truncate text-[15px] font-bold leading-5 text-[color:color-mix(in_oklab,var(--native-foreground)_80%,white_20%)]")} style={{ "font-weight": 700 }} title={item.name}>
                           <HighlightText text={item.name} query={props.searchQuery} />
-                        </div>
-                        <div class="block min-w-0 truncate whitespace-nowrap text-[11px] leading-4 text-[color:color-mix(in_oklab,var(--native-muted)_82%,white_18%)]" title={`${item.repoName || item.repoId || "repo"}/${item.slug}`}>
-                          <HighlightText text={`${item.repoName || item.repoId || "repo"}/${item.slug}`} query={props.searchQuery} />
-                        </div>
+                        </span>
+                        <Show when={item.createdBy !== "system"}>
+                          <span
+                            class="inline-flex shrink-0 items-center rounded-md px-1 py-0.5 text-[var(--native-primary)]"
+                            style={{ "background-color": "color-mix(in oklab, var(--native-primary) 18%, transparent)" }}
+                            title={language.t("store.item.userUploaded")}
+                          >
+                            <Icon name="cloud-upload" size="small" />
+                          </span>
+                        </Show>
                       </div>
                       <Show when={props.onDistribute && props.currentUserRoles?.includes("platform_admin")}>
                         <button
