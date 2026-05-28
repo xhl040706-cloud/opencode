@@ -11,10 +11,10 @@ export type PermissionValue = {
   ready: () => boolean
   respond: PermissionRespondFn
   autoResponds: (permission?: any) => boolean
-  isAutoAccepting: (sessionID?: string) => boolean
-  toggleAutoAccept: (sessionID?: string, directory?: string) => void
-  enableAutoAccept: (sessionID?: string, directory?: string) => void
-  disableAutoAccept: (sessionID?: string) => void
+  isAutoAccepting: () => boolean
+  toggleAutoAccept: () => void
+  enableAutoAccept: () => void
+  disableAutoAccept: () => void
   permissionsEnabled: () => boolean
 }
 

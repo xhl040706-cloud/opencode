@@ -247,7 +247,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       clearInput()
       if (isNewSession) {
         sync.session.replaceTab({ sessionID: session.id, title: session.title })
-        if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
+        if (shouldAutoAccept) permission.enableAutoAccept()
       }
       void conversation
         .sessionShell({
@@ -275,7 +275,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
         clearInput()
         if (isNewSession) {
           sync.session.replaceTab({ sessionID: session.id, title: session.title })
-          if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
+          if (shouldAutoAccept) permission.enableAutoAccept()
         }
         void conversation
           .sessionCommand({
@@ -347,7 +347,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     if (isNewSession) {
       sync.session.replaceTab({ sessionID: session.id, title: session.title })
-      if (shouldAutoAccept) permission.enableAutoAccept(session.id, sessionDirectory)
+      if (shouldAutoAccept) permission.enableAutoAccept()
     }
 
     addOptimisticMessage()

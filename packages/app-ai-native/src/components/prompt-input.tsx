@@ -690,7 +690,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
-    return (sync.data.command ?? [])
+    const backend = (sync.data.command ?? [])
       .filter((cmd) => cmd.scope !== "tui-only")
       .map((cmd) => ({
         id: `cmd.${cmd.name}`,
@@ -702,17 +702,34 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         type: cmd.scope === "prompt" || !cmd.scope ? ("custom" as const) : ("builtin" as const),
         source: cmd.source as SlashCommand["source"],
       }))
+
+    const builtin: SlashCommand[] = [
+      {
+        id: "cmd.compact",
+        trigger: "compact",
+        title: language.t("command.session.compact"),
+        description: language.t("command.session.compact.description"),
+        type: "custom" as const,
+        autoSubmit: true,
+      },
+    ]
+
+    return [...backend, ...builtin]
   })
 
   const handleSlashSelect = (cmd: SlashCommand | undefined) => {
     if (!cmd) return
     closePopover()
 
-    if (cmd.scope === "prompt" || !cmd.scope) {
+    if (cmd.scope === "prompt" || !cmd.scope || cmd.autoSubmit) {
       const text = `/${cmd.trigger} `
       setEditorText(text)
       prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
-      focusEditorEnd()
+      if (cmd.autoSubmit) {
+        handleSubmit(new Event("submit"))
+      } else {
+        focusEditorEnd()
+      }
       return
     }
 
@@ -1123,7 +1140,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const variants = createMemo(() => ["default", ...local.model.variant.list()])
-  const accepting = createMemo(() => permission.isAutoAccepting(sid()))
+  const accepting = createMemo(() => permission.isAutoAccepting())
 
   const { abort, handleSubmit } = createPromptSubmit({
     info,
@@ -1674,7 +1691,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         type="checkbox"
                         class="size-3.5 accent-[var(--native-primary)] cursor-pointer"
                         checked={accepting()}
-                        onChange={() => permission.toggleAutoAccept(sid(), sdk.directory)}
+                        onChange={() => permission.toggleAutoAccept()}
                       />
                       <span class="text-12-regular text-text-weak truncate">
                         {language.t("command.permissions.autoaccept.enable")}
@@ -1698,8 +1715,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       <UiSwitch
                         checked={accepting()}
                         onChange={(checked) => {
-                          if (checked) permission.enableAutoAccept(sid(), sdk.directory)
-                          else permission.disableAutoAccept(sid())
+                          if (checked) permission.enableAutoAccept()
+                          else permission.disableAutoAccept()
                         }}
                         data-variant="quiet"
                         hideLabel

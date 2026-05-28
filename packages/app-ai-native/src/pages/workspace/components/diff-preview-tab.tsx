@@ -87,7 +87,7 @@ export function DiffPreviewTab(props: { tab: ContentTab }) {
             after={{ name: path() ?? "", contents: after() }}
             diffStyle={diffStyle()}
             overflow="wrap"
-            class="select-text"
+            class="select-text flex-1 min-h-0 overflow-auto"
           />
         </Match>
         <Match when={loading()}>
