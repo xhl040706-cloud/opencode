@@ -216,12 +216,19 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const currentSessionID = createMemo(() => viewingSessionID() ?? rootSessionID())
 
   createEffect(() => {
+    local.setActiveSession(currentSessionID())
+  })
+
+  createEffect(() => {
     if (isNew()) return
     const msgs = effectiveMessages()
     const last = [...msgs].reverse().find((m) => m.role === "user")
     if (!last) return
     if (last.agent) local.agent.set(last.agent)
-    if (last.model) local.model.set(last.model)
+    const lastModel = (last as any).model as { providerID: string; modelID: string } | undefined
+    if (lastModel && lastModel.providerID) {
+      local.model.set(lastModel)
+    }
   })
 
   const adapter = createMemo(() => deviceAdapter(device.client))
