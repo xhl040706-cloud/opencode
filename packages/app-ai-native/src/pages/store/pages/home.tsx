@@ -931,7 +931,7 @@ export default function Home() {
                   activeType() === "all"
                     ? (value) => {
                         const t = STORE_TYPES.find((e) => e.value === value)
-                        return t ? { icon: t.icon, color: t.color, bg: t.bg } : undefined
+                        return t ? { icon: t.icon, color: t.color } : undefined
                       }
                     : undefined
                 }

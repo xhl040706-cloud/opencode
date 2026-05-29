@@ -798,7 +798,7 @@ export function StoreCapabilityTable(props: {
   emptyMessage: string
   typeLabel?: (value: string) => string
   typeColor?: (value: string) => string | undefined
-  typeBadge?: (value: string) => { icon: IconProps["name"]; color: string; bg: string } | undefined
+  typeBadge?: (value: string) => { icon: IconProps["name"]; color: string } | undefined
   maxVisibleRows?: number
   fixedRows?: boolean
   searchQuery?: string
@@ -1009,7 +1009,7 @@ export function StoreCapabilityTable(props: {
                         {(badge) => (
                           <span
                             class="inline-flex size-7 shrink-0 items-center justify-center rounded-lg"
-                            style={{ "background-color": badge().bg, color: badge().color }}
+                            style={{ "background-color": `color-mix(in oklab, ${badge().color} 16%, transparent)`, color: badge().color }}
                             title={props.typeLabel?.(item.itemType)}
                           >
                             <Icon name={badge().icon} size="small" />
