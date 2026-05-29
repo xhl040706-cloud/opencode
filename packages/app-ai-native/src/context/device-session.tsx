@@ -170,6 +170,40 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     setStore("status", workspace.data.sessionStatus[id] ?? idle)
   })
 
+  // When SSE streaming completes (session transitions from busy/retry to idle),
+  // run a reconciliation pass to catch any content that might have been missed
+  // during streaming. The small delay ensures pending SSE events settle first.
+  let reconcileTimer: ReturnType<typeof setTimeout> | undefined
+  let wasActive = false
+
+  createEffect(() => {
+    const id = sid()
+    if (!id) {
+      wasActive = false
+      return
+    }
+    const status = workspace.data.sessionStatus[id]
+    const isActive = status?.type === "busy" || status?.type === "retry"
+    if (wasActive && !isActive) {
+      if (reconcileTimer) clearTimeout(reconcileTimer)
+      const sessionId = id
+      reconcileTimer = setTimeout(() => {
+        reconcileTimer = undefined
+        if (sid() === sessionId) {
+          void loadMessages(MESSAGE_PAGE_SIZE)
+        }
+      }, 150)
+    }
+    wasActive = isActive
+  })
+
+  onCleanup(() => {
+    if (reconcileTimer) {
+      clearTimeout(reconcileTimer)
+      reconcileTimer = undefined
+    }
+  })
+
   const BATCH_SIZE = 10
 
   const loadMessages = async (limit: number) => {
