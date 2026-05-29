@@ -1948,18 +1948,18 @@ ToolRegistry.register({
                   <span data-slot="message-part-title-text">
                     <TextShimmer text={i18n.t("ui.messagePart.title.edit")} active={pending()} />
                   </span>
-                  <Show when={!pending()}>
+                  <Show when={filename()}>
                     <span data-slot="message-part-title-filename">{filename()}</span>
                   </Show>
                 </div>
-                <Show when={!pending() && props.input.filePath?.includes("/")}>
+                <Show when={props.input.filePath?.includes("/")}>
                   <div data-slot="message-part-path">
                     <span data-slot="message-part-directory">{getDirectory(props.input.filePath!)}</span>
                   </div>
                 </Show>
               </div>
               <div data-slot="message-part-actions">
-                <Show when={!pending() && props.metadata.filediff}>
+                <Show when={props.metadata.filediff}>
                   <DiffChanges changes={props.metadata.filediff} />
                 </Show>
               </div>
@@ -1970,7 +1970,7 @@ ToolRegistry.register({
             <ToolFileAccordion
               path={path()}
               actions={
-                <Show when={!pending() && props.metadata.filediff}>
+                <Show when={props.metadata.filediff}>
                   <DiffChanges changes={props.metadata.filediff!} />
                 </Show>
               }
@@ -2020,11 +2020,11 @@ ToolRegistry.register({
                   <span data-slot="message-part-title-text">
                     <TextShimmer text={i18n.t("ui.messagePart.title.write")} active={pending()} />
                   </span>
-                  <Show when={!pending()}>
+                  <Show when={filename()}>
                     <span data-slot="message-part-title-filename">{filename()}</span>
                   </Show>
                 </div>
-                <Show when={!pending() && props.input.filePath?.includes("/")}>
+                <Show when={props.input.filePath?.includes("/")}>
                   <div data-slot="message-part-path">
                     <span data-slot="message-part-directory">{getDirectory(props.input.filePath!)}</span>
                   </div>
