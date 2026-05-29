@@ -10,6 +10,7 @@ import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Back from "../components/back"
+import { DateRangePicker } from "../components/filters/date-range-picker"
 import {
   getProjectDetail,
   updateProjectManual,
@@ -18,13 +19,20 @@ import {
   removeTasksFromProject,
   updateTaskSilicaInProject,
   getGlobalConfig,
+  addRepoToProject,
+  addTasksToProject,
+  queryRepoRows,
+  queryTaskRows,
 } from "../lib/api"
+import { defaultWideRange } from "../lib/date-range"
 import { RatioPill } from "../components/ratio-pill"
 import { formatDuration, formatLocalTime, shortId } from "../lib/formatters"
 import type {
   ProjectDetailResult,
   ProjectManualPayload,
   GlobalConfig,
+  DateRangeValue,
+  RepoBindingPayload,
 } from "../lib/types"
 
 function fmtCost(value?: number | null) {
@@ -262,6 +270,292 @@ function EditProjectDialog(props: { project: ProjectDetailResult; onSaved: () =>
   )
 }
 
+// 把多行/逗号分隔的 commit 列表解析为去重数组。
+function parseCommitList(value: string) {
+  return Array.from(new Set(value.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean)))
+}
+
+function AddRepoDialog(props: { project: ProjectDetailResult; onAdded: () => void | Promise<void> }) {
+  const language = useLanguage()
+  const dialog = useDialog()
+
+  const defaultRange = (): DateRangeValue => {
+    const start = (props.project.start_time_manual || props.project.start_time || "")?.slice(0, 10)
+    const end = (props.project.end_time_manual || props.project.end_time || "")?.slice(0, 10)
+    return start && end ? [start, end] : null
+  }
+
+  const [form, setForm] = createStore({
+    repo_addr: "",
+    repo_branch: "",
+    range: defaultRange(),
+    whitelistMode: false,
+    exclude_commits: "",
+    include_only_commits: "",
+    saving: false,
+  })
+
+  // 复用 repo 列表查询（V2）拉取可选仓库与分支。
+  const [repoRows] = createResource(async () => {
+    try {
+      const result = await queryRepoRows({ dateRange: defaultWideRange(), page: 1, pageSize: 1000 })
+      return result.rows
+    } catch {
+      return []
+    }
+  })
+
+  const repoAddrs = createMemo(() => {
+    const seen = new Set<string>()
+    const list: string[] = []
+    for (const row of repoRows.latest ?? []) {
+      const addr = row.repo_addr?.trim()
+      if (addr && !seen.has(addr)) {
+        seen.add(addr)
+        list.push(addr)
+      }
+    }
+    return list
+  })
+
+  const branches = createMemo(() => {
+    const addr = form.repo_addr.trim()
+    if (!addr) return [] as string[]
+    const seen = new Set<string>()
+    const list: string[] = []
+    for (const row of repoRows.latest ?? []) {
+      if (row.repo_addr?.trim() !== addr) continue
+      const branch = row.repo_branch?.trim()
+      if (branch && !seen.has(branch)) {
+        seen.add(branch)
+        list.push(branch)
+      }
+    }
+    return list
+  })
+
+  const submit = async (e: SubmitEvent) => {
+    e.preventDefault()
+    const addr = form.repo_addr.trim()
+    if (!addr) { showToast({ variant: "error", title: language.t("kanban.validation.repoAddrRequired") }); return }
+    const branch = form.repo_branch.trim()
+    if (!branch) { showToast({ variant: "error", title: language.t("kanban.validation.branchRequired") }); return }
+    const projectId = props.project.project_id?.trim()
+    if (!projectId) return
+
+    const payload: RepoBindingPayload = {
+      repo_addr: addr,
+      repo_branch: branch,
+      start_time: form.range?.[0] ?? null,
+      end_time: form.range?.[1] ?? null,
+      exclude_commits: form.whitelistMode ? [] : parseCommitList(form.exclude_commits),
+      include_only_commits: form.whitelistMode ? parseCommitList(form.include_only_commits) : [],
+    }
+
+    setForm("saving", true)
+    try {
+      await addRepoToProject(projectId, payload)
+      showToast({ variant: "success", title: language.t("kanban.toast.addSuccess") })
+      await props.onAdded()
+      dialog.close()
+    } catch (err) {
+      showToast({ variant: "error", title: language.t("kanban.toast.addFailed"), description: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setForm("saving", false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <Modal
+        title={language.t("kanban.dialog.addRepo")}
+        maxWidth="560px"
+        footer={
+          <>
+            <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>{language.t("common.cancel")}</Button>
+            <Button size="sm" type="submit" disabled={form.saving}>{form.saving ? language.t("common.saving") : language.t("common.confirm")}</Button>
+          </>
+        }
+      >
+        <div class="modal-section">
+          <div class="modal-field">
+            <label class="modal-label">{language.t("kanban.form.repoAddr")}</label>
+            <select class="modal-input" value={form.repo_addr} onChange={(e) => { setForm("repo_addr", e.currentTarget.value); setForm("repo_branch", "") }}>
+              <option value="">{language.t("kanban.form.pleaseSelect")}</option>
+              <For each={repoAddrs()}>{(addr) => <option value={addr}>{addr}</option>}</For>
+            </select>
+          </div>
+          <div class="modal-field mt-4">
+            <label class="modal-label">{language.t("kanban.form.branch")}</label>
+            <select class="modal-input" value={form.repo_branch} disabled={!form.repo_addr} onChange={(e) => setForm("repo_branch", e.currentTarget.value)}>
+              <option value="">{language.t("kanban.form.pleaseSelect")}</option>
+              <For each={branches()}>{(branch) => <option value={branch}>{branch}</option>}</For>
+            </select>
+          </div>
+          <div class="modal-field mt-4">
+            <label class="modal-label">{language.t("kanban.form.dateRange")}</label>
+            <DateRangePicker
+              value={form.range}
+              clearable
+              placeholder={language.t("kanban.form.scopeLimit")}
+              onChange={(value) => setForm("range", value)}
+            />
+          </div>
+          <label class="mt-4 flex items-center gap-2 text-sm text-[var(--native-foreground)]">
+            <input type="checkbox" class="h-4 w-4 accent-[var(--native-primary)]" checked={form.whitelistMode} onChange={(e) => setForm("whitelistMode", e.currentTarget.checked)} />
+            <span>{language.t("kanban.dialog.whitelistMode")}</span>
+          </label>
+          <Show when={form.whitelistMode} fallback={
+            <div class="modal-field mt-4">
+              <label class="modal-label">{language.t("kanban.form.excludeCommits")}</label>
+              <textarea class="modal-input" rows={2} value={form.exclude_commits} placeholder={language.t("kanban.form.commitsPlaceholder")} onInput={(e) => setForm("exclude_commits", e.currentTarget.value)} />
+            </div>
+          }>
+            <div class="modal-field mt-4">
+              <label class="modal-label">{language.t("kanban.form.includeCommits")}</label>
+              <textarea class="modal-input" rows={2} value={form.include_only_commits} placeholder={language.t("kanban.form.commitsPlaceholder")} onInput={(e) => setForm("include_only_commits", e.currentTarget.value)} />
+            </div>
+          </Show>
+        </div>
+      </Modal>
+    </form>
+  )
+}
+
+function AddTaskDialog(props: { project: ProjectDetailResult; onAdded: () => void | Promise<void> }) {
+  const language = useLanguage()
+  const dialog = useDialog()
+  const [form, setForm] = createStore({
+    selected: [] as string[],
+    silica: "1",
+    keyword: "",
+    saving: false,
+  })
+
+  // 复用 task 列表查询（V2）。tasks 表本地为空时列表为空，UI 优雅降级。
+  const [taskRows] = createResource(async () => {
+    try {
+      const result = await queryTaskRows({ dateRange: defaultWideRange(365), page: 1, pageSize: 200 })
+      return result.rows
+    } catch {
+      return []
+    }
+  })
+
+  const options = createMemo(() => {
+    const q = form.keyword.trim().toLowerCase()
+    const rows = taskRows.latest ?? []
+    if (!q) return rows
+    return rows.filter((t) =>
+      (t.task_id || "").toLowerCase().includes(q) ||
+      (t.user_name || "").toLowerCase().includes(q) ||
+      (t.work_dir || "").toLowerCase().includes(q) ||
+      (t.title || "").toLowerCase().includes(q),
+    )
+  })
+
+  const selectedSet = createMemo(() => new Set(form.selected))
+
+  const toggle = (taskId: string, checked: boolean) => {
+    const next = new Set(form.selected)
+    if (checked) next.add(taskId)
+    else next.delete(taskId)
+    setForm("selected", Array.from(next))
+  }
+
+  const submit = async (e: SubmitEvent) => {
+    e.preventDefault()
+    const ids = form.selected.map((item) => item.trim()).filter(Boolean)
+    if (!ids.length) { showToast({ variant: "error", title: language.t("kanban.validation.selectTask") }); return }
+    const weight = Number(form.silica.trim())
+    if (Number.isNaN(weight)) { showToast({ variant: "error", title: language.t("kanban.validation.validNumberRequired") }); return }
+    const projectId = props.project.project_id?.trim()
+    if (!projectId) return
+
+    setForm("saving", true)
+    try {
+      await addTasksToProject(projectId, { task_ids: ids, task_ids_silica: ids.map(() => weight) })
+      showToast({ variant: "success", title: language.t("kanban.toast.addSuccess") })
+      await props.onAdded()
+      dialog.close()
+    } catch (err) {
+      showToast({ variant: "error", title: language.t("kanban.toast.addFailed"), description: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setForm("saving", false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <Modal
+        title={language.t("kanban.dialog.addTask")}
+        maxWidth="820px"
+        maxHeight="calc(100vh - 56px)"
+        footer={
+          <>
+            <Button variant="outline" size="sm" type="button" onClick={() => dialog.close()}>{language.t("common.cancel")}</Button>
+            <Button size="sm" type="submit" disabled={form.saving}>{form.saving ? language.t("common.saving") : language.t("common.confirm")}</Button>
+          </>
+        }
+      >
+        <div class="modal-section">
+          <div class="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
+            <div class="modal-field">
+              <label class="modal-label">{language.t("kanban.form.searchTask")}</label>
+              <input class="modal-input" value={form.keyword} placeholder={language.t("kanban.form.searchTaskPlaceholder")} onInput={(e) => setForm("keyword", e.currentTarget.value)} />
+            </div>
+            <div class="modal-field">
+              <label class="modal-label">{language.t("kanban.form.silicaWeight")}</label>
+              <input class="modal-input" type="number" step="0.1" min="0" value={form.silica} onInput={(e) => setForm("silica", e.currentTarget.value)} />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <div class="modal-section-title">{language.t("kanban.dialog.selectTasks")}</div>
+          <div class="max-h-[360px] overflow-auto rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead class="w-12">{language.t("kanban.table.select")}</TableHead>
+                  <TableHead class="w-24">{language.t("kanban.table.taskId")}</TableHead>
+                  <TableHead>{language.t("kanban.table.description")}</TableHead>
+                  <TableHead class="w-28">{language.t("kanban.table.user")}</TableHead>
+                  <TableHead class="w-40">{language.t("kanban.table.time")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <Show when={options().length > 0} fallback={
+                  <TableRow>
+                    <TableCell class="py-6 text-center text-sm text-[var(--native-muted)]" colspan={5}>{taskRows.loading ? language.t("kanban.misc.loading") : language.t("kanban.empty.noTaskRecords")}</TableCell>
+                  </TableRow>
+                }>
+                  <For each={options()}>
+                    {(item) => {
+                      const taskId = item.task_id?.trim() ?? ""
+                      return (
+                        <TableRow>
+                          <TableCell>
+                            <input type="checkbox" class="h-4 w-4 accent-[var(--native-primary)]" checked={selectedSet().has(taskId)} disabled={!taskId} onChange={(e) => toggle(taskId, e.currentTarget.checked)} />
+                          </TableCell>
+                          <TableCell>{shortId(item.task_id, 6)}</TableCell>
+                          <TableCell>{item.title || item.work_dir || "-"}</TableCell>
+                          <TableCell>{item.user_name || item.user_id || "-"}</TableCell>
+                          <TableCell>{formatLocalTime(item.start_time)}</TableCell>
+                        </TableRow>
+                      )
+                    }}
+                  </For>
+                </Show>
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </Modal>
+    </form>
+  )
+}
+
 export default function KanbanProjectDetail() {
   const language = useLanguage()
   const params = useParams()
@@ -336,6 +630,8 @@ export default function KanbanProjectDetail() {
 
   const openManual = () => dialog.show(() => <ManualDialog project={project()} onSaved={() => void refetch()} />)
   const openEdit = () => dialog.show(() => <EditProjectDialog project={project()} onSaved={() => void refetch()} />)
+  const openAddRepo = () => dialog.show(() => <AddRepoDialog project={project()} onAdded={() => void refetch()} />)
+  const openAddTask = () => dialog.show(() => <AddTaskDialog project={project()} onAdded={() => void refetch()} />)
 
   const handleRemoveRepo = async (index: number) => {
     if (!confirm(language.t("kanban.confirm.deleteRepo"))) return
@@ -526,8 +822,9 @@ export default function KanbanProjectDetail() {
 
                 {/* Repos */}
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-                  <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                    {language.t("kanban.section.repoList")} ({repos().length})
+                  <div class="flex items-center justify-between border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3">
+                    <span class="text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.repoList")} ({repos().length})</span>
+                    <Button size="sm" onClick={openAddRepo} disabled={!project().project_id}>{language.t("kanban.dialog.addRepo")}</Button>
                   </div>
                   <div class="overflow-auto">
                     <Table>
@@ -565,8 +862,9 @@ export default function KanbanProjectDetail() {
 
                 {/* Tasks */}
                 <section class="rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]">
-                  <div class="border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3 text-[1rem] font-semibold text-[var(--native-foreground)]">
-                    {language.t("kanban.section.taskList")} ({tasks().length})
+                  <div class="flex items-center justify-between border-b border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] px-4 py-3">
+                    <span class="text-[1rem] font-semibold text-[var(--native-foreground)]">{language.t("kanban.section.taskList")} ({tasks().length})</span>
+                    <Button size="sm" onClick={openAddTask} disabled={!project().project_id}>{language.t("kanban.dialog.addTask")}</Button>
                   </div>
                   <div class="overflow-auto">
                     <Table>

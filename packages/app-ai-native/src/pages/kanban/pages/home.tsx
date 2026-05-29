@@ -2,14 +2,14 @@ import { A, useSearchParams } from "@solidjs/router"
 import { createEffect, createMemo, createResource, For, on, untrack, type JSX } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { createStore } from "solid-js/store"
-import { ArrowRight, Building2, ChevronDown, ClipboardList, FolderGit2, FolderOpen, GitCommitHorizontal, GitMerge, Users, Wallet } from "lucide-solid"
+import { ArrowRight, Braces, Building2, ChevronDown, ClipboardList, FolderGit2, FolderOpen, GitMerge, GitPullRequest, Users } from "lucide-solid"
 import { showToast } from "@opencode-ai/ui/toast"
 import { cn } from "@/lib/utils"
 import { env } from "@/lib/env"
 import { DateRangePicker } from "../components/filters/date-range-picker"
 import { queryDashboardSummary } from "../lib/api"
 import { normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
-import { formatPercent } from "../lib/formatters"
+import { formatV2Ratio } from "../lib/formatters"
 import type { DashboardSummary } from "../lib/types"
 
 function fmtInt(value?: number | null) {
@@ -17,16 +17,8 @@ function fmtInt(value?: number | null) {
   return new Intl.NumberFormat("zh-CN").format(Math.round(value))
 }
 
-function fmtCost(value?: number | null) {
-  if (value == null || value === 0) return null
-  return {
-    prefix: "¥",
-    amount: value.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
-  }
-}
-
 function fmtRatio(value?: number | null) {
-  return formatPercent(value)
+  return formatV2Ratio(value)
 }
 
 function days(value?: number | null) {
@@ -37,25 +29,15 @@ function days(value?: number | null) {
 }
 
 function saved(summary: DashboardSummary) {
-  return Math.max(0, summary.total_commit_ancient_minutes - summary.total_commit_real_minutes)
+  return Math.max(0, (summary.need_baseline_calendar_min ?? 0) - (summary.need_actual_calendar_min ?? 0))
 }
 
 function blank(): DashboardSummary {
   return {
-    total_tasks: 0,
     total_users: 0,
     total_repos: 0,
     total_commits: 0,
-    total_work_dirs: 0,
-    total_cost: 0,
-    total_tokens: 0,
     total_diff_lines: 0,
-    total_task_ancient_minutes: 0,
-    total_real_minutes: 0,
-    avg_efficiency_ratio: null,
-    total_commit_ancient_minutes: 0,
-    total_commit_real_minutes: 0,
-    commit_efficiency_ratio: null,
   }
 }
 
@@ -245,17 +227,17 @@ export default function KanbanHome() {
     {
       label: language.t("kanban.home.metric.totalRepos"),
       value: fmtInt(view().total_repos),
-      hint: language.t("kanban.home.metric.workDirs", { count: fmtInt(view().total_work_dirs) }),
+      hint: language.t("kanban.home.metric.branchs", { count: fmtInt(view().total_branchs) }),
       tone: "#2d6bff",
       iconShell: "bg-[color:color-mix(in_oklab,var(--native-primary)_12%,var(--native-bg))] text-[var(--native-primary)]",
       icon: <FolderGit2 class="h-5 w-5" stroke-width={1.9} />,
-      href: "/kanban/repo",
+      href: href("/kanban/repo"),
       live: true,
     },
     {
       label: language.t("kanban.home.metric.totalUsers"),
       value: fmtInt(view().total_users),
-      hint: language.t("kanban.home.metric.taskSamples", { count: fmtInt(view().total_tasks) }),
+      hint: language.t("kanban.home.metric.usersHint"),
       tone: "#18a957",
       iconShell: "bg-[color:color-mix(in_oklab,var(--native-success)_12%,var(--native-bg))] text-[var(--native-success)]",
       icon: <Users class="h-5 w-5" stroke-width={1.9} />,
@@ -263,19 +245,19 @@ export default function KanbanHome() {
       live: true,
     },
     {
-      label: language.t("kanban.home.metric.totalTasks"),
-      value: fmtInt(view().total_tasks),
-      hint: "",
-      tone: "#ff7a00",
-      iconShell: "bg-[color:color-mix(in_oklab,var(--native-warning)_12%,var(--native-bg))] text-[var(--native-warning)]",
-      icon: <ClipboardList class="h-5 w-5" stroke-width={1.9} />,
-      href: href("/kanban/task"),
+      label: language.t("kanban.home.metric.totalNeeds"),
+      value: fmtInt(view().total_needs),
+      hint: language.t("kanban.home.metric.needsHint", { merged: fmtInt(view().merged_needs), eligible: fmtInt(view().eligible_needs) }),
+      tone: "#2e86ab",
+      iconShell: "bg-[color:color-mix(in_oklab,#2e86ab_12%,var(--native-bg))] text-[#2e86ab]",
+      icon: <GitPullRequest class="h-5 w-5" stroke-width={1.9} />,
+      href: href("/kanban/need"),
       live: true,
     },
     {
       label: language.t("kanban.home.metric.totalCommits"),
       value: fmtInt(view().total_commits),
-      hint: language.t("kanban.home.metric.diffLines", { count: fmtInt(view().total_diff_lines) }),
+      hint: language.t("kanban.home.metric.diffLines", { count: fmtInt(view().total_commit_lines ?? view().total_diff_lines) }),
       tone: "#8a4cf6",
       iconShell: "bg-[color:color-mix(in_oklab,#8a4cf6_12%,var(--native-bg))] text-[#8a4cf6]",
       icon: <GitMerge class="h-5 w-5" stroke-width={1.9} />,
@@ -283,16 +265,23 @@ export default function KanbanHome() {
       live: true,
     },
     {
-      label: language.t("kanban.home.metric.totalCost"),
-      value: fmtCost(view().total_cost) ?? "-",
-      hint: language.t("kanban.home.metric.tokens", { count: fmtInt(view().total_tokens) }),
-      tone: "#2d6bff",
-      iconShell: "bg-[color:color-mix(in_oklab,var(--native-primary)_12%,var(--native-bg))] text-[var(--native-primary)]",
-      icon: <Wallet class="h-5 w-5" stroke-width={1.9} />,
+      label: language.t("kanban.home.metric.totalCommitLines"),
+      value: fmtInt(view().total_commit_lines ?? view().total_diff_lines),
+      hint: language.t("kanban.home.metric.commitLinesHint"),
+      tone: "#ff7a00",
+      iconShell: "bg-[color:color-mix(in_oklab,var(--native-warning)_12%,var(--native-bg))] text-[var(--native-warning)]",
+      icon: <Braces class="h-5 w-5" stroke-width={1.9} />,
     },
   ])
 
   const nav = createMemo(() => [
+    {
+      title: language.t("kanban.home.nav.need"),
+      iconShell: "bg-[color:color-mix(in_oklab,#2e86ab_12%,var(--native-bg))] text-[#2e86ab]",
+      icon: <GitPullRequest class="h-5 w-5" stroke-width={1.9} />,
+      href: "/kanban/need",
+      live: true,
+    },
     {
       title: language.t("kanban.home.nav.repo"),
       iconShell: "bg-[color:color-mix(in_oklab,var(--native-primary)_12%,var(--native-bg))] text-[var(--native-primary)]",
@@ -344,13 +333,13 @@ export default function KanbanHome() {
       tone: "text-[var(--native-foreground)]",
     },
     {
-      label: language.t("kanban.home.summary.traditionalEst"),
-      value: days(view().total_commit_ancient_minutes),
+      label: language.t("kanban.home.summary.baselineEst"),
+      value: days(view().need_baseline_calendar_min),
       tone: "text-[var(--native-foreground)]",
     },
     {
       label: language.t("kanban.home.summary.actualTime"),
-      value: days(view().total_commit_real_minutes),
+      value: days(view().need_actual_calendar_min),
       tone: "text-[var(--native-foreground)]",
     },
   ])
@@ -362,6 +351,7 @@ export default function KanbanHome() {
     ],
     project: [
       { title: language.t("kanban.home.shortNav.project"), href: href("/kanban/project") },
+      { title: language.t("kanban.home.shortNav.need"), href: href("/kanban/need") },
       { title: language.t("kanban.home.shortNav.repo"), href: href("/kanban/repo") },
       { title: language.t("kanban.home.shortNav.commit"), href: href("/kanban/commit") },
       { title: language.t("kanban.home.shortNav.task"), href: href("/kanban/task") },
@@ -417,9 +407,10 @@ export default function KanbanHome() {
               <div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
                 <div class="max-w-[16rem]">
                   <div class="flex items-center gap-2 text-[var(--native-foreground)]">
-                    <p class="m-0 text-[0.95rem] font-medium tracking-[-0.02em]">{language.t("kanban.home.summary.efficiency")}</p>
+                    <p class="m-0 text-[0.95rem] font-medium tracking-[-0.02em]">{language.t("kanban.home.summary.calendarEfficiency")}</p>
                   </div>
-                  <p class="mt-10 text-[clamp(2.4rem,5vw,4rem)] leading-none font-medium tracking-[-0.08em] text-[#2d6bff] tabular-nums">{fmtRatio(view().commit_efficiency_ratio)}</p>
+                  <p class="mt-10 text-[clamp(2.4rem,5vw,4rem)] leading-none font-medium tracking-[-0.08em] text-[#2d6bff] tabular-nums">{fmtRatio(view().need_calendar_ratio)}</p>
+                  <p class="mt-3 text-[0.8rem] leading-5 text-[var(--native-muted)]">{language.t("kanban.home.summary.calendarDesc", { count: fmtInt(view().eligible_needs), work: fmtRatio(view().need_work_ratio) })}</p>
                 </div>
 
                 <div class="relative mx-auto h-[12rem] w-full max-w-[20rem] shrink-0 overflow-hidden rounded-[20px] bg-[radial-gradient(circle_at_50%_65%,color-mix(in_oklab,var(--native-primary)_12%,transparent)_54%,transparent_55%),radial-gradient(circle_at_68%_22%,color-mix(in_oklab,var(--native-primary)_14%,transparent)_28%,transparent_29%),transparent]">

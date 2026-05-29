@@ -29,6 +29,8 @@ const KanbanCommitDetail = lazy(() => import("@/pages/kanban").then((m) => ({ de
 const KanbanWorkDirDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanWorkDirDetail })))
 const KanbanProjectDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanProjectDetail })))
 const KanbanProjectList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanProjectList })))
+const KanbanNeedList = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanNeedList })))
+const KanbanNeedDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanNeedDetail })))
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
 const MobileWorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.MobileWorkspaceLayout })))
@@ -158,6 +160,8 @@ export const routeConfig: RouteConfig[] = [
     menu: "kanban",
     children: [
       { path: "/", component: KanbanHome },
+      { path: "/need", component: KanbanNeedList },
+      { path: "/need/:needId", component: KanbanNeedDetail },
       { path: "/repo", component: KanbanRepoList },
       { path: "/repo/:repoAddr", component: KanbanRepoDetail },
       { path: "/repo/:repoAddr/:repoBranch", component: KanbanRepoDetail },

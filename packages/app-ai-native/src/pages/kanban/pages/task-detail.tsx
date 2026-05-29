@@ -172,6 +172,18 @@ export default function KanbanTaskDetail() {
   })
   const repoLabel = createMemo(() => task().repo_addr ? `${task().repo_addr}${task().repo_branch ? `#${task().repo_branch}` : ""}` : "-")
 
+  // 查看 task 原始文件（summary / conversation），对接后端 GET /api/v2/tasks/file。
+  const fileHref = (type: "summary" | "conversation") => {
+    const id = task().task_id?.trim()
+    if (!id) return ""
+    const date = dateOf(task().start_time)
+    const query = new URLSearchParams({ type, taskId: id })
+    if (date) query.set("date", date)
+    return `/api/v2/tasks/file?${query.toString()}`
+  }
+  const summaryHref = createMemo(() => fileHref("summary"))
+  const conversationHref = createMemo(() => fileHref("conversation"))
+
   const items = createMemo<TimelineItem[]>(() => {
     const values = convs()
     const spans = segments()
@@ -230,7 +242,7 @@ export default function KanbanTaskDetail() {
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-              {/* <Show when={summaryHref()}>
+              <Show when={summaryHref()}>
                 <a href={summaryHref()} target="_blank" rel="noreferrer">
                   <Button variant="outline" size="sm">{language.t("kanban.action.viewSummary")}</Button>
                 </a>
@@ -239,7 +251,7 @@ export default function KanbanTaskDetail() {
                 <a href={conversationHref()} target="_blank" rel="noreferrer">
                   <Button variant="outline" size="sm">{language.t("kanban.action.viewRawConversation")}</Button>
                 </a>
-              </Show> */}
+              </Show>
               <Button size="sm" onClick={openManual} disabled={!task().task_id}>{language.t("kanban.dialog.manualAdjustment")}</Button>
             </div>
           </div>

@@ -3,26 +3,16 @@ import { createEffect, createMemo, createResource, on, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
-import type { EChartsOption } from "echarts"
 import { Button } from "@/components/ui/button"
-import { createListCollection, SelectContent, SelectControl, SelectIndicator, SelectItem, SelectItemText, SelectList, SelectPositioner, SelectRoot, SelectTrigger, SelectValueText } from "@/components/ui/select"
 import Back from "../components/back"
 import { FilterBar } from "../components/filters/filter-bar"
-import { ChartCard } from "../components/charts/chart-card"
-import { RatioPill } from "../components/ratio-pill"
 import { FilterTable } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
 import { queryOrgRows } from "../lib/api"
-import { chart } from "../lib/chart-options"
 import { defaultWideRange, normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
 import { applyClientFilters } from "../lib/filter-utils"
-import { formatPercent } from "../lib/formatters"
-import type { Granularity, KanbanColumn, OrgAggregateQuery, OrgAggregateRow, OrgAggregateSeries, OrgCascadeValue } from "../lib/types"
-
-function parseGranularity(value?: string): Granularity {
-  if (value === "week" || value === "month" || value === "year") return value
-  return "day"
-}
+import { formatDuration, formatV2Ratio } from "../lib/formatters"
+import type { KanbanColumn, OrgAggregateQuery, OrgAggregateRow, OrgCascadeValue } from "../lib/types"
 
 function parseOrg(search: { org1?: string; org2?: string; org3?: string; org4?: string }) {
   return {
@@ -55,12 +45,11 @@ function orgPath(value: OrgCascadeValue) {
   return [value.org1, value.org2, value.org3, value.org4].filter(Boolean).join("/")
 }
 
-function queryOf(range: [string, string], granularity: Granularity, org: OrgCascadeValue, order?: string) {
+function queryOf(range: [string, string], org: OrgCascadeValue, order?: string) {
   const dates = rangeQuery(range)
   return searchQuery([
     ["startDate", dates.startDate],
     ["endDate", dates.endDate],
-    ["granularity", granularity],
     ["org1", org.org1],
     ["org2", org.org2],
     ["org3", org.org3],
@@ -69,34 +58,43 @@ function queryOf(range: [string, string], granularity: Granularity, org: OrgCasc
   ]).toString()
 }
 
-function values(series: OrgAggregateSeries, field: keyof OrgAggregateSeries["points"][number]) {
-  return series.points.map((item) => Number(item[field] ?? 0))
+// V2 提效比小数口径，×100 显示；着色按提效幅度。
+function V2Ratio(props: { value?: number | null }) {
+  const tone = () => {
+    const v = props.value
+    if (v == null) return "border-border bg-muted/40 text-muted-foreground"
+    if (v < 0) return "border-red-500/30 bg-red-500/12 text-red-700 dark:text-red-300"
+    if (v >= 1) return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+    if (v >= 0.3) return "border-sky-500/30 bg-sky-500/12 text-sky-700 dark:text-sky-300"
+    return "border-border bg-muted/50 text-muted-foreground"
+  }
+  return (
+    <span class={`inline-flex min-w-[4.5rem] items-center justify-center rounded-full border px-2 py-1 text-xs font-medium tabular-nums ${tone()}`}>
+      {formatV2Ratio(props.value)}
+    </span>
+  )
 }
 
 export default function KanbanOrgList() {
   const language = useLanguage()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; org1?: string; org2?: string; org3?: string; org4?: string; granularity?: string; order?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; org1?: string; org2?: string; org3?: string; org4?: string; order?: string }>()
   const [state, setState] = createStore({
     page: 1,
     pageSize: 50,
     dateRange: parseQueryRange(search.startDate, search.endDate),
     org: parseOrg(search),
-    granularity: parseGranularity(search.granularity),
     order: search.order?.trim() || undefined,
   })
 
   createEffect(on(
-    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.granularity, search.order],
+    () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.order],
     () => {
       const next = readQueryRange(search.startDate, search.endDate)
       if (next && !sameRange(untrack(() => state.dateRange), next)) setState("dateRange", next)
 
       const org = parseOrg(search)
       if (!sameOrg(untrack(() => state.org), org)) setState("org", org)
-
-      const granularity = parseGranularity(search.granularity)
-      if (untrack(() => state.granularity) !== granularity) setState("granularity", granularity)
 
       const order = search.order?.trim() || undefined
       if (untrack(() => state.order) !== order) setState("order", order)
@@ -107,11 +105,10 @@ export default function KanbanOrgList() {
     const next = normalizeDateRange(state.dateRange)
     if (!next) return
 
-    const mirror = queryOf(next, state.granularity, state.org, state.order)
+    const mirror = queryOf(next, state.org, state.order)
     const current = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
-      ["granularity", search.granularity],
       ["org1", search.org1],
       ["org2", search.org2],
       ["org3", search.org3],
@@ -124,11 +121,10 @@ export default function KanbanOrgList() {
   const query = createMemo<OrgAggregateQuery>(() => ({
     dateRange: state.dateRange,
     org: { org1: state.org.org1, org2: state.org.org2, org3: state.org.org3, org4: state.org.org4 },
-    granularity: state.granularity,
     order: state.order,
   }))
 
-  const routeQuery = (org: OrgCascadeValue) => queryOf(state.dateRange, state.granularity, org, state.order)
+  const routeQuery = (org: OrgCascadeValue) => queryOf(state.dateRange, org, state.order)
 
   const columns = createMemo<KanbanColumn<OrgAggregateRow>[]>(() => [
     {
@@ -166,28 +162,56 @@ export default function KanbanOrgList() {
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
     {
-      prop: "task_count",
-      label: language.t("kanban.table.taskCount"),
-      minWidth: 90,
+      prop: "merged_need_count",
+      label: language.t("kanban.user.col.mergedNeeds"),
+      minWidth: 100,
       align: "left",
       sortable: true,
-      sortField: "taskCount",
-      render: (row) => {
-        const scope = nextOrg(state.org, row.org_name)
-        return (row.task_count ?? 0) > 0 ? (
-          <button type="button" class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer" onClick={() => navigate(`/kanban/task?${routeQuery(scope)}`)}>
-            {row.task_count}
-          </button>
-        ) : <span>0</span>
-      },
-      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
+      sortField: "mergedNeedCount",
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 10", value: { min: 10 } }, { label: "> 50", value: { min: 50 } }] },
     },
-    { prop: "task_diff_lines", label: language.t("kanban.metric.taskCodeAmount"), minWidth: 110, align: "left", sortable: true, sortField: "taskDiffLines", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
-    { prop: "task_efficiency_ratio", label: language.t("kanban.table.taskEfficiencyRatio"), minWidth: 120, align: "left", sortable: true, sortField: "taskEfficiencyRatio", render: (row) => <RatioPill value={row.task_efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
+    {
+      prop: "actual_calendar_min",
+      label: language.t("kanban.user.col.actualCalendar"),
+      minWidth: 110,
+      align: "left",
+      sortable: true,
+      sortField: "actualCalendarMin",
+      display: (row) => formatDuration(row.actual_calendar_min, language.t),
+    },
+    {
+      prop: "baseline_calendar_min",
+      label: language.t("kanban.user.col.baselineCalendar"),
+      minWidth: 110,
+      align: "left",
+      sortable: true,
+      sortField: "baselineCalendarMin",
+      display: (row) => formatDuration(row.baseline_calendar_min, language.t),
+    },
+    {
+      prop: "calendar_ratio",
+      label: language.t("kanban.user.col.calendarEfficiency"),
+      minWidth: 110,
+      align: "left",
+      sortable: true,
+      sortField: "calendarRatio",
+      render: (row) => <V2Ratio value={row.calendar_ratio} />,
+      filter: { type: "number", valueGetter: (row) => (row.calendar_ratio == null ? undefined : row.calendar_ratio * 100), shortcuts: [{ label: "> 0%", value: { min: 0.01 } }, { label: "> 50%", value: { min: 50 } }, { label: "> 100%", value: { min: 100 } }] },
+    },
+    {
+      prop: "work_ratio",
+      label: language.t("kanban.user.col.workEfficiency"),
+      minWidth: 110,
+      align: "left",
+      sortable: true,
+      sortField: "workRatio",
+      render: (row) => <V2Ratio value={row.work_ratio} />,
+      filter: { type: "number", valueGetter: (row) => (row.work_ratio == null ? undefined : row.work_ratio * 100), shortcuts: [{ label: "> 0%", value: { min: 0.01 } }, { label: "> 100%", value: { min: 100 } }, { label: "> 300%", value: { min: 300 } }] },
+    },
     {
       prop: "commit_count",
       label: language.t("kanban.table.commitCount"),
-      minWidth: 100,
+      minWidth: 90,
       align: "left",
       sortable: true,
       sortField: "commitCount",
@@ -201,10 +225,8 @@ export default function KanbanOrgList() {
       },
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
-    { prop: "commit_diff_lines", label: language.t("kanban.metric.commitCodeAmount"), minWidth: 120, align: "left", sortable: true, sortField: "commitDiffLines", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
-    { prop: "commit_efficiency_ratio", label: language.t("kanban.table.commitEfficiencyRatio"), minWidth: 130, align: "left", sortable: true, sortField: "commitEfficiencyRatio", render: (row) => <RatioPill value={row.commit_efficiency_ratio} />, filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] } },
-    { prop: "total_tokens", label: language.t("kanban.table.tokensConsumed"), minWidth: 120, align: "left", sortable: true, sortField: "totalTokens", display: (row) => (row.total_tokens ?? 0) > 0 ? (row.total_tokens ?? 0).toLocaleString() : "-", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 10k", value: { min: 10000 } }, { label: "> 100k", value: { min: 100000 } }] } },
-    { prop: "total_cost", label: language.t("kanban.metric.totalCost"), minWidth: 100, align: "left", sortable: true, sortField: "totalCost", display: (row) => fmtCost(row.total_cost), filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] } },
+    { prop: "commit_diff_lines", label: language.t("kanban.table.commitCodeLines"), minWidth: 110, align: "left", sortable: true, sortField: "commitDiffLines", filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] } },
+    { prop: "cost", label: language.t("kanban.metric.totalCost"), minWidth: 100, align: "left", sortable: true, sortField: "cost", display: (row) => fmtCost(row.cost), filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] } },
   ])
 
   const table = useTableFilters<OrgAggregateRow>({
@@ -212,39 +234,17 @@ export default function KanbanOrgList() {
     onChange: () => setState("page", 1),
   })
 
-  const granularityItems = createMemo(() =>
-    createListCollection({
-      items: [
-        { value: "day" as const, label: language.t("kanban.granularity.day") },
-        { value: "week" as const, label: language.t("kanban.granularity.week") },
-        { value: "month" as const, label: language.t("kanban.granularity.month") },
-        { value: "year" as const, label: language.t("kanban.granularity.year") },
-      ],
-      itemToValue: (item) => item.value,
-      itemToString: (item) => item.label,
-    }),
-  )
-
   const [data, { refetch }] = createResource(query, async (input) => {
     try {
       return await queryOrgRows(input)
     } catch (err) {
       showToast({ variant: "error", title: language.t("kanban.toast.loadFailed"), description: err instanceof Error ? err.message : String(err) })
-      return { rows: [], periods: [], series: [] }
+      return { rows: [] }
     }
   })
 
   const filtered = createMemo(() => applyClientFilters(data.latest?.rows ?? [], columns(), table.filters))
   const paged = createMemo(() => filtered().slice((state.page - 1) * state.pageSize, state.page * state.pageSize))
-  const periods = createMemo(() => data.latest?.periods ?? [])
-  const series = createMemo(() => data.latest?.series ?? [])
-
-  const memberOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.metric.memberCount"), periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "user_count") })), { type: "line" }) : undefined)
-  const countOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(`${language.t("kanban.table.taskCount")} / ${language.t("kanban.table.commitCount")}`, periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.task")}`, data: values(item, "task_count") }, { name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.commit")}`, data: values(item, "commit_count") }])), { type: "line" }) : undefined)
-  const codeOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.metric.codeLines"), periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.task")}`, data: values(item, "task_diff_lines") }, { name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.commit")}`, data: values(item, "commit_diff_lines") }])), { type: "line" }) : undefined)
-  const ratioOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.chart.efficiencyRatio"), periods(), series().flatMap((item) => ([{ name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.task")}`, data: values(item, "task_efficiency_ratio") }, { name: `${item.org_name || "-"} / ${language.t("kanban.chart.series.commit")}`, data: values(item, "commit_efficiency_ratio") }])), { type: "line", format: (value) => formatPercent(value) }) : undefined)
-  const tokenOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.table.tokensConsumed"), periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_tokens") })), { type: "line", format: (value) => value.toLocaleString() }) : undefined)
-  const costOption = createMemo<EChartsOption | undefined>(() => periods().length ? chart(language.t("kanban.metric.totalCost"), periods(), series().map((item) => ({ name: item.org_name || "-", data: values(item, "total_cost") })), { type: "line", format: (value) => fmtCost(value) }) : undefined)
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
@@ -252,6 +252,7 @@ export default function KanbanOrgList() {
         <header class="flex w-full flex-col gap-3">
           <Back />
           <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{language.t("kanban.view.org")}</h1>
+          <p class="m-0 text-sm text-[var(--native-muted)]">{language.t("kanban.org.listSubtitle")}</p>
         </header>
 
         <FilterBar
@@ -269,52 +270,11 @@ export default function KanbanOrgList() {
             setState("page", 1)
           }}
           actions={
-            <>
-              <label class="flex min-w-0 flex-col gap-2">
-                <SelectRoot
-                  collection={granularityItems()}
-                  value={[state.granularity]}
-                  onValueChange={(details) => {
-                    const val = details.value[0]
-                    if (val) {
-                      setState("granularity", val as Granularity)
-                      setState("page", 1)
-                    }
-                  }}
-                  positioning={{ fitViewport: true, sameWidth: true }}
-                >
-                  <SelectControl>
-                    <SelectTrigger class="h-10 w-[6rem] min-w-[6rem] flex-none">
-                      <SelectValueText />
-                      <SelectIndicator />
-                    </SelectTrigger>
-                  </SelectControl>
-                  <SelectPositioner>
-                    <SelectContent class="max-h-[min(20rem,calc(var(--available-height)-1rem))] overflow-y-auto">
-                      <SelectList>
-                        <SelectItem item={granularityItems().items[0]}>
-                          <SelectItemText>{language.t("kanban.granularity.day")}</SelectItemText>
-                        </SelectItem>
-                        <SelectItem item={granularityItems().items[1]}>
-                          <SelectItemText>{language.t("kanban.granularity.week")}</SelectItemText>
-                        </SelectItem>
-                        <SelectItem item={granularityItems().items[2]}>
-                          <SelectItemText>{language.t("kanban.granularity.month")}</SelectItemText>
-                        </SelectItem>
-                        <SelectItem item={granularityItems().items[3]}>
-                          <SelectItemText>{language.t("kanban.granularity.year")}</SelectItemText>
-                        </SelectItem>
-                      </SelectList>
-                    </SelectContent>
-                  </SelectPositioner>
-                </SelectRoot>
-              </label>
-              <div class="flex items-end">
-                <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>
-                  {data.loading ? language.t("kanban.action.refreshing") : language.t("kanban.action.refresh")}
-                </Button>
-              </div>
-            </>
+            <div class="flex items-end">
+              <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>
+                {data.loading ? language.t("kanban.action.refreshing") : language.t("kanban.action.refresh")}
+              </Button>
+            </div>
           }
         />
 
@@ -339,15 +299,6 @@ export default function KanbanOrgList() {
             setState("page", 1)
           }}
         />
-
-        <section class="grid gap-4 xl:grid-cols-2">
-          <ChartCard option={memberOption()} empty={language.t("kanban.chart.empty.memberCount")} />
-          <ChartCard option={countOption()} empty={language.t("kanban.chart.empty.count")} />
-          <ChartCard option={codeOption()} empty={language.t("kanban.chart.empty.code")} />
-          <ChartCard option={ratioOption()} empty={language.t("kanban.chart.empty.ratio")} />
-          <ChartCard option={tokenOption()} empty={language.t("kanban.chart.empty.token")} />
-          <ChartCard option={costOption()} empty={language.t("kanban.chart.empty.cost")} />
-        </section>
       </div>
     </div>
   )
