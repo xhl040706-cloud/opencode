@@ -19,6 +19,7 @@ import type { VariantProps } from "class-variance-authority"
 import { cva } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+import { isMobile as sharedIsMobile } from "@/lib/mobile"
 import type { ButtonProps } from "@/components/ui/button"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -56,22 +57,6 @@ function useSidebar() {
   return context
 }
 
-export function useIsMobile(fallback = false) {
-  const [isMobile, setIsMobile] = createSignal(fallback)
-
-  createEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      setIsMobile(e.matches)
-    }
-    mql.addEventListener("change", onChange)
-    onChange(mql)
-    onCleanup(() => mql.removeEventListener("change", onChange))
-  })
-
-  return isMobile
-}
-
 type SidebarProviderProps = Omit<ComponentProps<"div">, "style"> & {
   defaultOpen?: boolean
   open?: boolean
@@ -90,7 +75,7 @@ const SidebarProvider: Component<SidebarProviderProps> = (rawProps) => {
     "children"
   ])
 
-  const isMobile = useIsMobile()
+  const isMobile = sharedIsMobile
   const [openMobile, setOpenMobile] = createSignal(false)
 
   // This is the internal state of the sidebar.

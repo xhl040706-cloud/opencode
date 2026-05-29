@@ -13,7 +13,7 @@ import { usePlatform } from "@/context/platform"
 import { type Locale, useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
 import { appPath } from "@/lib/router"
-import { useSyncMobileRoute } from "@/lib/mobile"
+import { isMobile, useSyncMobile } from "@/lib/mobile"
 import { getLoginUrl } from "@/pages/store/lib/auth"
 
 function item(on: boolean) {
@@ -174,21 +174,22 @@ export default function RootLayout(props: ParentProps) {
   const language = useLanguage()
   const auth = useAuth()
 
-  useSyncMobileRoute()
+  useSyncMobile()
 
   const appPathname = () => appPath(location.pathname)
 
-  const isMobileWorkspace = () => {
+  // Auto-redirect between desktop and mobile routes based on viewport
+  createEffect(() => {
+    const mobile = isMobile()
     const path = appPathname()
-    return path === "/m/workspace" || path.startsWith("/m/workspace/")
-  }
 
-  const isMobileStore = () => {
-    const path = appPathname()
-    return path === "/m/store" || path.startsWith("/m/store/")
-  }
-
-  const isMobile = () => isMobileWorkspace() || isMobileStore()
+    if (mobile && !path.startsWith("/m/")) {
+      navigate("/m/workspace" + location.search, { replace: true })
+    } else if (!mobile && path.startsWith("/m/")) {
+      const desktop = path.slice(2) || "/"
+      navigate(desktop + location.search, { replace: true })
+    }
+  })
 
   const isWorkspace = () => {
     const path = appPathname()
