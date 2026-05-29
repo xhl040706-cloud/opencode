@@ -2594,6 +2594,7 @@ export const dict = {
 
   "kanban.empty.noData": "No data",
   "kanban.aria.filterLabel": "Filter {{label}}",
+  "kanban.aria.sortLabel": "Sort by {{label}}",
   "kanban.pagination.showing": "Showing {{from}} - {{to}} of {{total}}",
   "kanban.pagination.perPage": "per page",
   "kanban.pagination.jumpTo": "Go to",

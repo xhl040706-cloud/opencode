@@ -53,11 +53,12 @@ function V2Ratio(props: { value?: number | null }) {
 export default function KanbanNeedList() {
   const language = useLanguage()
   const navigate = useNavigate()
-  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string }>()
+  const [search, setSearch] = useSearchParams<{ startDate?: string; endDate?: string; order?: string }>()
   const [state, setState] = createStore({
     page: 1,
     pageSize: 20,
     serverRange: parseQueryRange(search.startDate, search.endDate),
+    order: search.order?.trim() || undefined,
     // 服务端筛选开关（后端 /api/v2/needs 支持的 query：includeAll / outlierOnly）
     includeAll: false,
     outlierOnly: false,
@@ -235,10 +236,12 @@ export default function KanbanNeedList() {
   })
 
   createEffect(on(
-    () => [search.startDate, search.endDate],
+    () => [search.startDate, search.endDate, search.order],
     () => {
       const next = parseQueryRange(search.startDate, search.endDate)
       if (!sameRange(state.serverRange, next)) setState("serverRange", next)
+      const order = search.order?.trim() || undefined
+      if (state.order !== order) setState("order", order)
     },
   ))
 
@@ -247,10 +250,12 @@ export default function KanbanNeedList() {
     const mirror = searchQuery([
       ["startDate", query.startDate],
       ["endDate", query.endDate],
+      ["order", state.order],
     ])
     const current = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
+      ["order", search.order],
     ])
     if (mirror.toString() !== current.toString()) setSearch(Object.fromEntries(mirror.entries()), { replace: true })
   })
@@ -312,6 +317,8 @@ export default function KanbanNeedList() {
           page={state.page}
           pageSize={state.pageSize}
           pageSizeOptions={[20, 50, 100, 200]}
+          order={state.order}
+          onOrderChange={(order) => setState("order", order)}
           dateRange={state.serverRange}
           emptyText={needRows.loading ? language.t("kanban.need.loading") : language.t("kanban.need.empty")}
           actions={

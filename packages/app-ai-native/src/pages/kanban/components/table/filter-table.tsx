@@ -65,6 +65,47 @@ function rangePages(page: number, totalPages: number) {
 
 type SortState = "asc" | "desc" | "none"
 
+// 解析 order：`-foo` => 字段 foo 降序；`foo` => 升序；空 => 不排序。
+function parseOrder(order: string | undefined) {
+  const txt = order?.trim()
+  if (!txt) return undefined
+  const desc = txt.startsWith("-")
+  return { field: desc ? txt.slice(1) : txt, desc }
+}
+
+// 非空值比较：number 按数值；boolean false<true；其它按 localeCompare。空值在外层单独处理。
+function compareValue(a: unknown, b: unknown) {
+  if (typeof a === "number" && typeof b === "number") return a - b
+  if (typeof a === "boolean" && typeof b === "boolean") return a === b ? 0 : a ? 1 : -1
+  return String(a).localeCompare(String(b))
+}
+
+// 客户端排序：用 columns 里 sortField===field 的列，取该列 prop 对应的 row 值（snake_case）。
+// 稳定排序；null/undefined 恒排末尾（不论升降）；order 为空时原样返回。
+export function sortRows<Row extends EfficiencyRow>(rows: Row[], columns: KanbanColumn<Row>[], order: string | undefined) {
+  const parsed = parseOrder(order)
+  if (!parsed) return rows
+  const column = columns.find((col) => col.sortField === parsed.field)
+  if (!column) return rows
+  const prop = column.prop
+  const indexed = rows.map((row, index) => ({ row, index }))
+  indexed.sort((a, b) => {
+    const av = a.row[prop]
+    const bv = b.row[prop]
+    const aEmpty = av == null
+    const bEmpty = bv == null
+    // 空值恒末尾，不参与方向翻转。
+    if (aEmpty || bEmpty) {
+      if (aEmpty && bEmpty) return a.index - b.index
+      return aEmpty ? 1 : -1
+    }
+    const cmp = compareValue(av, bv)
+    if (cmp !== 0) return parsed.desc ? -cmp : cmp
+    return a.index - b.index
+  })
+  return indexed.map((item) => item.row)
+}
+
 function sortState(order: string | undefined, field: string | undefined): SortState {
   if (!field) return "none"
   if (order === field) return "asc"
@@ -101,6 +142,8 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
   const from = () => (props.total === 0 ? 0 : Math.min((props.page - 1) * props.pageSize + 1, props.total))
   const to = () => Math.min(props.page * props.pageSize, props.total)
   const showOverlay = () => props.loading && props.rows.length > 0
+  // 后端 V2 native handler 不消费 order，列头排序在前端兜底（对传入 rows 客户端排序）。
+  const sortedRows = () => sortRows(props.rows, props.columns, props.order)
 
   return (
     <section class={cn("overflow-hidden rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[var(--native-panel)] shadow-[var(--native-shadow-sm)]", props.class)}>
@@ -199,7 +242,7 @@ export function FilterTable<Row extends EfficiencyRow>(props: Props<Row>) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <For each={props.rows}>
+              <For each={sortedRows()}>
                 {(row) => (
                   <TableRow class={props.onRowClick ? "cursor-pointer" : undefined} onClick={() => props.onRowClick?.(row)}>
                     <For each={props.columns}>

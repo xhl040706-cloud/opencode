@@ -1,9 +1,10 @@
-import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useNavigate, useParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
+import { env } from "@/lib/env"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
@@ -139,7 +140,6 @@ export default function KanbanTaskDetail() {
   const params = useParams()
   const navigate = useNavigate()
   const dialog = useDialog()
-  const [search] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
   const [expand, setExpand] = createStore<Record<string, boolean>>({})
 
   const taskId = createMemo(() => decodeURIComponent(params.taskId ?? "").trim())
@@ -179,7 +179,9 @@ export default function KanbanTaskDetail() {
     const date = dateOf(task().start_time)
     const query = new URLSearchParams({ type, taskId: id })
     if (date) query.set("date", date)
-    return `/api/v2/tasks/file?${query.toString()}`
+    // 与 api.ts 一致：基址取 env.API_URL，回退到 DASHBOARD_PREFIX，避免裸路径在反代/前缀部署下 404。
+    const base = env.API_URL || env.DASHBOARD_PREFIX
+    return `${base}/api/v2/tasks/file?${query.toString()}`
   }
   const summaryHref = createMemo(() => fileHref("summary"))
   const conversationHref = createMemo(() => fileHref("conversation"))

@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
 import { FilterBar } from "../components/filters/filter-bar"
-import { FilterTable } from "../components/table/filter-table"
+import { FilterTable, sortRows } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
 import { queryOrgRows } from "../lib/api"
 import { defaultWideRange, normalizeDateRange, parseQueryRange, rangeQuery, readQueryRange, searchQuery, sameRange } from "../lib/date-range"
@@ -244,7 +244,9 @@ export default function KanbanOrgList() {
   })
 
   const filtered = createMemo(() => applyClientFilters(data.latest?.rows ?? [], columns(), table.filters))
-  const paged = createMemo(() => filtered().slice((state.page - 1) * state.pageSize, state.page * state.pageSize))
+  // 客户端分页：排序作用于全量过滤集，再切片（否则只排当前页）。
+  const sorted = createMemo(() => sortRows(filtered(), columns(), state.order))
+  const paged = createMemo(() => sorted().slice((state.page - 1) * state.pageSize, state.page * state.pageSize))
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-5 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">

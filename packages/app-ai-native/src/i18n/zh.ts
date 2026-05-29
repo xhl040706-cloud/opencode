@@ -2539,6 +2539,7 @@ export const dict = {
 
   "kanban.empty.noData": "暂无数据",
   "kanban.aria.filterLabel": "筛选 {{label}}",
+  "kanban.aria.sortLabel": "按 {{label}} 排序",
   "kanban.pagination.showing": "显示 {{from}} - {{to}}，共 {{total}} 条",
   "kanban.pagination.perPage": "每页",
   "kanban.pagination.jumpTo": "跳转",
