@@ -52,6 +52,7 @@
     -webkit-mask-size: 100% 300%;
     mask-repeat: no-repeat;
     -webkit-mask-repeat: no-repeat;
+    will-change: mask-position, -webkit-mask-position, transform;
     transition-duration: var(--_dur);
     transition-timing-function: var(--_spring);
   }

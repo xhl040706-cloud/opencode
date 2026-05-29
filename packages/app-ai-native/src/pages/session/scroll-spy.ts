@@ -168,7 +168,7 @@ export const createScrollSpy = (input: Input) => {
           },
           {
             root: el,
-            threshold: [0, 0.25, 0.5, 0.75, 1],
+            threshold: [0, 1],
           },
         )
       } catch {
@@ -188,7 +188,6 @@ export const createScrollSpy = (input: Input) => {
         schedule()
       })
       ro.observe(el)
-      for (const item of node.values()) ro.observe(item)
     }
 
     mo?.disconnect()
@@ -217,15 +216,12 @@ export const createScrollSpy = (input: Input) => {
     const prev = node.get(key)
     if (prev && prev !== el) {
       io?.unobserve(prev)
-      ro?.unobserve(prev)
     }
 
     node.set(key, el)
     id.set(el, key)
     if (io) io.observe(el)
-    if (ro) ro.observe(el)
     dirty = true
-    schedule()
   }
 
   const unregister = (key: string) => {
@@ -233,11 +229,9 @@ export const createScrollSpy = (input: Input) => {
     if (!item) return
 
     io?.unobserve(item)
-    ro?.unobserve(item)
     node.delete(key)
     visible.delete(key)
     dirty = true
-    schedule()
   }
 
   const markDirty = () => {
@@ -248,7 +242,6 @@ export const createScrollSpy = (input: Input) => {
   const clear = () => {
     for (const item of node.values()) {
       io?.unobserve(item)
-      ro?.unobserve(item)
     }
 
     node.clear()
