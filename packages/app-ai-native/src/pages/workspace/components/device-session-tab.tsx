@@ -870,6 +870,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const enrichedMessages = createMemo(() => {
     const raw = effectiveMessages()
     if (!raw || raw.length === 0) return raw ?? []
+    const parts = effectiveParts()
     const userIDs = new Set<string>()
     for (const m of raw) {
       if (m.role === "user") userIDs.add(m.id)
@@ -898,6 +899,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
           continue
         }
       }
+      if (m.role === "user" && !parts[m.id]?.length) continue
       enriched.push(m)
     }
     return enriched
