@@ -170,6 +170,40 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     setStore("status", workspace.data.sessionStatus[id] ?? idle)
   })
 
+  // When SSE streaming completes (session transitions from busy/retry to idle),
+  // run a reconciliation pass to catch any content that might have been missed
+  // during streaming. The small delay ensures pending SSE events settle first.
+  let reconcileTimer: ReturnType<typeof setTimeout> | undefined
+  let wasActive = false
+
+  createEffect(() => {
+    const id = sid()
+    if (!id) {
+      wasActive = false
+      return
+    }
+    const status = workspace.data.sessionStatus[id]
+    const isActive = status?.type === "busy" || status?.type === "retry"
+    if (wasActive && !isActive) {
+      if (reconcileTimer) clearTimeout(reconcileTimer)
+      const sessionId = id
+      reconcileTimer = setTimeout(() => {
+        reconcileTimer = undefined
+        if (sid() === sessionId) {
+          void loadMessages(MESSAGE_PAGE_SIZE)
+        }
+      }, 150)
+    }
+    wasActive = isActive
+  })
+
+  onCleanup(() => {
+    if (reconcileTimer) {
+      clearTimeout(reconcileTimer)
+      reconcileTimer = undefined
+    }
+  })
+
   const BATCH_SIZE = 10
 
   const loadMessages = async (limit: number) => {
@@ -372,13 +406,21 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           }
           const idx = existing.findIndex((p) => p.id === part.id)
           if (idx !== -1) {
-            setStore("parts", messageID, idx, part)
+            const prev = existing[idx] as any
+            const merged = (part as any).state?.output === undefined && prev?.state?.output !== undefined
+              ? { ...part, state: { ...(part as any).state, output: prev.state.output } }
+              : part
+            setStore("parts", messageID, idx, merged)
           } else {
             const callID = (part as any).callID
             if (callID) {
               const byCall = existing.findIndex((p) => (p as any).callID === callID)
               if (byCall !== -1) {
-                const patched = { ...part, id: existing[byCall].id }
+                const prev = existing[byCall] as any
+                const base = { ...part, id: existing[byCall].id }
+                const patched = (part as any).state?.output === undefined && prev?.state?.output !== undefined
+                  ? { ...base, state: { ...(part as any).state, output: prev.state.output } }
+                  : base
                 setStore("parts", messageID, byCall, patched)
                 break
               }

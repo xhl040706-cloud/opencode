@@ -78,11 +78,20 @@ export const createScrollSpy = (input: Input) => {
   const id = new WeakMap<HTMLElement, string>()
   const visible = new Map<string, { ratio: number; top: number }>()
   let offset: Offset[] = []
+  let pendingObserve: HTMLElement[] = []
+
+  const flushPendingObserves = () => {
+    if (!io || pendingObserve.length === 0) return
+    const items = pendingObserve
+    pendingObserve = []
+    for (const el of items) io.observe(el)
+  }
 
   const schedule = () => {
     if (frame !== undefined) return
     frame = raf(() => {
       frame = undefined
+      flushPendingObserves()
       update()
     })
   }
@@ -168,7 +177,8 @@ export const createScrollSpy = (input: Input) => {
           },
           {
             root: el,
-            threshold: [0, 1],
+            rootMargin: "0px 0px -10% 0px",
+            threshold: 0,
           },
         )
       } catch {
@@ -220,8 +230,9 @@ export const createScrollSpy = (input: Input) => {
 
     node.set(key, el)
     id.set(el, key)
-    if (io) io.observe(el)
+    pendingObserve.push(el)
     dirty = true
+    schedule()
   }
 
   const unregister = (key: string) => {
@@ -247,6 +258,7 @@ export const createScrollSpy = (input: Input) => {
     node.clear()
     visible.clear()
     offset = []
+    pendingObserve = []
     active = undefined
     dirty = true
   }

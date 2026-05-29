@@ -1,14 +1,24 @@
-import { createEffect, createSignal } from "solid-js"
-import { useLocation } from "@solidjs/router"
+import { createEffect, createSignal, onCleanup } from "solid-js"
 
-const [isMobile, setIsMobile] = createSignal(false)
+const MOBILE_BREAKPOINT = 768
+
+function getInitialMobile() {
+  if (typeof window === "undefined") return false
+  return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches
+}
+
+const [isMobile, setIsMobile] = createSignal(getInitialMobile())
 
 export { isMobile }
 
-export function useSyncMobileRoute() {
-  const location = useLocation()
+export function useSyncMobile() {
   createEffect(() => {
-    const path = location.pathname
-    setIsMobile(path.startsWith("/m/"))
+    if (typeof window === "undefined") return
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+    const update = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(e.matches)
+    }
+    mql.addEventListener("change", update)
+    onCleanup(() => mql.removeEventListener("change", update))
   })
 }

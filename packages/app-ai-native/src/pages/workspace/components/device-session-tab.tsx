@@ -57,7 +57,7 @@ import type { Project, Path } from "@opencode-ai/sdk/v2/client"
 import type { ProviderCapability, ProviderCapabilitiesResponse } from "@/context/global-sync/types"
 
 import { SessionQrCodeContent } from "./session-qrcode-dialog"
-import { appPath } from "@/lib/router"
+import { isMobile } from "@/lib/mobile"
 import { env } from "@/lib/env"
 
 const emptyMessages: Message[] = []
@@ -199,7 +199,6 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const isNew = createMemo(() => !createdSessionID() && !session.sessionID())
 
   const rootSessionID = createMemo(() => createdSessionID() ?? session.sessionID())
-  const isMobile = createMemo(() => appPath(location.pathname).startsWith("/m/"))
 
   const mobileUrl = createMemo(() => {
     const host = `${env.MOBILE_HOST}${env.BASE_PATH ? `${env.BASE_PATH}` : ""}`
@@ -871,6 +870,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
   const enrichedMessages = createMemo(() => {
     const raw = effectiveMessages()
     if (!raw || raw.length === 0) return raw ?? []
+    const parts = effectiveParts()
     const userIDs = new Set<string>()
     for (const m of raw) {
       if (m.role === "user") userIDs.add(m.id)
@@ -899,6 +899,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
           continue
         }
       }
+      if (m.role === "user" && !parts[m.id]?.length) continue
       enriched.push(m)
     }
     return enriched
