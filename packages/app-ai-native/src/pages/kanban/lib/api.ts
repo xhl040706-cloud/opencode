@@ -13,18 +13,17 @@ import type {
   DateRangeValue,
   DateValue,
   DimensionKeysQuery,
-  EfficiencyQuery,
-  EfficiencyQueryResult,
   EfficiencyRow,
   EfficiencySummary,
   FetchOpts,
   Granularity,
-  OrgAggregatePoint,
   OrgAggregateQuery,
   OrgAggregateResult,
+  OrgAggregateRow,
   OrgDetailQuery,
   OrgDetailResult,
   OrgListQuery,
+  OrgSummary,
   ProjectConflict,
   ProjectCreatePayload,
   ProjectOption,
@@ -56,8 +55,6 @@ import type {
   UserListQuery,
   UserListResult,
   UserOption,
-  UserSeries,
-  UserSeriesPoint,
   WorkDirDetailResult,
   WorkDirCommitRow,
   WorkDirMatchedTask,
@@ -70,6 +67,14 @@ import type {
   ProjectCommitRow,
   ProjectTaskRow,
   GlobalConfig,
+  NeedRow,
+  NeedListQuery,
+  NeedListResult,
+  NeedDetailNeed,
+  NeedDetailResult,
+  NeedSessionRow,
+  NeedCommitRow,
+  NeedBaselineComponents,
 } from "./types"
 
 const PREFIX = env.DASHBOARD_PREFIX
@@ -237,40 +242,34 @@ function unwrap(raw: unknown) {
   return plain(raw) && plain(raw.data) ? raw.data : raw
 }
 
+// V2 用户详情汇总：透传所有 V2 需求/日历/工作量字段（比率为小数口径）。
 function userSummary(raw: unknown): UserDetailSummary {
   if (!plain(raw)) return {}
   return {
     user_id: toText(raw.user_id),
     user_name: toText(raw.user_name),
-    day_count: toNumber(raw.day_count),
-    task_count: toNumber(raw.task_count),
+    week_count: toNumber(raw.week_count),
+    merged_need_count: toNumber(raw.merged_need_count),
+    active_need_count: toNumber(raw.active_need_count),
+    abandoned_need_count: toNumber(raw.abandoned_need_count),
+    actual_calendar_min: raw.actual_calendar_min == null ? null : toNumber(raw.actual_calendar_min),
+    baseline_calendar_min: raw.baseline_calendar_min == null ? null : toNumber(raw.baseline_calendar_min),
+    calendar_ratio: raw.calendar_ratio == null ? null : toNumber(raw.calendar_ratio),
+    actual_work_min: raw.actual_work_min == null ? null : toNumber(raw.actual_work_min),
+    baseline_work_min: raw.baseline_work_min == null ? null : toNumber(raw.baseline_work_min),
+    work_ratio: raw.work_ratio == null ? null : toNumber(raw.work_ratio),
     commit_count: toNumber(raw.commit_count),
-    task_efficiency_ratio: raw.task_efficiency_ratio == null ? null : toNumber(raw.task_efficiency_ratio),
-    commit_efficiency_ratio: raw.commit_efficiency_ratio == null ? null : toNumber(raw.commit_efficiency_ratio),
+    commit_diff_lines: toNumber(raw.commit_diff_lines),
+    tokens: toNumber(raw.tokens),
     cost: raw.cost == null ? null : toNumber(raw.cost),
+    confidence_limited: raw.confidence_limited === true,
+    confidence_reason: toText(raw.confidence_reason),
   }
 }
 
+// toObjects 用 spread 透传全部字段，V2 字段自动保留。
 function userRows(raw: unknown) {
   return toObjects<UserAggregateRow>(raw)
-}
-
-function userPeriods(raw: unknown) {
-  if (!Array.isArray(raw)) return [] as string[]
-  return raw.filter((item): item is string => typeof item === "string")
-}
-
-function userPoints(raw: unknown) {
-  return toObjects<UserSeriesPoint>(raw)
-}
-
-function userSeries(raw: unknown) {
-  if (!Array.isArray(raw)) return [] as UserSeries[]
-  return raw.filter(plain).map((item) => ({
-    user_id: toText(item.user_id),
-    user_name: toText(item.user_name),
-    points: userPoints(item.points),
-  }))
 }
 
 function groupSummary(raw: unknown): UserGroupSummary {
@@ -348,26 +347,22 @@ function dashboard(raw: unknown): DashboardSummary {
   if (!plain(data)) fail("Invalid dashboard response", raw)
 
   return {
-    total_tasks: toNumber(data.total_tasks),
     total_users: toNumber(data.total_users),
     total_repos: toNumber(data.total_repos),
     total_commits: toNumber(data.total_commits),
-    total_work_dirs: toNumber(data.total_work_dirs),
-    total_cost: toNumber(data.total_cost),
-    total_tokens: toNumber(data.total_tokens),
     total_diff_lines: toNumber(data.total_diff_lines),
-    total_task_ancient_minutes: toNumber(data.total_task_ancient_minutes),
-    total_real_minutes: toNumber(data.total_real_minutes),
-    avg_efficiency_ratio: data.avg_efficiency_ratio == null ? null : toNumber(data.avg_efficiency_ratio),
-    total_commit_ancient_minutes: toNumber(data.total_commit_ancient_minutes),
-    total_commit_real_minutes: toNumber(data.total_commit_real_minutes),
-    commit_efficiency_ratio: data.commit_efficiency_ratio == null ? null : toNumber(data.commit_efficiency_ratio),
+    // V2 派生字段（dashboard_handler_v2 补充）
+    total_branchs: toNumber(data.total_branchs),
+    total_commit_lines: toNumber(data.total_commit_lines),
+    total_users_v2: toNumber(data.total_users_v2),
+    total_needs: toNumber(data.total_needs),
+    merged_needs: toNumber(data.merged_needs),
+    eligible_needs: toNumber(data.eligible_needs),
+    need_actual_calendar_min: toNumber(data.need_actual_calendar_min),
+    need_baseline_calendar_min: toNumber(data.need_baseline_calendar_min),
+    need_calendar_ratio: data.need_calendar_ratio == null ? null : toNumber(data.need_calendar_ratio),
+    need_work_ratio: data.need_work_ratio == null ? null : toNumber(data.need_work_ratio),
   }
-}
-
-function page<T>(items: T[], index = 1, size = items.length || 1) {
-  const start = Math.max(index - 1, 0) * Math.max(size, 1)
-  return items.slice(start, start + Math.max(size, 1))
 }
 
 async function apiFetch<T = unknown>(path: string, opts: FetchOpts = {}): Promise<T> {
@@ -450,29 +445,6 @@ export async function loadDimensionKeys(input: DimensionKeysQuery) {
   return { keys: [] as string[] }
 }
 
-export async function queryEfficiencyRows(input: EfficiencyQuery): Promise<EfficiencyQueryResult> {
-  const txt = input.dimensionId.trim()
-  if (!txt) fail("dimensionId is required")
-  if (!input.dateRange) fail("dateRange is required")
-
-  const raw = await get<unknown>(`${API}/analysis/efficiency`, {
-    dimension: input.dimension,
-    id: txt,
-    ...range(input.dateRange),
-  }, LONG)
-
-  const data = summary(raw)
-  const all = data.actual_time.users
-  const index = input.page ?? 1
-  const size = input.pageSize ?? (all.length || 1)
-
-  return {
-    rows: page(all, index, size),
-    total: all.length,
-    summary: data,
-  }
-}
-
 export async function queryDashboardSummary(input: DashboardSummaryQuery = {}): Promise<DashboardSummary> {
   const raw = await get<unknown>(`${API}/v2/dashboard/summary`, {
     ...range(input.dateRange),
@@ -518,13 +490,12 @@ export async function queryUserRows(input: UserListQuery): Promise<UserListResul
   const rows = userRows(takeArray(data, ["data", "items"]) ?? [])
   const meta = plain(data) ? data : {}
 
+  // V2 native handler 不返回时间序列，只有分页 + 行数据。
   return {
     rows,
     total: toNumber(meta.total) || rows.length,
     page: toNumber(meta.page) || currentPage,
     pageSize: toNumber(meta.pageSize) || currentSize,
-    periods: userPeriods(plain(data) ? data.periods : undefined),
-    series: userSeries(plain(data) ? data.series : undefined),
   }
 }
 
@@ -555,17 +526,19 @@ export async function getUserDetail(input: UserDetailQuery): Promise<UserDetailR
   if (!plain(data)) {
     return {
       summary: {},
-      daily: [],
+      weeks: [],
+      needs: [],
       commits: [],
-      tasks: [],
     }
   }
 
+  // V2 详情返回 summary + weeks（周明细）+ needs（关联需求）+ commits（最近提交）。
+  // toObjects 透传全部字段，确保 V2 字段不丢失。
   return {
     summary: userSummary(data.summary),
-    daily: toObjects(data.daily),
+    weeks: toObjects(data.weeks),
+    needs: toObjects(data.needs),
     commits: toObjects(data.commits),
-    tasks: toObjects(data.tasks),
   }
 }
 
@@ -760,66 +733,48 @@ export async function queryOrgRows(input: OrgAggregateQuery): Promise<OrgAggrega
   }, LONG)
 
   const data = unwrap(raw)
-  if (!plain(data)) {
-    return {
-      rows: [],
-      periods: [],
-      series: [],
-    }
-  }
-
-  return {
-    rows: toObjects(takeArray(data, ["data", "items"]) ?? []),
-    periods: userPeriods(data.periods),
-    series: Array.isArray(data.series)
-      ? data.series.filter(plain).map((item) => ({
-          org_name: toText(item.org_name),
-          points: toObjects<OrgAggregatePoint>(item.points),
-        }))
-      : [],
-  }
+  // V2 native org 列表无时间序列，只透传行数据。
+  if (!plain(data)) return { rows: [] }
+  return { rows: toObjects(takeArray(data, ["data", "items"]) ?? []) }
 }
 
+// V2 组织详情：后端 /v2/orgs/detail 仍是 V1（空表），改为复用 V2 native：
+// - summary 取自 /v2/orgs 中匹配 org_name 的那一行；
+// - members 取自 /v2/users（V2 native 用户聚合）。
+// 注：V2 native 暂不支持按 org 过滤用户，故 members 为全量用户（后端限制，待 org 维度回捆后收敛）。
 export async function getOrgDetail(input: OrgDetailQuery): Promise<OrgDetailResult> {
   const path = orgPath(input.org)
-  if (!path) {
-    return {
-      summary: {},
-      members: [],
-      commits: [],
-      tasks: [],
-    }
-  }
+  if (!path) return { summary: {}, members: [] }
 
-  const raw = await get<unknown>(`${API}/v2/orgs/detail`, {
-    ...range(input.dateRange),
-    granularity: toGranularity(input.granularity),
-    org_path: path,
-  }, LONG)
+  // 顶层 org 名（org1）用于在 /v2/orgs 列表中匹配 summary。
+  const orgName = input.org?.org1?.trim() || path.split("/")[0]
 
-  const data = unwrap(raw)
-  if (!plain(data)) {
-    return {
-      summary: {},
-      members: [],
-      commits: [],
-      tasks: [],
-    }
-  }
+  const [orgRaw, userRaw] = await Promise.all([
+    get<unknown>(`${API}/v2/orgs`, { ...range(input.dateRange) }, LONG),
+    get<unknown>(`${API}/v2/users`, { ...range(input.dateRange), page: 1, pageSize: 1000 }, LONG),
+  ])
 
-  return {
-    summary: {
-      user_count: toNumber(plain(data.summary) ? data.summary.user_count : undefined),
-      task_diff_lines: toNumber(plain(data.summary) ? data.summary.task_diff_lines : undefined),
-      commit_diff_lines: toNumber(plain(data.summary) ? data.summary.commit_diff_lines : undefined),
-      task_efficiency_ratio: plain(data.summary) && data.summary.task_efficiency_ratio != null ? toNumber(data.summary.task_efficiency_ratio) : null,
-      commit_efficiency_ratio: plain(data.summary) && data.summary.commit_efficiency_ratio != null ? toNumber(data.summary.commit_efficiency_ratio) : null,
-      cost: plain(data.summary) && data.summary.cost != null ? toNumber(data.summary.cost) : null,
-    },
-    members: groupMembers(data.members),
-    commits: toObjects(data.commits),
-    tasks: toObjects(data.tasks),
-  }
+  const orgData = unwrap(orgRaw)
+  const orgRows = toObjects<OrgAggregateRow>(takeArray(orgData, ["data", "items"]) ?? [])
+  const matched = orgRows.find((r) => (r.org_name?.trim() || "") === orgName)
+
+  const summary: OrgSummary = matched
+    ? {
+        user_count: matched.user_count,
+        merged_need_count: matched.merged_need_count,
+        actual_calendar_min: matched.actual_calendar_min ?? null,
+        baseline_calendar_min: matched.baseline_calendar_min ?? null,
+        calendar_ratio: matched.calendar_ratio ?? null,
+        work_ratio: matched.work_ratio ?? null,
+        commit_count: matched.commit_count,
+        commit_diff_lines: matched.commit_diff_lines,
+        cost: matched.cost ?? null,
+      }
+    : {}
+
+  const members = userRows(takeArray(unwrap(userRaw), ["data", "items"]) ?? [])
+
+  return { summary, members }
 }
 
 export async function getRepoDetail(input: RepoDetailQuery): Promise<RepoDetailResult> {
@@ -1164,6 +1119,68 @@ export async function updateTaskSilicaInProject(projectId: string, data: { task_
     task_id: data.task_id.trim(),
     silica: data.silica,
   }, undefined, LONG)
+}
+
+// Need 行透传所有字段：toObjects 直接浅拷贝原始对象（{ ...item }），
+// V2 字段（efficiency_ratio/work_efficiency_ratio/confidence_level/outlier_flag 等）原样保留，
+// 不做 V1-only 映射，避免前端因丢字段而全显示 "-"。
+function needRows(raw: unknown) {
+  return toObjects<NeedRow>(raw)
+}
+
+export async function queryNeedRows(input: NeedListQuery): Promise<NeedListResult> {
+  const currentPage = input.page ?? 1
+  const currentSize = input.pageSize ?? 20
+  const raw = await get<unknown>(`${API}/v2/needs`, {
+    ...range(input.dateRange),
+    page: currentPage,
+    pageSize: currentSize,
+    repoAddr: input.repoAddr?.trim() || undefined,
+    repoBranch: input.repoBranch?.trim() || undefined,
+    userId: input.userId?.trim() || undefined,
+    status: input.status?.trim() || undefined,
+    boundarySource: input.boundarySource?.trim() || undefined,
+    boundaryConfidence: input.boundaryConfidence?.trim() || undefined,
+    confidenceLevel: input.confidenceLevel?.trim() || undefined,
+    outlierOnly: input.outlierOnly ? "true" : undefined,
+    includeAll: input.includeAll ? "true" : undefined,
+  }, LONG)
+
+  const result = pageResult(raw)
+  const rows = needRows(result.rows)
+
+  return {
+    rows,
+    total: result.total || rows.length,
+    page: result.page || currentPage,
+    pageSize: result.pageSize || currentSize,
+  }
+}
+
+export async function getNeedDetail(needId: string): Promise<NeedDetailResult> {
+  const txt = needId.trim()
+  if (!txt) fail("needId is required")
+
+  const raw = await get<unknown>(`${API}/v2/needs/${encodeURIComponent(txt)}`, undefined, LONG)
+  const data = unwrap(raw)
+  if (!plain(data)) {
+    return { need: {} as NeedDetailNeed, sessions: [], commits: [], baselineComponents: {} }
+  }
+
+  // need 对象整体透传（浅拷贝保留全部 V2 字段）；sessions/commits 同理。
+  // 后端 stage_metrics 与 sessions 同源，sessions 为空时回退到 stage_metrics。
+  const need = plain(data.need) ? ({ ...(data.need as NeedDetailNeed) }) : ({} as NeedDetailNeed)
+  const sessions = toObjects<NeedSessionRow>(data.sessions)
+  const baselineComponents = plain(data.baseline_components)
+    ? ({ ...(data.baseline_components as NeedBaselineComponents) })
+    : ({} as NeedBaselineComponents)
+
+  return {
+    need,
+    sessions: sessions.length > 0 ? sessions : toObjects<NeedSessionRow>(data.stage_metrics),
+    commits: toObjects<NeedCommitRow>(data.commits),
+    baselineComponents,
+  }
 }
 
 export async function getGlobalConfig(): Promise<GlobalConfig> {

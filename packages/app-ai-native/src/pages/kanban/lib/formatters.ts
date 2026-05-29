@@ -33,7 +33,33 @@ export function formatPercent(value?: number | null, digits = 0) {
   return `${result === "-0" ? "0" : result}%`
 }
 
+// V2 提效比：后端为小数口径（如 0.136），前端 ×100 显示为百分比。
+export function formatV2Ratio(value?: number | null, digits = 1) {
+  if (value == null) return "-"
+  const num = Number(value)
+  if (!Number.isFinite(num)) return "-"
+  const pct = (num * 100).toFixed(digits)
+  return `${pct === "-0.0" ? "0.0" : pct}%`
+}
+
 export function shortId(value?: string | null, size = 8) {
   if (!value) return "-"
   return value.slice(0, size)
+}
+
+// Need 边界来源（boundary_source）原始枚举 → i18n key 映射。
+// 后端枚举：lv1_pr / lv2_branch / lv3_session / lv4_commit / lv5_orphan。
+const BOUNDARY_SOURCE_KEYS: Record<string, string> = {
+  lv1_pr: "kanban.need.boundary.lv1_pr",
+  lv2_branch: "kanban.need.boundary.lv2_branch",
+  lv3_session: "kanban.need.boundary.lv3_session",
+  lv4_commit: "kanban.need.boundary.lv4_commit",
+  lv5_orphan: "kanban.need.boundary.lv5_orphan",
+}
+
+// 把 boundary_source 原始值映射成可读文案；未知值原样返回。
+export function formatBoundarySource(value: string | undefined | null, t: (key: string) => string = (k) => k) {
+  if (!value) return "-"
+  const key = BOUNDARY_SOURCE_KEYS[value]
+  return key ? t(key) : value
 }

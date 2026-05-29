@@ -4,27 +4,11 @@ import { createStore } from "solid-js/store"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
-import {
-  createListCollection,
-  SelectContent,
-  SelectControl,
-  SelectIndicator,
-  SelectItem,
-  SelectItemText,
-  SelectList,
-  SelectPositioner,
-  SelectRoot,
-  SelectTrigger,
-  SelectValueText,
-} from "@/components/ui/select"
 import Back from "../components/back"
 import { FilterBar } from "../components/filters/filter-bar"
-import { ChartCard } from "../components/charts/chart-card"
-import { RatioPill } from "../components/ratio-pill"
 import { FilterTable } from "../components/table/filter-table"
 import { useTableFilters } from "../hooks/use-table-filters"
 import { queryUserRows } from "../lib/api"
-import { chart } from "../lib/chart-options"
 import {
   defaultWideRange,
   normalizeDateRange,
@@ -35,21 +19,12 @@ import {
   sameRange,
 } from "../lib/date-range"
 import { applyClientFilters } from "../lib/filter-utils"
-import { formatDuration, formatPercent } from "../lib/formatters"
+import { formatDuration, formatV2Ratio } from "../lib/formatters"
 import type {
-  DateRangeValue,
-  Granularity,
   KanbanColumn,
   OrgCascadeValue,
   UserAggregateRow,
-  UserSeries,
 } from "../lib/types"
-import type { EChartsOption } from "echarts"
-
-function parseGranularity(value?: string): Granularity {
-  if (value === "week" || value === "month" || value === "year") return value
-  return "day"
-}
 
 function parseOrg(search: { org1?: string; org2?: string; org3?: string; org4?: string }) {
   return {
@@ -64,8 +39,21 @@ function sameOrg(a: OrgCascadeValue, b: OrgCascadeValue) {
   return a.org1 === b.org1 && a.org2 === b.org2 && a.org3 === b.org3 && a.org4 === b.org4
 }
 
-function points(series: UserSeries, field: keyof UserSeries["points"][number]) {
-  return series.points.map((item) => Number(item[field] ?? 0))
+// V2 提效比小数口径，×100 显示；着色按提效幅度。
+function V2Ratio(props: { value?: number | null }) {
+  const tone = () => {
+    const v = props.value
+    if (v == null) return "border-border bg-muted/40 text-muted-foreground"
+    if (v < 0) return "border-red-500/30 bg-red-500/12 text-red-700 dark:text-red-300"
+    if (v >= 1) return "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+    if (v >= 0.3) return "border-sky-500/30 bg-sky-500/12 text-sky-700 dark:text-sky-300"
+    return "border-border bg-muted/50 text-muted-foreground"
+  }
+  return (
+    <span class={`inline-flex min-w-[4.5rem] items-center justify-center rounded-full border px-2 py-1 text-xs font-medium tabular-nums ${tone()}`}>
+      {formatV2Ratio(props.value)}
+    </span>
+  )
 }
 
 export default function KanbanUserList() {
@@ -78,7 +66,6 @@ export default function KanbanUserList() {
     org2?: string
     org3?: string
     org4?: string
-    granularity?: string
     order?: string
   }>()
   const [state, setState] = createStore({
@@ -86,7 +73,6 @@ export default function KanbanUserList() {
     pageSize: 50,
     dateRange: parseQueryRange(search.startDate, search.endDate),
     org: parseOrg(search),
-    granularity: parseGranularity(search.granularity),
     order: search.order?.trim() || undefined,
   })
 
@@ -95,7 +81,6 @@ export default function KanbanUserList() {
     return searchQuery([
       ["startDate", next.startDate],
       ["endDate", next.endDate],
-      ["granularity", state.granularity],
       ["org1", state.org.org1],
       ["org2", state.org.org2],
       ["org3", state.org.org3],
@@ -105,7 +90,7 @@ export default function KanbanUserList() {
 
   createEffect(
     on(
-      () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.granularity, search.order],
+      () => [search.startDate, search.endDate, search.org1, search.org2, search.org3, search.org4, search.order],
       () => {
         const next = readQueryRange(search.startDate, search.endDate)
         if (
@@ -126,9 +111,6 @@ export default function KanbanUserList() {
         )
           setState("org", org)
 
-        const granularity = parseGranularity(search.granularity)
-        if (untrack(() => state.granularity) !== granularity) setState("granularity", granularity)
-
         const order = search.order?.trim() || undefined
         if (untrack(() => state.order) !== order) setState("order", order)
       },
@@ -143,7 +125,6 @@ export default function KanbanUserList() {
     const mirror = searchQuery([
       ["startDate", query.startDate],
       ["endDate", query.endDate],
-      ["granularity", state.granularity],
       ["org1", state.org.org1],
       ["org2", state.org.org2],
       ["org3", state.org.org3],
@@ -153,7 +134,6 @@ export default function KanbanUserList() {
     const current = searchQuery([
       ["startDate", search.startDate],
       ["endDate", search.endDate],
-      ["granularity", search.granularity],
       ["org1", search.org1],
       ["org2", search.org2],
       ["org3", search.org3],
@@ -167,13 +147,13 @@ export default function KanbanUserList() {
     {
       prop: "user_name",
       label: language.t("kanban.table.userName"),
-      minWidth: 140,
+      minWidth: 160,
       render: (row) => {
         const txt = row.user_name?.trim() || row.user_id?.trim()
         return txt ? (
           <button
             type="button"
-            class="block max-w-[12rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
+            class="block max-w-[14rem] truncate text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
             title={txt}
             onClick={() => {
               const id = row.user_id?.trim()
@@ -196,7 +176,7 @@ export default function KanbanUserList() {
     {
       prop: "org_display",
       label: language.t("kanban.table.org"),
-      minWidth: 180,
+      minWidth: 160,
       render: (row) => {
         const txt = row.org_display?.trim()
         if (!txt) return <span>-</span>
@@ -217,38 +197,89 @@ export default function KanbanUserList() {
       },
     },
     {
-      prop: "task_count",
-      label: language.t("kanban.table.taskCount"),
-      minWidth: 90,
+      prop: "merged_need_count",
+      label: language.t("kanban.user.col.mergedNeeds"),
+      minWidth: 100,
       align: "left",
       sortable: true,
-      sortField: "taskCount",
-      render: (row) => {
-        const count = row.task_count ?? 0
-        if (count <= 0) return <span>{count}</span>
-        const next = rangeQuery(state.dateRange)
-        const q = searchQuery([
-          ["startDate", next.startDate],
-          ["endDate", next.endDate],
-          ["granularity", state.granularity],
-          ["userId", row.user_id?.trim() || ""],
-        ]).toString()
-        return (
-          <button
-            type="button"
-            class="text-left text-sm text-[var(--native-primary)] transition-colors hover:text-[var(--native-foreground)] cursor-pointer"
-            onClick={() => navigate(`/kanban/task?${q}`)}
-          >
-            {count}
-          </button>
-        )
+      sortField: "mergedNeedCount",
+      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 5", value: { min: 5 } }, { label: "> 10", value: { min: 10 } }] },
+    },
+    {
+      prop: "active_need_count",
+      label: language.t("kanban.user.col.activeNeeds"),
+      minWidth: 80,
+      align: "left",
+      sortable: true,
+      sortField: "activeNeedCount",
+    },
+    {
+      prop: "abandoned_need_count",
+      label: language.t("kanban.user.col.abandonedNeeds"),
+      minWidth: 80,
+      align: "left",
+      sortable: true,
+      sortField: "abandonedNeedCount",
+    },
+    {
+      prop: "actual_calendar_min",
+      label: language.t("kanban.user.col.actualCalendar"),
+      minWidth: 110,
+      align: "left",
+      sortable: true,
+      sortField: "actualCalendarMin",
+      display: (row) => formatDuration(row.actual_calendar_min, language.t),
+    },
+    {
+      prop: "baseline_calendar_min",
+      label: language.t("kanban.user.col.baselineCalendar"),
+      minWidth: 110,
+      align: "left",
+      sortable: true,
+      sortField: "baselineCalendarMin",
+      display: (row) => formatDuration(row.baseline_calendar_min, language.t),
+    },
+    {
+      prop: "calendar_ratio",
+      label: language.t("kanban.user.col.calendarEfficiency"),
+      minWidth: 110,
+      align: "left",
+      sortable: true,
+      sortField: "calendarRatio",
+      render: (row) => <V2Ratio value={row.calendar_ratio} />,
+      filter: {
+        type: "number",
+        valueGetter: (row) => (row.calendar_ratio == null ? undefined : row.calendar_ratio * 100),
+        shortcuts: [{ label: "> 0%", value: { min: 0.01 } }, { label: "> 50%", value: { min: 50 } }, { label: "> 100%", value: { min: 100 } }],
       },
-      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
+    },
+    {
+      prop: "actual_work_min",
+      label: language.t("kanban.user.col.actualWork"),
+      minWidth: 110,
+      align: "left",
+      sortable: true,
+      sortField: "actualWorkMin",
+      display: (row) => formatDuration(row.actual_work_min, language.t),
+    },
+    {
+      prop: "work_ratio",
+      label: language.t("kanban.user.col.workEfficiency"),
+      minWidth: 110,
+      align: "left",
+      sortable: true,
+      sortField: "workRatio",
+      render: (row) => <V2Ratio value={row.work_ratio} />,
+      filter: {
+        type: "number",
+        valueGetter: (row) => (row.work_ratio == null ? undefined : row.work_ratio * 100),
+        shortcuts: [{ label: "> 0%", value: { min: 0.01 } }, { label: "> 100%", value: { min: 100 } }, { label: "> 300%", value: { min: 300 } }],
+      },
     },
     {
       prop: "commit_count",
       label: language.t("kanban.table.commitCount"),
-      minWidth: 100,
+      minWidth: 90,
       align: "left",
       sortable: true,
       sortField: "commitCount",
@@ -259,7 +290,6 @@ export default function KanbanUserList() {
         const q = searchQuery([
           ["startDate", next.startDate],
           ["endDate", next.endDate],
-          ["granularity", state.granularity],
           ["userId", row.user_id?.trim() || ""],
         ]).toString()
         return (
@@ -275,106 +305,40 @@ export default function KanbanUserList() {
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 100", value: { min: 100 } }] },
     },
     {
-      prop: "task_real_minutes",
-      label: language.t("kanban.table.taskActualTime"),
-      minWidth: 110,
-      align: "left",
-      sortable: true,
-      sortField: "taskRealMinutes",
-      display: (row) => formatDuration(row.task_real_minutes, language.t),
-      filter: { type: "number", valueGetter: (row) => (row.task_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
-    },
-    {
-      prop: "task_ancient_minutes",
-      label: language.t("kanban.table.taskTraditionalEst"),
-      minWidth: 110,
-      align: "left",
-      sortable: true,
-      sortField: "taskAncientMinutes",
-      display: (row) => formatDuration(row.task_ancient_minutes, language.t),
-      filter: { type: "number", valueGetter: (row) => (row.task_ancient_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
-    },
-    {
-      prop: "commit_real_minutes",
-      label: language.t("kanban.table.commitActualTime"),
-      minWidth: 110,
-      align: "left",
-      sortable: true,
-      sortField: "commitRealMinutes",
-      display: (row) => formatDuration(row.commit_real_minutes, language.t),
-      filter: { type: "number", valueGetter: (row) => (row.commit_real_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
-    },
-    {
-      prop: "commit_ancient_minutes",
-      label: language.t("kanban.table.commitTraditionalEst"),
-      minWidth: 110,
-      align: "left",
-      sortable: true,
-      sortField: "commitAncientMinutes",
-      display: (row) => formatDuration(row.commit_ancient_minutes, language.t),
-      filter: { type: "number", valueGetter: (row) => (row.commit_ancient_minutes ?? 0) / 480, shortcuts: [{ label: "> 0", value: { min: 0.1 } }, { label: "> 30d", value: { min: 30 } }, { label: "> 50d", value: { min: 50 } }] },
-    },
-    {
-      prop: "task_efficiency_ratio",
-      label: language.t("kanban.table.taskEfficiency"),
-      minWidth: 110,
-      align: "left",
-      sortable: true,
-      sortField: "taskEfficiencyRatio",
-      render: (row) => <RatioPill value={row.task_efficiency_ratio} />,
-      filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] },
-    },
-    {
-      prop: "commit_efficiency_ratio",
-      label: language.t("kanban.table.commitEfficiency"),
-      minWidth: 120,
-      align: "left",
-      sortable: true,
-      sortField: "commitEfficiencyRatio",
-      render: (row) => <RatioPill value={row.commit_efficiency_ratio} />,
-      filter: { type: "number", shortcuts: [{ label: "> 100%", value: { min: 100 } }, { label: "> 200%", value: { min: 200 } }, { label: "> 300%", value: { min: 300 } }] },
-    },
-    {
-      prop: "_tokens",
-      label: language.t("kanban.table.tokensConsumed"),
-      minWidth: 110,
-      align: "left",
-      display: (row) => {
-        const total = (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0)
-        return total > 0 ? total.toLocaleString() : "-"
-      },
-      filter: { type: "number", valueGetter: (row) => (row.upstream_tokens ?? 0) + (row.downstream_tokens ?? 0), shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 10k", value: { min: 10000 } }, { label: "> 100k", value: { min: 100000 } }] },
-    },
-    {
-      prop: "cost",
-      label: language.t("kanban.table.cost"),
-      minWidth: 90,
-      align: "left",
-      sortable: true,
-      sortField: "cost",
-      display: (row) =>
-        row.cost == null || row.cost === 0
-          ? "-"
-          : `¥${row.cost.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`,
-      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 0.001 } }, { label: "> 0.01", value: { min: 0.01 } }, { label: "> 0.1", value: { min: 0.1 } }] },
-    },
-    {
-      prop: "task_diff_lines",
-      label: language.t("kanban.table.taskCodeLines"),
-      minWidth: 110,
-      align: "left",
-      sortable: true,
-      sortField: "taskDiffLines",
-      filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
-    },
-    {
       prop: "commit_diff_lines",
       label: language.t("kanban.table.commitCodeLines"),
-      minWidth: 120,
+      minWidth: 100,
       align: "left",
       sortable: true,
       sortField: "commitDiffLines",
       filter: { type: "number", shortcuts: [{ label: "> 0", value: { min: 1 } }, { label: "> 50", value: { min: 50 } }, { label: "> 200", value: { min: 200 } }] },
+    },
+    {
+      prop: "week_count",
+      label: language.t("kanban.user.col.activeWeeks"),
+      minWidth: 80,
+      align: "left",
+      sortable: true,
+      sortField: "weekCount",
+    },
+    {
+      prop: "confidence_limited",
+      label: language.t("kanban.user.col.confidence"),
+      minWidth: 110,
+      render: (row) =>
+        row.confidence_limited ? (
+          <span
+            class="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/12 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+            title={row.confidence_reason || undefined}
+          >
+            {language.t("kanban.user.tag.limited")}
+          </span>
+        ) : (
+          <span class="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/12 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+            {language.t("kanban.user.tag.normal")}
+          </span>
+        ),
+      filter: { type: "multi-select", valueGetter: (row) => (row.confidence_limited ? language.t("kanban.user.tag.limited") : language.t("kanban.user.tag.normal")) },
     },
   ])
 
@@ -383,23 +347,9 @@ export default function KanbanUserList() {
     onChange: () => setState("page", 1),
   })
 
-  const granularityItems = createMemo(() =>
-    createListCollection({
-      items: [
-        { value: "day" as const, label: language.t("kanban.granularity.day") },
-        { value: "week" as const, label: language.t("kanban.granularity.week") },
-        { value: "month" as const, label: language.t("kanban.granularity.month") },
-        { value: "year" as const, label: language.t("kanban.granularity.year") },
-      ],
-      itemToValue: (item) => item.value,
-      itemToString: (item) => item.label,
-    }),
-  )
-
   const query = createMemo(() => ({
     dateRange: state.dateRange,
     org: { org1: state.org.org1, org2: state.org.org2, org3: state.org.org3, org4: state.org.org4 },
-    granularity: state.granularity,
     page: state.page,
     pageSize: state.pageSize,
     order: state.order,
@@ -419,114 +369,11 @@ export default function KanbanUserList() {
         total: 0,
         page: input.page,
         pageSize: input.pageSize,
-        periods: [],
-        series: [],
       }
     }
   })
 
   const rows = createMemo(() => applyClientFilters(data.latest?.rows ?? [], columns(), table.filters))
-  const series = createMemo(() => {
-    const names = new Set(
-      rows()
-        .map((row) => row.user_name?.trim() || row.user_id?.trim() || "")
-        .filter(Boolean),
-    )
-    const all = data.latest?.series ?? []
-    if (!names.size || names.size === all.length) return all
-    return all.filter((item) => names.has(item.user_name?.trim() || item.user_id?.trim() || ""))
-  })
-  const periods = createMemo(() => data.latest?.periods ?? [])
-
-  const countOption = createMemo<EChartsOption | undefined>(() => {
-    if (!periods().length || !series().length) return undefined
-    const list = series().flatMap((item) => [
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.task")}`,
-        data: points(item, "task_count"),
-      },
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commit")}`,
-        data: points(item, "commit_count"),
-      },
-    ])
-    return chart(language.t("kanban.chart.tasksAndCommits"), periods(), list)
-  })
-
-  const codeOption = createMemo<EChartsOption | undefined>(() => {
-    if (!periods().length || !series().length) return undefined
-    const list = series().flatMap((item) => [
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.taskCode")}`,
-        data: points(item, "task_diff_lines"),
-      },
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commitCode")}`,
-        data: points(item, "commit_diff_lines"),
-      },
-    ])
-    return chart(language.t("kanban.chart.taskAndCommitCode"), periods(), list)
-  })
-
-  const timeOption = createMemo<EChartsOption | undefined>(() => {
-    if (!periods().length || !series().length) return undefined
-    const list = series().flatMap((item) => [
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.taskTrad")}`,
-        data: points(item, "task_ancient_minutes"),
-      },
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commitTrad")}`,
-        data: points(item, "commit_ancient_minutes"),
-      },
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.taskActual")}`,
-        data: points(item, "task_real_minutes"),
-      },
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commitActual")}`,
-        data: points(item, "commit_real_minutes"),
-      },
-    ])
-    return chart(language.t("kanban.chart.traditionalVsActual"), periods(), list, {
-      format: (value) => formatDuration(value, language.t),
-    })
-  })
-
-  const ratioOption = createMemo<EChartsOption | undefined>(() => {
-    if (!periods().length || !series().length) return undefined
-    const list = series().flatMap((item) => [
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.taskEff")}`,
-        data: points(item, "task_efficiency_ratio"),
-      },
-      {
-        name: `${item.user_name || item.user_id || "-"} ${language.t("kanban.chart.series.commitEff")}`,
-        data: points(item, "commit_efficiency_ratio"),
-      },
-    ])
-    return chart(language.t("kanban.chart.efficiencyRatio"), periods(), list, {
-      format: (value) => formatPercent(value),
-    })
-  })
-
-  const tokenOption = createMemo<EChartsOption | undefined>(() => {
-    if (!periods().length || !series().length) return undefined
-    const list = series().map((item) => ({
-      name: item.user_name || item.user_id || "-",
-      data: points(item, "total_tokens"),
-    }))
-    return chart(language.t("kanban.chart.tokens"), periods(), list)
-  })
-
-  const costOption = createMemo<EChartsOption | undefined>(() => {
-    if (!periods().length || !series().length) return undefined
-    const list = series().map((item) => ({
-      name: item.user_name || item.user_id || "-",
-      data: points(item, "total_cost"),
-    }))
-    return chart(language.t("kanban.chart.cost"), periods(), list, { format: (value) => `¥${value.toFixed(2)}` })
-  })
 
   return (
     <div class="flex min-h-full min-w-0 flex-col gap-4 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
@@ -536,6 +383,7 @@ export default function KanbanUserList() {
           <h1 class="m-0 font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">
             {language.t("kanban.view.user")}
           </h1>
+          <p class="m-0 text-sm text-[var(--native-muted)]">{language.t("kanban.user.listSubtitle")}</p>
         </header>
 
         <FilterBar
@@ -554,52 +402,11 @@ export default function KanbanUserList() {
             setState("page", 1)
           }}
           actions={
-            <>
-              <label class="flex min-w-0 flex-col gap-2">
-                <SelectRoot
-                  collection={granularityItems()}
-                  value={[state.granularity]}
-                  onValueChange={(details) => {
-                    const val = details.value[0]
-                    if (val) {
-                      setState("granularity", val as Granularity)
-                      setState("page", 1)
-                    }
-                  }}
-                  positioning={{ fitViewport: true, sameWidth: true }}
-                >
-                  <SelectControl>
-                    <SelectTrigger class="h-10 w-[6rem] min-w-[6rem] flex-none">
-                      <SelectValueText />
-                      <SelectIndicator />
-                    </SelectTrigger>
-                  </SelectControl>
-                  <SelectPositioner>
-                    <SelectContent class="max-h-[min(20rem,calc(var(--available-height)-1rem))] overflow-y-auto">
-                      <SelectList>
-                        <SelectItem item={granularityItems().items[0]}>
-                          <SelectItemText>{language.t("kanban.granularity.day")}</SelectItemText>
-                        </SelectItem>
-                        <SelectItem item={granularityItems().items[1]}>
-                          <SelectItemText>{language.t("kanban.granularity.week")}</SelectItemText>
-                        </SelectItem>
-                        <SelectItem item={granularityItems().items[2]}>
-                          <SelectItemText>{language.t("kanban.granularity.month")}</SelectItemText>
-                        </SelectItem>
-                        <SelectItem item={granularityItems().items[3]}>
-                          <SelectItemText>{language.t("kanban.granularity.year")}</SelectItemText>
-                        </SelectItem>
-                      </SelectList>
-                    </SelectContent>
-                  </SelectPositioner>
-                </SelectRoot>
-              </label>
-              <div class="flex items-end">
-                <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>
-                  {data.loading ? language.t("kanban.action.refreshing") : language.t("kanban.action.refresh")}
-                </Button>
-              </div>
-            </>
+            <div class="flex items-end">
+              <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={data.loading}>
+                {data.loading ? language.t("kanban.action.refreshing") : language.t("kanban.action.refresh")}
+              </Button>
+            </div>
           }
         />
 
@@ -624,15 +431,6 @@ export default function KanbanUserList() {
             setState("page", 1)
           }}
         />
-
-        <section class="grid gap-4 lg:grid-cols-2">
-          <ChartCard option={countOption()} empty={language.t("kanban.chart.empty.count")} />
-          <ChartCard option={codeOption()} empty={language.t("kanban.chart.empty.code")} />
-          <ChartCard option={timeOption()} empty={language.t("kanban.chart.empty.time")} />
-          <ChartCard option={ratioOption()} empty={language.t("kanban.chart.empty.ratio")} />
-          <ChartCard option={tokenOption()} empty={language.t("kanban.chart.empty.token")} />
-          <ChartCard option={costOption()} empty={language.t("kanban.chart.empty.cost")} />
-        </section>
       </div>
     </div>
   )

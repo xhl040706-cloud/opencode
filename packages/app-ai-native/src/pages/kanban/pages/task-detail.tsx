@@ -1,9 +1,10 @@
-import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
+import { useNavigate, useParams } from "@solidjs/router"
 import { createMemo, createResource, For, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useLanguage } from "@/context/language"
+import { env } from "@/lib/env"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import Back from "../components/back"
@@ -139,7 +140,6 @@ export default function KanbanTaskDetail() {
   const params = useParams()
   const navigate = useNavigate()
   const dialog = useDialog()
-  const [search] = useSearchParams<{ startDate?: string; endDate?: string; userId?: string; org1?: string; org2?: string; org3?: string; org4?: string }>()
   const [expand, setExpand] = createStore<Record<string, boolean>>({})
 
   const taskId = createMemo(() => decodeURIComponent(params.taskId ?? "").trim())
@@ -171,6 +171,20 @@ export default function KanbanTaskDetail() {
     return typeof value === "number" && value > 0 ? fmtCost(value) : fmtCost(totalCost())
   })
   const repoLabel = createMemo(() => task().repo_addr ? `${task().repo_addr}${task().repo_branch ? `#${task().repo_branch}` : ""}` : "-")
+
+  // 查看 task 原始文件（summary / conversation），对接后端 GET /api/v2/tasks/file。
+  const fileHref = (type: "summary" | "conversation") => {
+    const id = task().task_id?.trim()
+    if (!id) return ""
+    const date = dateOf(task().start_time)
+    const query = new URLSearchParams({ type, taskId: id })
+    if (date) query.set("date", date)
+    // 与 api.ts 一致：基址取 env.API_URL，回退到 DASHBOARD_PREFIX，避免裸路径在反代/前缀部署下 404。
+    const base = env.API_URL || env.DASHBOARD_PREFIX
+    return `${base}/api/v2/tasks/file?${query.toString()}`
+  }
+  const summaryHref = createMemo(() => fileHref("summary"))
+  const conversationHref = createMemo(() => fileHref("conversation"))
 
   const items = createMemo<TimelineItem[]>(() => {
     const values = convs()
@@ -230,7 +244,7 @@ export default function KanbanTaskDetail() {
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-              {/* <Show when={summaryHref()}>
+              <Show when={summaryHref()}>
                 <a href={summaryHref()} target="_blank" rel="noreferrer">
                   <Button variant="outline" size="sm">{language.t("kanban.action.viewSummary")}</Button>
                 </a>
@@ -239,7 +253,7 @@ export default function KanbanTaskDetail() {
                 <a href={conversationHref()} target="_blank" rel="noreferrer">
                   <Button variant="outline" size="sm">{language.t("kanban.action.viewRawConversation")}</Button>
                 </a>
-              </Show> */}
+              </Show>
               <Button size="sm" onClick={openManual} disabled={!task().task_id}>{language.t("kanban.dialog.manualAdjustment")}</Button>
             </div>
           </div>
