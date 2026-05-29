@@ -5,7 +5,6 @@ import { useTheme } from "@opencode-ai/ui/theme"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Markdown } from "@opencode-ai/ui/markdown"
 import { LocalIcon } from "@/components/local-icon"
-import AvatarDisplay from "@/components/avatar-display"
 import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
@@ -238,28 +237,7 @@ export default function MobileStoreDetail() {
                     <Show when={authorInfo() || authorName()}>
                       <div class="flex items-center justify-between">
                         <span class="font-semibold">{language.t("store.detail.author")}</span>
-                        <div class="flex items-center gap-1.5">
-                          <Show
-                            keyed
-                            when={authorInfo()}
-                            fallback={
-                              <AvatarDisplay
-                                avatarUrl={undefined}
-                                username={authorName() ?? data().createdBy}
-                                class="size-4 shrink-0"
-                              />
-                            }
-                          >
-                            {(info) => (
-                              <AvatarDisplay
-                                avatarUrl={info.avatarUrl}
-                                username={info.name ?? authorName() ?? data().createdBy}
-                                class="size-4 shrink-0"
-                              />
-                            )}
-                          </Show>
-                          <span class="truncate max-w-[10rem] text-text-strong">{authorName() ?? data().createdBy}</span>
-                        </div>
+                        <span class="truncate max-w-[10rem] text-text-strong">{authorInfo()?.name ?? authorName() ?? data().createdBy}</span>
                       </div>
                     </Show>
                     <div class="flex items-center justify-between">

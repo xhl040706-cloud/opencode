@@ -200,11 +200,6 @@ export default function StoreManagerPage() {
     if (!query) return securityOptions()
     return securityOptions().filter((option) => itemFilterOptions.securityRiskGroupLabel(option.value as SecurityFilterValue, option).toLowerCase().includes(query) || option.value.toLowerCase().includes(query))
   })
-  const [creatorInfoMap] = createResource(
-    () => rows().map((item) => item.createdBy).filter(Boolean),
-    (ids) => userApi.getInfo(ids),
-  )
-
   let initializedForUser = ""
   let detailContentTimer: ReturnType<typeof setTimeout> | undefined
   let searchTimer: ReturnType<typeof setTimeout> | undefined
@@ -218,7 +213,6 @@ export default function StoreManagerPage() {
 
   const formatDate = (iso?: string) => formatStoreDate(language.locale(), iso)
   const favoriteIconColor = (favorited?: boolean, itemType?: string) => favorited ? (STORE_TYPES.find((entry) => entry.value === itemType)?.color ?? "var(--native-primary)") : "var(--native-muted)"
-  const creatorInfo = (value: string) => creatorInfoMap()?.[value]
   const typeLabel = (value: string) => language.t(typeKey(value))
   const captureSearchSelection = () => {
     if (!searchInputRef) return
@@ -785,8 +779,8 @@ export default function StoreManagerPage() {
           sort={state.sort}
           onSortChange={handleSortChange}
           onRowClick={openItemDetail}
-          creatorInfo={creatorInfo}
           typeLabel={typeLabel}
+          typeColor={(value) => STORE_TYPES.find((e) => e.value === value)?.color}
           categoryLabel={(slug, category) => itemFilterOptions.categoryLabel(slug, category)}
           sourceLabel={(value, source) => itemFilterOptions.sourceLabel(value, source as Parameters<typeof itemFilterOptions.sourceLabel>[1])}
           sourceUrl={(value) => itemFilterOptions.sourceUrl(value)}

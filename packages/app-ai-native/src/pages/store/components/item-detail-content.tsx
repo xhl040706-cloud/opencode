@@ -7,7 +7,6 @@ import { Markdown } from "@opencode-ai/ui/markdown"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { LocalIcon } from "@/components/local-icon"
-import AvatarDisplay from "@/components/avatar-display"
 import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useAuth } from "@/context/auth"
 import { useNavigate } from "@solidjs/router"
@@ -687,29 +686,9 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             >
                               {language.t("store.detail.author")}
                             </div>
-                            <div>
-                              <Show
-                                keyed
-                                when={authorInfo()}
-                                fallback={
-                                  <AvatarDisplay
-                                    avatarUrl={undefined}
-                                    username={authorName() ?? data().createdBy}
-                                    class="size-6 shrink-0"
-                                    title={authorName() ?? data().createdBy}
-                                  />
-                                }
-                              >
-                                {(info) => (
-                                  <AvatarDisplay
-                                    avatarUrl={info.avatarUrl}
-                                    username={info.name ?? authorName() ?? data().createdBy}
-                                    class="size-6 shrink-0"
-                                    title={info.name ?? authorName() ?? data().createdBy}
-                                  />
-                                )}
-                              </Show>
-                            </div>
+                            <span class="max-w-[12rem] truncate text-right text-sm leading-5 text-text-strong">
+                              {authorInfo()?.name ?? authorName() ?? data().createdBy}
+                            </span>
                           </div>
                         </div>
                       </Show>
