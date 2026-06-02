@@ -287,16 +287,14 @@ export default function Home() {
 
     setFavoritePending(true)
     try {
-      if (favorited()) {
-        const result = await behaviorApi.unfavorite(data.id)
-        setFavorited(result.favorited)
-        setFavoriteCount(result.favoriteCount)
-        return
-      }
-
-      const result = await behaviorApi.favorite(data.id)
+      const result = favorited() ? await behaviorApi.unfavorite(data.id) : await behaviorApi.favorite(data.id)
       setFavorited(result.favorited)
       setFavoriteCount(result.favoriteCount)
+      patchListItem(data.id, (current) => ({
+        ...current,
+        favorited: result.favorited,
+        favoriteCount: result.favoriteCount,
+      }))
     } finally {
       setFavoritePending(false)
     }
