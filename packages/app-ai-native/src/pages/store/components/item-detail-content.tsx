@@ -614,7 +614,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                                 when={verified}
                                 fallback={
                                   <span
-                                    class="inline-flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border border-border-weak-base px-3 py-2 text-[14px] font-bold leading-5 text-text-weak transition-colors hover:bg-bg-muted"
+                                    class="inline-flex w-full cursor-default items-center justify-center gap-1.5 rounded-[0.5rem] border border-border-weak-base px-3 py-2 text-[14px] font-bold leading-5 text-text-weak"
                                     title={`${language.t("store.home.table.source")}: ${sourceLabel}`}
                                   >
                                     {sourceLabel}
