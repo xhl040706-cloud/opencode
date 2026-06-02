@@ -19,7 +19,7 @@ import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { showToast } from "@opencode-ai/ui/toast"
-import { createEffect, createMemo, createResource, For, onCleanup, onMount, Show, untrack } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { TYPE_COLORS, TYPE_CONTENT_PLACEHOLDER, typeKey } from "@/pages/store/lib/constants"
 import { itemApi, registryApi2, repoApi, type CapabilityItem, type CapabilityItemAsset, type Repository } from "@/pages/store/lib/api"
@@ -464,6 +464,17 @@ function isDirectoryPath(nodes: VirtualTreeNode[], path: string | null): boolean
 
 function sanitizeIdentifier(value: string) {
   return value.replace(/[^A-Za-z0-9_-]+/g, "")
+}
+
+// Derive a URL-safe slug from a human name: lowercase, non-alphanumerics to hyphens.
+// Falls back to the trimmed original (e.g. CJK names) so the slug is never empty.
+function autoSlugFromName(value: string) {
+  const trimmed = value.trim()
+  const slug = trimmed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+  return slug || trimmed
 }
 
 function formatImportedTitle(value: string) {
@@ -1217,6 +1228,10 @@ export default function CapabilityEditorPage() {
     selectedRevision: 0,
   })
 
+  // Snapshot of the editor file contents as loaded from the server. Used to skip
+  // a no-op version bump when the user opens the editor and saves without editing.
+  const [initialContentSnapshot, setInitialContentSnapshot] = createSignal("")
+
   const [item, { mutate: mutateItem }] = createResource(
     () => params.itemId,
     async (itemId) => {
@@ -1420,6 +1435,7 @@ export default function CapabilityEditorPage() {
       pendingTreeActionLocked: false,
       selectedRevision: 0,
     })
+    setInitialContentSnapshot(JSON.stringify(fileContents))
   })
 
   createEffect(() => {
@@ -1484,6 +1500,7 @@ export default function CapabilityEditorPage() {
       treeNodes: dedupeTreeNodes(buildTreeFromPaths(filePaths)),
       selectedTreePath,
     })
+    setInitialContentSnapshot(JSON.stringify(fileContents))
   })
 
   const wordCount = createMemo(() => {
@@ -1808,7 +1825,7 @@ export default function CapabilityEditorPage() {
       return
     }
 
-    if (!form.name.trim() || !form.slug.trim()) {
+    if (!form.name.trim()) {
       setForm("error", language.t("store.capabilityEditor.validation.required"))
       return
     }
@@ -1817,16 +1834,20 @@ export default function CapabilityEditorPage() {
     setForm("error", "")
 
     try {
-      const payload = buildCapabilityPayloadFromFiles(form.itemType, form.slug.trim(), form.fileContents)
+      const finalSlug = form.slug.trim() || autoSlugFromName(form.name)
+      const payload = buildCapabilityPayloadFromFiles(form.itemType, finalSlug, form.fileContents)
 
       if (isEdit() && params.itemId) {
+        // Only send content when it actually changed, so opening the editor and saving
+        // without edits doesn't trigger a no-op version (V2) bump on the backend.
+        const contentChanged = JSON.stringify(form.fileContents) !== initialContentSnapshot()
         await itemApi.update(params.itemId, {
           name: form.name.trim(),
           description: form.description.trim(),
           category: form.category,
-          content: payload.content,
-          sourcePath: payload.sourcePath,
-          assets: payload.assets,
+          ...(contentChanged
+            ? { content: payload.content, sourcePath: payload.sourcePath, assets: payload.assets }
+            : {}),
         })
         await itemApi.setTags(params.itemId, form.tags)
         showToast({ title: language.t("store.capabilityDialog.toast.updated", { type: typeLabel() }) })
@@ -1836,7 +1857,7 @@ export default function CapabilityEditorPage() {
         await itemApi.createDirect({
           itemType: form.itemType,
           name: form.name.trim(),
-          slug: form.slug.trim(),
+          slug: finalSlug,
           description: form.description.trim(),
           category: form.category,
           content: payload.content,
@@ -2043,27 +2064,15 @@ export default function CapabilityEditorPage() {
                       <label class="w-16 shrink-0 text-xs font-medium text-[var(--native-foreground)]">{language.t("store.capabilityEditor.header.name")}</label>
                       <input
                         value={form.name}
-                        onInput={(e) => setForm("name", e.currentTarget.value)}
+                        onInput={(e) => {
+                          const value = e.currentTarget.value
+                          setForm("name", value)
+                          // Auto-derive the slug from the name on create; keep the published slug untouched on edit (slugManual).
+                          if (!form.slugManual) setForm("slug", autoSlugFromName(value))
+                        }}
                         disabled={isViewingHistoricalVersion()}
                         placeholder={language.t("store.capabilityDialog.field.displayNamePlaceholder", { type: typeLabel() })}
                         class="h-8 min-w-0 flex-1 rounded-[6px] border bg-background-base px-2.5 text-xs text-[var(--native-foreground)] outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                        style={{ border: `1px solid color-mix(in srgb, ${accent()} 18%, var(--native-border))` }}
-                      />
-                    </div>
-
-                    <div class="flex items-center gap-3">
-                      <label class="w-16 shrink-0 text-xs font-medium text-[var(--native-foreground)]">{language.t("store.capabilityEditor.header.identifier")}</label>
-                      <input
-                        value={form.slug}
-                        onInput={(e) => {
-                          const nextSlug = sanitizeIdentifier(e.currentTarget.value)
-                          setForm("slug", nextSlug)
-                          setForm("slugManual", true)
-                        }}
-                        disabled={isViewingHistoricalVersion()}
-                        placeholder={`my-${form.itemType}`}
-                        pattern="[A-Za-z0-9_-]*"
-                        class="h-8 min-w-0 flex-1 rounded-[6px] border bg-background-base px-2.5 font-mono text-xs text-[var(--native-foreground)] outline-none disabled:cursor-not-allowed disabled:opacity-60"
                         style={{ border: `1px solid color-mix(in srgb, ${accent()} 18%, var(--native-border))` }}
                       />
                     </div>
