@@ -8,7 +8,9 @@ import { LocalIcon } from "@/components/local-icon"
 import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useLanguage } from "@/context/language"
 import { useAuth } from "@/context/auth"
-import { itemApi, userApi, behaviorApi } from "../lib/api"
+import { itemApi, userApi, behaviorApi, type McpConfigStatus } from "../lib/api"
+import { detectMcpFields } from "../lib/mcp-config"
+import { McpConfigForm } from "../components/mcp-config-form"
 import SecurityTag from "../components/security-tag"
 import "@/styles/vscode-markdown.css"
 
@@ -86,7 +88,10 @@ export default function MobileStoreDetail() {
   const auth = useAuth()
   const theme = useTheme()
 
-  const [item] = createResource(() => params.itemId, (id) => itemApi.get(id))
+  const [item, { mutate: mutateItem, refetch: refetchItem }] = createResource(
+    () => params.itemId,
+    (id) => itemApi.get(id),
+  )
 
   const [authorName] = createResource(
     () => item()?.createdBy,
@@ -147,6 +152,29 @@ export default function MobileStoreDetail() {
     } finally {
       setFavoritePending(false)
     }
+  }
+
+  // MCP per-user config gating (mirrors item-detail-content.tsx). Subscribe is blocked while
+  // an MCP item still has unfilled required placeholders detected from its template metadata.
+  const [mcpStatusOverride, setMcpStatusOverride] = createSignal<McpConfigStatus | null>(null)
+  const mcpFields = () =>
+    item()?.itemType === "mcp" ? detectMcpFields(item()?.metadata as Record<string, unknown> | undefined) : []
+  const mcpHasFields = () => mcpFields().length > 0
+  const mcpStatus = () => mcpStatusOverride() ?? item()?.mcpConfig ?? null
+  const mcpConfigComplete = () => {
+    if (!mcpHasFields()) return true
+    const filled: Record<string, boolean> = {}
+    for (const f of mcpStatus()?.fields ?? []) filled[f.key] = f.hasValue
+    return mcpFields()
+      .filter((f) => f.required)
+      .every((f) => filled[f.key])
+  }
+  const mcpGateBlocks = () => mcpHasFields() && !mcpConfigComplete()
+
+  const onMcpSaved = (status: McpConfigStatus) => {
+    setMcpStatusOverride(status)
+    mutateItem((prev) => (prev ? { ...prev, mcpConfig: status } : prev))
+    void refetchItem()
   }
 
   return (
@@ -303,13 +331,43 @@ export default function MobileStoreDetail() {
                     </Show>
                   </div>
                 </Show>
+
+                {/* MCP parameter config — inline, editable, pre-filled (no modal). LAST section
+                    of the detail body. Only for MCP items with detected placeholder fields. */}
+                <Show when={mcpHasFields()}>
+                  <div class="mx-4 mb-6 rounded-xl border border-border-weak-base bg-bg-muted/40 p-3">
+                    <div class="mb-2 text-xs font-bold text-text-weak">
+                      {language.t("store.detail.mcpConfig.title")}
+                    </div>
+                    <Show
+                      when={auth.user()}
+                      fallback={
+                        <p class="text-12-regular text-text-weak">
+                          {language.t("store.detail.mcpConfig.signInTooltip")}
+                        </p>
+                      }
+                    >
+                      <McpConfigForm
+                        itemId={data().id}
+                        metadata={data().metadata as Record<string, unknown> | undefined}
+                        status={mcpStatus() ?? undefined}
+                        onSaved={onMcpSaved}
+                      />
+                    </Show>
+                  </div>
+                </Show>
               </div>
 
               {/* Bottom bar */}
-              <div class="shrink-0 border-t border-border-weak-base bg-background-base px-4 py-3 safe-area-bottom">
+              <div class="shrink-0 border-t border-border-weak-base bg-background-base px-4 py-3 safe-area-bottom space-y-2">
+                <Show when={auth.user() && mcpGateBlocks()}>
+                  <p class="text-center text-12-regular text-text-weak">
+                    {language.t("store.detail.mcpConfig.gateHint")}
+                  </p>
+                </Show>
                 <button
                   onClick={() => void toggleFavorite()}
-                  disabled={!auth.user() || auth.loading() || favoritePending()}
+                  disabled={!auth.user() || auth.loading() || favoritePending() || mcpGateBlocks()}
                   class="flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                   classList={{
                     "bg-bg-muted text-text-strong": favorited(),

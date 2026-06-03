@@ -24,6 +24,7 @@ import {
   formatStoreDate,
   formatStoreTablePaginationSummary,
   HighlightText,
+  mcpListSubscribeBlocked,
   StoreCapabilityTable,
   StoreTableFooter,
   type TableColumnKey,
@@ -305,6 +306,9 @@ export default function Home() {
 
   const toggleRowFavorite = async (item: CapabilityItem) => {
     if (!auth.user() || auth.loading() || favoriteActionItemId() === item.id) return
+    // Defense-in-depth: never subscribe an unconfigured MCP from the list (the disabled button
+    // already blocks this; this guards a bypass). Unsubscribing is always allowed.
+    if (mcpListSubscribeBlocked(item)) return
 
     setFavoriteActionItemId(item.id)
     try {

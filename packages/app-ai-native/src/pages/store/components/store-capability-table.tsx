@@ -7,6 +7,7 @@ import { Icon, type IconProps } from "@opencode-ai/ui/icon"
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { tagApi, type CapabilityItem, type Category, type ItemOrder, type ItemSort, type ItemTag, type SecurityRiskGroup } from "../lib/api"
+import { detectMcpFields } from "../lib/mcp-config"
 import { pickItemDescription } from "../lib/item-description"
 import { useLanguage } from "@/context/language"
 import { st, sx } from "../lib/styles"
@@ -687,6 +688,15 @@ export const StoreTablePagination = StoreTableFooter
 
 export { HighlightText }
 
+// mcpListSubscribeBlocked gates the per-row subscribe control in the LIST. The list response
+// carries no per-row `mcpConfig` status, so we gate using only `itemType` + `favorited` +
+// detected placeholders: an unsubscribed MCP that still has fillable placeholder params must be
+// configured on the detail page first. Already-favorited rows (unsubscribe) are never blocked,
+// and non-MCP / MCP-without-placeholders rows are unaffected. Mirrors detail-page gating.
+export function mcpListSubscribeBlocked(item: Pick<CapabilityItem, "itemType" | "metadata" | "favorited">): boolean {
+  return item.itemType === "mcp" && !item.favorited && detectMcpFields(item.metadata).length > 0
+}
+
 export function StoreCapabilityTable(props: {
   rows: CapabilityItem[]
   visibleColumns: Record<TableColumnKey, boolean>
@@ -1093,11 +1103,12 @@ export function StoreCapabilityTable(props: {
                     <div class="inline-flex h-4 items-center justify-center gap-1.5 align-middle">
                       <button
                         type="button"
-                        class="inline-flex size-6 items-center justify-center rounded-full transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] active:bg-[color:color-mix(in_oklab,var(--native-foreground)_16%,transparent)]]"
-                        disabled={!props.onToggleFavorite}
-                        title={item.favorited ? props.labels.unfavoriteTooltip : props.labels.favoriteTooltip}
+                        class="inline-flex size-6 items-center justify-center rounded-full transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] active:bg-[color:color-mix(in_oklab,var(--native-foreground)_16%,transparent)]] disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={!props.onToggleFavorite || mcpListSubscribeBlocked(item)}
+                        title={mcpListSubscribeBlocked(item) ? language.t("store.detail.mcpConfig.gateReason") : item.favorited ? props.labels.unfavoriteTooltip : props.labels.favoriteTooltip}
                         onClick={(e: MouseEvent) => {
                           e.stopPropagation()
+                          if (mcpListSubscribeBlocked(item)) return
                           props.onToggleFavorite?.(item)
                         }}
                       >

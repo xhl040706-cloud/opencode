@@ -17,7 +17,7 @@ import ItemDetailContent from "@/pages/store/components/item-detail-content"
 import { ItemDetailLoadingSkeleton } from "@/pages/store/components/item-detail-loading-skeleton"
 import { MoveCapabilityDialog } from "@/pages/store/components/move-capability-dialog"
 import { DistributeDialog } from "@/pages/store/components/distribute-dialog"
-import { buildStoreTableColumnOptions, DEFAULT_VISIBLE_COLUMNS, formatCompact, formatSourceMetric, formatStoreDate, formatStoreTablePaginationSummary, StoreCapabilityTable, StoreTableFooter, type TableColumnKey } from "@/pages/store/components/store-capability-table"
+import { buildStoreTableColumnOptions, DEFAULT_VISIBLE_COLUMNS, formatCompact, formatSourceMetric, formatStoreDate, formatStoreTablePaginationSummary, mcpListSubscribeBlocked, StoreCapabilityTable, StoreTableFooter, type TableColumnKey } from "@/pages/store/components/store-capability-table"
 import { useAuth } from "@/pages/store/hooks/use-auth"
 import { behaviorApi, distributionApi, itemApi, repoApi, userApi, type CapabilityItem, type DistributionResult, type ItemOrder, type ItemSort, type Repository, type SecurityRiskGroup } from "@/pages/store/lib/api"
 import { getLoginUrl } from "@/pages/store/lib/auth"
@@ -514,6 +514,9 @@ export default function StoreManagerPage() {
 
   const toggleRowFavorite = async (item: CapabilityItem) => {
     if (!auth.user() || auth.loading() || state.favoriteActionItemId === item.id) return
+    // Defense-in-depth: never subscribe an unconfigured MCP from the list (the disabled button
+    // already blocks this; this guards a bypass). Unsubscribing is always allowed.
+    if (mcpListSubscribeBlocked(item)) return
 
     setState("favoriteActionItemId", item.id)
     try {
