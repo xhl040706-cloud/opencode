@@ -245,12 +245,15 @@ export default function RootLayout(props: ParentProps) {
               active={isWorkspace()}
               onClick={() => navigate(lastWorkspace)}
             />
-            <NavButton
-              icon="task"
-              label="Multica"
-              active={isMultica()}
-              onClick={() => navigate("/multica")}
-            />
+            {/* TODO: 临时隐藏 Multica 入口 */}
+            <Show when={false}>
+              <NavButton
+                icon="task"
+                label="Multica"
+                active={isMultica()}
+                onClick={() => navigate("/multica")}
+              />
+            </Show>
             <Show when={auth.canAccessMenu("kanban")}>
               <NavButton
                 label={language.t("sidebar.kanban")}
