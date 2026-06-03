@@ -295,6 +295,16 @@ export interface CapabilityItem {
     rubric_version?: string
     evaluated_at?: string
   }
+  // Normalized single-server MCP install template ({command,args,env,...}). Present for mcp
+  // items; the frontend heuristic (lib/mcp-config.ts) parses it to detect fillable placeholders.
+  metadata?: Record<string, unknown>
+  // Per-user MCP config status. Only present for an mcp item the logged-in user has configured,
+  // and it is only ever returned to that owner (anonymous/other users get no mcpConfig at all),
+  // so `value` carries the saved value for every field — secret included — to pre-fill the inline
+  // editor. `secret` only drives display masking elsewhere. See design.md §3.4.
+  mcpConfig?: {
+    fields: { key: string; hasValue: boolean; secret: boolean; value?: string }[]
+  }
 }
 
 export type ItemSort = "favoriteCount" | "installCount" | "previewCount" | "experienceScore" | "updatedAt"
@@ -1029,6 +1039,23 @@ export const behaviorApi = {
     apiFetch<{ favorited: boolean; removed?: boolean; favoriteCount: number }>(`/api/items/${itemId}/favorite`, {
       method: "DELETE",
       credentials: "include",
+    }),
+}
+
+// Outward-facing masked MCP config status — matches CapabilityItem["mcpConfig"] and the
+// PUT /items/:id/mcp-config response (design.md §3.3–3.4).
+export type McpConfigStatus = NonNullable<CapabilityItem["mcpConfig"]>
+// One field value sent on upsert. Empty `v` clears the key (merge semantics, design.md §3.3).
+export type McpFieldValue = { v: string; secret: boolean }
+
+export const mcpConfigApi = {
+  // Merge-upsert the current user's filled placeholder values for an MCP item. Returns the
+  // masked status. The backend ignores any key not matching `env:<NAME>` / `args:<INDEX>`.
+  upsert: (itemId: string, fields: Record<string, McpFieldValue>) =>
+    apiFetch<{ mcpConfig: McpConfigStatus }>(`/api/items/${itemId}/mcp-config`, {
+      method: "PUT",
+      credentials: "include",
+      body: JSON.stringify({ fields }),
     }),
 }
 

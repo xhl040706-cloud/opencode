@@ -18,6 +18,9 @@ import { pickItemDescription } from "../lib/item-description"
 import SecurityTag from "./security-tag"
 import HealthRadar from "./health-radar"
 import { DistributeDialog } from "./distribute-dialog"
+import { McpConfigForm } from "./mcp-config-form"
+import { detectMcpFields } from "../lib/mcp-config"
+import type { McpConfigStatus } from "../lib/api"
 import "@/styles/vscode-markdown.css"
 
 const TYPE_META: Record<
@@ -287,7 +290,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
   const navigate = useNavigate()
   const theme = useTheme()
   const dialog = useDialog()
-  const [item] = createResource(
+  const [item, { mutate: mutateItem, refetch: refetchItem }] = createResource(
     () => props.itemId,
     (id) => itemApi.get(id),
   )
@@ -326,6 +329,39 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
 
   const meta = () => TYPE_META[item()?.itemType ?? "skill"] ?? TYPE_META.skill
   const canEditItem = () => !!item() && !!auth.user() && item()!.createdBy === auth.user()!.id
+
+  // MCP per-user config gating. Detected placeholder fields come from the normalized template
+  // `metadata`; whether each is filled comes from the masked `mcpConfig` status (merged with a
+  // just-saved override). When an MCP item has fillable placeholders, subscribe is gated until
+  // every required field has a value. Non-MCP items / MCP without placeholders are unaffected.
+  const [mcpStatusOverride, setMcpStatusOverride] = createSignal<McpConfigStatus | null>(null)
+  const mcpFields = () =>
+    item()?.itemType === "mcp" ? detectMcpFields(item()?.metadata as Record<string, unknown> | undefined) : []
+  const mcpHasFields = () => mcpFields().length > 0
+  const mcpStatus = () => mcpStatusOverride() ?? item()?.mcpConfig ?? null
+  const mcpHasValueByKey = () => {
+    const map: Record<string, boolean> = {}
+    for (const f of mcpStatus()?.fields ?? []) map[f.key] = f.hasValue
+    return map
+  }
+  const mcpConfigComplete = () => {
+    if (!mcpHasFields()) return true
+    const filled = mcpHasValueByKey()
+    return mcpFields()
+      .filter((f) => f.required)
+      .every((f) => filled[f.key])
+  }
+  // Subscribe is blocked only for an MCP item that still has unfilled required placeholders.
+  const mcpGateBlocks = () => mcpHasFields() && !mcpConfigComplete()
+
+  // Called by the inline config form after a successful save: reflect the new masked status
+  // immediately (re-gates the subscribe button), then refetch so the per-user-resolved
+  // `content` preview and any other server-derived state refresh.
+  const onMcpSaved = (status: McpConfigStatus) => {
+    setMcpStatusOverride(status)
+    mutateItem((prev) => (prev ? { ...prev, mcpConfig: status } : prev))
+    void refetchItem()
+  }
   const canDistributeItem = () =>
     !!item() &&
     !!auth.user() &&
@@ -462,18 +498,20 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                     <Show when={props.onToggleFavorite}>
                       <button
                         onClick={() => void props.onToggleFavorite?.()}
-                        disabled={!props.isAuthenticated || props.favoritePending}
+                        disabled={!props.isAuthenticated || props.favoritePending || mcpGateBlocks()}
                         class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60"
                         classList={{
                           "bg-bg-muted text-text-strong hover:bg-bg-muted/70": props.favorited,
                           "text-text-weak hover:text-text-strong hover:bg-bg-muted": !props.favorited,
                         }}
                         title={
-                          props.isAuthenticated
-                            ? props.favorited
-                              ? language.t("store.detail.unfavoriteTooltip")
-                              : language.t("store.detail.favoriteTooltip")
-                            : language.t("store.detail.favoriteSignInTooltip")
+                          !props.isAuthenticated
+                            ? language.t("store.detail.favoriteSignInTooltip")
+                            : mcpGateBlocks()
+                              ? language.t("store.detail.mcpConfig.gateReason")
+                              : props.favorited
+                                ? language.t("store.detail.unfavoriteTooltip")
+                                : language.t("store.detail.favoriteTooltip")
                         }
                       >
                         <span class="inline-flex items-center" style={{ width: "14px", height: "14px" }}>
@@ -522,6 +560,11 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                     <ShareButton itemId={data().id} itemName={data().name} />
                   </div>
                 </div>
+                <Show when={props.onToggleFavorite && props.isAuthenticated && mcpGateBlocks()}>
+                  <p class="text-right text-12-regular text-text-weak">
+                    {language.t("store.detail.mcpConfig.gateHint")}
+                  </p>
+                </Show>
               </div>
             </div>
 
@@ -930,6 +973,37 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                           </div>
                         </div>
                       </div>
+
+                      {/* MCP parameter config — inline, LAST block in the sidebar. Only for MCP
+                          items that have detected placeholder fields. Re-editable any time. */}
+                      <Show when={mcpHasFields()}>
+                        <div class="space-y-2 rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 p-3">
+                          <div
+                            class="text-xs"
+                            style={{
+                              color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                              "font-weight": 700,
+                            }}
+                          >
+                            {language.t("store.detail.mcpConfig.title")}
+                          </div>
+                          <Show
+                            when={props.isAuthenticated}
+                            fallback={
+                              <p class="text-12-regular text-text-weak">
+                                {language.t("store.detail.mcpConfig.signInTooltip")}
+                              </p>
+                            }
+                          >
+                            <McpConfigForm
+                              itemId={data().id}
+                              metadata={data().metadata as Record<string, unknown> | undefined}
+                              status={mcpStatus() ?? undefined}
+                              onSaved={onMcpSaved}
+                            />
+                          </Show>
+                        </div>
+                      </Show>
                     </div>
                   </div>
                 </aside>
