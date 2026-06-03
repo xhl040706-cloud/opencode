@@ -143,6 +143,8 @@ export default function Home() {
   const [trackedItemId, setTrackedItemId] = createSignal<string | null>(null)
   const [detailContentReady, setDetailContentReady] = createSignal(false)
   const [detailRenderItemId, setDetailRenderItemId] = createSignal<string | null>(null)
+  // 公共浏览默认隐藏 fork 出来的副本（GitHub 式）；打开后包含。
+  const [showForks, setShowForks] = createSignal(false)
   let detailContentTimer: ReturnType<typeof setTimeout> | undefined
 
   const [columnPrefs, setColumnPrefs] = persisted(
@@ -225,6 +227,7 @@ export default function Home() {
     pageSize: PAGE_SIZE,
     sortBy: sort.by,
     sortOrder: sort.order,
+    includeForks: showForks() || undefined,
   }))
 
   const listKey = createMemo(() => JSON.stringify(listParams()))
@@ -891,6 +894,25 @@ export default function Home() {
               </button>
             </Show>
             </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowForks((v) => !v)
+              setPage(1)
+            }}
+            aria-pressed={showForks()}
+            title={language.t("store.home.showForks")}
+            class="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm transition-colors max-[640px]:px-3"
+            classList={{
+              "border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] bg-[color:color-mix(in_srgb,var(--native-primary)_10%,var(--native-panel))] text-[var(--native-foreground)]":
+                showForks(),
+              "border-[color:color-mix(in_srgb,var(--native-border)_58%,transparent)] bg-[var(--native-panel)] text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)] hover:text-[var(--native-foreground)]":
+                !showForks(),
+            }}
+          >
+            <LocalIcon name="fork" size="small" />
+            <span class="max-[640px]:hidden">{language.t("store.home.showForks")}</span>
+          </button>
         </div>
       </section>
     )

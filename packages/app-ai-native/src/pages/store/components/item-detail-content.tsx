@@ -4,6 +4,7 @@ import QRCode from "qrcode"
 import { useTheme } from "@opencode-ai/ui/theme"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Markdown } from "@opencode-ai/ui/markdown"
+import { showToast } from "@opencode-ai/ui/toast"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { LocalIcon } from "@/components/local-icon"
@@ -82,6 +83,10 @@ function hasEvaluation(e?: CapabilityItem["evaluation"]) {
     e.install_clarity != null
   )
 }
+
+// Long uuid-style ids get a distinctive 12-char prefix (no mid-truncation ellipsis);
+// short ids (e.g. "system") are shown as-is.
+const shortId = (id: string) => (id.length <= 16 ? id : id.slice(0, 12))
 
 const THEMES = { light: "light-plus", dark: "dark-plus" } as const
 const TAG_COLOR_BY_CLASS = {
@@ -303,7 +308,13 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
       return info[createdBy] ?? null
     },
   )
+  // 「Forked from xxx」中 xxx = 原作者名，复用与 createdBy 相同的解析链路。
+  const [forkedFromName] = createResource(
+    () => item()?.forkedFromOwnerId,
+    (ownerId) => userApi.getNames([ownerId]).then((names) => names[ownerId] ?? ownerId),
+  )
   const [copied, setCopied] = createSignal(false)
+  const [idCopied, setIdCopied] = createSignal(false)
   const [highlighted] = createResource(
     () => {
       const json = tryJson(item()?.content ?? "")
@@ -325,6 +336,40 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
     await navigator.clipboard.writeText(getInstallCommand(item()!))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const copyAuthorId = async (id: string) => {
+    await navigator.clipboard.writeText(id)
+    setIdCopied(true)
+    setTimeout(() => setIdCopied(false), 1500)
+  }
+
+  // Fork 仅对公共、非 archive 且非本人创建的 item 可用。
+  const canForkItem = () =>
+    !!item() && !canEditItem() && item()!.repoVisibility === "public" && item()!.sourceType !== "archive"
+
+  const [forking, setForking] = createSignal(false)
+  // Fork 按钮三态：已有我的 fork → 跳转查看；否则 fork；未登录禁用。
+  const doFork = async () => {
+    const data = item()
+    if (!data || forking()) return
+    if (data.myForkItemId) {
+      navigate(`/capabilities/${data.myForkItemId}/edit`)
+      return
+    }
+    setForking(true)
+    try {
+      const forked = await itemApi.fork(data.id)
+      showToast({ title: language.t("store.detail.forkSuccess") })
+      navigate(`/capabilities/${forked.id}/edit`)
+    } catch (err) {
+      showToast({
+        title: language.t("store.detail.forkFailed"),
+        description: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setForking(false)
+    }
   }
 
   return (
@@ -450,6 +495,27 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                               ? language.t("store.detail.favorited")
                               : language.t("store.detail.favorite")
                             : language.t("store.detail.favoriteSignIn")}
+                        </span>
+                      </button>
+                    </Show>
+                    <Show when={canForkItem()}>
+                      <button
+                        onClick={() => void doFork()}
+                        disabled={!props.isAuthenticated || forking()}
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong disabled:cursor-not-allowed disabled:opacity-60"
+                        title={
+                          !props.isAuthenticated
+                            ? language.t("store.detail.forkSignInTooltip")
+                            : data().myForkItemId
+                              ? language.t("store.detail.viewMyForkTooltip")
+                              : language.t("store.detail.forkTooltip")
+                        }
+                      >
+                        <LocalIcon name="fork" size="small" style={{ width: "14px", height: "14px" }} />
+                        <span>
+                          {data().myForkItemId
+                            ? language.t("store.detail.viewMyFork")
+                            : language.t("store.detail.fork")}
                         </span>
                       </button>
                     </Show>
@@ -718,6 +784,26 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         </div>
                       </div>
 
+                      <Show when={data().forkedFromItemId}>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/capabilities/${data().forkedFromItemId}/edit`)}
+                            class="inline-flex max-w-full cursor-pointer items-center gap-1.5 text-sm leading-5 text-text-weak transition-colors hover:text-[var(--native-primary)]"
+                            title={language.t("store.detail.forkedFrom", {
+                              name: forkedFromName() ?? data().forkedFromOwnerId ?? "",
+                            })}
+                          >
+                            <LocalIcon name="fork" size="small" style={{ width: "14px", height: "14px" }} />
+                            <span class="truncate">
+                              {language.t("store.detail.forkedFrom", {
+                                name: forkedFromName() ?? data().forkedFromOwnerId ?? "",
+                              })}
+                            </span>
+                          </button>
+                        </div>
+                      </Show>
+
                       <Show when={authorInfo() || authorName()}>
                         <div>
                           <div class="flex items-center justify-between gap-4">
@@ -730,9 +816,25 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             >
                               {language.t("store.detail.author")}
                             </div>
-                            <span class="max-w-[12rem] truncate text-right text-sm leading-5 text-text-strong">
-                              {authorInfo()?.name ?? authorName() ?? data().createdBy}
-                            </span>
+                            <div class="flex min-w-0 flex-col items-end">
+                              <span class="max-w-[12rem] truncate text-right text-sm leading-5 text-text-strong">
+                                {authorInfo()?.name ?? authorName() ?? data().createdBy}
+                              </span>
+                              <Show when={data().createdBy}>
+                                <button
+                                  type="button"
+                                  class="inline-flex cursor-pointer items-center gap-1 text-right font-mono text-[11px] leading-4 text-text-weak transition-colors duration-150 hover:text-text-strong"
+                                  title={data().createdBy}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    void copyAuthorId(data().createdBy)
+                                  }}
+                                >
+                                  <span>{shortId(data().createdBy)}</span>
+                                  <Icon name={idCopied() ? "check" : "link"} size="small" />
+                                </button>
+                              </Show>
+                            </div>
                           </div>
                         </div>
                       </Show>

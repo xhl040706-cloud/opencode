@@ -265,6 +265,10 @@ export interface CapabilityItem {
   experienceScore?: number
   repoName?: string
   createdBy: string
+  forkedFromItemId?: string
+  forkedFromOwnerId?: string
+  forkCount?: number
+  myForkItemId?: string
   createdAt: string
   updatedAt: string
   registry?: CapabilityRegistry
@@ -818,6 +822,7 @@ export const itemApi = {
     sortBy?: ItemSort
     sortOrder?: ItemOrder
     favorited?: boolean
+    includeForks?: boolean
     paginated?: boolean
   }) => {
     const p = new URLSearchParams()
@@ -835,6 +840,7 @@ export const itemApi = {
     if (params?.sortBy) p.set("sortBy", params.sortBy)
     if (params?.sortOrder) p.set("sortOrder", params.sortOrder)
     if (params?.favorited) p.set("favorited", "true")
+    if (params?.includeForks) p.set("includeForks", "true")
     if (params?.paginated) p.set("paginated", "true")
     return apiFetch<{ items: CapabilityItem[]; total: number; hasMore: boolean }>(`/api/items?${p.toString()}`)
   },
@@ -920,6 +926,12 @@ export const itemApi = {
     apiFetch<CapabilityItem>(`/api/items/${id}/transfer`, {
       method: "PUT",
       body: JSON.stringify({ targetRepoId }),
+    }),
+
+  fork: (id: string) =>
+    apiFetch<CapabilityItem>(`/api/items/${id}/fork`, {
+      method: "POST",
+      credentials: "include",
     }),
 
   setTags: (id: string, tags: string[]) =>
