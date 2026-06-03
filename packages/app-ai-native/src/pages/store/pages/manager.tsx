@@ -33,6 +33,20 @@ const STORE_TYPES = [
   { value: "plugin", labelKey: "store.sidebar.nav.plugins", icon: "configuration" as const, color: "#EC4899", bg: "#FCE7F3" },
 ] as const
 
+const SIDEBAR_ITEMS = [
+  { key: "created" as TabKey, labelKey: "store.console.capabilities.myCreated", icon: "archive" as const },
+  { key: "favorited" as TabKey, labelKey: "store.console.capabilities.myFavorited", icon: "check" as const },
+  { key: "received" as TabKey, labelKey: "store.received.title", icon: "inbox" as const },
+  { key: "sent" as TabKey, labelKey: "store.sent.title", icon: "share" as const },
+] as const
+
+const STAT_CARDS = [
+  { key: "created" as TabKey, labelKey: "store.console.capabilities.myCreated", icon: "archive" as const, color: "#3B82F6" },
+  { key: "favorited" as TabKey, labelKey: "store.console.capabilities.myFavorited", icon: "star" as const, color: "#F59E0B" },
+  { key: "received" as TabKey, labelKey: "store.received.title", icon: "inbox" as const, color: "#10B981" },
+  { key: "sent" as TabKey, labelKey: "store.sent.title", icon: "share" as const, color: "#8B5CF6" },
+] as const
+
 type TabKey = "created" | "favorited" | "received" | "sent"
 
 type ReceiptItem = {
@@ -947,145 +961,138 @@ export default function StoreManagerPage() {
           </div>
         }
       >
-        <div class="flex h-full min-h-0 w-full flex-1 flex-col overflow-x-hidden overflow-y-auto">
-          <header class="relative overflow-hidden bg-[linear-gradient(135deg,color-mix(in_srgb,var(--native-primary)_2%,var(--native-bg)),color-mix(in_srgb,var(--native-primary)_10%,var(--native-panel))_62%,color-mix(in_srgb,var(--native-primary)_14%,var(--native-panel)))] before:pointer-events-none before:absolute before:right-[-10%] before:top-[-60%] before:h-[340px] before:w-[340px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--native-primary)_8%,transparent),transparent_70%)] before:content-['']">
-            <div class="relative flex flex-row items-center justify-between gap-4 px-5 py-3 lg:gap-6">
-              <div class="min-w-0 flex flex-1 items-center gap-4">
-                <h1 class="relative m-0 shrink-0 text-[1.625rem] leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t(state.tab === "received" ? "store.received.title" : state.tab === "sent" ? "store.sent.title" : "store.console.capabilities.title")}</h1>
-                <p class="relative m-0 min-w-0 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t(state.tab === "received" ? "store.received.description" : state.tab === "sent" ? "store.sent.description" : "store.console.capabilities.description")}</p>
-              </div>
-              <div class="flex shrink-0 items-center justify-end gap-3">
-                <Button type="button" variant="outline" size="sm" class="h-8 px-3" onClick={() => navigate("/store")}>
-                  <Icon name="chevron-left" size="small" />
-                  {language.t("store.console.capabilities.backToHome")}
-                </Button>
-                <Tooltip value={language.t("store.console.capabilities.create")} placement="bottom">
+        <div class="flex h-full min-h-0 w-full flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <aside class="w-56 shrink-0 border-r border-[var(--native-border)] bg-[var(--native-panel)]">
+            <nav class="flex flex-col gap-1 p-3">
+              <For each={SIDEBAR_ITEMS}>
+                {(item) => (
                   <button
                     type="button"
-                    class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[0.375rem] bg-[color:color-mix(in_oklab,var(--native-primary)_85%,white)] text-white shadow-[var(--native-shadow-sm)] transition-[background-color,filter,transform] hover:cursor-pointer hover:bg-[var(--native-primary)]"
-                    aria-label={language.t("store.console.capabilities.create")}
+                    class={cn(
+                      "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors text-left",
+                      state.tab === item.key
+                        ? "bg-[var(--native-surface)] text-[var(--native-foreground)]"
+                        : "text-[var(--native-muted)] hover:bg-[var(--native-surface)] hover:text-[var(--native-foreground)]",
+                    )}
+                    onClick={() => switchTab(item.key)}
+                  >
+                    <Icon name={item.icon as any} class="size-4 shrink-0" />
+                    <span>{language.t(item.labelKey)}</span>
+                  </button>
+                )}
+              </For>
+            </nav>
+          </aside>
+
+          {/* Main Content */}
+          <div class="flex h-full min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+            <header class="relative overflow-hidden bg-[linear-gradient(135deg,color-mix(in_srgb,var(--native-primary)_2%,var(--native-bg)),color-mix(in_srgb,var(--native-primary)_10%,var(--native-panel))_62%,color-mix(in_srgb,var(--native-primary)_14%,var(--native-panel)))] before:pointer-events-none before:absolute before:right-[-10%] before:top-[-60%] before:h-[340px] before:w-[340px] before:rounded-full before:bg-[radial-gradient(circle,color-mix(in_srgb,var(--native-primary)_8%,transparent),transparent_70%)] before:content-['']">
+              <div class="relative flex flex-row items-center justify-between gap-4 px-5 py-3 lg:gap-6">
+                <div class="min-w-0 flex flex-1 items-center gap-4">
+                  <h1 class="relative m-0 shrink-0 text-[1.625rem] leading-[1.15] font-extrabold tracking-[-0.035em] text-[var(--native-foreground)]">{language.t(state.tab === "received" ? "store.received.title" : state.tab === "sent" ? "store.sent.title" : "store.console.capabilities.title")}</h1>
+                  <p class="relative m-0 min-w-0 max-w-[38rem] text-[0.8125rem] leading-6 text-[var(--native-muted)]">{language.t(state.tab === "received" ? "store.received.description" : state.tab === "sent" ? "store.sent.description" : "store.console.capabilities.description")}</p>
+                </div>
+                <div class="flex shrink-0 items-center justify-end gap-3">
+                  <Button type="button" variant="outline" size="sm" class="h-8 px-3" onClick={() => navigate("/store")}>
+                    <Icon name="chevron-left" size="small" />
+                    {language.t("store.console.capabilities.backToHome")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    class="h-8 gap-1.5 bg-[var(--native-primary)] !text-white hover:bg-[var(--native-primary-hover)]"
                     onClick={() => navigate("/capabilities/new")}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-5" style={{ color: "#ffffff" }}>
-                      <path d="M12 5v14" />
-                      <path d="M5 12h14" />
-                    </svg>
-                  </button>
-                </Tooltip>
+                    <Icon name="plus" class="size-4" style={{ color: "#ffffff" }} />
+                    {language.t("store.console.capabilities.create")}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </header>
+            </header>
 
-          <div class="flex min-h-[5rem] w-full items-center overflow-hidden">
-            <section class={sx.section}>
-              <div class="mx-auto flex w-full max-w-[64rem] items-center gap-3 px-4 max-[768px]:flex-col max-[768px]:items-stretch max-[640px]:gap-2">
-                <div class="relative min-w-0 flex-1">
-                  <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-4 text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20 -3.5 -3.5" />
-                  </svg>
-                </div>
-                <input
-                  ref={bindSearchInputRef}
-                  type="text"
-                  inputmode="search"
-                  placeholder={language.t("store.console.capabilities.searchPlaceholder")}
-                  value={state.search}
-                  onInput={(e) => handleSearchInput(e.currentTarget.value)}
-                  onBlur={(e) => {
-                    if (e.relatedTarget || Date.now() > allowSearchRefocusUntil) return
-                    clearTimeout(pendingBlurRefocusTimer)
-                    pendingBlurRefocusTimer = setTimeout(() => {
-                      if (!searchInputRef) return
-                      if (document.activeElement && document.activeElement !== document.body && document.activeElement !== searchInputRef) return
-                      restoreSearchFocus()
-                      scheduleSearchFocusRecovery("blur")
-                    }, 0)
+            {/* Stat Cards */}
+            <div class="mx-auto w-full max-w-[64rem] px-4 pt-4">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <For each={STAT_CARDS}>
+                  {(card) => {
+                    const count = () => {
+                      if (card.key === "created") return state.totalItems
+                      if (card.key === "favorited") return state.favoritedTotal
+                      if (card.key === "received") return state.receivedItems.length
+                      if (card.key === "sent") return state.sentItems.length
+                      return 0
+                    }
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => switchTab(card.key)}
+                        class={cn(
+                          "group flex items-center gap-4 rounded-xl border border-[var(--native-border)] bg-[var(--native-panel)] p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
+                          state.tab === card.key && "ring-1 ring-[var(--native-primary)]",
+                        )}
+                      >
+                        <div
+                          class="flex size-12 items-center justify-center rounded-lg"
+                          style={{
+                            "background-color": `color-mix(in srgb, ${card.color} 12%, var(--native-panel))`,
+                            color: card.color,
+                          }}
+                        >
+                          <Icon name={card.icon as any} class="size-6" />
+                        </div>
+                        <div>
+                          <div class="text-2xl font-bold text-[var(--native-foreground)]">{formatCompact(count())}</div>
+                          <div class="text-sm text-[var(--native-muted)]">{language.t(card.labelKey)}</div>
+                        </div>
+                      </button>
+                    )
                   }}
-                  class="h-12 w-full rounded-full border border-[color:color-mix(in_srgb,var(--native-border)_58%,transparent)] bg-[var(--native-panel)] pr-12 pl-11 text-base !text-[var(--native-foreground)] caret-[var(--native-primary)] placeholder:text-[color:color-mix(in_srgb,var(--native-muted)_72%,white)] shadow-[var(--native-shadow-sm)] focus-visible:border-2 focus-visible:border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] focus-visible:!text-[var(--native-foreground)] focus-visible:placeholder:text-[color:color-mix(in_srgb,var(--native-muted)_36%,white)] focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
-                <Show when={state.search.length > 0}>
-                  <button type="button" aria-label={language.t("common.clear")} onClick={clearSearchInput} class="absolute inset-y-0 right-0 flex h-full w-12 cursor-pointer items-center justify-center rounded-r-full text-[color:color-mix(in_srgb,var(--native-muted)_78%,white)] transition-colors hover:text-[var(--native-foreground)]">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
-                      <path d="M18 6 6 18" />
-                      <path d="m6 6 12 12" />
-                    </svg>
-                  </button>
-                </Show>
-                </div>
-                <div class="inline-flex h-12 shrink-0 items-center gap-1 rounded-full border border-[color:color-mix(in_srgb,var(--native-border)_60%,transparent)] bg-[color:color-mix(in_srgb,var(--native-panel)_92%,white)] px-1 shadow-[var(--native-shadow-sm)]">
-                <Tooltip value={language.t("store.console.capabilities.myCreated")} placement="bottom">
-                  <button
-                    type="button"
-                    class={cn(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-                      state.tab === "created"
-                        ? "bg-[var(--native-primary)] !text-white shadow-[var(--native-shadow-sm)]"
-                        : "text-[var(--native-muted)] hover:bg-[color:color-mix(in_srgb,var(--native-foreground)_8%,transparent)] hover:text-[var(--native-foreground)]",
-                    )}
-                    aria-label={language.t("store.console.capabilities.myCreated")}
-                    aria-pressed={state.tab === "created"}
-                    onClick={() => switchTab("created")}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4" style={state.tab === "created" ? { color: "#ffffff" } : undefined}>
-                      <path d="M20 21a8 8 0 0 0-16 0" />
-                      <circle cx="12" cy="8" r="5" />
-                    </svg>
-                  </button>
-                </Tooltip>
-                <Tooltip value={language.t("store.console.capabilities.myFavorited")} placement="bottom">
-                  <button
-                    type="button"
-                    class={cn(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-                      state.tab === "favorited"
-                        ? "bg-[var(--native-primary)] !text-white shadow-[var(--native-shadow-sm)]"
-                        : "text-[var(--native-muted)] hover:bg-[color:color-mix(in_srgb,var(--native-foreground)_8%,transparent)] hover:text-[var(--native-foreground)]",
-                    )}
-                    aria-label={language.t("store.console.capabilities.myFavorited")}
-                    aria-pressed={state.tab === "favorited"}
-                    onClick={() => switchTab("favorited")}
-                  >
-                    <LocalIcon name={state.tab === "favorited" ? "subscribe-filled" : "subscribe"} size="small" style={state.tab === "favorited" ? { color: "#ffffff" } : undefined} />
-                  </button>
-                </Tooltip>
-                <Tooltip value={language.t("store.received.title")} placement="bottom">
-                  <button
-                    type="button"
-                    class={cn(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-                      state.tab === "received"
-                        ? "bg-[var(--native-primary)] !text-white shadow-[var(--native-shadow-sm)]"
-                        : "text-[var(--native-muted)] hover:bg-[color:color-mix(in_srgb,var(--native-foreground)_8%,transparent)] hover:text-[var(--native-foreground)]",
-                    )}
-                    aria-label={language.t("store.received.title")}
-                    aria-pressed={state.tab === "received"}
-                    onClick={() => switchTab("received")}
-                  >
-                    <Icon name="inbox" size="small" style={state.tab === "received" ? { color: "#ffffff" } : undefined} />
-                  </button>
-                </Tooltip>
-                <Tooltip value={language.t("store.sent.title")} placement="bottom">
-                  <button
-                    type="button"
-                    class={cn(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-                      state.tab === "sent"
-                        ? "bg-[var(--native-primary)] !text-white shadow-[var(--native-shadow-sm)]"
-                        : "text-[var(--native-muted)] hover:bg-[color:color-mix(in_srgb,var(--native-foreground)_8%,transparent)] hover:text-[var(--native-foreground)]",
-                    )}
-                    aria-label={language.t("store.sent.title")}
-                    aria-pressed={state.tab === "sent"}
-                    onClick={() => switchTab("sent")}
-                  >
-                    <Icon name="square-arrow-top-right" size="small" style={state.tab === "sent" ? { color: "#ffffff" } : undefined} />
-                  </button>
-                </Tooltip>
+                </For>
               </div>
             </div>
-          </section>
-          </div>
+
+            <div class="flex min-h-[5rem] w-full items-center overflow-hidden">
+              <section class={sx.section}>
+                <div class="mx-auto flex w-full max-w-[64rem] items-center gap-3 px-4 max-[768px]:flex-col max-[768px]:items-stretch max-[640px]:gap-2">
+                  <div class="relative min-w-0 flex-1">
+                    <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-4 text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="m20 20 -3.5 -3.5" />
+                    </svg>
+                  </div>
+                  <input
+                    ref={bindSearchInputRef}
+                    type="text"
+                    inputmode="search"
+                    placeholder={language.t("store.console.capabilities.searchPlaceholder")}
+                    value={state.search}
+                    onInput={(e) => handleSearchInput(e.currentTarget.value)}
+                    onBlur={(e) => {
+                      if (e.relatedTarget || Date.now() > allowSearchRefocusUntil) return
+                      clearTimeout(pendingBlurRefocusTimer)
+                      pendingBlurRefocusTimer = setTimeout(() => {
+                        if (!searchInputRef) return
+                        if (document.activeElement && document.activeElement !== document.body && document.activeElement !== searchInputRef) return
+                        restoreSearchFocus()
+                        scheduleSearchFocusRecovery("blur")
+                      }, 0)
+                    }}
+                    class="h-12 w-full rounded-full border border-[color:color-mix(in_srgb,var(--native-border)_58%,transparent)] bg-[var(--native-panel)] pr-12 pl-11 text-base !text-[var(--native-foreground)] caret-[var(--native-primary)] placeholder:text-[color:color-mix(in_srgb,var(--native-muted)_72%,white)] shadow-[var(--native-shadow-sm)] focus-visible:border-2 focus-visible:border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] focus-visible:!text-[var(--native-foreground)] focus-visible:placeholder:text-[color:color-mix(in_srgb,var(--native-muted)_36%,white)] focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                  <Show when={state.search.length > 0}>
+                    <button type="button" aria-label={language.t("common.clear")} onClick={clearSearchInput} class="absolute inset-y-0 right-0 flex h-full w-12 cursor-pointer items-center justify-center rounded-r-full text-[color:color-mix(in_srgb,var(--native-muted)_78%,white)] transition-colors hover:text-[var(--native-foreground)]">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                    </button>
+                  </Show>
+                  </div>
+                </div>
+              </section>
+            </div>
 
           <section class={cn(sx.section, "flex min-h-0 flex-1 flex-col px-2 sm:px-3")}>
             <div class={cn(sx.tableShell, "flex min-h-0 flex-1 flex-col")}>
@@ -1360,6 +1367,7 @@ export default function StoreManagerPage() {
             </SheetContent>
           </Sheet>
         </div>
+      </div>
       </Show>
     </Show>
   )

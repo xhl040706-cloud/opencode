@@ -1040,18 +1040,6 @@ export function StoreCapabilityTable(props: {
                           </span>
                         </Show>
                       </div>
-                      <Show when={props.onDistribute && props.currentUserRoles?.includes("platform_admin")}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            props.onDistribute?.(item)
-                          }}
-                          class="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-[var(--native-muted)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-foreground)_10%,transparent)] hover:text-[var(--native-foreground)]"
-                          title={props.distributeTooltip}
-                        >
-                          <Icon name="share" size="small" />
-                        </button>
-                      </Show>
                     </div>
                   </td>
                 </Show>

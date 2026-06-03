@@ -478,23 +478,6 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         <span>{language.t("common.edit")}</span>
                       </button>
                     </Show>
-                    <Show when={canDistributeItem()}>
-                      <button
-                        onClick={() =>
-                          dialog.show(() => (
-                            <DistributeDialog
-                              itemId={data().id}
-                              itemName={data().name}
-                            />
-                          ))
-                        }
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
-                        title={language.t("store.distribute.tooltip")}
-                      >
-                        <Icon name="share" size="small" />
-                        <span>{language.t("store.distribute.button")}</span>
-                      </button>
-                    </Show>
                     <Show when={props.onToggleFavorite}>
                       <button
                         onClick={() => void props.onToggleFavorite?.()}
@@ -558,6 +541,23 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                       </button>
                     </Show>
                     <ShareButton itemId={data().id} itemName={data().name} />
+                    <Show when={canDistributeItem()}>
+                      <button
+                        onClick={() =>
+                          dialog.show(() => (
+                            <DistributeDialog
+                              itemId={data().id}
+                              itemName={data().name}
+                            />
+                          ))
+                        }
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
+                        title={language.t("store.distribute.tooltip")}
+                      >
+                        <LocalIcon name="send" size="small" />
+                        <span>{language.t("store.distribute.button")}</span>
+                      </button>
+                    </Show>
                   </div>
                 </div>
                 <Show when={props.onToggleFavorite && props.isAuthenticated && mcpGateBlocks()}>

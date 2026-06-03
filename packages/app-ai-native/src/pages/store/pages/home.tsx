@@ -667,29 +667,6 @@ export default function Home() {
                         </span>
                       </button>
                     </Tooltip>
-                    <Tooltip value={language.t("store.console.capabilities.create")} placement="bottom">
-                      <button
-                        type="button"
-                        class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[0.375rem] bg-[color:color-mix(in_oklab,var(--native-primary)_85%,white)] text-white shadow-[var(--native-shadow-sm)] transition-[background-color,filter,transform] hover:cursor-pointer hover:bg-[var(--native-primary)]"
-                        aria-label={language.t("store.console.capabilities.create")}
-                        onClick={() => navigate("/capabilities/new")}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          class="size-5"
-                          style={{ color: "#ffffff" }}
-                        >
-                          <path d="M12 5v14" />
-                          <path d="M5 12h14" />
-                        </svg>
-                      </button>
-                    </Tooltip>
                   </div>
                 </div>
               </div>
