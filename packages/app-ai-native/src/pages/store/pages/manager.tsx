@@ -23,6 +23,8 @@ import { behaviorApi, distributionApi, itemApi, repoApi, userApi, type Capabilit
 import { getLoginUrl } from "@/pages/store/lib/auth"
 import { sx } from "@/pages/store/lib/styles"
 import { typeKey } from "@/pages/store/lib/constants"
+import { UploadPluginDialog } from "@/pages/store/components/upload-plugin-dialog"
+import { CreateRepoDialog } from "@/pages/store/components/create-repo-dialog"
 
 const PAGE_SIZE = 10
 const STORE_TYPES = [
@@ -1006,6 +1008,49 @@ export default function StoreManagerPage() {
                   >
                     <Icon name="plus" class="size-4" style={{ color: "#ffffff" }} />
                     {language.t("store.console.capabilities.create")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 gap-1.5 px-3"
+                    onClick={() => {
+                      void repoApi.listMy().then((res) => {
+                        const repos = res.repositories ?? []
+                        if (repos.length === 0) {
+                          dialog.show(() => (
+                            <CreateRepoDialog
+                              userId={userId()}
+                              showSyncOption={false}
+                              onCreated={(repo) => {
+                                dialog.show(() => (
+                                  <UploadPluginDialog
+                                    repoId={repo.id}
+                                    onUploaded={(item) => {
+                                      void loadCreated()
+                                      showToast({ title: language.t("store.uploadPlugin.success") || "Plugin 上传成功" })
+                                    }}
+                                  />
+                                ))
+                              }}
+                            />
+                          ))
+                          return
+                        }
+                        dialog.show(() => (
+                          <UploadPluginDialog
+                            repoId={repos[0].id}
+                            onUploaded={(item) => {
+                              void loadCreated()
+                              showToast({ title: language.t("store.uploadPlugin.success") || "Plugin 上传成功" })
+                            }}
+                          />
+                        ))
+                      })
+                    }}
+                  >
+                    <Icon name="cloud-upload" size="small" />
+                    {language.t("store.uploadPlugin.title") || "上传 Plugin"}
                   </Button>
                 </div>
               </div>

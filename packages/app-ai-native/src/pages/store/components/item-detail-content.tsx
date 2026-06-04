@@ -106,6 +106,11 @@ const TAG_COLOR_BY_CLASS = {
 let highlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined
 
 export function getInstallCommand(item: CapabilityItem) {
+  // Prefer metadata.install for plugin items (e.g. zip_download instructions)
+  const install = (item.metadata as Record<string, any> | undefined)?.install
+  if (install?.method === "zip_download" && Array.isArray(install.commands)) {
+    return install.commands.join("\n")
+  }
   const registry = item.repoName || "public"
   return `cs plugin add ${item.itemType} ${registry}/${item.slug}`
 }
@@ -801,6 +806,43 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             </div>
                           )
                         })()}
+                      </Show>
+
+                      <Show when={data().itemType === "plugin"}>
+                        <div class="space-y-2 rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 p-3">
+                          <div
+                            class="text-xs"
+                            style={{
+                              color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                              "font-weight": 700,
+                            }}
+                          >
+                            {language.t("store.detail.localInstall") || "本地安装"}
+                          </div>
+                          <a
+                            href={`/api/plugins/${data().slug}/download`}
+                            class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-2 text-12-regular text-text-weak transition-colors hover:bg-bg-muted hover:text-text-strong"
+                            download={data().slug + ".zip"}
+                          >
+                            <LocalIcon name="download" size="small" />
+                            <span>下载 ZIP</span>
+                          </a>
+                          <pre class="thin-scrollbar overflow-x-auto rounded-lg bg-bg-muted p-2 text-[11px] leading-4 font-mono text-text-weak">
+                            {getInstallCommand(data())}
+                          </pre>
+                          <button
+                            onClick={() => {
+                              if (!item()) return
+                              void navigator.clipboard.writeText(getInstallCommand(item()!))
+                              setCopied(true)
+                              setTimeout(() => setCopied(false), 2000)
+                            }}
+                            class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-2 text-12-regular text-text-weak transition-colors hover:bg-bg-muted hover:text-text-strong"
+                          >
+                            <Icon name={copied() ? "check" : "copy"} size="small" />
+                            <span>{copied() ? (language.t("store.detail.copied") || "已复制") : (language.t("store.detail.copyInstallCommand") || "复制安装命令")}</span>
+                          </button>
+                        </div>
                       </Show>
 
                       <div>
