@@ -1021,6 +1021,7 @@ export default function StoreManagerPage() {
                           dialog.show(() => (
                             <CreateRepoDialog
                               userId={userId()}
+                              showSyncOption={false}
                               onCreated={(repo) => {
                                 dialog.show(() => (
                                   <UploadPluginDialog
