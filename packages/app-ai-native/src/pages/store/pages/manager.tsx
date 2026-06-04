@@ -24,6 +24,7 @@ import { getLoginUrl } from "@/pages/store/lib/auth"
 import { sx } from "@/pages/store/lib/styles"
 import { typeKey } from "@/pages/store/lib/constants"
 import { UploadPluginDialog } from "@/pages/store/components/upload-plugin-dialog"
+import { CreateRepoDialog } from "@/pages/store/components/create-repo-dialog"
 
 const PAGE_SIZE = 10
 const STORE_TYPES = [
@@ -1017,7 +1018,22 @@ export default function StoreManagerPage() {
                       void repoApi.listMy().then((res) => {
                         const repos = res.repositories ?? []
                         if (repos.length === 0) {
-                          showToast({ variant: "error", title: language.t("store.uploadPlugin.noRepo") || "没有可用的仓库" })
+                          dialog.show(() => (
+                            <CreateRepoDialog
+                              userId={userId()}
+                              onCreated={(repo) => {
+                                dialog.show(() => (
+                                  <UploadPluginDialog
+                                    repoId={repo.id}
+                                    onUploaded={(item) => {
+                                      void loadCreated()
+                                      showToast({ title: language.t("store.uploadPlugin.success") || "Plugin 上传成功" })
+                                    }}
+                                  />
+                                ))
+                              }}
+                            />
+                          ))
                           return
                         }
                         dialog.show(() => (
