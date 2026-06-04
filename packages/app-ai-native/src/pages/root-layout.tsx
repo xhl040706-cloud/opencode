@@ -245,8 +245,7 @@ export default function RootLayout(props: ParentProps) {
               active={isWorkspace()}
               onClick={() => navigate(lastWorkspace)}
             />
-            {/* TODO: 临时隐藏 Multica 入口 */}
-            <Show when={false}>
+            <Show when={true}>
               <NavButton
                 icon="task"
                 label="Multica"
