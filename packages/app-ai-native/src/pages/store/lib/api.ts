@@ -1280,3 +1280,41 @@ export const updateApi = {
     return json?.data ?? json
   },
 }
+
+export const pluginApi = {
+  upload: (repoId: string, file: File, onProgress?: (p: number) => void) => {
+    return new Promise<CapabilityItem>((resolve, reject) => {
+      const form = new FormData()
+      form.append("repo_id", repoId)
+      form.append("file", file)
+
+      const xhr = new XMLHttpRequest()
+      xhr.open("POST", `${API_BASE}/api/plugins/upload`)
+      xhr.withCredentials = true
+
+      if (onProgress) {
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            onProgress(e.loaded / e.total)
+          }
+        })
+      }
+
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText))
+        } else {
+          let err: any
+          try {
+            err = JSON.parse(xhr.responseText)
+          } catch {
+            err = { error: xhr.statusText }
+          }
+          reject(new Error(err.error || err.message || `Request failed: ${xhr.status}`))
+        }
+      })
+      xhr.addEventListener("error", () => reject(new Error("Network error")))
+      xhr.send(form)
+    })
+  },
+}
