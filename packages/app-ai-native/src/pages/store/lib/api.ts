@@ -1282,11 +1282,14 @@ export const updateApi = {
 }
 
 export const pluginApi = {
-  upload: (repoId: string, file: File, onProgress?: (p: number) => void) => {
+  upload: (repoId: string, file: File, isBuiltIn?: boolean, onProgress?: (p: number) => void) => {
     return new Promise<CapabilityItem>((resolve, reject) => {
       const form = new FormData()
       form.append("repo_id", repoId)
       form.append("file", file)
+      if (isBuiltIn) {
+        form.append("is_builtin", "true")
+      }
 
       const xhr = new XMLHttpRequest()
       xhr.open("POST", `${API_BASE}/api/plugins/upload`)
@@ -1317,4 +1320,8 @@ export const pluginApi = {
       xhr.send(form)
     })
   },
+  listBuiltin: (page = 1, pageSize = 20) =>
+    apiFetch<{ items: CapabilityItem[]; total: number; page: number; pageSize: number }>(
+      `/api/plugins/builtin?page=${page}&pageSize=${pageSize}`,
+    ),
 }
