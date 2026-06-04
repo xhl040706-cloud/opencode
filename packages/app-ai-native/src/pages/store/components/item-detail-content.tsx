@@ -18,6 +18,7 @@ import { pickItemDescription } from "../lib/item-description"
 import SecurityTag from "./security-tag"
 import HealthRadar from "./health-radar"
 import { DistributeDialog } from "./distribute-dialog"
+import { BuiltinContentDialog } from "./builtin-content-dialog"
 import { McpConfigForm } from "./mcp-config-form"
 import { detectMcpFields } from "../lib/mcp-config"
 import type { McpConfigStatus } from "../lib/api"
@@ -551,22 +552,34 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         <button
                           onClick={async () => {
                             const next = !data().isBuiltIn
-                            try {
-                              await itemApi.update(data().id, { isBuiltIn: next })
-                              mutateItem((prev) => (prev ? { ...prev, isBuiltIn: next } : prev))
-                              showToast({
-                                variant: "success",
-                                title: next
-                                  ? language.t("store.detail.setBuiltInSuccess") || "已设为内置 Plugin"
-                                  : language.t("store.detail.unsetBuiltInSuccess") || "已取消内置 Plugin",
-                              })
-                            } catch (err) {
-                              showToast({
-                                variant: "error",
-                                title: language.t("store.detail.toggleBuiltInFailed") || "设置失败",
-                                description: err instanceof Error ? err.message : String(err),
-                              })
+                            // 取消内置：直接更新
+                            if (!next) {
+                              try {
+                                await itemApi.update(data().id, { isBuiltIn: false })
+                                mutateItem((prev) => (prev ? { ...prev, isBuiltIn: false } : prev))
+                                showToast({
+                                  variant: "success",
+                                  title: language.t("store.detail.unsetBuiltInSuccess") || "已取消内置 Plugin",
+                                })
+                              } catch (err) {
+                                showToast({
+                                  variant: "error",
+                                  title: language.t("store.detail.toggleBuiltInFailed") || "设置失败",
+                                  description: err instanceof Error ? err.message : String(err),
+                                })
+                              }
+                              return
                             }
+                            // 设为内置：弹窗上传 Markdown 内容
+                            dialog.show(() => (
+                              <BuiltinContentDialog
+                                itemId={data().id}
+                                itemName={data().name}
+                                onSuccess={(updatedItem) => {
+                                  mutateItem((prev) => (prev ? { ...prev, ...updatedItem } : prev))
+                                }}
+                              />
+                            ))
                           }}
                           class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
                           title={data().isBuiltIn ? "取消内置 Plugin" : "设为内置 Plugin"}
