@@ -106,6 +106,11 @@ const TAG_COLOR_BY_CLASS = {
 let highlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined
 
 export function getInstallCommand(item: CapabilityItem) {
+  // Prefer metadata.install for plugin items (e.g. zip_download instructions)
+  const install = (item.metadata as Record<string, any> | undefined)?.install
+  if (install?.method === "zip_download" && Array.isArray(install.commands)) {
+    return install.commands.join("\n")
+  }
   const registry = item.repoName || "public"
   return `cs plugin add ${item.itemType} ${registry}/${item.slug}`
 }
