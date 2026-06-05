@@ -279,8 +279,11 @@ function PanelBody(props: { directory: string; proxyId: string; onSkillReady: (t
   const syncGenerated = async (force = false): Promise<boolean> => {
     // Only consider skills created during this session; never fall back to a
     // pre-existing skill (e.g. commit-guard) — that's not what the user asked
-    // the agent to write here.
-    const before = baseline ?? new Set<string>()
+    // the agent to write here. Until the mount-time baseline snapshot resolves we
+    // can't tell which skills pre-existed, so a poll/idle fire would treat ALL
+    // existing skills as new and mirror an unrelated one — so wait for it.
+    if (baseline === undefined) return false
+    const before = baseline
     const after = await snapshot()
     const added = [...after].filter((name) => !before.has(name))
     if (added.length === 0) return false
