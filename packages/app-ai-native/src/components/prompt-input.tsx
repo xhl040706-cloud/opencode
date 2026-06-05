@@ -82,6 +82,8 @@ interface PromptInputProps {
   onSubmit?: () => void
   hideAttachButton?: boolean
   busySince?: number
+  // Optional hidden instruction seeded into the first message of a new session.
+  hiddenSeed?: () => string | undefined
 }
 
 const EXAMPLES = [
@@ -1161,6 +1163,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     newSessionWorktree: () => props.newSessionWorktree,
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     onSubmit: props.onSubmit,
+    hiddenSeed: props.hiddenSeed,
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {

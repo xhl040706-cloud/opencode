@@ -24,7 +24,7 @@ import { useFile } from "@/context/file"
 import { SyncContext } from "@/context/sync"
 import { LocalContext } from "@/context/local"
 import { SDKContext } from "@/context/sdk"
-import { PromptProvider } from "@/context/prompt"
+import { PromptProvider, usePrompt } from "@/context/prompt"
 import { CommentsContext } from "@/context/comments"
 import { PermissionContext } from "@/context/permission"
 import { CommandContext } from "@/context/command"
@@ -127,7 +127,32 @@ function legacyProvider(input: ProviderCapabilitiesResponse): ProviderListRespon
   }
 }
 
-export function DeviceSessionTab(props: { tabId: string }) {
+// One-shot prompt seeder: prefills the composer with a fixed prefix (e.g.
+// `/skill-writer `) once the device's model + agent are ready, placing the
+// cursor at the end so the user just types their request and presses Enter.
+// Opt-in via `DeviceSessionTab`'s `promptSeed` prop; never auto-sends, so it
+// does not affect ordinary workspace sessions.
+function PromptSeeder(props: { seed?: string }) {
+  const prompt = usePrompt()
+  const local = useDeviceLocal()
+  let seeded = false
+  createEffect(() => {
+    if (seeded) return
+    const seed = props.seed
+    if (!seed) return
+    if (!prompt.ready()) return
+    if (!local.model.current() || !local.agent.current()) return
+    if (prompt.dirty()) {
+      seeded = true
+      return
+    }
+    seeded = true
+    prompt.set([{ type: "text", content: seed, start: 0, end: seed.length }], seed.length)
+  })
+  return null
+}
+
+export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hiddenSeed?: string }) {
   const device = useDeviceSDK()
   const workspace = useDeviceWorkspace()
   const session = useDeviceSession()
@@ -1030,6 +1055,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
           <SyncContext.Provider value={syncValue as any}>
             <LocalContext.Provider value={localValue as any}>
               <PromptProvider>
+                <PromptSeeder seed={props.promptSeed} />
                 <CommentsContext.Provider value={commentsValue as any}>
                   <PermissionContext.Provider value={permissionValue as any}>
                     <CommandContext.Provider value={commandValue as any}>
@@ -1229,6 +1255,7 @@ export function DeviceSessionTab(props: { tabId: string }) {
                                         el.addEventListener("pointerdown", handler)
                                       }}
                                       newSessionWorktree="main"
+                                      hiddenSeed={() => props.hiddenSeed}
                                       onNewSessionWorktreeReset={() => {}}
                                       onSubmit={() => {
                                         resumeScroll()
