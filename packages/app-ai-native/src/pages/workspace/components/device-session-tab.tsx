@@ -1002,14 +1002,22 @@ export function DeviceSessionTab(props: { tabId: string }) {
 
   const dataProps = createMemo(() => {
     const cid = currentSessionID()
-    const parts = effectiveParts()
+    // IMPORTANT: keep `part` pointing at the live store proxy (effectiveParts),
+    // never a `{ ...parts }` shallow copy. Streaming applies deep in-place edits
+    // to `session.data.parts[mid][idx]` (delta/updated) without changing the
+    // top-level key set, so a snapshot taken at `dataProps` recompute time goes
+    // stale: it both misses newly-added assistant part arrays (blank during
+    // stream) and never reflects delta text. Passing the proxy lets the render
+    // layer's deep reads (`data.store.part[mid][idx].text`) subscribe to the
+    // store's fine-grained nodes — identical to the full-workspace `data={sync.data}`
+    // path — so assistant chunks and optimistic user parts render live.
     return {
       ...syncData,
       message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() } as Record<
         string,
         Message[]
       >,
-      part: { ...parts } as Record<string, Part[]>,
+      part: effectiveParts(),
       partProgress: session.data.partProgress,
       provider: legacyProvider(workspace.data.provider),
     }
