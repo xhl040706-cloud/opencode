@@ -1425,6 +1425,22 @@ export default function CapabilityEditorPage() {
   }
   const collapseChat = () => setLayout("chatCollapsed", true)
 
+  // No online device: the AI-create panel can't run (all authoring compute lives
+  // on the device, the web side has no LLM). Instead of hiding the button, we
+  // explain how to bring a device online and offer to jump to the workspace,
+  // where the start-service / device-pairing steps live.
+  const promptConnectDevice = () => {
+    dialog.show(() => (
+      <ConfirmDialog
+        title={language.t("store.skillWriter.noDevice.title")}
+        description={language.t("store.skillWriter.noDevice.description")}
+        confirm={language.t("store.skillWriter.noDevice.confirm")}
+        variant="normal"
+        onConfirm={() => navigate("/workspace")}
+      />
+    ))
+  }
+
   // Online devices gate the in-page "AI create" chat panel. The actual
   // authoring runs on the device (the web side provides no LLM); when no device
   // is online the panel is hidden and the editor works normally.
@@ -2583,25 +2599,31 @@ export default function CapabilityEditorPage() {
                 <Button type="button" size="sm" variant="outline" class="h-8 px-3" onClick={() => navigate("/store/manager")}>
                   {language.t("store.capabilityEditor.backToManagement")}
                 </Button>
-                {/* AI-create toolbar toggle: opens/collapses the in-page device
-                    chat panel. Shown only when a device is online; highlighted
-                    while the panel is expanded. */}
-                <Show when={hasOnlineDevice()}>
-                  <button
-                    type="button"
-                    onClick={() => (layout.chatCollapsed ? openChat() : collapseChat())}
-                    title={language.t("store.skillWriter.expand")}
-                    aria-pressed={!layout.chatCollapsed}
-                    classList={{
-                      "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-all duration-150": true,
-                      "border-[color:color-mix(in_srgb,var(--native-primary)_60%,transparent)] bg-[color:color-mix(in_srgb,var(--native-primary)_14%,transparent)] text-[var(--native-primary)]": !layout.chatCollapsed,
-                      "border-[color:color-mix(in_srgb,var(--native-border)_48%,transparent)] text-[var(--native-muted)] hover:bg-[var(--native-hover)] hover:text-[var(--native-foreground)]": layout.chatCollapsed,
-                    }}
-                  >
-                    <Icon name="sparkles" size="small" class="shrink-0" />
-                    {language.t("store.skillWriter.expand")}
-                  </button>
-                </Show>
+                {/* AI-create toolbar toggle: always shown. With an online device
+                    it opens/collapses the in-page chat panel; without one it
+                    explains how to bring a device online and offers to jump to the
+                    workspace. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!hasOnlineDevice()) {
+                      promptConnectDevice()
+                      return
+                    }
+                    if (layout.chatCollapsed) openChat()
+                    else collapseChat()
+                  }}
+                  title={language.t("store.skillWriter.expand")}
+                  aria-pressed={hasOnlineDevice() && !layout.chatCollapsed}
+                  classList={{
+                    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-all duration-150": true,
+                    "border-[color:color-mix(in_srgb,var(--native-primary)_60%,transparent)] bg-[color:color-mix(in_srgb,var(--native-primary)_14%,transparent)] text-[var(--native-primary)]": hasOnlineDevice() && !layout.chatCollapsed,
+                    "border-[color:color-mix(in_srgb,var(--native-border)_48%,transparent)] text-[var(--native-muted)] hover:bg-[var(--native-hover)] hover:text-[var(--native-foreground)]": !hasOnlineDevice() || layout.chatCollapsed,
+                  }}
+                >
+                  <Icon name="sparkles" size="small" class="shrink-0" />
+                  {language.t("store.skillWriter.expand")}
+                </button>
                 <Show
                   when={!isEdit()}
                   fallback={
