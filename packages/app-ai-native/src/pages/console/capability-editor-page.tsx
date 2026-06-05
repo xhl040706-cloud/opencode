@@ -600,6 +600,27 @@ function upsertFrontmatter(content: string, fields: { name?: string; description
   return rebuilt
 }
 
+// Normalize a skill's SKILL.md frontmatter to the canonical shape the
+// form→frontmatter effect produces (managed name/description/tags upserted).
+// Applied on BOTH edit-load effects so the effect's post-load rewrite is a no-op
+// and opening an unedited skill doesn't trigger a spurious version bump on save.
+// Non-skill types / missing SKILL.md pass through unchanged.
+function withNormalizedSkillFrontmatter(
+  fileContents: FileContentMap,
+  itemType: ItemType,
+  fields: { name?: string; description?: string; tags?: string[] },
+): FileContentMap {
+  if (itemType !== "skill" || fileContents["SKILL.md"] === undefined) return fileContents
+  return {
+    ...fileContents,
+    "SKILL.md": upsertFrontmatter(fileContents["SKILL.md"], {
+      name: fields.name || "",
+      description: fields.description || "",
+      tags: fields.tags ?? [],
+    }),
+  }
+}
+
 // Matches a single leading YAML frontmatter block (the opening `---`, the keys,
 // and the closing `---` plus its trailing newline / EOF). Shares its shape with
 // `upsertFrontmatter`'s matcher: non-greedy `[\s\S]*?` so it stops at the FIRST
@@ -1707,7 +1728,16 @@ export default function CapabilityEditorPage() {
 
     const itemType = (data.itemType as ItemType) || "skill"
     if (itemAssets.loading) return
-    const fileContents = buildFileContentsFromItem(data, itemAssets() ?? [])
+    const loadedTags = (data.tags ?? []).map((tag) => tag.slug).filter(Boolean)
+    // Pre-normalize the skill's SKILL.md frontmatter to the canonical shape the
+    // form→frontmatter effect produces, so its post-load rewrite is a no-op and an
+    // unedited skill doesn't diverge from initialContentSnapshot (spurious version
+    // bump on save). The second (form.loaded) re-sync effect below does the same.
+    const fileContents = withNormalizedSkillFrontmatter(
+      buildFileContentsFromItem(data, itemAssets() ?? []),
+      itemType,
+      { name: data.name || "", description: data.description || "", tags: loadedTags },
+    )
     const filePaths = Object.keys(fileContents)
     const selectedTreePath = data.sourcePath || defaultSourcePathForItemType(itemType, data.slug || "") || filePaths[0] || ""
 
@@ -1718,7 +1748,7 @@ export default function CapabilityEditorPage() {
       slugManual: true,
       description: data.description || "",
       category: data.category || "utilities",
-      tags: (data.tags ?? []).map((tag) => tag.slug).filter(Boolean),
+      tags: loadedTags,
       content: data.content || TYPE_CONTENT_PLACEHOLDER[itemType] || "",
       namespace: data.repoId ? `repo:${data.repoId}` : "public",
       loaded: true,
@@ -1785,7 +1815,14 @@ export default function CapabilityEditorPage() {
     if (isViewingHistoricalVersion()) return
 
     if (itemAssets.loading) return
-    const fileContents = buildFileContentsFromItem(data, itemAssets() ?? [])
+    // Same pre-normalization as the initial edit-load effect, so this re-sync
+    // (fires on data/asset changes after load) doesn't reset the snapshot back to
+    // un-normalized content and reintroduce the spurious version bump.
+    const fileContents = withNormalizedSkillFrontmatter(
+      buildFileContentsFromItem(data, itemAssets() ?? []),
+      (data.itemType as ItemType) || "skill",
+      { name: data.name || "", description: data.description || "", tags: (data.tags ?? []).map((tag) => tag.slug).filter(Boolean) },
+    )
     const filePaths = Object.keys(fileContents)
     const selectedTreePath = data.sourcePath || defaultSourcePathForItemType((data.itemType as ItemType) || "skill", data.slug || "") || filePaths[0] || ""
 
