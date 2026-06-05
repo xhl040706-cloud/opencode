@@ -24,7 +24,7 @@ import { createStore } from "solid-js/store"
 import { TYPE_COLORS, TYPE_CONTENT_PLACEHOLDER, typeKey } from "@/pages/store/lib/constants"
 import { itemApi, registryApi2, repoApi, type CapabilityItem, type CapabilityItemAsset, type Repository } from "@/pages/store/lib/api"
 import { getInstallCommand } from "@/pages/store/components/item-detail-content"
-import { TagInput } from "@/pages/console/components/tag-input"
+import { TagInput, normalizeTag } from "@/pages/console/components/tag-input"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
 import { SkillWriterChatPanel } from "@/pages/console/skill-writer-chat-panel"
 import { deviceApi } from "@/pages/workspace/lib/api"
@@ -621,6 +621,91 @@ function extractLeadingFrontmatter(content: string): string {
   const match = LEADING_FRONTMATTER_RE.exec(content)
   if (!match) return ""
   return match[0]
+}
+
+// Parse the managed metadata (name / description / tags) out of a SKILL.md's
+// leading YAML frontmatter, tolerant of the shapes the device agent actually
+// emits. Unlike the single-line `extractImportedSkillDescription`, this also
+// handles a `description` written as a YAML block scalar (`>` / `|`) and `tags`
+// written either inline (`[a, b]`) or as a block sequence (`- a` lines). It is
+// best-effort and never throws; only the keys it finds are returned.
+function parseSkillFrontmatter(content: string): { name?: string; description?: string; tags?: string[] } {
+  const block = extractLeadingFrontmatter(content)
+  if (!block) return {}
+  const inner = block.replace(/^---\s*\r?\n/, "").replace(/\r?\n---(\r?\n|$)$/, "")
+  const lines = inner.split(/\r?\n/)
+
+  const unquote = (value: string): string => {
+    const trimmed = value.trim()
+    const quoted = /^(['"])([\s\S]*)\1$/.exec(trimmed)
+    return quoted ? (quoted[2] ?? "") : trimmed
+  }
+
+  const result: { name?: string; description?: string; tags?: string[] } = {}
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? ""
+    const keyMatch = /^([A-Za-z0-9_-]+)\s*:(.*)$/.exec(line)
+    if (!keyMatch) continue
+    const key = (keyMatch[1] ?? "").toLowerCase()
+    const rest = keyMatch[2] ?? ""
+
+    if (key === "name") {
+      const value = unquote(rest)
+      if (value) result.name = value
+    } else if (key === "description") {
+      const marker = rest.trim()
+      if (/^[|>][+-]?\s*$/.test(marker)) {
+        // YAML block scalar: collect indented continuation lines (blank lines
+        // are part of the block; trailing ones are trimmed off below).
+        const collected: string[] = []
+        let j = i + 1
+        for (; j < lines.length; j += 1) {
+          const next = lines[j] ?? ""
+          if (next.trim() === "") {
+            collected.push("")
+            continue
+          }
+          if (!/^\s/.test(next)) break
+          collected.push(next.replace(/^\s+/, ""))
+        }
+        i = j - 1
+        const folded = marker.startsWith(">")
+          ? collected.join(" ").replace(/\s+/g, " ").trim()
+          : collected.join("\n").trim()
+        if (folded) result.description = folded
+      } else {
+        const value = unquote(rest)
+        if (value) result.description = value
+      }
+    } else if (key === "tags") {
+      const marker = rest.trim()
+      if (marker.startsWith("[")) {
+        // Inline flow array: [a, b, c]
+        const body = marker.replace(/^\[/, "").replace(/\]\s*$/, "")
+        const items = body.split(",").map((t) => unquote(t)).filter(Boolean)
+        if (items.length) result.tags = items
+      } else if (marker === "") {
+        // Block sequence: subsequent `- item` lines.
+        const collected: string[] = []
+        let j = i + 1
+        for (; j < lines.length; j += 1) {
+          const itemMatch = /^\s*-\s+(.*)$/.exec(lines[j] ?? "")
+          if (!itemMatch) break
+          const item = unquote(itemMatch[1] ?? "")
+          if (item) collected.push(item)
+        }
+        i = j - 1
+        if (collected.length) result.tags = collected
+      } else {
+        // Rare: tags on one line, space/comma separated.
+        const items = marker.split(/[\s,]+/).map((t) => unquote(t)).filter(Boolean)
+        if (items.length) result.tags = items
+      }
+    }
+  }
+
+  return result
 }
 
 function resetCapabilityDraft(setForm: (setter: unknown, ...args: unknown[]) => void, itemType: ItemType) {
@@ -1378,13 +1463,34 @@ export default function CapabilityEditorPage() {
   const handleSkillReady = (skillMdText: string, name: string) => {
     setForm("fileContents", "SKILL.md", skillMdText)
     setForm("selectedTreePath", "SKILL.md")
-    const description = extractImportedSkillDescription({ "SKILL.md": skillMdText })
-    if (!form.name && name) setForm("name", formatImportedTitle(name))
-    if (!form.slug && name) {
-      setForm("slug", sanitizeIdentifier(name))
+    // Mirror what the device agent authored into the left form's
+    // name/description/tags. Fill-when-empty only: a field the user already
+    // typed is never overwritten, and the form -> frontmatter effect keeps the
+    // user's value as the single source of truth.
+    const meta = parseSkillFrontmatter(skillMdText)
+    const skillName = name || meta.name || ""
+    if (!form.name && skillName) setForm("name", formatImportedTitle(skillName))
+    if (!form.slug && skillName) {
+      setForm("slug", sanitizeIdentifier(skillName))
       setForm("slugManual", true)
     }
+    // Prefer the robust frontmatter parse (handles multi-line / block scalars);
+    // fall back to the single-line extractor for older shapes.
+    const description = meta.description || extractImportedSkillDescription({ "SKILL.md": skillMdText })
     if (!form.description && description) setForm("description", description)
+    // Normalize AI-authored tags to the same slug shape TagInput stores, dedupe,
+    // and fill only when the user hasn't added any tags yet.
+    if (form.tags.length === 0 && meta.tags?.length) {
+      const seen = new Set<string>()
+      const tags: string[] = []
+      for (const raw of meta.tags) {
+        const slug = normalizeTag(raw)
+        if (!slug || seen.has(slug)) continue
+        seen.add(slug)
+        tags.push(slug)
+      }
+      if (tags.length) setForm("tags", tags)
+    }
   }
 
   // One-way sync: the left form's name/description/tags are the single source of

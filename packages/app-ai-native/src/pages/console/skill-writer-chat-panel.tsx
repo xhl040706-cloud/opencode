@@ -38,7 +38,8 @@ Step 2 — Interview via AskUserQuestion (~1 topic/round): (a) what should this 
 Step 3 — Write .claude/skills/<skill-name>/SKILL.md (run mkdir -p on the dir first, then use the Write tool):
 ---
 name: <skill-name>
-description: <THIRD PERSON. What it does AND when to use it, with literal quoted trigger phrases. <=1024 chars; no XML tags; must not contain "anthropic" or "claude".>
+description: <THIRD PERSON, ON ONE LINE. What it does AND when to use it, with literal quoted trigger phrases. <=1024 chars; keep it to a SINGLE line — do NOT use YAML block scalars (> or |) or raw line breaks; no XML tags; must not contain "anthropic" or "claude".>
+tags: [<tag1>, <tag2>, <tag3>]
 allowed-tools: [Read, Edit, Bash]   # optional; omit if unsure
 ---
 # <Title Case Name>
