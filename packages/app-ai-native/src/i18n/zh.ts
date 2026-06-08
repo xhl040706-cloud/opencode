@@ -52,6 +52,9 @@ export const dict = {
   "command.language.set": "使用语言：{{language}}",
 
   "command.session.new": "新建会话",
+  "command.session.new.description": "开始新的会话",
+  "command.session.clear": "清空",
+  "command.session.clear.description": "清空并开始新的会话",
 
   "command.file.open": "打开文件",
 

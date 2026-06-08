@@ -772,6 +772,9 @@ export const dict = {
   "command.language.set": "Use language: {{language}}",
 
   "command.session.new": "New session",
+  "command.session.new.description": "Start a new session",
+  "command.session.clear": "Clear",
+  "command.session.clear.description": "Clear and start a new session",
   "command.file.open": "Open file",
   "command.tab.close": "Close tab",
   "command.context.addSelection": "Add selection to context",

@@ -18,6 +18,7 @@ export interface SlashCommand {
   source?: "command" | "mcp" | "skill"
   scope?: string
   autoSubmit?: boolean
+  onAction?: () => void
 }
 
 type PromptPopoverProps = {
