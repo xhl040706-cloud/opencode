@@ -9,6 +9,7 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ConfirmDialog } from "./confirm-dialog"
 import { LocalIcon } from "@/components/local-icon"
+import AvatarDisplay from "@/components/avatar-display"
 import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useAuth } from "@/context/auth"
 import { useNavigate } from "@solidjs/router"
@@ -324,6 +325,13 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
     () => item()?.forkedFromOwnerId,
     (ownerId) => userApi.getNames([ownerId]).then((names) => names[ownerId] ?? ownerId),
   )
+  // 系统/官方内置账号（forkedFromOwnerId === "system"）显示友好文案，避免露出技术值「Fork 自 system」。
+  const forkedFromText = () =>
+    item()?.forkedFromOwnerId === "system"
+      ? language.t("store.detail.forkedFromOfficial")
+      : language.t("store.detail.forkedFrom", {
+          name: forkedFromName() ?? item()?.forkedFromOwnerId ?? "",
+        })
   const [copied, setCopied] = createSignal(false)
   const [idCopied, setIdCopied] = createSignal(false)
   const [highlighted] = createResource(
@@ -835,16 +843,17 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         </div>
                       </div>
 
-                      <Show when={data().source}>
+                      {/* 仅当 source 可识别（命中已知来源映射表）才显示来源框；不可识别（空 / UUID / 未收录值）整体隐藏，
+                          避免裸露脏值。已知但无 url 的来源（如 internal）仍显示纯 label（不可点）。 */}
+                      <Show when={data().source && itemFilterOptions.isKnownSource(data().source)}>
                         {(() => {
                           const sourceLabel = itemFilterOptions.sourceLabel(data().source) || data().source
                           const sourceUrl = itemFilterOptions.sourceUrl(data().source)
-                          const verified = !!sourceUrl
 
                           return (
                             <div>
                               <Show
-                                when={verified}
+                                when={sourceUrl}
                                 fallback={
                                   <span
                                     class="inline-flex w-full cursor-default items-center justify-center gap-1.5 rounded-[0.5rem] border border-border-weak-base px-3 py-2 text-[14px] font-bold leading-5 text-text-weak"
@@ -920,16 +929,10 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             type="button"
                             onClick={() => navigate(`/capabilities/${data().forkedFromItemId}/edit`)}
                             class="inline-flex max-w-full cursor-pointer items-center gap-1.5 text-sm leading-5 text-text-weak transition-colors hover:text-[var(--native-primary)]"
-                            title={language.t("store.detail.forkedFrom", {
-                              name: forkedFromName() ?? data().forkedFromOwnerId ?? "",
-                            })}
+                            title={forkedFromText()}
                           >
                             <LocalIcon name="fork" size="small" style={{ width: "14px", height: "14px" }} />
-                            <span class="truncate">
-                              {language.t("store.detail.forkedFrom", {
-                                name: forkedFromName() ?? data().forkedFromOwnerId ?? "",
-                              })}
-                            </span>
+                            <span class="truncate">{forkedFromText()}</span>
                           </button>
                         </div>
                       </Show>
@@ -946,24 +949,35 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             >
                               {language.t("store.detail.author")}
                             </div>
-                            <div class="flex min-w-0 flex-col items-end">
-                              <span class="max-w-[12rem] truncate text-right text-sm leading-5 text-text-strong">
-                                {authorInfo()?.name ?? authorName() ?? data().createdBy}
-                              </span>
-                              <Show when={data().createdBy}>
-                                <button
-                                  type="button"
-                                  class="inline-flex cursor-pointer items-center gap-1 text-right font-mono text-[11px] leading-4 text-text-weak transition-colors duration-150 hover:text-text-strong"
-                                  title={data().createdBy}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    void copyAuthorId(data().createdBy)
-                                  }}
-                                >
-                                  <span>{shortId(data().createdBy)}</span>
-                                  <Icon name={idCopied() ? "check" : "link"} size="small" />
-                                </button>
+                            <div class="flex min-w-0 items-center gap-2">
+                              <Show when={authorInfo()?.avatarUrl}>
+                                <AvatarDisplay
+                                  avatarUrl={authorInfo()?.avatarUrl}
+                                  username={authorInfo()?.name ?? authorName() ?? data().createdBy}
+                                  title={authorInfo()?.name ?? authorName() ?? data().createdBy}
+                                  size="1.75rem"
+                                  class="shrink-0"
+                                />
                               </Show>
+                              <div class="flex min-w-0 flex-col items-end">
+                                <span class="max-w-[12rem] truncate text-right text-sm leading-5 text-text-strong">
+                                  {authorInfo()?.name ?? authorName() ?? data().createdBy}
+                                </span>
+                                <Show when={data().createdBy}>
+                                  <button
+                                    type="button"
+                                    class="inline-flex cursor-pointer items-center gap-1 text-right font-mono text-[11px] leading-4 text-text-weak transition-colors duration-150 hover:text-text-strong"
+                                    title={data().createdBy}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      void copyAuthorId(data().createdBy)
+                                    }}
+                                  >
+                                    <span>{shortId(data().createdBy)}</span>
+                                    <Icon name={idCopied() ? "check" : "link"} size="small" />
+                                  </button>
+                                </Show>
+                              </div>
                             </div>
                           </div>
                         </div>

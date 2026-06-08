@@ -1598,6 +1598,7 @@ export const dict = {
   "store.detail.forkSignInTooltip": "登录后可 Fork",
   "store.detail.forkArchiveUnsupported": "暂不支持 Fork 打包（archive）类项目",
   "store.detail.forkedFrom": "Fork 自 {{name}}",
+  "store.detail.forkedFromOfficial": "Fork 自 官方",
   "store.detail.forkSuccess": "已 Fork 到我的项目",
   "store.detail.forkFailed": "Fork 失败",
   "store.home.showForks": "显示 Fork",
