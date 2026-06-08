@@ -8,6 +8,7 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { LocalIcon } from "@/components/local-icon"
+import AvatarDisplay from "@/components/avatar-display"
 import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useAuth } from "@/context/auth"
 import { useNavigate } from "@solidjs/router"
@@ -912,24 +913,35 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             >
                               {language.t("store.detail.author")}
                             </div>
-                            <div class="flex min-w-0 flex-col items-end">
-                              <span class="max-w-[12rem] truncate text-right text-sm leading-5 text-text-strong">
-                                {authorInfo()?.name ?? authorName() ?? data().createdBy}
-                              </span>
-                              <Show when={data().createdBy}>
-                                <button
-                                  type="button"
-                                  class="inline-flex cursor-pointer items-center gap-1 text-right font-mono text-[11px] leading-4 text-text-weak transition-colors duration-150 hover:text-text-strong"
-                                  title={data().createdBy}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    void copyAuthorId(data().createdBy)
-                                  }}
-                                >
-                                  <span>{shortId(data().createdBy)}</span>
-                                  <Icon name={idCopied() ? "check" : "link"} size="small" />
-                                </button>
+                            <div class="flex min-w-0 items-center gap-2">
+                              <Show when={authorInfo()?.avatarUrl}>
+                                <AvatarDisplay
+                                  avatarUrl={authorInfo()?.avatarUrl}
+                                  username={authorInfo()?.name ?? authorName() ?? data().createdBy}
+                                  title={authorInfo()?.name ?? authorName() ?? data().createdBy}
+                                  size="1.75rem"
+                                  class="shrink-0"
+                                />
                               </Show>
+                              <div class="flex min-w-0 flex-col items-end">
+                                <span class="max-w-[12rem] truncate text-right text-sm leading-5 text-text-strong">
+                                  {authorInfo()?.name ?? authorName() ?? data().createdBy}
+                                </span>
+                                <Show when={data().createdBy}>
+                                  <button
+                                    type="button"
+                                    class="inline-flex cursor-pointer items-center gap-1 text-right font-mono text-[11px] leading-4 text-text-weak transition-colors duration-150 hover:text-text-strong"
+                                    title={data().createdBy}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      void copyAuthorId(data().createdBy)
+                                    }}
+                                  >
+                                    <span>{shortId(data().createdBy)}</span>
+                                    <Icon name={idCopied() ? "check" : "link"} size="small" />
+                                  </button>
+                                </Show>
+                              </div>
                             </div>
                           </div>
                         </div>
