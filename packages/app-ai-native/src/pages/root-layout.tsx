@@ -220,6 +220,11 @@ export default function RootLayout(props: ParentProps) {
     return path === "/console" || path.startsWith("/console/")
   }
 
+  const isMultica = () => {
+    const path = appPathname()
+    return path === "/multica"
+  }
+
   return (
     <div class="flex h-full w-full overflow-hidden">
       <Show when={!isMobile()}>
@@ -240,6 +245,14 @@ export default function RootLayout(props: ParentProps) {
               active={isWorkspace()}
               onClick={() => navigate(lastWorkspace)}
             />
+            {/* <Show when={true}>
+              <NavButton
+                icon="task"
+                label="Multica"
+                active={isMultica()}
+                onClick={() => navigate("/multica")}
+              />
+            </Show> */}
             <Show when={auth.canAccessMenu("kanban")}>
               <NavButton
                 label={language.t("sidebar.kanban")}

@@ -4,8 +4,8 @@ import QRCode from "qrcode"
 import { useTheme } from "@opencode-ai/ui/theme"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Markdown } from "@opencode-ai/ui/markdown"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ConfirmDialog } from "./confirm-dialog"
 import { LocalIcon } from "@/components/local-icon"
@@ -19,6 +19,10 @@ import { pickItemDescription } from "../lib/item-description"
 import SecurityTag from "./security-tag"
 import HealthRadar from "./health-radar"
 import { DistributeDialog } from "./distribute-dialog"
+import { BuiltinContentDialog } from "./builtin-content-dialog"
+import { McpConfigForm } from "./mcp-config-form"
+import { detectMcpFields } from "../lib/mcp-config"
+import type { McpConfigStatus } from "../lib/api"
 import "@/styles/vscode-markdown.css"
 
 const TYPE_META: Record<
@@ -41,6 +45,32 @@ const EVAL_DIMS = [
   "install_clarity",
 ] as const
 
+// Upstream rubric weights (ai-resource-eval/governor.py). Sum to 1.0 over all 6 dims.
+const EVAL_DIM_WEIGHTS: Record<(typeof EVAL_DIMS)[number], number> = {
+  coding_relevance: 0.25,
+  doc_completeness: 0.2,
+  desc_accuracy: 0.15,
+  writing_quality: 0.15,
+  specificity: 0.15,
+  install_clarity: 0.1,
+}
+
+// Content-quality subtotal (0-100): Σ (dim/5 * 100 * weight) over the dims present,
+// renormalizing weights across present dims so they still sum to 1. Returns null if no dims.
+function computeContentQuality(evaluation: NonNullable<CapabilityItem["evaluation"]>): number | null {
+  let weightSum = 0
+  let weighted = 0
+  for (const dim of EVAL_DIMS) {
+    const val = evaluation[dim]
+    if (val == null) continue
+    const weight = EVAL_DIM_WEIGHTS[dim]
+    weightSum += weight
+    weighted += (val / 5) * 100 * weight
+  }
+  if (weightSum === 0) return null
+  return Math.round(weighted / weightSum)
+}
+
 function hasHealthSignals(health?: CapabilityItem["health"]) {
   const s = health?.signals
   return !!s && (s.freshness != null || s.popularity != null || s.source_trust != null)
@@ -59,6 +89,10 @@ function hasEvaluation(e?: CapabilityItem["evaluation"]) {
   )
 }
 
+// Long uuid-style ids get a distinctive 12-char prefix (no mid-truncation ellipsis);
+// short ids (e.g. "system") are shown as-is.
+const shortId = (id: string) => (id.length <= 16 ? id : id.slice(0, 12))
+
 const THEMES = { light: "light-plus", dark: "dark-plus" } as const
 const TAG_COLOR_BY_CLASS = {
   system: {
@@ -74,6 +108,11 @@ const TAG_COLOR_BY_CLASS = {
 let highlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined
 
 export function getInstallCommand(item: CapabilityItem) {
+  // Prefer metadata.install for plugin items (e.g. zip_download instructions)
+  const install = (item.metadata as Record<string, any> | undefined)?.install
+  if (install?.method === "zip_download" && Array.isArray(install.commands)) {
+    return install.commands.join("\n")
+  }
   const registry = item.repoName || "public"
   return `cs plugin add ${item.itemType} ${registry}/${item.slug}`
 }
@@ -109,13 +148,6 @@ function formatCompactCount(value: number) {
     return `${next.replace(/\.0$/, "")}k`
   }
   return String(value)
-}
-
-function formatSourceScore(value?: number) {
-  if (value == null) return "—"
-  if (Math.abs(value) >= 1000) return formatCompactCount(Math.round(value))
-  if (Number.isInteger(value)) return String(value)
-  return value.toFixed(1).replace(/\.0$/, "")
 }
 
 function compareTags(a: { tagClass?: string; slug: string }, b: { tagClass?: string; slug: string }) {
@@ -266,7 +298,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
   const navigate = useNavigate()
   const theme = useTheme()
   const dialog = useDialog()
-  const [item] = createResource(
+  const [item, { mutate: mutateItem, refetch: refetchItem }] = createResource(
     () => props.itemId,
     (id) => itemApi.get(id),
   )
@@ -287,7 +319,13 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
       return info[createdBy] ?? null
     },
   )
+  // 「Forked from xxx」中 xxx = 原作者名，复用与 createdBy 相同的解析链路。
+  const [forkedFromName] = createResource(
+    () => item()?.forkedFromOwnerId,
+    (ownerId) => userApi.getNames([ownerId]).then((names) => names[ownerId] ?? ownerId),
+  )
   const [copied, setCopied] = createSignal(false)
+  const [idCopied, setIdCopied] = createSignal(false)
   const [highlighted] = createResource(
     () => {
       const json = tryJson(item()?.content ?? "")
@@ -299,6 +337,39 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
 
   const meta = () => TYPE_META[item()?.itemType ?? "skill"] ?? TYPE_META.skill
   const canEditItem = () => !!item() && !!auth.user() && item()!.createdBy === auth.user()!.id
+
+  // MCP per-user config gating. Detected placeholder fields come from the normalized template
+  // `metadata`; whether each is filled comes from the masked `mcpConfig` status (merged with a
+  // just-saved override). When an MCP item has fillable placeholders, subscribe is gated until
+  // every required field has a value. Non-MCP items / MCP without placeholders are unaffected.
+  const [mcpStatusOverride, setMcpStatusOverride] = createSignal<McpConfigStatus | null>(null)
+  const mcpFields = () =>
+    item()?.itemType === "mcp" ? detectMcpFields(item()?.metadata as Record<string, unknown> | undefined) : []
+  const mcpHasFields = () => mcpFields().length > 0
+  const mcpStatus = () => mcpStatusOverride() ?? item()?.mcpConfig ?? null
+  const mcpHasValueByKey = () => {
+    const map: Record<string, boolean> = {}
+    for (const f of mcpStatus()?.fields ?? []) map[f.key] = f.hasValue
+    return map
+  }
+  const mcpConfigComplete = () => {
+    if (!mcpHasFields()) return true
+    const filled = mcpHasValueByKey()
+    return mcpFields()
+      .filter((f) => f.required)
+      .every((f) => filled[f.key])
+  }
+  // Subscribe is blocked only for an MCP item that still has unfilled required placeholders.
+  const mcpGateBlocks = () => mcpHasFields() && !mcpConfigComplete()
+
+  // Called by the inline config form after a successful save: reflect the new masked status
+  // immediately (re-gates the subscribe button), then refetch so the per-user-resolved
+  // `content` preview and any other server-derived state refresh.
+  const onMcpSaved = (status: McpConfigStatus) => {
+    setMcpStatusOverride(status)
+    mutateItem((prev) => (prev ? { ...prev, mcpConfig: status } : prev))
+    void refetchItem()
+  }
   const canDistributeItem = () =>
     !!item() &&
     !!auth.user() &&
@@ -309,6 +380,40 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
     await navigator.clipboard.writeText(getInstallCommand(item()!))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const copyAuthorId = async (id: string) => {
+    await navigator.clipboard.writeText(id)
+    setIdCopied(true)
+    setTimeout(() => setIdCopied(false), 1500)
+  }
+
+  // Fork 仅对公共、非 archive 且非本人创建的 item 可用。
+  const canForkItem = () =>
+    !!item() && !canEditItem() && item()!.repoVisibility === "public" && item()!.sourceType !== "archive"
+
+  const [forking, setForking] = createSignal(false)
+  // Fork 按钮三态：已有我的 fork → 跳转查看；否则 fork；未登录禁用。
+  const doFork = async () => {
+    const data = item()
+    if (!data || forking()) return
+    if (data.myForkItemId) {
+      navigate(`/capabilities/${data.myForkItemId}/edit`)
+      return
+    }
+    setForking(true)
+    try {
+      const forked = await itemApi.fork(data.id)
+      showToast({ title: language.t("store.detail.forkSuccess") })
+      navigate(`/capabilities/${forked.id}/edit`)
+    } catch (err) {
+      showToast({
+        title: language.t("store.detail.forkFailed"),
+        description: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setForking(false)
+    }
   }
 
   return (
@@ -413,38 +518,23 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         <span>{language.t("common.delete")}</span>
                       </button>
                     </Show>
-                    <Show when={canDistributeItem()}>
-                      <button
-                        onClick={() =>
-                          dialog.show(() => (
-                            <DistributeDialog
-                              itemId={data().id}
-                              itemName={data().name}
-                            />
-                          ))
-                        }
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
-                        title={language.t("store.distribute.tooltip")}
-                      >
-                        <Icon name="share" size="small" />
-                        <span>{language.t("store.distribute.button")}</span>
-                      </button>
-                    </Show>
                     <Show when={props.onToggleFavorite}>
                       <button
                         onClick={() => void props.onToggleFavorite?.()}
-                        disabled={!props.isAuthenticated || props.favoritePending}
+                        disabled={!props.isAuthenticated || props.favoritePending || mcpGateBlocks()}
                         class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60"
                         classList={{
                           "bg-bg-muted text-text-strong hover:bg-bg-muted/70": props.favorited,
                           "text-text-weak hover:text-text-strong hover:bg-bg-muted": !props.favorited,
                         }}
                         title={
-                          props.isAuthenticated
-                            ? props.favorited
-                              ? language.t("store.detail.unfavoriteTooltip")
-                              : language.t("store.detail.favoriteTooltip")
-                            : language.t("store.detail.favoriteSignInTooltip")
+                          !props.isAuthenticated
+                            ? language.t("store.detail.favoriteSignInTooltip")
+                            : mcpGateBlocks()
+                              ? language.t("store.detail.mcpConfig.gateReason")
+                              : props.favorited
+                                ? language.t("store.detail.unfavoriteTooltip")
+                                : language.t("store.detail.favoriteTooltip")
                         }
                       >
                         <span class="inline-flex items-center" style={{ width: "14px", height: "14px" }}>
@@ -469,9 +559,92 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         </span>
                       </button>
                     </Show>
+                    <Show when={canForkItem()}>
+                      <button
+                        onClick={() => void doFork()}
+                        disabled={!props.isAuthenticated || forking()}
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong disabled:cursor-not-allowed disabled:opacity-60"
+                        title={
+                          !props.isAuthenticated
+                            ? language.t("store.detail.forkSignInTooltip")
+                            : data().myForkItemId
+                              ? language.t("store.detail.viewMyForkTooltip")
+                              : language.t("store.detail.forkTooltip")
+                        }
+                      >
+                        <LocalIcon name="fork" size="small" style={{ width: "14px", height: "14px" }} />
+                        <span>
+                          {data().myForkItemId
+                            ? language.t("store.detail.viewMyFork")
+                            : language.t("store.detail.fork")}
+                        </span>
+                      </button>
+                    </Show>
                     <ShareButton itemId={data().id} itemName={data().name} />
+                    <Show when={canDistributeItem()}>
+                      <Show when={data().itemType === "plugin"}>
+                        <button
+                          onClick={async () => {
+                            const next = !data().isBuiltIn
+                            // 取消内置：直接更新
+                            if (!next) {
+                              try {
+                                await itemApi.update(data().id, { isBuiltIn: false })
+                                mutateItem((prev) => (prev ? { ...prev, isBuiltIn: false } : prev))
+                                showToast({
+                                  variant: "success",
+                                  title: language.t("store.detail.unsetBuiltInSuccess") || "已取消内置 Plugin",
+                                })
+                              } catch (err) {
+                                showToast({
+                                  variant: "error",
+                                  title: language.t("store.detail.toggleBuiltInFailed") || "设置失败",
+                                  description: err instanceof Error ? err.message : String(err),
+                                })
+                              }
+                              return
+                            }
+                            // 设为内置：弹窗上传 Markdown 内容
+                            dialog.show(() => (
+                              <BuiltinContentDialog
+                                itemId={data().id}
+                                itemName={data().name}
+                                onSuccess={(updatedItem) => {
+                                  mutateItem((prev) => (prev ? { ...prev, ...updatedItem } : prev))
+                                }}
+                              />
+                            ))
+                          }}
+                          class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
+                          title={data().isBuiltIn ? "取消内置 Plugin" : "设为内置 Plugin"}
+                        >
+                          <LocalIcon name={data().isBuiltIn ? "star-filled" : "star"} size="small" />
+                          <span>{data().isBuiltIn ? "取消内置" : "设为内置"}</span>
+                        </button>
+                      </Show>
+                      <button
+                        onClick={() =>
+                          dialog.show(() => (
+                            <DistributeDialog
+                              itemId={data().id}
+                              itemName={data().name}
+                            />
+                          ))
+                        }
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
+                        title={language.t("store.distribute.tooltip")}
+                      >
+                        <LocalIcon name="send" size="small" />
+                        <span>{language.t("store.distribute.button")}</span>
+                      </button>
+                    </Show>
                   </div>
                 </div>
+                <Show when={props.onToggleFavorite && props.isAuthenticated && mcpGateBlocks()}>
+                  <p class="text-right text-12-regular text-text-weak">
+                    {language.t("store.detail.mcpConfig.gateHint")}
+                  </p>
+                </Show>
               </div>
             </div>
 
@@ -483,24 +656,75 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                   </Show>
 
                   <Show when={hasHealthSignals(data().health) || hasEvaluation(data().evaluation)}>
-                    <div class="flex flex-wrap gap-4">
-                      <Show when={hasHealthSignals(data().health)}>
-                        <div class="flex-1 min-w-[260px] rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 p-4">
-                          <div
-                            class="mb-2 text-xs"
-                            style={{
-                              color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
-                              "font-weight": 700,
-                            }}
-                          >
-                            {language.t("store.detail.health.title")}
-                          </div>
-                          <HealthRadar signals={data().health!.signals} accent={meta().accent} />
-                        </div>
-                      </Show>
+                    <div class="space-y-4">
+                      <div class="flex flex-wrap gap-4">
+                        <Show
+                          when={
+                            data().evaluation && computeContentQuality(data().evaluation!) != null && data().evaluation
+                          }
+                        >
+                          {(evaluation) => (
+                            <div class="flex-1 min-w-[260px] rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 p-4">
+                              <div class="mb-3 flex items-center justify-between gap-4">
+                                <div
+                                  class="text-xs"
+                                  style={{
+                                    color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                                    "font-weight": 700,
+                                  }}
+                                >
+                                  {language.t("store.detail.eval.contentQuality")}
+                                </div>
+                                <span class="text-lg font-bold" style={{ color: meta().accent }}>
+                                  {computeContentQuality(evaluation())}
+                                </span>
+                              </div>
+                              <div class="space-y-2.5">
+                                <For each={EVAL_DIMS}>
+                                  {(dim) => {
+                                    const val = evaluation()[dim]
+                                    return (
+                                      <Show when={val != null}>
+                                        <div class="flex items-center gap-3">
+                                          <span class="w-28 shrink-0 text-[11px] text-text-weak">
+                                            {language.t("store.detail.eval." + dim)}
+                                          </span>
+                                          <div class="flex flex-1 gap-1">
+                                            <For each={[1, 2, 3, 4, 5]}>
+                                              {(seg) => (
+                                                <div
+                                                  class="h-2 flex-1 rounded-full"
+                                                  style={{
+                                                    "background-color":
+                                                      seg <= (val as number)
+                                                        ? meta().accent
+                                                        : "color-mix(in srgb, var(--native-muted) 22%, var(--native-panel))",
+                                                  }}
+                                                />
+                                              )}
+                                            </For>
+                                          </div>
+                                          <span class="w-4 text-right text-[11px] text-text-weak">{val as number}</span>
+                                        </div>
+                                      </Show>
+                                    )
+                                  }}
+                                </For>
+                              </div>
+                              <Show when={evaluation().evaluated_at}>
+                                <p class="mt-3 text-[11px] text-text-weak">
+                                  {language.t("store.detail.eval.evaluator")}:{" "}
+                                  {evaluation().model_id === "__cached__"
+                                    ? "deepseek-chat"
+                                    : evaluation().model_id || "unknown"}{" "}
+                                  · {formatDate(evaluation().evaluated_at!, language.locale())}
+                                </p>
+                              </Show>
+                            </div>
+                          )}
+                        </Show>
 
-                      <Show when={hasEvaluation(data().evaluation) && data().evaluation}>
-                        {(evaluation) => (
+                        <Show when={hasHealthSignals(data().health)}>
                           <div class="flex-1 min-w-[260px] rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 p-4">
                             <div class="mb-3 flex items-center justify-between gap-4">
                               <div
@@ -510,56 +734,42 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                                   "font-weight": 700,
                                 }}
                               >
-                                {language.t("store.detail.eval.title")}
+                                {language.t("store.detail.health.title")}
                               </div>
-                              <Show when={evaluation().final_score > 0}>
+                              <Show when={data().health?.score != null}>
                                 <span class="text-lg font-bold" style={{ color: meta().accent }}>
-                                  {Math.round(evaluation().final_score)}
+                                  {Math.round(data().health!.score!)}
                                 </span>
                               </Show>
                             </div>
-                            <div class="space-y-2.5">
-                              <For each={EVAL_DIMS}>
-                                {(dim) => {
-                                  const val = evaluation()[dim]
-                                  return (
-                                    <Show when={val != null}>
-                                      <div class="flex items-center gap-3">
-                                        <span class="w-28 shrink-0 text-[11px] text-text-weak">
-                                          {language.t("store.detail.eval." + dim)}
-                                        </span>
-                                        <div class="flex flex-1 gap-1">
-                                          <For each={[1, 2, 3, 4, 5]}>
-                                            {(seg) => (
-                                              <div
-                                                class="h-2 flex-1 rounded-full"
-                                                style={{
-                                                  "background-color":
-                                                    seg <= (val as number)
-                                                      ? meta().accent
-                                                      : "color-mix(in srgb, var(--native-muted) 22%, var(--native-panel))",
-                                                }}
-                                              />
-                                            )}
-                                          </For>
-                                        </div>
-                                        <span class="w-4 text-right text-[11px] text-text-weak">{val as number}</span>
-                                      </div>
-                                    </Show>
-                                  )
-                                }}
-                              </For>
-                            </div>
-                            <Show when={evaluation().evaluated_at}>
-                              <p class="mt-3 text-[11px] text-text-weak">
-                                {language.t("store.detail.eval.evaluator")}:{" "}
-                                {evaluation().model_id === "__cached__"
-                                  ? "deepseek-chat"
-                                  : evaluation().model_id || "unknown"}{" "}
-                                · {formatDate(evaluation().evaluated_at!, language.locale())}
-                              </p>
-                            </Show>
+                            <HealthRadar signals={data().health!.signals} accent={meta().accent} />
                           </div>
+                        </Show>
+                      </div>
+
+                      <Show when={hasEvaluation(data().evaluation) && data().evaluation}>
+                        {(evaluation) => (
+                          <Show when={evaluation().final_score > 0}>
+                            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 px-4 py-3">
+                              <span
+                                class="text-xs"
+                                style={{
+                                  color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                                  "font-weight": 700,
+                                }}
+                              >
+                                {language.t("store.detail.overall.title")}
+                              </span>
+                              <span class="text-lg font-bold" style={{ color: meta().accent }}>
+                                {Math.round(evaluation().final_score)}
+                              </span>
+                              <Show when={data().health?.score != null}>
+                                <span class="text-[11px] text-text-weak">
+                                  {language.t("store.detail.overall.breakdown")}
+                                </span>
+                              </Show>
+                            </div>
+                          </Show>
                         )}
                       </Show>
                     </div>
@@ -622,18 +832,6 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             <LocalIcon name="subscribe" size="small" />
                             <span>{formatCompactCount(props.favoriteCount ?? data().favoriteCount ?? 0)}</span>
                           </span>
-                          <Show when={data().source}>
-                            <span
-                              class="inline-flex items-center gap-1.5"
-                              title={`${language.t("store.home.table.experienceScore")}: ${(() => {
-                                const score = data().experienceScore
-                                return score == null ? "—" : score.toLocaleString()
-                              })()}`}
-                            >
-                              <LocalIcon name="globe" size="small" />
-                              <span>{formatSourceScore(data().experienceScore)}</span>
-                            </span>
-                          </Show>
                         </div>
                       </div>
 
@@ -649,7 +847,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                                 when={verified}
                                 fallback={
                                   <span
-                                    class="inline-flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border border-border-weak-base px-3 py-2 text-[14px] font-bold leading-5 text-text-weak transition-colors hover:bg-bg-muted"
+                                    class="inline-flex w-full cursor-default items-center justify-center gap-1.5 rounded-[0.5rem] border border-border-weak-base px-3 py-2 text-[14px] font-bold leading-5 text-text-weak"
                                     title={`${language.t("store.home.table.source")}: ${sourceLabel}`}
                                   >
                                     {sourceLabel}
@@ -685,6 +883,13 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         })()}
                       </Show>
 
+                      {/* Local install box hidden — see PR #112 */}
+                      {/* <Show when={data().itemType === "plugin"}>
+                        <div class="space-y-2 rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 p-3">
+                          ...
+                        </div>
+                      </Show> */}
+
                       <div>
                         <div class="flex items-center justify-between gap-4">
                           <div
@@ -709,6 +914,26 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         </div>
                       </div>
 
+                      <Show when={data().forkedFromItemId}>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/capabilities/${data().forkedFromItemId}/edit`)}
+                            class="inline-flex max-w-full cursor-pointer items-center gap-1.5 text-sm leading-5 text-text-weak transition-colors hover:text-[var(--native-primary)]"
+                            title={language.t("store.detail.forkedFrom", {
+                              name: forkedFromName() ?? data().forkedFromOwnerId ?? "",
+                            })}
+                          >
+                            <LocalIcon name="fork" size="small" style={{ width: "14px", height: "14px" }} />
+                            <span class="truncate">
+                              {language.t("store.detail.forkedFrom", {
+                                name: forkedFromName() ?? data().forkedFromOwnerId ?? "",
+                              })}
+                            </span>
+                          </button>
+                        </div>
+                      </Show>
+
                       <Show when={authorInfo() || authorName()}>
                         <div>
                           <div class="flex items-center justify-between gap-4">
@@ -721,9 +946,25 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             >
                               {language.t("store.detail.author")}
                             </div>
-                            <span class="max-w-[12rem] truncate text-right text-sm leading-5 text-text-strong">
-                              {authorInfo()?.name ?? authorName() ?? data().createdBy}
-                            </span>
+                            <div class="flex min-w-0 flex-col items-end">
+                              <span class="max-w-[12rem] truncate text-right text-sm leading-5 text-text-strong">
+                                {authorInfo()?.name ?? authorName() ?? data().createdBy}
+                              </span>
+                              <Show when={data().createdBy}>
+                                <button
+                                  type="button"
+                                  class="inline-flex cursor-pointer items-center gap-1 text-right font-mono text-[11px] leading-4 text-text-weak transition-colors duration-150 hover:text-text-strong"
+                                  title={data().createdBy}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    void copyAuthorId(data().createdBy)
+                                  }}
+                                >
+                                  <span>{shortId(data().createdBy)}</span>
+                                  <Icon name={idCopied() ? "check" : "link"} size="small" />
+                                </button>
+                              </Show>
+                            </div>
                           </div>
                         </div>
                       </Show>
@@ -819,6 +1060,37 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                           </div>
                         </div>
                       </div>
+
+                      {/* MCP parameter config — inline, LAST block in the sidebar. Only for MCP
+                          items that have detected placeholder fields. Re-editable any time. */}
+                      <Show when={mcpHasFields()}>
+                        <div class="space-y-2 rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 p-3">
+                          <div
+                            class="text-xs"
+                            style={{
+                              color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                              "font-weight": 700,
+                            }}
+                          >
+                            {language.t("store.detail.mcpConfig.title")}
+                          </div>
+                          <Show
+                            when={props.isAuthenticated}
+                            fallback={
+                              <p class="text-12-regular text-text-weak">
+                                {language.t("store.detail.mcpConfig.signInTooltip")}
+                              </p>
+                            }
+                          >
+                            <McpConfigForm
+                              itemId={data().id}
+                              metadata={data().metadata as Record<string, unknown> | undefined}
+                              status={mcpStatus() ?? undefined}
+                              onSaved={onMcpSaved}
+                            />
+                          </Show>
+                        </div>
+                      </Show>
                     </div>
                   </div>
                 </aside>

@@ -24,6 +24,7 @@ import {
   formatStoreDate,
   formatStoreTablePaginationSummary,
   HighlightText,
+  mcpListSubscribeBlocked,
   StoreCapabilityTable,
   StoreTableFooter,
   type TableColumnKey,
@@ -143,6 +144,8 @@ export default function Home() {
   const [trackedItemId, setTrackedItemId] = createSignal<string | null>(null)
   const [detailContentReady, setDetailContentReady] = createSignal(false)
   const [detailRenderItemId, setDetailRenderItemId] = createSignal<string | null>(null)
+  // 公共浏览默认隐藏 fork 出来的副本（GitHub 式）；打开后包含。
+  const [showForks, setShowForks] = createSignal(false)
   let detailContentTimer: ReturnType<typeof setTimeout> | undefined
 
   const [columnPrefs, setColumnPrefs] = persisted(
@@ -225,6 +228,7 @@ export default function Home() {
     pageSize: PAGE_SIZE,
     sortBy: sort.by,
     sortOrder: sort.order,
+    includeForks: showForks() || undefined,
   }))
 
   const listKey = createMemo(() => JSON.stringify(listParams()))
@@ -287,16 +291,14 @@ export default function Home() {
 
     setFavoritePending(true)
     try {
-      if (favorited()) {
-        const result = await behaviorApi.unfavorite(data.id)
-        setFavorited(result.favorited)
-        setFavoriteCount(result.favoriteCount)
-        return
-      }
-
-      const result = await behaviorApi.favorite(data.id)
+      const result = favorited() ? await behaviorApi.unfavorite(data.id) : await behaviorApi.favorite(data.id)
       setFavorited(result.favorited)
       setFavoriteCount(result.favoriteCount)
+      patchListItem(data.id, (current) => ({
+        ...current,
+        favorited: result.favorited,
+        favoriteCount: result.favoriteCount,
+      }))
     } finally {
       setFavoritePending(false)
     }
@@ -304,6 +306,9 @@ export default function Home() {
 
   const toggleRowFavorite = async (item: CapabilityItem) => {
     if (!auth.user() || auth.loading() || favoriteActionItemId() === item.id) return
+    // Defense-in-depth: never subscribe an unconfigured MCP from the list (the disabled button
+    // already blocks this; this guards a bypass). Unsubscribing is always allowed.
+    if (mcpListSubscribeBlocked(item)) return
 
     setFavoriteActionItemId(item.id)
     try {
@@ -662,29 +667,6 @@ export default function Home() {
                         </span>
                       </button>
                     </Tooltip>
-                    <Tooltip value={language.t("store.console.capabilities.create")} placement="bottom">
-                      <button
-                        type="button"
-                        class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[0.375rem] bg-[color:color-mix(in_oklab,var(--native-primary)_85%,white)] text-white shadow-[var(--native-shadow-sm)] transition-[background-color,filter,transform] hover:cursor-pointer hover:bg-[var(--native-primary)]"
-                        aria-label={language.t("store.console.capabilities.create")}
-                        onClick={() => navigate("/capabilities/new")}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          class="size-5"
-                          style={{ color: "#ffffff" }}
-                        >
-                          <path d="M12 5v14" />
-                          <path d="M5 12h14" />
-                        </svg>
-                      </button>
-                    </Tooltip>
                   </div>
                 </div>
               </div>
@@ -893,6 +875,25 @@ export default function Home() {
               </button>
             </Show>
             </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowForks((v) => !v)
+              setPage(1)
+            }}
+            aria-pressed={showForks()}
+            title={language.t("store.home.showForks")}
+            class="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm transition-colors max-[640px]:px-3"
+            classList={{
+              "border-[color:color-mix(in_srgb,var(--native-primary)_52%,var(--native-border))] bg-[color:color-mix(in_srgb,var(--native-primary)_10%,var(--native-panel))] text-[var(--native-foreground)]":
+                showForks(),
+              "border-[color:color-mix(in_srgb,var(--native-border)_58%,transparent)] bg-[var(--native-panel)] text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)] hover:text-[var(--native-foreground)]":
+                !showForks(),
+            }}
+          >
+            <LocalIcon name="fork" size="small" />
+            <span class="max-[640px]:hidden">{language.t("store.home.showForks")}</span>
+          </button>
         </div>
       </section>
     )

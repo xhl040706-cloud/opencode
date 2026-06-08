@@ -14,7 +14,23 @@ import type {
 const PREFIX = env.API_PREFIX
 const API_BASE = env.API_URL || PREFIX
 
+// Lazy import to avoid bundling mock data in production builds
+let _mockApiFetch: typeof import("./mock-api").mockApiFetch | undefined
+async function getMockApiFetch() {
+  if (!_mockApiFetch) {
+    const mod = await import("./mock-api")
+    _mockApiFetch = mod.mockApiFetch
+  }
+  return _mockApiFetch
+}
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  // In demo mode, intercept all API calls and return mock data
+  if (env.DEMO_MODE) {
+    const mockFetch = await getMockApiFetch()
+    return mockFetch<T>(`${API_BASE}${path}`, options)
+  }
+
   const headers =
     options?.body instanceof FormData ? options.headers : { "Content-Type": "application/json", ...options?.headers }
   const res = await fetch(`${API_BASE}${path}`, {
@@ -265,6 +281,11 @@ export interface CapabilityItem {
   experienceScore?: number
   repoName?: string
   createdBy: string
+  forkedFromItemId?: string
+  forkedFromOwnerId?: string
+  isBuiltIn?: boolean
+  forkCount?: number
+  myForkItemId?: string
   createdAt: string
   updatedAt: string
   registry?: CapabilityRegistry
@@ -290,6 +311,16 @@ export interface CapabilityItem {
     model_id?: string
     rubric_version?: string
     evaluated_at?: string
+  }
+  // Normalized single-server MCP install template ({command,args,env,...}). Present for mcp
+  // items; the frontend heuristic (lib/mcp-config.ts) parses it to detect fillable placeholders.
+  metadata?: Record<string, unknown>
+  // Per-user MCP config status. Only present for an mcp item the logged-in user has configured,
+  // and it is only ever returned to that owner (anonymous/other users get no mcpConfig at all),
+  // so `value` carries the saved value for every field — secret included — to pre-fill the inline
+  // editor. `secret` only drives display masking elsewhere. See design.md §3.4.
+  mcpConfig?: {
+    fields: { key: string; hasValue: boolean; secret: boolean; value?: string }[]
   }
 }
 
@@ -818,6 +849,7 @@ export const itemApi = {
     sortBy?: ItemSort
     sortOrder?: ItemOrder
     favorited?: boolean
+    includeForks?: boolean
     paginated?: boolean
   }) => {
     const p = new URLSearchParams()
@@ -835,6 +867,7 @@ export const itemApi = {
     if (params?.sortBy) p.set("sortBy", params.sortBy)
     if (params?.sortOrder) p.set("sortOrder", params.sortOrder)
     if (params?.favorited) p.set("favorited", "true")
+    if (params?.includeForks) p.set("includeForks", "true")
     if (params?.paginated) p.set("paginated", "true")
     return apiFetch<{ items: CapabilityItem[]; total: number; hasMore: boolean }>(`/api/items?${p.toString()}`)
   },
@@ -920,6 +953,12 @@ export const itemApi = {
     apiFetch<CapabilityItem>(`/api/items/${id}/transfer`, {
       method: "PUT",
       body: JSON.stringify({ targetRepoId }),
+    }),
+
+  fork: (id: string) =>
+    apiFetch<CapabilityItem>(`/api/items/${id}/fork`, {
+      method: "POST",
+      credentials: "include",
     }),
 
   setTags: (id: string, tags: string[]) =>
@@ -1017,6 +1056,23 @@ export const behaviorApi = {
     apiFetch<{ favorited: boolean; removed?: boolean; favoriteCount: number }>(`/api/items/${itemId}/favorite`, {
       method: "DELETE",
       credentials: "include",
+    }),
+}
+
+// Outward-facing masked MCP config status — matches CapabilityItem["mcpConfig"] and the
+// PUT /items/:id/mcp-config response (design.md §3.3–3.4).
+export type McpConfigStatus = NonNullable<CapabilityItem["mcpConfig"]>
+// One field value sent on upsert. Empty `v` clears the key (merge semantics, design.md §3.3).
+export type McpFieldValue = { v: string; secret: boolean }
+
+export const mcpConfigApi = {
+  // Merge-upsert the current user's filled placeholder values for an MCP item. Returns the
+  // masked status. The backend ignores any key not matching `env:<NAME>` / `args:<INDEX>`.
+  upsert: (itemId: string, fields: Record<string, McpFieldValue>) =>
+    apiFetch<{ mcpConfig: McpConfigStatus }>(`/api/items/${itemId}/mcp-config`, {
+      method: "PUT",
+      credentials: "include",
+      body: JSON.stringify({ fields }),
     }),
 }
 
@@ -1224,4 +1280,46 @@ export const updateApi = {
     const json = await res.json()
     return json?.data ?? json
   },
+}
+
+export const pluginApi = {
+  upload: (repoId: string, file: File, onProgress?: (p: number) => void) => {
+    return new Promise<CapabilityItem>((resolve, reject) => {
+      const form = new FormData()
+      form.append("repo_id", repoId)
+      form.append("file", file)
+
+      const xhr = new XMLHttpRequest()
+      xhr.open("POST", `${API_BASE}/api/plugins/upload`)
+      xhr.withCredentials = true
+
+      if (onProgress) {
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            onProgress(e.loaded / e.total)
+          }
+        })
+      }
+
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText))
+        } else {
+          let err: any
+          try {
+            err = JSON.parse(xhr.responseText)
+          } catch {
+            err = { error: xhr.statusText }
+          }
+          reject(new Error(err.error || err.message || `Request failed: ${xhr.status}`))
+        }
+      })
+      xhr.addEventListener("error", () => reject(new Error("Network error")))
+      xhr.send(form)
+    })
+  },
+  listBuiltin: (page = 1, pageSize = 20) =>
+    apiFetch<{ items: CapabilityItem[]; total: number; page: number; pageSize: number }>(
+      `/api/plugins/builtin?page=${page}&pageSize=${pageSize}`,
+    ),
 }

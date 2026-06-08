@@ -10,6 +10,7 @@ const RootLayout = lazy(() => import("@/pages/root-layout"))
 const StoreLayout = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreLayout })))
 const StoreHome = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreHome })))
 const StoreManager = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreManager })))
+const StoreDetail = lazy(() => import("@/pages/store").then((m) => ({ default: m.StoreDetail })))
 const ProjectsLayout = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectsLayout })))
 const ProjectsHome = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectsHome })))
 const ProjectDetail = lazy(() => import("@/pages/projects").then((m) => ({ default: m.ProjectDetail })))
@@ -53,6 +54,7 @@ const ConsoleIdentity = lazy(() => consoleImport.then((m) => ({ default: m.Ident
 const ConsoleDevicesRoute: Component = () => <ConsoleDevices />
 const ConsoleNotificationsRoute: Component = () => <ConsoleNotifications />
 const ConsoleKanbanRoute: Component = () => <ConsoleKanban />
+const MulticaPage = lazy(() => import("@/pages/multica").then((m) => ({ default: m.MulticaPage })))
 
 
 const wrap = (Component: Component<{ children?: JSX.Element }>) => (props: { children?: JSX.Element }) => (
@@ -199,6 +201,12 @@ export const routeConfig: RouteConfig[] = [
     children: [
       { path: "/", component: StoreHome },
       { path: "/manager", component: StoreManager },
+      { path: "/:itemId", component: StoreDetail },
     ],
+  },
+  {
+    path: "/multica",
+    component: MulticaPage,
+    auth: true,
   },
 ]

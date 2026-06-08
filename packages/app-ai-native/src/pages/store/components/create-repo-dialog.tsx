@@ -8,6 +8,7 @@ import { Modal } from "@/components/modal"
 type CreateRepoDialogProps = {
   userId: string
   onCreated?: (repo: Repository) => void
+  showSyncOption?: boolean
 }
 
 export function CreateRepoDialog(props: CreateRepoDialogProps) {
@@ -173,27 +174,29 @@ export function CreateRepoDialog(props: CreateRepoDialogProps) {
                 <option value="public">{language.t("store.capabilityDialog.visibility.public")}</option>
               </select>
             </div>
-            <div class="modal-field" style={{ flex: "1" }}>
-              <label class="modal-label">
-                {language.t("store.repoDialog.field.repoType")}
-              </label>
-              <div class="modal-toggle-group">
-                <button
-                  type="button"
-                  class={`modal-toggle ${store.repoType === "normal" ? "on" : ""}`}
-                  onClick={() => setStore("repoType", "normal")}
-                >
-                  {language.t("store.repoDialog.repoType.normal")}
-                </button>
-                <button
-                  type="button"
-                  class={`modal-toggle ${store.repoType === "sync" ? "on" : ""}`}
-                  onClick={() => setStore("repoType", "sync")}
-                >
-                  {language.t("store.repoDialog.repoType.sync")}
-                </button>
+            {props.showSyncOption !== false && (
+              <div class="modal-field" style={{ flex: "1" }}>
+                <label class="modal-label">
+                  {language.t("store.repoDialog.field.repoType")}
+                </label>
+                <div class="modal-toggle-group">
+                  <button
+                    type="button"
+                    class={`modal-toggle ${store.repoType === "normal" ? "on" : ""}`}
+                    onClick={() => setStore("repoType", "normal")}
+                  >
+                    {language.t("store.repoDialog.repoType.normal")}
+                  </button>
+                  <button
+                    type="button"
+                    class={`modal-toggle ${store.repoType === "sync" ? "on" : ""}`}
+                    onClick={() => setStore("repoType", "sync")}
+                  >
+                    {language.t("store.repoDialog.repoType.sync")}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
