@@ -686,6 +686,7 @@ export const dict = {
   "store.detail.forkSignInTooltip": "Sign in to fork",
   "store.detail.forkArchiveUnsupported": "Forking packaged (archive) items is not supported yet",
   "store.detail.forkedFrom": "Forked from {{name}}",
+  "store.detail.forkedFromOfficial": "Forked from official",
   "store.detail.forkSuccess": "Forked to your items",
   "store.detail.forkFailed": "Fork failed",
   "store.home.showForks": "Show forks",
