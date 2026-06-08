@@ -809,16 +809,17 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         </div>
                       </div>
 
-                      <Show when={data().source}>
+                      {/* 仅当 source 可识别（命中已知来源映射表）才显示来源框；不可识别（空 / UUID / 未收录值）整体隐藏，
+                          避免裸露脏值。已知但无 url 的来源（如 internal）仍显示纯 label（不可点）。 */}
+                      <Show when={data().source && itemFilterOptions.isKnownSource(data().source)}>
                         {(() => {
                           const sourceLabel = itemFilterOptions.sourceLabel(data().source) || data().source
                           const sourceUrl = itemFilterOptions.sourceUrl(data().source)
-                          const verified = !!sourceUrl
 
                           return (
                             <div>
                               <Show
-                                when={verified}
+                                when={sourceUrl}
                                 fallback={
                                   <span
                                     class="inline-flex w-full cursor-default items-center justify-center gap-1.5 rounded-[0.5rem] border border-border-weak-base px-3 py-2 text-[14px] font-bold leading-5 text-text-weak"

@@ -235,7 +235,8 @@ export default function MobileStoreDetail() {
                       <LocalIcon name="subscribe" size="small" />
                       {formatCompactCount(favoriteCount())}
                     </span>
-                    <Show when={data().source}>
+                    {/* 仅当 source 可识别（命中已知来源映射表）才显示；不可识别（UUID 等脏值）隐藏，已知无 url 的仍显示 label。 */}
+                    <Show when={data().source && itemFilterOptions.isKnownSource(data().source)}>
                       <span class="inline-flex items-center gap-1">
                         <LocalIcon name="globe" size="small" />
                         {sourceLabel()}
