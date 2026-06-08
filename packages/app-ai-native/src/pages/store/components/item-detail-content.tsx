@@ -7,6 +7,7 @@ import { Markdown } from "@opencode-ai/ui/markdown"
 import { showToast } from "@opencode-ai/ui/toast"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ConfirmDialog } from "./confirm-dialog"
 import { LocalIcon } from "@/components/local-icon"
 import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useAuth } from "@/context/auth"
@@ -280,6 +281,7 @@ interface ItemDetailContentProps {
   showBackButton?: boolean
   onBack?: () => void
   onItemLoaded?: (item: CapabilityItem) => void
+  onDeleted?: () => void
   favorited?: boolean
   favoriteCount?: number
   previewCount?: number
@@ -482,6 +484,38 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                       >
                         <Icon name="edit" size="small" />
                         <span>{language.t("common.edit")}</span>
+                      </button>
+                    </Show>
+                    <Show when={canEditItem() && props.onDeleted}>
+                      <button
+                        onClick={() => {
+                          const id = data().id
+                          dialog.show(() => (
+                            <ConfirmDialog
+                              title={language.t("store.console.capabilities.delete")}
+                              description={language.t("store.console.confirmDeleteCapability")}
+                              confirm={language.t("common.delete")}
+                              onConfirm={async () => {
+                                try {
+                                  await itemApi.delete(id)
+                                  showToast({ title: language.t("store.console.capabilities.toast.deleteSuccess") })
+                                  props.onDeleted?.()
+                                } catch (error) {
+                                  showToast({
+                                    title: language.t("store.console.capabilities.toast.deleteFailed"),
+                                    description: error instanceof Error ? error.message : String(error),
+                                  })
+                                  throw error
+                                }
+                              }}
+                            />
+                          ))
+                        }}
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-destructive"
+                        title={language.t("common.delete")}
+                      >
+                        <Icon name="trash" size="small" />
+                        <span>{language.t("common.delete")}</span>
                       </button>
                     </Show>
                     <Show when={props.onToggleFavorite}>
