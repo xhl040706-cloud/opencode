@@ -8,6 +8,7 @@ import {
   Component,
   Show,
   onCleanup,
+  onMount,
   Switch,
   Match,
   createMemo,
@@ -52,6 +53,7 @@ import { useCommand } from "@/context/command"
 import { Persist, persisted } from "@/utils/persist"
 import { usePermission } from "@/context/permission"
 import { useLanguage } from "@/context/language"
+import { useContentTabs } from "@/context/content-tabs"
 import { useSlashActions } from "@/pages/session/slash-actions"
 import { usePlatform } from "@/context/platform"
 import { createTextFragment, getCursorPosition, setCursorPosition, setRangeEdge } from "./prompt-input/editor-dom"
@@ -133,6 +135,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const language = useLanguage()
   const platform = usePlatform()
   const slashActions = useSlashActions()
+  const tabStore = useContentTabs()
   let editorRef!: HTMLDivElement
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
@@ -512,6 +515,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     if (cursor !== null) setCursorPosition(editorRef, cursor)
   }
 
+  onMount(() => requestAnimationFrame(() => editorRef?.focus()))
+
   createEffect(() => {
     const id = sid()
     if (id) return
@@ -696,8 +701,48 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
+    const builtin: SlashCommand[] = [
+      {
+        id: "cmd.compact",
+        trigger: "compact",
+        title: language.t("command.session.compact"),
+        description: language.t("command.session.compact.description"),
+        type: "custom" as const,
+        autoSubmit: true,
+      },
+      {
+        id: "cmd.new",
+        trigger: "new",
+        title: language.t("command.session.new"),
+        description: language.t("command.session.new.description"),
+        type: "builtin" as const,
+        scope: "action",
+        onAction: () => {
+          const id = tabStore.activeId()
+          if (id) tabStore.replaceWithNewSession(id, language.t("command.session.new"))
+        },
+      },
+      {
+        id: "cmd.clear",
+        trigger: "clear",
+        title: language.t("command.session.clear"),
+        description: language.t("command.session.clear.description"),
+        type: "builtin" as const,
+        scope: "action",
+        onAction: () => {
+          const id = tabStore.activeId()
+          if (id) tabStore.replaceWithNewSession(id, language.t("command.session.new"))
+        },
+      },
+    ]
+
+    const frontendOnly = new Set(
+      builtin.filter((c) => c.scope === "action").map((c) => c.trigger),
+    )
+
     const backend = (sync.data.command ?? [])
       .filter((cmd) => cmd.scope !== "tui-only")
+      .filter((cmd) => !frontendOnly.has(cmd.name))
       .map((cmd) => ({
         id: `cmd.${cmd.name}`,
         trigger: cmd.name === "favorites" ? "hub" : cmd.name,
@@ -709,23 +754,19 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         source: cmd.source as SlashCommand["source"],
       }))
 
-    const builtin: SlashCommand[] = [
-      {
-        id: "cmd.compact",
-        trigger: "compact",
-        title: language.t("command.session.compact"),
-        description: language.t("command.session.compact.description"),
-        type: "custom" as const,
-        autoSubmit: true,
-      },
-    ]
-
     return [...backend, ...builtin]
   })
 
   const handleSlashSelect = (cmd: SlashCommand | undefined) => {
     if (!cmd) return
     closePopover()
+
+    if (cmd.onAction) {
+      clearEditor()
+      prompt.set([{ type: "text", content: "", start: 0, end: 0 }], 0)
+      cmd.onAction()
+      return
+    }
 
     if (cmd.scope === "prompt" || !cmd.scope || cmd.autoSubmit) {
       const text = `/${cmd.trigger} `
@@ -1168,6 +1209,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     onSubmit: props.onSubmit,
     hiddenSeed: props.hiddenSeed,
+    onCommand: (name) => {
+      const cmd = slashCommands().find((c) => c.trigger === name && c.onAction)
+      if (!cmd) return false
+      prompt.reset()
+      setStore("mode", "normal")
+      setStore("popover", null)
+      cmd.onAction!()
+      return true
+    },
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {

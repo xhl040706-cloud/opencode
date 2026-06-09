@@ -48,6 +48,7 @@ type PromptSubmitInput = {
   // first user message of a new session only. Opt-in: when absent, behavior is
   // unchanged.
   hiddenSeed?: Accessor<string | undefined>
+  onCommand?: (name: string) => boolean
 }
 
 type CommentItem = {
@@ -130,6 +131,11 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     if (text.trim().length === 0 && images.length === 0 && input.commentCount() === 0) {
       if (input.working()) abort()
       return
+    }
+
+    if (text.startsWith("/")) {
+      const commandName = text.trim().slice(1).split(/\s/)[0]
+      if (input.onCommand?.(commandName)) return
     }
 
     const currentModel = local.model.current()

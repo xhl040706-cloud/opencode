@@ -39,7 +39,8 @@ export function useSlashActions() {
 
   const execute = (name: string) => {
     switch (name) {
-      case "new": {
+      case "new":
+      case "clear": {
         navigate(`/workspace/${params.workspaceID ?? ""}`)
         return
       }

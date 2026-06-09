@@ -227,18 +227,24 @@ export function MobileWorkspaceHeader() {
       {/* Left: Session sidebar toggle + new session */}
       <div class="shrink-0 flex items-center">
         <Show when={hasWorkspace()}>
-          <IconButton
-            icon={work.sidebarOpened() ? "layout-left-full" : "layout-left"}
-            variant="ghost"
-            onClick={work.toggleSidebar}
-            aria-label={t("workspace.toggleSessionList")}
-          />
-          <IconButton
-            icon="plus-small"
-            variant="ghost"
-            onClick={triggerNewSession}
-            aria-label={t("workspace.content.newSession")}
-          />
+          <div class="inline-flex rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              class="flex items-center justify-center size-8 hover:bg-[var(--surface-base-hover)] transition-colors"
+              onClick={work.toggleSidebar}
+              aria-label={t("workspace.toggleSessionList")}
+            >
+              <Icon name={work.sidebarOpened() ? "layout-left-full" : "layout-left"} class="text-text-weak" />
+            </button>
+            <button
+              type="button"
+              class="flex items-center justify-center size-8 border-l border-border hover:bg-[var(--surface-base-hover)] transition-colors"
+              onClick={triggerNewSession}
+              aria-label={t("workspace.content.newSession")}
+            >
+              <Icon name="plus-small" class="text-text-weak" />
+            </button>
+          </div>
         </Show>
       </div>
 

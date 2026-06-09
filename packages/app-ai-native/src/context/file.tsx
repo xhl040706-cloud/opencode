@@ -7,7 +7,7 @@ import { useSDK } from "./sdk"
 import { useSync } from "./sync"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
-import { DeviceHttpError, isBinaryFileError } from "@/client/device-transport"
+import { DeviceHttpError, isBinaryFileError, isRuntimeFileDisabledError } from "@/client/device-transport"
 import { createPathHelpers } from "./file/path"
 import {
   approxBytes,
@@ -209,11 +209,23 @@ export const { use: useFile, provider: FileProvider, context: FileContext } = cr
             content: nextContent,
           } as FileState["content"]
 
+          const filteredInfo = (x as any)?._filtered as import("./file/types").FilteredInfo | undefined
+
           setLoaded(file, content, {
             offset: x.offset,
             lines: x.lines,
             totalLines: x.totalLines,
           })
+
+          if (filteredInfo) {
+            setStore(
+              "file",
+              file,
+              produce((draft) => {
+                draft.filtered = filteredInfo
+              }),
+            )
+          }
 
           if (!content) return
           touchFileContent(file, approxBytes(content))
@@ -221,7 +233,17 @@ export const { use: useFile, provider: FileProvider, context: FileContext } = cr
         })
         .catch((e) => {
           if (scope() !== directory) return
-          if (isBinaryFileError(e)) {
+          if (isRuntimeFileDisabledError(e)) {
+            setStore(
+              "file",
+              file,
+              produce((draft) => {
+                draft.loading = false
+                draft.loaded = true
+                draft.filtered = { reason: "RUNTIME_FILE_DISABLED" }
+              }),
+            )
+          } else if (isBinaryFileError(e)) {
             setStore(
               "file",
               file,
@@ -312,6 +334,7 @@ export const { use: useFile, provider: FileProvider, context: FileContext } = cr
         children: tree.children,
         expand: tree.expandDir,
         collapse: tree.collapseDir,
+        isDisabled: tree.isDisabled,
         toggle(input: string) {
           if (tree.dirState(input)?.expanded) {
             tree.collapseDir(input)

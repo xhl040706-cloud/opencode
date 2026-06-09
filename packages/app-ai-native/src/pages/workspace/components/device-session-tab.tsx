@@ -1,6 +1,6 @@
 import { Show, For, createMemo, createSignal, createEffect, on, onCleanup, batch } from "solid-js"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
-import { createStore, produce, reconcile } from "solid-js/store"
+import { createStore, produce } from "solid-js/store"
 import { createAutoScroll } from "@opencode-ai/ui/hooks"
 import { DataProvider } from "@opencode-ai/ui/context"
 import { FileComponentProvider } from "@opencode-ai/ui/context/file"
@@ -64,13 +64,7 @@ const emptyMessages: Message[] = []
 const idle: SessionStatus = { type: "idle" }
 const busySinceMap = new Map<string, number>()
 
-const mergeMessages = (base: Message[], extra: Message[] | undefined) => {
-  if (!extra?.length) return base
-  if (base.length === 0) return extra
-  return [...new Map([...base, ...extra].map((msg) => [msg.id, msg])).values()].sort(
-    (a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0),
-  )
-}
+
 
 function legacyProvider(input: ProviderCapabilitiesResponse): ProviderListResponse {
   return {
@@ -173,38 +167,18 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
 
   const [createdSessionID, setCreatedSessionID] = createSignal<string | undefined>()
   const [viewingStack, setViewingStack] = createSignal<{ id: string; name: string }[]>([])
-  const [loadedMessages, setLoadedMessages] = createStore<Record<string, Message[]>>({})
-  const [loadedParts, setLoadedParts] = createStore<Record<string, Part[]>>({})
   const [phase, setPhase] = createStore<Record<string, "loading" | "ready" | "error">>({})
-  const [loadedDiffs, setLoadedDiffs] = createStore<FileDiff[]>([])
-  const [loadedTodos, setLoadedTodos] = createStore<Todo[]>([])
-
   createEffect((prev: string[]) => {
     const stack = viewingStack()
     const currentIds = stack.map((e) => e.id)
     if (prev.length > currentIds.length) {
-      const removed = prev.filter((id) => !currentIds.includes(id))
       batch(() => {
-        for (const id of removed) {
-          const mids = loadedMessages[id]?.map((msg) => msg.id) ?? []
-          setLoadedMessages(
-            produce((draft: Record<string, Message[]>) => {
-              delete draft[id]
-            }),
-          )
-          setLoadedParts(
-            produce((draft: Record<string, Part[]>) => {
-              for (const mid of mids) delete draft[mid]
-            }),
-          )
-          setPhase(
-            produce((draft: Record<string, "loading" | "ready" | "error">) => {
-              delete draft[id]
-            }),
-          )
-        }
-        setLoadedDiffs(reconcile([] as FileDiff[], { key: "file" }))
-        setLoadedTodos(reconcile([] as Todo[], { key: "id" }))
+        setPhase(
+          produce((draft: Record<string, "loading" | "ready" | "error">) => {
+            const removed = prev.filter((id) => !currentIds.includes(id))
+            for (const id of removed) delete draft[id]
+          }),
+        )
       })
     }
     return currentIds
@@ -268,10 +242,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   const effectiveMessages = createMemo(() => {
     const cid = currentSessionID()
     if (!cid) return [] as Message[]
-    if (viewingSessionID()) {
-      return loadedMessages[cid] ?? ([] as Message[])
-    }
-    return mergeMessages(session.data.messages, loadedMessages[cid])
+    return session.data.messages[cid] ?? []
   })
 
   const effectiveStatus = createMemo(() => {
@@ -304,21 +275,51 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     }
   })
 
+  let reconcileTimer: ReturnType<typeof setTimeout> | undefined
+  let wasActive = false
+
+  createEffect(() => {
+    const cid = currentSessionID()
+    if (!cid) {
+      wasActive = false
+      return
+    }
+    const active = isWorking()
+    if (wasActive && !active) {
+      if (reconcileTimer) clearTimeout(reconcileTimer)
+      const targetId = cid
+      reconcileTimer = setTimeout(() => {
+        reconcileTimer = undefined
+        if (currentSessionID() !== targetId) return
+        reconcileSessionData(targetId)
+      }, 150)
+    }
+    wasActive = active
+  })
+
+  onCleanup(() => {
+    if (reconcileTimer) {
+      clearTimeout(reconcileTimer)
+      reconcileTimer = undefined
+    }
+  })
+
+  const reconcileSessionData = async (targetId: string) => {
+    try {
+      await session.reconcileMessages(targetId)
+      requestAnimationFrame(() => resumeScroll())
+    } catch {}
+  }
+
   const effectiveParts = createMemo(() => {
-    if (viewingSessionID()) return loadedParts as Record<string, Part[]>
-    const parts = loadedParts as Record<string, Part[]>
-    if (Object.keys(parts).length === 0) return session.data.parts
-    if (Object.keys(session.data.parts).length === 0) return parts
-    return { ...session.data.parts, ...parts }
+    return session.data.parts
   })
 
   const effectiveDiffs = createMemo(() => {
-    if (viewingSessionID()) return loadedDiffs as unknown as FileDiff[]
     return session.data.diffs
   })
 
   const effectiveTodos = createMemo(() => {
-    if (viewingSessionID()) return loadedTodos as unknown as Todo[]
     return session.data.todos
   })
 
@@ -326,55 +327,17 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     on(currentSessionID, async (id) => {
       if (!id) return
       if (id === rootSessionID() && !viewingSessionID()) return
-      const mids = loadedMessages[id]?.map((msg) => msg.id) ?? []
-      batch(() => {
-        setLoadedMessages(
-          produce((draft: Record<string, Message[]>) => {
-            delete draft[id]
-          }),
-        )
-        setLoadedParts(
-          produce((draft: Record<string, Part[]>) => {
-            for (const mid of mids) delete draft[mid]
-          }),
-        )
-        setPhase(id, "loading")
-      })
-      const messagesRes = await Promise.allSettled([device.client.conversation.messages(id, { limit: 50 })])
-      if (currentSessionID() !== id) return
-      const messagesResult = messagesRes[0]
-      if (messagesResult?.status !== "fulfilled") {
-        setPhase(id, "error")
-        return
-      }
-      const raw = Array.isArray(messagesResult.value) ? messagesResult.value : []
-      const items: { info: Message; parts?: Part[] }[] = []
-      for (const item of raw as any[]) {
-        if (!item?.info?.id) continue
-        items.push({
-          info: item.info as Message,
-          parts: Array.isArray(item.parts) ? (item.parts as Part[]) : undefined,
-        })
-      }
-      batch(() => {
-        for (const item of items) {
-          if (item.parts) {
-            setLoadedParts(item.info.id, reconcile(item.parts, { key: "id" }))
-          }
-        }
-      })
-      const msgs: Message[] = []
-      const CHUNK = 10
-      for (let i = 0; i < items.length; i += CHUNK) {
-        const chunk = items.slice(i, i + CHUNK)
-        batch(() => {
-          for (const item of chunk) msgs.push(item.info)
-          setLoadedMessages(id, reconcile(msgs, { key: "id" }))
-          setPhase(id, "ready")
-        })
-        if (i + CHUNK < items.length) {
-          await new Promise<void>((r) => requestAnimationFrame(() => r()))
-        }
+      setPhase(id, "loading")
+      try {
+        await Promise.all([
+          session.loadMessages(id),
+          session.diff(id),
+          session.todo(id),
+        ])
+        if (currentSessionID() !== id) return
+        setPhase(id, "ready")
+      } catch {
+        if (currentSessionID() === id) setPhase(id, "error")
       }
     }),
   )
@@ -397,122 +360,6 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
         tabStore.setTitle(props.tabId, info.title)
       }
     }
-
-    const cid = currentSessionID()
-    if (!cid) return
-
-    const eventSID =
-      payload.sessionID ??
-      (payload.properties as any)?.sessionID ??
-      ((payload.properties as any)?.part as any)?.sessionID ??
-      ((payload.properties as any)?.info as any)?.sessionID ??
-      ((payload.properties as any)?.status as any)?.sessionID
-    if (eventSID && eventSID !== cid) return
-
-    batch(() => {
-      switch (payload.type) {
-        case "message.updated": {
-          const info = (payload.properties as { info?: Message })?.info
-          if (!info?.id) break
-          if (!loadedMessages[cid]) {
-            setLoadedMessages(cid, [])
-          }
-          setLoadedMessages(
-            cid,
-            produce((draft: Message[]) => {
-              const idx = draft.findIndex((m) => m.id === info.id)
-              if (idx !== -1) draft[idx] = info
-              else draft.push(info)
-            }),
-          )
-          break
-        }
-        case "message.removed": {
-          const props = payload.properties as { messageID?: string }
-          if (!props.messageID || !loadedMessages[cid]) break
-          setLoadedMessages(
-            cid,
-            produce((draft: Message[]) => {
-              const idx = draft.findIndex((m) => m.id === props.messageID)
-              if (idx !== -1) draft.splice(idx, 1)
-            }),
-          )
-          setLoadedParts(
-            produce((draft: Record<string, Part[]>) => {
-              delete draft[props.messageID!]
-            }),
-          )
-          break
-        }
-        case "message.part.updated": {
-          const part = (payload.properties as { part?: Part })?.part
-          if (!part?.id) break
-          const messageID = part.messageID
-          if (!messageID) break
-          const partCallID = (part as any).callID as string | undefined
-          const partStatus = (part as any).state?.status as string | undefined
-          const existing = loadedParts[messageID]
-          if (!existing) {
-            setLoadedParts(messageID, [part])
-            break
-          }
-          setLoadedParts(
-            messageID,
-            produce((draft: Part[]) => {
-              const idx = draft.findIndex((p) => p.id === part.id)
-              if (idx !== -1) {
-                draft[idx] = part
-              } else {
-                const callID = (part as any).callID
-                if (callID) {
-                  const byCall = draft.findIndex((p) => (p as any).callID === callID)
-                  if (byCall !== -1) {
-                    draft[byCall] = { ...part, id: draft[byCall].id }
-                    return
-                  }
-                }
-                draft.push(part)
-              }
-            }),
-          )
-          break
-        }
-        case "message.part.delta": {
-          const d = payload.properties as { messageID: string; partID: string; field: string; delta: string }
-          if (!d.messageID || !d.partID) break
-          const parts = loadedParts[d.messageID]
-          if (!parts) break
-          const idx = parts.findIndex((p) => p.id === d.partID)
-          if (idx === -1) break
-          setLoadedParts(
-            d.messageID,
-            idx,
-            produce((draft: any) => {
-              if (d.field === "input" && draft.type === "tool" && draft.state) {
-                const existing = (draft.state.input as string) ?? ""
-                draft.state.input = existing + d.delta
-              } else {
-                const field = d.field as keyof typeof draft
-                const existing = draft[field] as string | undefined
-                ;(draft[field] as string) = (existing ?? "") + d.delta
-              }
-            }),
-          )
-          break
-        }
-        case "session.diff": {
-          const props = payload.properties as { diff?: FileDiff[] }
-          if (props.diff) setLoadedDiffs(reconcile(props.diff, { key: "file" }))
-          break
-        }
-        case "session.todo":
-        case "todo.updated": {
-          const props = payload.properties as { todos?: Todo[] }
-          if (props.todos) setLoadedTodos(reconcile(props.todos, { key: "id" }))
-          break
-        }
-      }
-    })
   })
   onCleanup(() => {
     unsubscribe()
@@ -634,9 +481,6 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     if (args[0] === "session_status" && args[1]) {
       workspace.session.setStatus(args[1] as string, args[2] as SessionStatus | undefined)
     }
-    if (args[0] === "todo" && args[1]) {
-      setLoadedTodos(reconcile((args[2] as Todo[]) ?? [], { key: "id" }))
-    }
   }
 
   const syncValue = {
@@ -666,48 +510,15 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
       },
       optimistic: {
         add(input: { directory?: string; sessionID: string; message: Message; parts: Part[] }) {
-          session.optimistic.add({ message: input.message, parts: input.parts })
           if (!createdSessionID() && !session.sessionID()) {
             setCreatedSessionID(input.sessionID)
           }
           const cid = currentSessionID() ?? input.sessionID
-          if (!loadedMessages[cid]) {
-            setLoadedMessages(cid, [])
-          }
-          setLoadedMessages(
-            cid,
-            produce((draft: Message[]) => {
-              const idx = draft.findIndex((m) => m.id === input.message.id)
-              if (idx === -1) draft.push(input.message)
-            }),
-          )
-          if (input.message.id) {
-            if (!loadedParts[input.message.id]) {
-              setLoadedParts(input.message.id, [])
-            }
-            setLoadedParts(
-              input.message.id,
-              produce((draft: Part[]) => {
-                for (const p of input.parts) {
-                  const idx = draft.findIndex((x) => x.id === p.id)
-                  if (idx === -1) draft.push(p)
-                }
-              }),
-            )
-          }
+          session.optimistic.add({ sessionID: cid, message: input.message, parts: input.parts })
         },
         remove(input: { directory?: string; sessionID: string; messageID: string }) {
-          session.optimistic.remove({ messageID: input.messageID })
           const cid = currentSessionID() ?? input.sessionID
-          if (cid && loadedMessages[cid]) {
-            setLoadedMessages(
-              cid,
-              produce((draft: Message[]) => {
-                const idx = draft.findIndex((m) => m.id === input.messageID)
-                if (idx !== -1) draft.splice(idx, 1)
-              }),
-            )
-          }
+          session.optimistic.remove({ sessionID: cid, messageID: input.messageID })
         },
       },
       addOptimisticMessage(input: {
@@ -717,41 +528,17 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
         agent: string
         model: { providerID: string; modelID: string }
       }) {
-        session.addOptimisticMessage(input)
         if (!createdSessionID() && !session.sessionID()) {
           setCreatedSessionID(input.sessionID)
         }
         const cid = currentSessionID() ?? input.sessionID
-        const message: Message = {
-          id: input.messageID,
+        session.addOptimisticMessage({
           sessionID: cid,
-          role: "user",
-          time: { created: Date.now() },
+          messageID: input.messageID,
+          parts: input.parts,
           agent: input.agent,
           model: input.model,
-        }
-        if (!loadedMessages[cid]) {
-          setLoadedMessages(cid, [])
-        }
-        setLoadedMessages(
-          cid,
-          produce((draft: Message[]) => {
-            const idx = draft.findIndex((m) => m.id === message.id)
-            if (idx === -1) draft.push(message)
-          }),
-        )
-        if (!loadedParts[input.messageID]) {
-          setLoadedParts(input.messageID, [])
-        }
-        setLoadedParts(
-          input.messageID,
-          produce((draft: Part[]) => {
-            for (const p of input.parts) {
-              const idx = draft.findIndex((x) => x.id === p.id)
-              if (idx === -1) draft.push(p)
-            }
-          }),
-        )
+        })
       },
       replaceTab(input: { sessionID: string; title?: string }) {
         if (!createdSessionID() && !session.sessionID()) {
@@ -767,20 +554,20 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
         await session.sync()
       },
       async diff(id: string) {
-        if (diffCtx.scheduler.active) await session.diff()
+        if (diffCtx.scheduler.active) await session.diff(id)
       },
       async todo(id: string) {
-        await session.todo()
+        await session.todo(id)
       },
       history: {
         more(id: string) {
-          return session.history.more()
+          return session.history.more(id)
         },
         loading(id: string) {
           return session.history.loading()
         },
         async loadMore(id: string, count?: number) {
-          await session.history.loadMore(count)
+          await session.history.loadMore(id, count)
         },
       },
       async fetch(count?: number) {
