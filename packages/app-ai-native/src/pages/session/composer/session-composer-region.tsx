@@ -5,7 +5,6 @@ import { useWorkspaceVisible } from "@/pages/workspace/components/layout"
 import { PromptInput } from "@/components/prompt-input"
 import { useLanguage } from "@/context/language"
 import { usePrompt } from "@/context/prompt"
-import { useDeviceSession } from "@/context/device-session"
 import { getSessionHandoff, setSessionHandoff } from "@/pages/session/handoff"
 import { SessionPermissionDock } from "@/pages/session/composer/session-permission-dock"
 import { SessionQuestionDock } from "@/pages/session/composer/session-question-dock"
@@ -47,7 +46,6 @@ export function SessionComposerRegion(props: {
 }) {
   const prompt = usePrompt()
   const language = useLanguage()
-  const session = useDeviceSession()
 
   const sessionKey = createMemo(() => "")
   const handoffPrompt = createMemo(() => getSessionHandoff(sessionKey())?.prompt)

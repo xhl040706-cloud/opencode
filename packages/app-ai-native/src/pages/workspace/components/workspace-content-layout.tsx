@@ -12,8 +12,9 @@ import { useFile } from "@/context/file"
 import { useDiff, useTreePolling } from "@/context/device-file"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
-import { DeviceSessionProvider, DeviceSessionStoreProvider } from "@/context/device-session"
-import { DeviceSessionTab } from "./device-session-tab"
+import { DeviceSessionStoreProvider } from "@/context/device-session"
+import { SessionTabProvider } from "@/context/session-tab"
+import { DeviceSessionView } from "./device-session-tab"
 import { TerminalTab } from "./terminal-tab"
 import { useDeviceTerminal } from "@/context/device-terminal"
 import { ContentTabContext, useContentTabs, type ContentTab } from "@/context/content-tabs"
@@ -175,9 +176,9 @@ function TabContent(props: { tab: ContentTab }) {
         <DiffPreviewTab tab={props.tab} />
       </Match>
       <Match when={props.tab.kind === "session"}>
-        <DeviceSessionProvider sessionID={(props.tab.meta as any)?.sessionID}>
-          <DeviceSessionTab tabId={props.tab.id} />
-        </DeviceSessionProvider>
+        <SessionTabProvider tabId={props.tab.id} sessionID={(props.tab.meta as any)?.sessionID}>
+          <DeviceSessionView tabId={props.tab.id} />
+        </SessionTabProvider>
       </Match>
       <Match when={props.tab.kind === "terminal"}>
         <TerminalTab tab={props.tab} />

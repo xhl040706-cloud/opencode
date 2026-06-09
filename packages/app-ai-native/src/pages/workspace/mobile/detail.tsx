@@ -14,12 +14,13 @@ import { DeviceLocalProvider } from "@/context/device-local"
 import { DirectoryContext } from "@/context/directory"
 import { LayoutContext } from "@/context/layout"
 import { ContentTabContext, createContentTabStore, useContentTabs } from "@/context/content-tabs"
-import { DeviceSessionProvider, DeviceSessionStoreProvider } from "@/context/device-session"
+import { DeviceSessionStoreProvider } from "@/context/device-session"
+import { SessionTabProvider } from "@/context/session-tab"
+import { DeviceSessionView } from "../components/device-session-tab"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { createSdkForServer } from "@/utils/server"
 import { useDeviceLayout } from "../components/device-interface"
 import { getProxyUrl } from "../lib/url"
-import { DeviceSessionTab } from "../components/device-session-tab"
 import { SessionListPanel } from "../components/session-list"
 import { workspaceKey } from "@/lib/workspace-key"
 import { shouldRestore, activeSession } from "../components/workspace-content-layout-sync"
@@ -109,9 +110,9 @@ function MobileContentTabPanel() {
         <Show when={tabStore.activeId() === tab.id}>
           <div class="flex-1 min-h-0 h-full">
             <Show when={tab.kind === "session"}>
-              <DeviceSessionProvider sessionID={(tab.meta as any)?.sessionID}>
-                <DeviceSessionTab tabId={tab.id} />
-              </DeviceSessionProvider>
+              <SessionTabProvider tabId={tab.id} sessionID={(tab.meta as any)?.sessionID}>
+                <DeviceSessionView tabId={tab.id} />
+              </SessionTabProvider>
             </Show>
           </div>
         </Show>

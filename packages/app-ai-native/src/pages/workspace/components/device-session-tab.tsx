@@ -15,7 +15,7 @@ import { Card } from "@opencode-ai/ui/card"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
-import { useDeviceSession } from "@/context/device-session"
+import { useDeviceSessionStore } from "@/context/device-session"
 import { useDeviceLocal } from "@/context/device-local"
 import { deviceAdapter, ConversationAdapterContext } from "@/context/device-adapter"
 import { useLanguage } from "@/context/language"
@@ -38,6 +38,7 @@ import { SessionComposerRegion } from "@/pages/session/composer/session-composer
 import { createDeviceSessionComposerState } from "@/pages/session/composer/device-session-composer-state"
 import { createScrollSpy } from "@/pages/session/scroll-spy"
 import { useContentTabs } from "@/context/content-tabs"
+import { useSessionTab } from "@/context/session-tab"
 import type {
   Message,
   Part,
@@ -89,17 +90,20 @@ function PromptSeeder(props: { seed?: string }) {
   return null
 }
 
-export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hiddenSeed?: string }) {
+export function DeviceSessionView(props: { tabId: string; promptSeed?: string; hiddenSeed?: string }) {
   const device = useDeviceSDK()
   const workspace = useDeviceWorkspace()
-  const session = useDeviceSession()
+  const store = useDeviceSessionStore()
   const local = useDeviceLocal()
   const language = useLanguage()
   const file = useFile()
   const tabStore = useContentTabs()
   const dialog = useDialog()
+  const sessionTab = useSessionTab()
 
-  const [createdSessionID, setCreatedSessionID] = createSignal<string | undefined>()
+  let snapFrame: number | undefined
+
+  const sid = createMemo(() => sessionTab.rootSessionID())
   const [viewingStack, setViewingStack] = createSignal<{ id: string; name: string }[]>([])
   const [phase, setPhase] = createStore<Record<string, "loading" | "ready" | "error">>({})
   createEffect((prev: string[]) => {
@@ -137,9 +141,9 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     )
   }
 
-  const isNew = createMemo(() => !createdSessionID() && !session.sessionID())
+  const isNew = sessionTab.isNew
 
-  const rootSessionID = createMemo(() => createdSessionID() ?? session.sessionID())
+  const rootSessionID = sessionTab.rootSessionID
 
   const mobileUrl = createMemo(() => {
     const host = `${env.MOBILE_HOST}${env.BASE_PATH ? `${env.BASE_PATH}` : ""}`
@@ -176,13 +180,13 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   const effectiveMessages = createMemo(() => {
     const cid = currentSessionID()
     if (!cid) return [] as Message[]
-    return session.data.messages[cid] ?? []
+    return store.data.messages[cid] ?? []
   })
 
   const effectiveStatus = createMemo(() => {
     const cid = currentSessionID()
     if (cid) return workspace.data.sessionStatus[cid] ?? ({ type: "idle" } as SessionStatus)
-    return session.data.status
+    return ({ type: "idle" } as SessionStatus)
   })
 
   const isWorking = createMemo(() => {
@@ -240,27 +244,23 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
 
   const reconcileSessionData = async (targetId: string) => {
     try {
-      await session.reconcileMessages(targetId)
+      await store.loadMessages(targetId)
       requestAnimationFrame(() => resumeScroll())
     } catch {}
   }
 
   const effectiveParts = createMemo(() => {
-    return session.data.parts
-  })
-
-  const effectiveTodos = createMemo(() => {
-    return session.data.todos
+    return store.data.parts
   })
 
   createEffect(
     on(currentSessionID, (id) => {
       if (!id) return
-      const cached = session.data.messages[id]
+      const cached = store.data.messages[id]
       setPhase(id, cached?.length ? "ready" : "loading")
       Promise.all([
-        session.loadMessages(id),
-        session.todo(id),
+        store.loadMessages(id),
+        store.todo(id),
       ])
         .then(() => {
           if (currentSessionID() === id) setPhase(id, "ready")
@@ -271,27 +271,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     }),
   )
 
-  const unsubscribe = workspace.subscribe((payload) => {
-    if (payload.type === "session.created") {
-      const info = (payload.properties as { info?: Session })?.info ?? (payload.properties as Session)
-      if (info?.id) {
-        const current = tabStore.tabs().find((t) => t.id === props.tabId)
-        if (current && (current.meta as any)?.sessionID === info.id && info.title) {
-          tabStore.setTitle(props.tabId, info.title)
-        }
-      }
-    }
-
-    if (payload.type === "session.updated") {
-      const info = (payload.properties as { info?: Session })?.info ?? (payload.properties as Session)
-      const cid = currentSessionID()
-      if (info?.id === cid && info.title) {
-        tabStore.setTitle(props.tabId, info.title)
-      }
-    }
-  })
   onCleanup(() => {
-    unsubscribe()
     if (snapFrame !== undefined) cancelAnimationFrame(snapFrame)
   })
 
@@ -390,7 +370,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   })
   createEffect(() => {
     const cid = currentSessionID() ?? ""
-    setSyncData("todo", { [cid]: effectiveTodos() })
+      setSyncData("todo", { [cid]: store.data.todos[cid] ?? [] })
   })
   createEffect(() => {
     const msgs = effectiveMessages()
@@ -398,7 +378,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     setSyncData("message", { [cid]: msgs, "": msgs })
   })
   createEffect(() => {
-    setSyncData("partProgress", session.data.partProgress)
+    setSyncData("partProgress", store.data.partProgress)
   })
 
   const syncSet = (...args: any[]) => {
@@ -435,15 +415,12 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
       },
       optimistic: {
         add(input: { directory?: string; sessionID: string; message: Message; parts: Part[] }) {
-          if (!createdSessionID() && !session.sessionID()) {
-            setCreatedSessionID(input.sessionID)
-          }
           const cid = currentSessionID() ?? input.sessionID
-          session.optimistic.add({ sessionID: cid, message: input.message, parts: input.parts })
+          store.optimisticAdd({ sessionID: cid, message: input.message, parts: input.parts })
         },
         remove(input: { directory?: string; sessionID: string; messageID: string }) {
           const cid = currentSessionID() ?? input.sessionID
-          session.optimistic.remove({ sessionID: cid, messageID: input.messageID })
+          store.optimisticRemove({ sessionID: cid, messageID: input.messageID })
         },
       },
       addOptimisticMessage(input: {
@@ -453,11 +430,8 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
         agent: string
         model: { providerID: string; modelID: string }
       }) {
-        if (!createdSessionID() && !session.sessionID()) {
-          setCreatedSessionID(input.sessionID)
-        }
         const cid = currentSessionID() ?? input.sessionID
-        session.addOptimisticMessage({
+        store.addOptimisticMessage({
           sessionID: cid,
           messageID: input.messageID,
           parts: input.parts,
@@ -466,31 +440,24 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
         })
       },
       replaceTab(input: { sessionID: string; title?: string }) {
-        if (!createdSessionID() && !session.sessionID()) {
-          setCreatedSessionID(input.sessionID)
-        }
-        const current = tabStore.tabs().find((t) => t.id === props.tabId)
-        if (current && !(current.meta as any)?.sessionID) {
-          tabStore.updateMeta(props.tabId, { sessionID: input.sessionID })
-          if (input.title) tabStore.setTitle(props.tabId, input.title)
-        }
+        sessionTab.replaceTab(input)
       },
       async sync(id: string) {
-        await session.sync()
+        await store.syncSession(id)
       },
       async diff(_id: string) {},
       async todo(id: string) {
-        await session.todo(id)
+        await store.todo(id)
       },
       history: {
         more(id: string) {
-          return session.history.more(id)
+          return store.historyMore(id)
         },
         loading(id: string) {
-          return session.history.loading(id)
+          return store.historyLoading(id)
         },
         async loadMore(id: string, count?: number) {
-          await session.history.loadMore(id, count)
+          await store.historyLoadMore(id, count)
         },
       },
       async fetch(count?: number) {
@@ -536,24 +503,24 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   const permissionValue = {
     ready: () => true,
     respond(input: any) {
-      session.permission.respond(input)
+      store.permissionRespond(input)
     },
     autoResponds() {
-      return session.permission.isAutoAccepting()
+      return workspace.autoAccept.enabled()
     },
     isAutoAccepting() {
-      return session.permission.isAutoAccepting()
+      return workspace.autoAccept.enabled()
     },
     toggleAutoAccept() {
-      session.permission.toggleAutoAccept()
+      workspace.autoAccept.toggle()
     },
     enableAutoAccept() {
-      session.permission.enableAutoAccept()
+      workspace.autoAccept.enable()
     },
     disableAutoAccept() {
-      session.permission.disableAutoAccept()
+      workspace.autoAccept.disable()
     },
-    permissionsEnabled: () => session.permission.enabled(),
+    permissionsEnabled: () => workspace.agentAvailable(),
   }
 
   // SettingsContext value
@@ -586,7 +553,15 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   // LayoutContext value — reuse DeviceLayoutProvider's
   // Already provided by DeviceInterface
 
-  const composer = createDeviceSessionComposerState()
+  const composer = createDeviceSessionComposerState({
+    sessionID: currentSessionID,
+    todos: () => {
+      const cid = currentSessionID()
+      return cid ? (store.data.todos[cid] ?? []) : []
+    },
+    isAutoAccepting: () => workspace.autoAccept.enabled(),
+    enableAutoAccept: () => workspace.autoAccept.enable(),
+  })
 
   const [composerMounted, setComposerMounted] = createSignal(true)
   createEffect(() => {
@@ -603,14 +578,14 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready" || phase[id] === "error"
-    return session.data.session?.id === id && !session.history.loading(id)
+    return store.data.session?.id === id && !store.historyLoading(id)
   })
 
   const ready = createMemo(() => {
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready"
-    return session.data.session?.id === id && !session.history.loading(id)
+    return store.data.session?.id === id && !store.historyLoading(id)
   })
 
   const autoScroll = createAutoScroll({
@@ -625,7 +600,6 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   let scroller: HTMLDivElement | undefined
   let content: HTMLDivElement | undefined
   let promptDock: HTMLDivElement | undefined
-  let snapFrame: number | undefined
   let dockHeight = 0
 
   const messages = createMemo(() => effectiveMessages())
@@ -774,7 +748,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
         Message[]
       >,
       part: { ...parts } as Record<string, Part[]>,
-      partProgress: session.data.partProgress,
+      partProgress: store.data.partProgress,
       provider: legacyProvider(workspace.data.provider),
     }
   })
