@@ -1,10 +1,9 @@
-import { createContext, createSignal, useContext, type ParentProps } from "solid-js"
+import { createContext, useContext, type ParentProps } from "solid-js"
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
-import { createStore, produce, reconcile } from "solid-js/store"
+import { createStore, produce } from "solid-js/store"
 import { useDeviceSDK } from "./device-sdk"
 import { useDeviceWorkspace } from "./device-workspace"
 import type { Message, Part, Session, SessionStatus, FileDiff, Todo, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
-import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
 
 export type SessionError = {
   subtype?: string
@@ -26,24 +25,59 @@ export type TaskState = {
   endTime?: number
 }
 
-type SessionData = {
+type SessionSlice = {
   session: Session | undefined
   messages: Record<string, Message[]>
   parts: Record<string, Part[]>
-  status: SessionStatus | undefined
-  diffs: FileDiff[]
-  todos: Todo[]
+  status: Record<string, SessionStatus>
+  diffs: Record<string, FileDiff[]>
+  todos: Record<string, Todo[]>
   permissions: Record<string, PermissionRequest[]>
   questions: Record<string, QuestionRequest[]>
-  error: SessionError | undefined
+  errors: Record<string, SessionError>
   toolProgress: Record<string, string>
   partProgress: Record<string, string[]>
-  tasks: Record<string, TaskState>
+  tasks: Record<string, Record<string, TaskState>>
+}
+
+type StoreValue = {
+  data: SessionSlice
+  loadMessages: (sessionID: string, limit?: number) => Promise<void>
+  syncSession: (sessionID: string) => Promise<void>
+  loadTasks: (sessionID: string) => Promise<void>
+  diff: (sessionID: string) => Promise<void>
+  todo: (sessionID: string) => Promise<void>
+  optimisticAdd: (input: { sessionID: string; message: Message; parts: Part[] }) => void
+  optimisticRemove: (input: { sessionID: string; messageID: string }) => void
+  addOptimisticMessage: (input: {
+    sessionID: string
+    messageID: string
+    parts: Part[]
+    agent: string
+    model: { providerID: string; modelID: string }
+  }) => void
+  historyMore: (sessionID: string) => boolean
+  historyLoading: (sessionID?: string) => boolean
+  historyLoadMore: (sessionID: string, count?: number) => Promise<void>
+  permissionRespond: (input: { permissionID: string; response: "once" | "always" | "reject" }) => void
 }
 
 type DeviceSessionValue = {
-  data: SessionData
-  set: ReturnType<typeof createStore<SessionData>>[1]
+  data: {
+    session: Session | undefined
+    messages: Record<string, Message[]>
+    parts: Record<string, Part[]>
+    status: SessionStatus | undefined
+    diffs: FileDiff[]
+    todos: Todo[]
+    permissions: Record<string, PermissionRequest[]>
+    questions: Record<string, QuestionRequest[]>
+    error: SessionError | undefined
+    toolProgress: Record<string, string>
+    partProgress: Record<string, string[]>
+    tasks: Record<string, TaskState>
+  }
+  set: any
   sessionID: () => string | undefined
   sync: () => Promise<void>
   loadMessages: (sessionID: string, limit?: number) => Promise<void>
@@ -63,7 +97,7 @@ type DeviceSessionValue = {
   }): void
   history: {
     more(sessionID: string): boolean
-    loading(): boolean
+    loading(sessionID?: string): boolean
     loadMore(sessionID: string, count?: number): Promise<void>
   }
   permission: {
@@ -76,6 +110,21 @@ type DeviceSessionValue = {
   }
 }
 
+const MESSAGE_PAGE_SIZE = 50
+const idle: SessionStatus = { type: "idle" }
+
+// ── Shared Store Context ──
+
+const StoreContext = createContext<StoreValue>()
+
+export function useDeviceSessionStore() {
+  const ctx = useContext(StoreContext)
+  if (!ctx) throw new Error("useDeviceSessionStore must be used within DeviceSessionStoreProvider")
+  return ctx
+}
+
+// ── Per-Session Context ──
+
 const DeviceSessionContext = createContext<DeviceSessionValue>()
 
 export function useDeviceSession() {
@@ -86,8 +135,7 @@ export function useDeviceSession() {
 
 export { DeviceSessionContext }
 
-const MESSAGE_PAGE_SIZE = 50
-const idle: SessionStatus = { type: "idle" }
+// ── Helpers ──
 
 export function group<T extends { id: string; sessionID: string }>(input: T[]) {
   return input.reduce<Record<string, T[]>>((acc, item) => {
@@ -117,27 +165,28 @@ export function treeEvent(input: {
   return input.tree.has(input.eventSID)
 }
 
-export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>) {
+// ── Shared Store Provider ──
+
+export function DeviceSessionStoreProvider(props: ParentProps) {
   const device = useDeviceSDK()
   const workspace = useDeviceWorkspace()
 
-  const [store, setStore] = createStore<SessionData>({
+  const [store, setStore] = createStore<SessionSlice>({
     session: undefined,
     messages: {},
     parts: {},
-    status: undefined,
-    diffs: [],
-    todos: [],
+    status: {},
+    diffs: {},
+    todos: {},
     permissions: {},
     questions: {},
-    error: undefined,
+    errors: {},
     toolProgress: {},
     partProgress: {},
     tasks: {},
   })
 
   const inflight = new Map<string, Promise<void>>()
-
   const runInflight = (key: string, task: () => Promise<void>) => {
     const pending = inflight.get(key)
     if (pending) return pending
@@ -146,29 +195,9 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     return promise
   }
 
-  const sid = createMemo(() => props.sessionID)
-
-  const tree = createMemo(() => new Set(sessionTreeIDs(workspace.data.session, sid())))
-
-  createEffect(() => {
-    const id = sid()
-    console.log("[provider-syncSession] sid changed:", id)
-    if (id) void syncSession()
-  })
-
-  createEffect(() => {
-    const id = sid()
-    if (!id) {
-      setStore("status", undefined)
-      return
-    }
-    setStore("status", workspace.data.sessionStatus[id] ?? idle)
-  })
-
   const BATCH_SIZE = 10
 
   const loadMessages = async (sessionID: string, limit?: number) => {
-    console.log("[loadMessages] called for", sessionID, "limit:", limit ?? MESSAGE_PAGE_SIZE)
     return runInflight(`messages:${sessionID}`, async () => {
       try {
         const result = await device.client.conversation.messages(sessionID, { limit: limit ?? MESSAGE_PAGE_SIZE })
@@ -231,15 +260,14 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     })
   }
 
-  const syncSession = async () => {
-    const id = sid()
-    if (!id || !workspace.agentAvailable()) return
+  const syncSession = async (sessionID: string) => {
+    if (!sessionID || !workspace.agentAvailable()) return
     try {
-      const [,] = await Promise.allSettled([
-        device.client.conversation.get(id).then((result) => {
+      await Promise.allSettled([
+        device.client.conversation.get(sessionID).then((result) => {
           if (result) setStore("session", result as Session)
         }),
-        loadTasks(id),
+        loadTasks(sessionID),
       ])
     } catch {}
   }
@@ -263,7 +291,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           }
         }
       }
-      setStore("tasks", reconcile(taskMap, { key: "taskID" }))
+      setStore("tasks", id, taskMap)
     } catch {}
   }
 
@@ -272,7 +300,8 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     return runInflight(`diff:${sessionID}`, async () => {
       try {
         const result = await device.client.conversation.diff(sessionID)
-        setStore("diffs", reconcile((result as FileDiff[]) ?? [], { key: "file" }))
+        const diffs = ((result as FileDiff[]) ?? [])
+        setStore("diffs", sessionID, diffs)
       } catch {}
     })
   }
@@ -282,7 +311,8 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     return runInflight(`todo:${sessionID}`, async () => {
       try {
         const result = await device.client.conversation.todo(sessionID)
-        setStore("todos", reconcile((result as Todo[]) ?? [], { key: "id" }))
+        const todos = Array.isArray(result) ? (result as Todo[]) : []
+        setStore("todos", sessionID, todos)
       } catch {}
     })
   }
@@ -326,19 +356,24 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     optimisticAdd({ sessionID: input.sessionID, message, parts: input.parts })
   }
 
+  // SSE subscription — process ALL session events
+  const allSessionTree = createMemo(() => {
+    const tree = new Set<string>()
+    for (const s of workspace.data.session) tree.add(s.id)
+    return tree
+  })
+
   const unsubscribe = workspace.subscribe((payload) => {
     const eventSID = payload.sessionID ?? (payload.properties as any)?.sessionID ?? ((payload.properties as any)?.part as any)?.sessionID ?? ((payload.properties as any)?.info as any)?.sessionID ?? ((payload.properties as any)?.status as any)?.sessionID ?? ((payload.properties as any)?.diff as any[])?.[0]?.sessionID ?? ((payload.properties as any)?.todos as any[])?.[0]?.sessionID
-    if (!treeEvent({ root: sid(), eventSID, type: payload.type, tree: tree() })) {
-      return
-    }
 
     batch(() => {
       switch (payload.type) {
         case "message.updated": {
           const info = (payload.properties as { info?: Message })?.info
           if (!info?.id) break
-          if (info.role === "user" && store.error) setStore("error", undefined)
-          const msgSID = eventSID ?? sid() ?? ""
+          const msgSID = eventSID ?? info.sessionID
+          if (!msgSID) break
+          if (info.role === "user" && store.errors[msgSID]) setStore("errors", msgSID, undefined as any)
           if (!store.messages[msgSID]) setStore("messages", msgSID, [])
           setStore("messages", msgSID, produce((draft: Message[]) => {
             const idx = draft.findIndex((m) => m.id === info.id)
@@ -414,7 +449,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         case "message.removed": {
           const props = payload.properties as { sessionID?: string; messageID?: string }
           if (!props.messageID) break
-          const msgSID = eventSID ?? sid() ?? ""
+          const msgSID = eventSID ?? props.sessionID ?? ""
           if (!store.messages[msgSID]) break
           setStore("messages", msgSID, produce((draft: Message[]) => {
             const idx = draft.findIndex((m) => m.id === props.messageID)
@@ -427,18 +462,18 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         }
         case "session.diff": {
           const props = payload.properties as { sessionID?: string; diff?: FileDiff[] }
-          if (props.diff) setStore("diffs", reconcile(props.diff, { key: "file" }))
+          if (props.diff && eventSID) setStore("diffs", eventSID, props.diff)
           break
         }
         case "todo.updated": {
           const props = payload.properties as { sessionID?: string; todos?: Todo[] }
-          if (props.todos) setStore("todos", reconcile(props.todos, { key: "id" }))
+          if (props.todos && eventSID) setStore("todos", eventSID, props.todos)
           break
         }
         case "session.error": {
           const props = payload.properties as { sessionID?: string; error?: SessionError }
-          if (props.error) setStore("error", props.error)
-          setStore("status", idle)
+          if (props.error && eventSID) setStore("errors", eventSID, props.error)
+          if (eventSID) setStore("status", eventSID, idle)
           break
         }
         case "tool.progress": {
@@ -450,8 +485,8 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         }
         case "task.started": {
           const props = payload.properties as { sessionID?: string; taskID?: string; description?: string; taskType?: string }
-          if (!props.taskID) break
-          setStore("tasks", props.taskID, {
+          if (!props.taskID || !eventSID) break
+          setStore("tasks", eventSID, props.taskID, {
             taskID: props.taskID,
             status: "running",
             description: props.description ?? "",
@@ -462,10 +497,10 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         }
         case "task.progress": {
           const props = payload.properties as { sessionID?: string; taskID?: string; description?: string; usage?: { total_tokens: number; tool_uses: number; duration_ms: number }; summary?: string }
-          if (!props.taskID) break
-          const existing = store.tasks[props.taskID]
+          if (!props.taskID || !eventSID) break
+          const existing = store.tasks[eventSID]?.[props.taskID]
           if (!existing) break
-          setStore("tasks", props.taskID, produce((draft: TaskState) => {
+          setStore("tasks", eventSID, props.taskID, produce((draft: TaskState) => {
             if (props.description) draft.description = props.description
             if (props.usage) draft.usage = props.usage
             if (props.summary) draft.summary = props.summary
@@ -474,10 +509,10 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         }
         case "task.completed": {
           const props = payload.properties as { sessionID?: string; taskID?: string; status?: string; summary?: string; usage?: { total_tokens: number; tool_uses: number; duration_ms: number } }
-          if (!props.taskID) break
-          const existing = store.tasks[props.taskID]
+          if (!props.taskID || !eventSID) break
+          const existing = store.tasks[eventSID]?.[props.taskID]
           const endTime = Date.now()
-          setStore("tasks", props.taskID, {
+          setStore("tasks", eventSID, props.taskID, {
             taskID: props.taskID,
             status: (props.status === "completed" || props.status === "failed" || props.status === "stopped") ? props.status : "completed",
             description: existing?.description ?? "",
@@ -496,44 +531,86 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
 
   const permissionRespond = (input: { permissionID: string; response: "once" | "always" | "reject" }) => {
     if (!workspace.agentAvailable()) return
-    const id = sid()
     device.client.permission.respond(input.permissionID, {
       decision: input.response,
-    }).catch(() => {
-      if (id) workspace.session.removePermission(id, input.permissionID)
-    })
+    }).catch(() => {})
+  }
+
+  const historyLoading = (sessionID?: string) => {
+    if (sessionID) return inflight.has(`messages:${sessionID}`)
+    for (const key of inflight.keys()) {
+      if (key.startsWith("messages:")) return true
+    }
+    return false
+  }
+
+  const storeValue: StoreValue = {
+    get data() { return store },
+    loadMessages,
+    syncSession,
+    loadTasks,
+    diff: diffSession,
+    todo: todoSession,
+    optimisticAdd,
+    optimisticRemove,
+    addOptimisticMessage,
+    historyMore: (sessionID: string) => (store.messages[sessionID]?.length ?? 0) >= MESSAGE_PAGE_SIZE,
+    historyLoading,
+    historyLoadMore: async (sessionID: string, count?: number) => {
+      const current = store.messages[sessionID]?.length ?? 0
+      await loadMessages(sessionID, current + (count ?? MESSAGE_PAGE_SIZE))
+    },
+    permissionRespond,
+  }
+
+  return <StoreContext.Provider value={storeValue}>{props.children}</StoreContext.Provider>
+}
+
+// ── Per-Session Provider ──
+
+export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>) {
+  const store = useDeviceSessionStore()
+  const workspace = useDeviceWorkspace()
+  const sid = createMemo(() => props.sessionID)
+
+  const data = {
+    get session() { return store.data.session },
+    get messages() { return store.data.messages },
+    get parts() { return store.data.parts },
+    get status() { return sid() ? (store.data.status[sid()!] ?? idle) : undefined },
+    get diffs() { return sid() ? (store.data.diffs[sid()!] ?? []) : [] },
+    get todos() { return sid() ? (store.data.todos[sid()!] ?? []) : [] },
+    get permissions() { return store.data.permissions },
+    get questions() { return store.data.questions },
+    get error() { return sid() ? store.data.errors[sid()!] : undefined },
+    get toolProgress() { return store.data.toolProgress },
+    get partProgress() { return store.data.partProgress },
+    get tasks() { return sid() ? (store.data.tasks[sid()!] ?? {}) : {} },
   }
 
   const value: DeviceSessionValue = {
-    get data() { return store },
-    set: setStore as any,
+    get data() { return data },
+    set: (() => {}) as any,
     sessionID: sid,
-    sync: syncSession,
-    loadMessages,
+    sync: () => store.syncSession(sid() ?? ""),
+    loadMessages: store.loadMessages,
     reconcileMessages: async (sessionID: string) => {
-      await loadMessages(sessionID, MESSAGE_PAGE_SIZE)
+      await store.loadMessages(sessionID, MESSAGE_PAGE_SIZE)
     },
-    diff: diffSession,
-    todo: todoSession,
+    diff: store.diff,
+    todo: store.todo,
     optimistic: {
-      add: optimisticAdd,
-      remove: optimisticRemove,
+      add: store.optimisticAdd,
+      remove: store.optimisticRemove,
     },
-    addOptimisticMessage,
+    addOptimisticMessage: store.addOptimisticMessage,
     history: {
-      more(sessionID: string) {
-        return (store.messages[sessionID]?.length ?? 0) >= MESSAGE_PAGE_SIZE
-      },
-      loading() {
-        return inflight.has("messages")
-      },
-      async loadMore(sessionID: string, count?: number) {
-        const current = store.messages[sessionID]?.length ?? 0
-        await loadMessages(sessionID, current + (count ?? MESSAGE_PAGE_SIZE))
-      },
+      more: store.historyMore,
+      loading: store.historyLoading,
+      loadMore: store.historyLoadMore,
     },
     permission: {
-      respond: permissionRespond,
+      respond: store.permissionRespond,
       isAutoAccepting() {
         return workspace.autoAccept.enabled()
       },

@@ -12,7 +12,7 @@ import { useFile } from "@/context/file"
 import { useDiff, useTreePolling } from "@/context/device-file"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
-import { DeviceSessionProvider } from "@/context/device-session"
+import { DeviceSessionProvider, DeviceSessionStoreProvider } from "@/context/device-session"
 import { DeviceSessionTab } from "./device-session-tab"
 import { TerminalTab } from "./terminal-tab"
 import { useDeviceTerminal } from "@/context/device-terminal"
@@ -987,7 +987,9 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
               </div>
             )}
           </Show>
-          <ContentTabPanel />
+          <DeviceSessionStoreProvider>
+            <ContentTabPanel />
+          </DeviceSessionStoreProvider>
         </div>
       </div>
       <Toast.Region />

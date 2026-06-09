@@ -14,7 +14,7 @@ import { DeviceLocalProvider } from "@/context/device-local"
 import { DirectoryContext } from "@/context/directory"
 import { LayoutContext } from "@/context/layout"
 import { ContentTabContext, createContentTabStore, useContentTabs } from "@/context/content-tabs"
-import { DeviceSessionProvider } from "@/context/device-session"
+import { DeviceSessionProvider, DeviceSessionStoreProvider } from "@/context/device-session"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { createSdkForServer } from "@/utils/server"
 import { useDeviceLayout } from "../components/device-interface"
@@ -103,7 +103,8 @@ function MobileContentTabPanel() {
   const tabStore = useContentTabs()
 
   return (
-    <For each={tabStore.tabs()}>
+    <DeviceSessionStoreProvider>
+      <For each={tabStore.tabs()}>
       {(tab) => (
         <Show when={tabStore.activeId() === tab.id}>
           <div class="flex-1 min-h-0 h-full">
@@ -116,6 +117,7 @@ function MobileContentTabPanel() {
         </Show>
       )}
     </For>
+    </DeviceSessionStoreProvider>
   )
 }
 

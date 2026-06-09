@@ -257,18 +257,15 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     on(currentSessionID, (id) => {
       if (!id) return
       const cached = session.data.messages[id]
-      console.log("[tab-loadMessages] id:", id, "cached:", cached?.length ?? 0)
       setPhase(id, cached?.length ? "ready" : "loading")
       Promise.all([
         session.loadMessages(id),
         session.todo(id),
       ])
         .then(() => {
-          console.log("[tab-loadMessages] completed for", id)
           if (currentSessionID() === id) setPhase(id, "ready")
         })
-        .catch((err) => {
-          console.error("[tab-loadMessages] failed for", id, err)
+        .catch(() => {
           if (currentSessionID() === id && phase[id] !== "ready") setPhase(id, "error")
         })
     }),
@@ -398,7 +395,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   createEffect(() => {
     const msgs = effectiveMessages()
     const cid = currentSessionID() ?? ""
-    setSyncData("message", { [cid]: msgs, "": msgs, undefined: msgs })
+    setSyncData("message", { [cid]: msgs, "": msgs })
   })
   createEffect(() => {
     setSyncData("partProgress", session.data.partProgress)
@@ -490,7 +487,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
           return session.history.more(id)
         },
         loading(id: string) {
-          return session.history.loading()
+          return session.history.loading(id)
         },
         async loadMore(id: string, count?: number) {
           await session.history.loadMore(id, count)
@@ -606,14 +603,14 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready" || phase[id] === "error"
-    return session.data.session?.id === id && !session.history.loading()
+    return session.data.session?.id === id && !session.history.loading(id)
   })
 
   const ready = createMemo(() => {
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready"
-    return session.data.session?.id === id && !session.history.loading()
+    return session.data.session?.id === id && !session.history.loading(id)
   })
 
   const autoScroll = createAutoScroll({
