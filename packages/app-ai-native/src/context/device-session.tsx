@@ -28,7 +28,7 @@ export type TaskState = {
 
 type SessionData = {
   session: Session | undefined
-  messages: Message[]
+  messages: Record<string, Message[]>
   parts: Record<string, Part[]>
   status: SessionStatus | undefined
   diffs: FileDiff[]
@@ -46,22 +46,25 @@ type DeviceSessionValue = {
   set: ReturnType<typeof createStore<SessionData>>[1]
   sessionID: () => string | undefined
   sync: () => Promise<void>
-  diff: () => Promise<void>
-  todo: () => Promise<void>
+  loadMessages: (sessionID: string, limit?: number) => Promise<void>
+  reconcileMessages: (sessionID: string) => Promise<void>
+  diff: (sessionID: string) => Promise<void>
+  todo: (sessionID: string) => Promise<void>
   optimistic: {
-    add(input: { message: Message; parts: Part[] }): void
-    remove(input: { messageID: string }): void
+    add(input: { sessionID: string; message: Message; parts: Part[] }): void
+    remove(input: { sessionID: string; messageID: string }): void
   }
   addOptimisticMessage(input: {
+    sessionID: string
     messageID: string
     parts: Part[]
     agent: string
     model: { providerID: string; modelID: string }
   }): void
   history: {
-    more(): boolean
+    more(sessionID: string): boolean
     loading(): boolean
-    loadMore(count?: number): Promise<void>
+    loadMore(sessionID: string, count?: number): Promise<void>
   }
   permission: {
     respond(input: { permissionID: string; response: "once" | "always" | "reject" }): void
@@ -111,17 +114,7 @@ export function treeEvent(input: {
 }) {
   if (!input.root) return false
   if (!input.eventSID) return true
-  const request =
-    input.type === "permission.asked" ||
-    input.type === "permission.replied" ||
-    input.type === "question.asked" ||
-    input.type === "question.replied" ||
-    input.type === "question.rejected" ||
-    input.type === "task.started" ||
-    input.type === "task.progress" ||
-    input.type === "task.completed"
-  if (request) return input.tree.has(input.eventSID)
-  return input.eventSID === input.root
+  return input.tree.has(input.eventSID)
 }
 
 export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>) {
@@ -130,7 +123,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
 
   const [store, setStore] = createStore<SessionData>({
     session: undefined,
-    messages: [],
+    messages: {},
     parts: {},
     status: undefined,
     diffs: [],
@@ -170,48 +163,12 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     setStore("status", workspace.data.sessionStatus[id] ?? idle)
   })
 
-  // When SSE streaming completes (session transitions from busy/retry to idle),
-  // run a reconciliation pass to catch any content that might have been missed
-  // during streaming. The small delay ensures pending SSE events settle first.
-  let reconcileTimer: ReturnType<typeof setTimeout> | undefined
-  let wasActive = false
-
-  createEffect(() => {
-    const id = sid()
-    if (!id) {
-      wasActive = false
-      return
-    }
-    const status = workspace.data.sessionStatus[id]
-    const isActive = status?.type === "busy" || status?.type === "retry"
-    if (wasActive && !isActive) {
-      if (reconcileTimer) clearTimeout(reconcileTimer)
-      const sessionId = id
-      reconcileTimer = setTimeout(() => {
-        reconcileTimer = undefined
-        if (sid() === sessionId) {
-          void loadMessages(MESSAGE_PAGE_SIZE)
-        }
-      }, 150)
-    }
-    wasActive = isActive
-  })
-
-  onCleanup(() => {
-    if (reconcileTimer) {
-      clearTimeout(reconcileTimer)
-      reconcileTimer = undefined
-    }
-  })
-
   const BATCH_SIZE = 10
 
-  const loadMessages = async (limit: number) => {
-    const id = sid()
-    if (!id) return
-    return runInflight("messages", async () => {
+  const loadMessages = async (sessionID: string, limit?: number) => {
+    return runInflight(`messages:${sessionID}`, async () => {
       try {
-        const result = await device.client.conversation.messages(id, { limit })
+        const result = await device.client.conversation.messages(sessionID, { limit: limit ?? MESSAGE_PAGE_SIZE })
         if (!result) return
         const raw = Array.isArray(result) ? result : []
         const fetched = new Map<string, { info: Message; parts?: Part[] }>()
@@ -244,10 +201,13 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         })
 
         const entries = [...fetched]
+        if (!store.messages[sessionID]) {
+          setStore("messages", sessionID, [])
+        }
         for (let i = 0; i < entries.length; i += BATCH_SIZE) {
           const chunk = entries.slice(i, i + BATCH_SIZE)
           batch(() => {
-            setStore("messages", produce((draft: Message[]) => {
+            setStore("messages", sessionID, produce((draft: Message[]) => {
               const index = new Map(draft.map((m, j) => [m.id, j]))
               for (const [mid, data] of chunk) {
                 const idx = index.get(mid)
@@ -276,7 +236,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         device.client.conversation.get(id).then((result) => {
           if (result) setStore("session", result as Session)
         }),
-        loadMessages(MESSAGE_PAGE_SIZE),
+        loadMessages(id),
         loadTasks(id),
       ])
     } catch {}
@@ -305,48 +265,49 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     } catch {}
   }
 
-  const diffSession = async () => {
-    const id = sid()
-    if (!id || !workspace.agentAvailable()) return
-    if (store.diffs.length > 0) return
-    return runInflight("diff", async () => {
+  const diffSession = async (sessionID: string) => {
+    if (!workspace.agentAvailable()) return
+    return runInflight(`diff:${sessionID}`, async () => {
       try {
-        const result = await device.client.conversation.diff(id)
+        const result = await device.client.conversation.diff(sessionID)
         setStore("diffs", reconcile((result as FileDiff[]) ?? [], { key: "file" }))
       } catch {}
     })
   }
 
-  const todoSession = async () => {
-    const id = sid()
-    if (!id || !workspace.agentAvailable()) return
-    if (store.todos.length > 0) return
-    return runInflight("todo", async () => {
+  const todoSession = async (sessionID: string) => {
+    if (!workspace.agentAvailable()) return
+    return runInflight(`todo:${sessionID}`, async () => {
       try {
-        const result = await device.client.conversation.todo(id)
+        const result = await device.client.conversation.todo(sessionID)
         setStore("todos", reconcile((result as Todo[]) ?? [], { key: "id" }))
       } catch {}
     })
   }
 
-  const optimisticAdd = (input: { message: Message; parts: Part[] }) => {
+  const optimisticAdd = (input: { sessionID: string; message: Message; parts: Part[] }) => {
     setStore(produce((draft) => {
-      draft.messages.push(input.message)
+      if (!draft.messages[input.sessionID]) draft.messages[input.sessionID] = []
+      draft.messages[input.sessionID].push(input.message)
       if (input.parts.length > 0 && input.message.id) {
         draft.parts[input.message.id] = input.parts
       }
     }))
   }
 
-  const optimisticRemove = (input: { messageID: string }) => {
+  const optimisticRemove = (input: { sessionID: string; messageID: string }) => {
     setStore(produce((draft) => {
-      const idx = draft.messages.findIndex((m) => m.id === input.messageID)
-      if (idx !== -1) draft.messages.splice(idx, 1)
+      const list = draft.messages[input.sessionID]
+      if (list) {
+        const idx = list.findIndex((m) => m.id === input.messageID)
+        if (idx !== -1) list.splice(idx, 1)
+      }
       delete draft.parts[input.messageID]
     }))
   }
 
   const addOptimisticMessage = (input: {
+    sessionID: string
     messageID: string
     parts: Part[]
     agent: string
@@ -354,13 +315,13 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
   }) => {
     const message: Message = {
       id: input.messageID,
-      sessionID: sid() ?? "",
+      sessionID: input.sessionID,
       role: "user",
       time: { created: Date.now() },
       agent: input.agent,
       model: input.model,
     }
-    optimisticAdd({ message, parts: input.parts })
+    optimisticAdd({ sessionID: input.sessionID, message, parts: input.parts })
   }
 
   const unsubscribe = workspace.subscribe((payload) => {
@@ -369,14 +330,15 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
       return
     }
 
-
     batch(() => {
       switch (payload.type) {
         case "message.updated": {
           const info = (payload.properties as { info?: Message })?.info
           if (!info?.id) break
           if (info.role === "user" && store.error) setStore("error", undefined)
-          setStore("messages", produce((draft: Message[]) => {
+          const msgSID = eventSID ?? sid() ?? ""
+          if (!store.messages[msgSID]) setStore("messages", msgSID, [])
+          setStore("messages", msgSID, produce((draft: Message[]) => {
             const idx = draft.findIndex((m) => m.id === info.id)
             if (idx !== -1) draft[idx] = info
             else draft.push(info)
@@ -388,9 +350,8 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           if (!part?.id) break
           const messageID = part.messageID
           if (!messageID) break
-          const partTool = (part as any).tool as string | undefined
-          const partStatus = (part as any).state?.status as string | undefined
           const partCallID = (part as any).callID as string | undefined
+          const partStatus = (part as any).state?.status as string | undefined
           const partProgress = (part as any).state?.progress as string[] | undefined
           if (partCallID) {
             if (partStatus === "completed" || partStatus === "error") {
@@ -448,6 +409,20 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           }))
           break
         }
+        case "message.removed": {
+          const props = payload.properties as { sessionID?: string; messageID?: string }
+          if (!props.messageID) break
+          const msgSID = eventSID ?? sid() ?? ""
+          if (!store.messages[msgSID]) break
+          setStore("messages", msgSID, produce((draft: Message[]) => {
+            const idx = draft.findIndex((m) => m.id === props.messageID)
+            if (idx !== -1) draft.splice(idx, 1)
+          }))
+          setStore("parts", produce((draft) => {
+            delete draft[props.messageID!]
+          }))
+          break
+        }
         case "session.diff": {
           const props = payload.properties as { sessionID?: string; diff?: FileDiff[] }
           if (props.diff) setStore("diffs", reconcile(props.diff, { key: "file" }))
@@ -462,16 +437,6 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           const props = payload.properties as { sessionID?: string; error?: SessionError }
           if (props.error) setStore("error", props.error)
           setStore("status", idle)
-          break
-        }
-        case "message.removed": {
-          const props = payload.properties as { sessionID?: string; messageID?: string }
-           if (!props.messageID) break
-           setStore(produce((draft) => {
-            const idx = draft.messages.findIndex((m) => m.id === props.messageID)
-            if (idx !== -1) draft.messages.splice(idx, 1)
-            delete draft.parts[props.messageID!]
-          }))
           break
         }
         case "tool.progress": {
@@ -522,7 +487,6 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
           })
           break
         }
-
       }
     })
   })
@@ -543,6 +507,10 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     set: setStore as any,
     sessionID: sid,
     sync: syncSession,
+    loadMessages,
+    reconcileMessages: async (sessionID: string) => {
+      await loadMessages(sessionID, MESSAGE_PAGE_SIZE)
+    },
     diff: diffSession,
     todo: todoSession,
     optimistic: {
@@ -551,14 +519,15 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     },
     addOptimisticMessage,
     history: {
-      more() {
-        return store.messages.length >= MESSAGE_PAGE_SIZE
+      more(sessionID: string) {
+        return (store.messages[sessionID]?.length ?? 0) >= MESSAGE_PAGE_SIZE
       },
       loading() {
         return inflight.has("messages")
       },
-      async loadMore(count?: number) {
-        await loadMessages(store.messages.length + (count ?? MESSAGE_PAGE_SIZE))
+      async loadMore(sessionID: string, count?: number) {
+        const current = store.messages[sessionID]?.length ?? 0
+        await loadMessages(sessionID, current + (count ?? MESSAGE_PAGE_SIZE))
       },
     },
     permission: {
