@@ -151,7 +151,9 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
   const tree = createMemo(() => new Set(sessionTreeIDs(workspace.data.session, sid())))
 
   createEffect(() => {
-    if (sid()) void syncSession()
+    const id = sid()
+    console.log("[provider-syncSession] sid changed:", id)
+    if (id) void syncSession()
   })
 
   createEffect(() => {
@@ -166,6 +168,7 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
   const BATCH_SIZE = 10
 
   const loadMessages = async (sessionID: string, limit?: number) => {
+    console.log("[loadMessages] called for", sessionID, "limit:", limit ?? MESSAGE_PAGE_SIZE)
     return runInflight(`messages:${sessionID}`, async () => {
       try {
         const result = await device.client.conversation.messages(sessionID, { limit: limit ?? MESSAGE_PAGE_SIZE })
@@ -236,7 +239,6 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
         device.client.conversation.get(id).then((result) => {
           if (result) setStore("session", result as Session)
         }),
-        loadMessages(id),
         loadTasks(id),
       ])
     } catch {}

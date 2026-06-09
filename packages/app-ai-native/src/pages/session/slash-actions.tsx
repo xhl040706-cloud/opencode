@@ -12,7 +12,6 @@ import { DialogSelectMcp } from "@/components/dialog-select-mcp"
 import { DialogSelectAgent } from "@/components/dialog-select-agent"
 import { DialogSelectVariant } from "@/components/dialog-select-variant"
 import { DialogSelectProvider } from "@/components/dialog-select-provider"
-import { DialogFork } from "@/components/dialog-fork"
 import { DialogSessionRename } from "@/components/dialog-session-rename"
 import { DialogSessionList } from "@/components/dialog-session-list"
 import { DialogTimeline } from "@/components/dialog-timeline"
@@ -22,7 +21,19 @@ import { DialogCredit } from "@/components/dialog-credit"
 import { DialogStatus } from "@/components/dialog-status"
 import { DialogSkills } from "@/components/dialog-skills"
 import { DialogFavorites } from "@/components/dialog-favorites"
-import { exportTranscriptAsMarkdown, downloadFile } from "@/utils/session-export"
+function exportTranscriptAsMarkdown(messages: any[], getParts: (id: string) => any[]): string {
+  const lines: string[] = []
+  for (const message of messages) {
+    const role = message.role === "user" ? "User" : "Assistant"
+    lines.push(`## ${role}`, "")
+    for (const part of getParts(message.id)) {
+      if (part.type === "text" && !part.synthetic && !part.ignored) lines.push(part.text, "")
+      if (part.type === "reasoning") lines.push(`_Thinking:_ ${part.text}`, "")
+      if (part.type === "tool") lines.push(`> Tool: ${part.tool}`, "")
+    }
+  }
+  return lines.join("\n")
+}
 
 export function useSlashActions() {
   const dialog = useDialog()
@@ -108,10 +119,7 @@ export function useSlashActions() {
         dialog.show(() => <DialogTimeline />)
         return
       }
-      case "fork": {
-        dialog.show(() => <DialogFork />)
-        return
-      }
+
       case "copy": {
         const sid = sessionID()
         if (!sid) {
@@ -136,21 +144,7 @@ export function useSlashActions() {
           )
         return
       }
-      case "export": {
-        const sid = sessionID()
-        if (!sid) {
-          showToast({ title: language.t("command.session.export.noSession") })
-          return
-        }
-        const messages = sync.data.message[sid] ?? []
-        const md = exportTranscriptAsMarkdown(messages, (msgID) => sync.data.part[msgID] ?? [])
-        downloadFile(`session-${sid}.md`, md)
-        showToast({
-          title: language.t("command.session.export.success"),
-          variant: "success",
-        })
-        return
-      }
+
       case "timestamps":
       case "toggle-timestamps": {
         showToast({ title: language.t("command.timestamps.placeholder") })
