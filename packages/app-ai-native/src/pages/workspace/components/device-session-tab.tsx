@@ -578,14 +578,14 @@ export function DeviceSessionView(props: { tabId: string; promptSeed?: string; h
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready" || phase[id] === "error"
-    return store.data.session?.id === id && !store.historyLoading(id)
+    return !!workspace.data.session.find((s) => s.id === id) && !store.historyLoading(id)
   })
 
   const ready = createMemo(() => {
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready"
-    return store.data.session?.id === id && !store.historyLoading(id)
+    return !!workspace.data.session.find((s) => s.id === id) && !store.historyLoading(id)
   })
 
   const autoScroll = createAutoScroll({

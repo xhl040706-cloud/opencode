@@ -1,7 +1,6 @@
-import { createContext, createEffect, createMemo, createSignal, onCleanup, useContext, type ParentProps } from "solid-js"
+import { createContext, createEffect, createMemo, createSignal, useContext, type ParentProps } from "solid-js"
 import { useContentTabs } from "@/context/content-tabs"
 import { useDeviceWorkspace } from "@/context/device-workspace"
-import type { Session } from "@opencode-ai/sdk/v2/client"
 
 type SessionTabValue = {
   tabId: string
@@ -40,25 +39,12 @@ export function SessionTabProvider(props: ParentProps<{ tabId: string; sessionID
     }
   }
 
-  const unsubscribe = workspace.subscribe((payload) => {
-    if (payload.type === "session.created") {
-      const info = (payload.properties as { info?: Session })?.info ?? (payload.properties as Session)
-      if (info?.id) {
-        const current = tabStore.tabs().find((t) => t.id === props.tabId)
-        if (current && (current.meta as any)?.sessionID === info.id && info.title) {
-          tabStore.setTitle(props.tabId, info.title)
-        }
-      }
-    }
-    if (payload.type === "session.updated") {
-      const info = (payload.properties as { info?: Session })?.info ?? (payload.properties as Session)
-      const cid = rootSessionID()
-      if (info?.id === cid && info.title) {
-        tabStore.setTitle(props.tabId, info.title)
-      }
-    }
+  createEffect(() => {
+    const sid = rootSessionID()
+    if (!sid) return
+    const session = workspace.data.session.find((s) => s.id === sid)
+    if (session?.title) tabStore.setTitle(props.tabId, session.title)
   })
-  onCleanup(() => unsubscribe())
 
   const value: SessionTabValue = {
     tabId: props.tabId,
