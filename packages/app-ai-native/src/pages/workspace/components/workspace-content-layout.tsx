@@ -338,6 +338,7 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   const terminal = useDeviceTerminal()
   const dw = useDeviceWorkspace()
   const work = useWorkspace()
+  const file = useFile()
   const diff = useDiff()
   const treePolling = useTreePolling()
   const [active, setActive] = createSignal<SidebarSection | undefined>("sessions")
@@ -516,7 +517,6 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
               })
               terminal.new().then((sessionId) => {
                 if (!sessionId) {
-                  tabStore.close(tabStore.makeTabId("terminal", pendingKey))
                   return
                 }
                 tabStore.replace(tabStore.makeTabId("terminal", pendingKey), {
@@ -634,20 +634,29 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
               </Show>
             </Show>
             <Show when={active() === "files"}>
-              <div class="p-2">
-                <FileTreeWithTabs path={props.directory} />
-              </div>
-            </Show>
-            <Show when={active() === "diffs"}>
-              <Show when={diff.state().stagedFiles.length > 0 || diff.state().unstagedFiles.length > 0 || diff.state().untrackedFiles.length > 0 || diff.state().loading} fallback={
-                <div class="px-3 py-2 text-12-regular text-text-weak">
-                  {language.t("session.review.noChanges")}
+              <Show when={file.tree.isDisabled(props.directory)} fallback={
+                <div class="p-2">
+                  <FileTreeWithTabs path={props.directory} />
                 </div>
               }>
-                <div class="px-0 py-0.5">
-                  <Show when={diff.state().branch}>
-                    <div class="px-1.5 pb-1 text-11-regular text-text-weak flex items-center gap-1.5">
-                      <Icon name="branch" size="small" class="shrink-0" />
+                <div class="flex-1 flex flex-col items-center justify-center gap-3 text-text-weak py-8">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <div class="text-14-medium">{language.t("file.tree.runtimeDisabled.title")}</div>
+                  <div class="text-12-regular">{language.t("file.tree.runtimeDisabled.description")}</div>
+                </div>
+              </Show>
+            </Show>
+            <Show when={active() === "diffs"}>
+              <Show when={diff.state().disabled} fallback={
+                <Show when={diff.state().stagedFiles.length > 0 || diff.state().unstagedFiles.length > 0 || diff.state().untrackedFiles.length > 0 || diff.state().loading} fallback={
+                  <div class="px-3 py-2 text-12-regular text-text-weak">
+                    {language.t("session.review.noChanges")}
+                  </div>
+                }>
+                  <div class="px-0 py-0.5">
+                    <Show when={diff.state().branch}>
+                      <div class="px-1.5 pb-1 text-11-regular text-text-weak flex items-center gap-1.5">
+                        <Icon name="branch" size="small" class="shrink-0" />
                       <span
                         class={`truncate ${
                           dw.data.vcs?.dirty === undefined
@@ -792,6 +801,13 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
                   </Show>
                 </div>
               </Show>
+              }>
+                <div class="flex-1 flex flex-col items-center justify-center gap-3 text-text-weak py-8">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <div class="text-14-medium">{language.t("diff.list.runtimeDisabled.title")}</div>
+                  <div class="text-12-regular">{language.t("diff.list.runtimeDisabled.description")}</div>
+                </div>
+              </Show>
             </Show>
           </div>
         </Show>
@@ -851,7 +867,6 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
       })
       terminal.new().then((sessionId) => {
         if (!sessionId) {
-          tabStore.close(tabStore.makeTabId("terminal", pendingKey))
           return
         }
         tabStore.replace(tabStore.makeTabId("terminal", pendingKey), {
@@ -958,6 +973,20 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
         </div>
 
         <div class="flex-1 min-w-0 h-full flex flex-col">
+          <Show when={ws.proxyError()}>
+            {(code) => (
+              <div class="shrink-0 h-8 flex items-center gap-2 px-3 border-b text-12-medium text-text-warning bg-surface-warning-weakest">
+                <Icon name="warning" size="small" />
+                <span>
+                  <Switch>
+                    <Match when={code() === "UPSTREAM_ERROR"}>{language.t("workspace.proxy.error.upstream")}</Match>
+                    <Match when={code() === "FILTER_ERROR"}>{language.t("workspace.proxy.error.filter")}</Match>
+                    <Match when={true}>{language.t("workspace.proxy.error.unknown", { code: code() })}</Match>
+                  </Switch>
+                </span>
+              </div>
+            )}
+          </Show>
           <ContentTabPanel />
         </div>
       </div>

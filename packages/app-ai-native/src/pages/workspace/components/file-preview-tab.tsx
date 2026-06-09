@@ -217,6 +217,7 @@ export function FilePreviewTab(props: { tab: ContentTab }) {
     return file.get(p)
   })
   const contents = createMemo(() => (state()?.content as { content?: string } | undefined)?.content ?? "")
+  const filtered = createMemo(() => state()?.filtered)
   const chunk = createMemo(() => state()?.chunk)
   const meta = createMemo(() => state()?.meta)
   const loadedLines = createMemo(() => {
@@ -362,6 +363,27 @@ export function FilePreviewTab(props: { tab: ContentTab }) {
         </div>
       </Show>
       <Switch>
+        <Match when={filtered()}>
+          {(f) => (
+            <div class="flex-1 flex flex-col items-center justify-center gap-3 text-text-weak">
+              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <div class="text-14-medium">
+                {f().reason === "RUNTIME_FILE_DISABLED"
+                  ? language.t("file.preview.runtimeDisabled.title")
+                  : language.t("file.preview.filtered.title")}
+              </div>
+              <Show when={f().reason === "RUNTIME_FILE_DISABLED"}>
+                <div class="text-12-regular">{language.t("file.preview.runtimeDisabled.description")}</div>
+              </Show>
+              <Show when={f().path}>
+                <div class="text-12-regular font-mono">{f().path}</div>
+              </Show>
+              <Show when={f().originalSize}>
+                <div class="text-12-regular">{language.t("file.preview.filtered.size", { size: f().originalSize! })}</div>
+              </Show>
+            </div>
+          )}
+        </Match>
         <Match when={state()?.loaded}>
           <ScrollView class="flex-1 min-h-0" viewportRef={(el) => { viewportEl = el }}>
             <Show
@@ -442,7 +464,7 @@ export function FilePreviewTab(props: { tab: ContentTab }) {
         </Match>
         <Match when={state()?.errorKey || state()?.error}>
           <div class="flex-1 flex items-center justify-center text-text-weak text-14-regular">
-            {state()?.errorKey ? language.t(state()!.errorKey!) : state()?.error}
+            {state()?.errorKey ? language.t(state()!.errorKey!) : String(state()?.error ?? "")}
           </div>
         </Match>
       </Switch>
