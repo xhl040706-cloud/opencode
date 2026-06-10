@@ -15,10 +15,9 @@ import { Card } from "@opencode-ai/ui/card"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
-import { useDeviceSession } from "@/context/device-session"
+import { useDeviceSessionStore } from "@/context/device-session"
 import { useDeviceLocal } from "@/context/device-local"
 import { deviceAdapter, ConversationAdapterContext } from "@/context/device-adapter"
-import { useDiff } from "@/context/device-file"
 import { useLanguage } from "@/context/language"
 import { useFile } from "@/context/file"
 import { SyncContext } from "@/context/sync"
@@ -38,7 +37,6 @@ import { MessageTimeline } from "@/pages/session/message-timeline"
 import { SessionComposerRegion } from "@/pages/session/composer/session-composer-region"
 import { createDeviceSessionComposerState } from "@/pages/session/composer/device-session-composer-state"
 import { createScrollSpy } from "@/pages/session/scroll-spy"
-import { useContentTabs } from "@/context/content-tabs"
 import type {
   Message,
   Part,
@@ -55,6 +53,7 @@ import type {
 } from "@opencode-ai/sdk/v2/client"
 import type { Project, Path } from "@opencode-ai/sdk/v2/client"
 import type { ProviderCapability, ProviderCapabilitiesResponse } from "@/context/global-sync/types"
+import { legacyProvider } from "@/utils/legacy-provider"
 
 import { SessionQrCodeContent } from "./session-qrcode-dialog"
 import { isMobile } from "@/lib/mobile"
@@ -64,75 +63,10 @@ const emptyMessages: Message[] = []
 const idle: SessionStatus = { type: "idle" }
 const busySinceMap = new Map<string, number>()
 
-
-
-function legacyProvider(input: ProviderCapabilitiesResponse): ProviderListResponse {
-  return {
-    all: input.connected.map((provider) => ({
-      id: provider.id,
-      name: provider.name,
-      source: provider.source,
-      env: [],
-      options: {},
-      models: Object.fromEntries(
-        Object.entries(provider.models).map(([key, model]) => [
-          key,
-          {
-            id: model.id,
-            providerID: provider.id,
-            api: { id: "", url: "", npm: "" },
-            name: model.name,
-            ...(model.family ? { family: model.family } : {}),
-            capabilities: {
-              temperature: model.capabilities.temperature,
-              reasoning: model.capabilities.reasoning,
-              attachment: model.capabilities.attachment,
-              toolcall: model.capabilities.toolcall,
-              input: model.capabilities.input,
-              output: model.capabilities.output,
-              interleaved: model.capabilities.interleaved,
-            },
-            cost: model.cost
-              ? {
-                  input: model.cost.input,
-                  output: model.cost.output,
-                  cache: {
-                    read: model.cost.cache.read,
-                    write: model.cost.cache.write,
-                  },
-                  experimentalOver200K: model.cost.experimentalOver200K
-                    ? {
-                        input: model.cost.experimentalOver200K.input,
-                        output: model.cost.experimentalOver200K.output,
-                        cache: {
-                          read: model.cost.experimentalOver200K.cache.read,
-                          write: model.cost.experimentalOver200K.cache.write,
-                        },
-                      }
-                    : undefined,
-                }
-              : { input: 0, output: 0, cache: { read: 0, write: 0 } },
-            limit: model.limit,
-            status: model.status,
-            options: {},
-            headers: {},
-            release_date: model.release_date,
-            variants: model.variants,
-          },
-        ]),
-      ),
-    })),
-    default: Object.fromEntries(
-      input.connected.flatMap((provider) => (provider.default_model ? [[provider.id, provider.default_model]] : [])),
-    ),
-    connected: input.connected.map((provider) => provider.id),
-  }
-}
-
 // One-shot prompt seeder: prefills the composer with a fixed prefix (e.g.
 // `/skill-writer `) once the device's model + agent are ready, placing the
 // cursor at the end so the user just types their request and presses Enter.
-// Opt-in via `DeviceSessionTab`'s `promptSeed` prop; never auto-sends, so it
+// Opt-in via `DeviceSessionView`'s `promptSeed` prop; never auto-sends, so it
 // does not affect ordinary workspace sessions.
 function PromptSeeder(props: { seed?: string }) {
   const prompt = usePrompt()
@@ -154,18 +88,27 @@ function PromptSeeder(props: { seed?: string }) {
   return null
 }
 
-export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hiddenSeed?: string }) {
+export function DeviceSessionView(props: {
+  sessionID?: string
+  createdSessionID?: () => string | undefined
+  title?: () => string | undefined
+  promptSeed?: string
+  hiddenSeed?: string
+  onSessionCreated?: (input: { sessionID: string; title?: string }) => void
+  onClose?: () => void
+}) {
   const device = useDeviceSDK()
   const workspace = useDeviceWorkspace()
-  const session = useDeviceSession()
+  const store = useDeviceSessionStore()
   const local = useDeviceLocal()
   const language = useLanguage()
   const file = useFile()
-  const diffCtx = useDiff()
-  const tabStore = useContentTabs()
   const dialog = useDialog()
 
-  const [createdSessionID, setCreatedSessionID] = createSignal<string | undefined>()
+  let snapFrame: number | undefined
+
+  const sid = createMemo(() => props.createdSessionID?.() ?? props.sessionID)
+
   const [viewingStack, setViewingStack] = createSignal<{ id: string; name: string }[]>([])
   const [phase, setPhase] = createStore<Record<string, "loading" | "ready" | "error">>({})
   createEffect((prev: string[]) => {
@@ -203,9 +146,9 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     )
   }
 
-  const isNew = createMemo(() => !createdSessionID() && !session.sessionID())
+  const isNew = createMemo(() => !props.createdSessionID?.() && !props.sessionID)
 
-  const rootSessionID = createMemo(() => createdSessionID() ?? session.sessionID())
+  const rootSessionID = sid
 
   const mobileUrl = createMemo(() => {
     const host = `${env.MOBILE_HOST}${env.BASE_PATH ? `${env.BASE_PATH}` : ""}`
@@ -242,13 +185,13 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   const effectiveMessages = createMemo(() => {
     const cid = currentSessionID()
     if (!cid) return [] as Message[]
-    return session.data.messages[cid] ?? []
+    return store.data.messages[cid] ?? []
   })
 
   const effectiveStatus = createMemo(() => {
     const cid = currentSessionID()
     if (cid) return workspace.data.sessionStatus[cid] ?? ({ type: "idle" } as SessionStatus)
-    return session.data.status
+    return ({ type: "idle" } as SessionStatus)
   })
 
   const isWorking = createMemo(() => {
@@ -306,63 +249,34 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
 
   const reconcileSessionData = async (targetId: string) => {
     try {
-      await session.reconcileMessages(targetId)
+      await store.loadMessages(targetId)
       requestAnimationFrame(() => resumeScroll())
     } catch {}
   }
 
   const effectiveParts = createMemo(() => {
-    return session.data.parts
-  })
-
-  const effectiveDiffs = createMemo(() => {
-    return session.data.diffs
-  })
-
-  const effectiveTodos = createMemo(() => {
-    return session.data.todos
+    return store.data.parts
   })
 
   createEffect(
-    on(currentSessionID, async (id) => {
+    on(currentSessionID, (id) => {
       if (!id) return
-      if (id === rootSessionID() && !viewingSessionID()) return
-      setPhase(id, "loading")
-      try {
-        await Promise.all([
-          session.loadMessages(id),
-          session.diff(id),
-          session.todo(id),
-        ])
-        if (currentSessionID() !== id) return
-        setPhase(id, "ready")
-      } catch {
-        if (currentSessionID() === id) setPhase(id, "error")
-      }
+      const cached = store.data.messages[id]
+      setPhase(id, cached?.length ? "ready" : "loading")
+      Promise.all([
+        store.loadMessages(id),
+        store.todo(id),
+      ])
+        .then(() => {
+          if (currentSessionID() === id) setPhase(id, "ready")
+        })
+        .catch(() => {
+          if (currentSessionID() === id && phase[id] !== "ready") setPhase(id, "error")
+        })
     }),
   )
 
-  const unsubscribe = workspace.subscribe((payload) => {
-    if (payload.type === "session.created") {
-      const info = (payload.properties as { info?: Session })?.info ?? (payload.properties as Session)
-      if (info?.id) {
-        const current = tabStore.tabs().find((t) => t.id === props.tabId)
-        if (current && (current.meta as any)?.sessionID === info.id && info.title) {
-          tabStore.setTitle(props.tabId, info.title)
-        }
-      }
-    }
-
-    if (payload.type === "session.updated") {
-      const info = (payload.properties as { info?: Session })?.info ?? (payload.properties as Session)
-      const cid = currentSessionID()
-      if (info?.id === cid && info.title) {
-        tabStore.setTitle(props.tabId, info.title)
-      }
-    }
-  })
   onCleanup(() => {
-    unsubscribe()
     if (snapFrame !== undefined) cancelAnimationFrame(snapFrame)
   })
 
@@ -461,19 +375,15 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   })
   createEffect(() => {
     const cid = currentSessionID() ?? ""
-    setSyncData("session_diff", { [cid]: effectiveDiffs() })
-  })
-  createEffect(() => {
-    const cid = currentSessionID() ?? ""
-    setSyncData("todo", { [cid]: effectiveTodos() })
+      setSyncData("todo", { [cid]: store.data.todos[cid] ?? [] })
   })
   createEffect(() => {
     const msgs = effectiveMessages()
     const cid = currentSessionID() ?? ""
-    setSyncData("message", { [cid]: msgs, "": msgs, undefined: msgs })
+    setSyncData("message", { [cid]: msgs, "": msgs })
   })
   createEffect(() => {
-    setSyncData("partProgress", session.data.partProgress)
+    setSyncData("partProgress", store.data.partProgress)
   })
 
   const syncSet = (...args: any[]) => {
@@ -510,15 +420,12 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
       },
       optimistic: {
         add(input: { directory?: string; sessionID: string; message: Message; parts: Part[] }) {
-          if (!createdSessionID() && !session.sessionID()) {
-            setCreatedSessionID(input.sessionID)
-          }
           const cid = currentSessionID() ?? input.sessionID
-          session.optimistic.add({ sessionID: cid, message: input.message, parts: input.parts })
+          store.optimisticAdd({ sessionID: cid, message: input.message, parts: input.parts })
         },
         remove(input: { directory?: string; sessionID: string; messageID: string }) {
           const cid = currentSessionID() ?? input.sessionID
-          session.optimistic.remove({ sessionID: cid, messageID: input.messageID })
+          store.optimisticRemove({ sessionID: cid, messageID: input.messageID })
         },
       },
       addOptimisticMessage(input: {
@@ -528,11 +435,8 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
         agent: string
         model: { providerID: string; modelID: string }
       }) {
-        if (!createdSessionID() && !session.sessionID()) {
-          setCreatedSessionID(input.sessionID)
-        }
         const cid = currentSessionID() ?? input.sessionID
-        session.addOptimisticMessage({
+        store.addOptimisticMessage({
           sessionID: cid,
           messageID: input.messageID,
           parts: input.parts,
@@ -540,34 +444,25 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
           model: input.model,
         })
       },
-      replaceTab(input: { sessionID: string; title?: string }) {
-        if (!createdSessionID() && !session.sessionID()) {
-          setCreatedSessionID(input.sessionID)
-        }
-        const current = tabStore.tabs().find((t) => t.id === props.tabId)
-        if (current && !(current.meta as any)?.sessionID) {
-          tabStore.updateMeta(props.tabId, { sessionID: input.sessionID })
-          if (input.title) tabStore.setTitle(props.tabId, input.title)
-        }
+      onSessionCreated(input: { sessionID: string; title?: string }) {
+        props.onSessionCreated?.(input)
       },
       async sync(id: string) {
-        await session.sync()
+        await store.syncSession(id)
       },
-      async diff(id: string) {
-        if (diffCtx.scheduler.active) await session.diff(id)
-      },
+      async diff(_id: string) {},
       async todo(id: string) {
-        await session.todo(id)
+        await store.todo(id)
       },
       history: {
         more(id: string) {
-          return session.history.more(id)
+          return store.historyMore(id)
         },
         loading(id: string) {
-          return session.history.loading()
+          return store.historyLoading(id)
         },
         async loadMore(id: string, count?: number) {
-          await session.history.loadMore(id, count)
+          await store.historyLoadMore(id, count)
         },
       },
       async fetch(count?: number) {
@@ -613,24 +508,24 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   const permissionValue = {
     ready: () => true,
     respond(input: any) {
-      session.permission.respond(input)
+      store.permissionRespond(input)
     },
     autoResponds() {
-      return session.permission.isAutoAccepting()
+      return workspace.autoAccept.enabled()
     },
     isAutoAccepting() {
-      return session.permission.isAutoAccepting()
+      return workspace.autoAccept.enabled()
     },
     toggleAutoAccept() {
-      session.permission.toggleAutoAccept()
+      workspace.autoAccept.toggle()
     },
     enableAutoAccept() {
-      session.permission.enableAutoAccept()
+      workspace.autoAccept.enable()
     },
     disableAutoAccept() {
-      session.permission.disableAutoAccept()
+      workspace.autoAccept.disable()
     },
-    permissionsEnabled: () => session.permission.enabled(),
+    permissionsEnabled: () => workspace.agentAvailable(),
   }
 
   // SettingsContext value
@@ -663,7 +558,15 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   // LayoutContext value — reuse DeviceLayoutProvider's
   // Already provided by DeviceInterface
 
-  const composer = createDeviceSessionComposerState()
+  const composer = createDeviceSessionComposerState({
+    sessionID: currentSessionID,
+    todos: () => {
+      const cid = currentSessionID()
+      return cid ? (store.data.todos[cid] ?? []) : []
+    },
+    isAutoAccepting: () => workspace.autoAccept.enabled(),
+    enableAutoAccept: () => workspace.autoAccept.enable(),
+  })
 
   const [composerMounted, setComposerMounted] = createSignal(true)
   createEffect(() => {
@@ -680,14 +583,14 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready" || phase[id] === "error"
-    return session.data.session?.id === id && !session.history.loading()
+    return !!workspace.data.session.find((s) => s.id === id) && !store.historyLoading(id)
   })
 
   const ready = createMemo(() => {
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready"
-    return session.data.session?.id === id && !session.history.loading()
+    return !!workspace.data.session.find((s) => s.id === id) && !store.historyLoading(id)
   })
 
   const autoScroll = createAutoScroll({
@@ -702,7 +605,6 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
   let scroller: HTMLDivElement | undefined
   let content: HTMLDivElement | undefined
   let promptDock: HTMLDivElement | undefined
-  let snapFrame: number | undefined
   let dockHeight = 0
 
   const messages = createMemo(() => effectiveMessages())
@@ -851,7 +753,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
         Message[]
       >,
       part: { ...parts } as Record<string, Part[]>,
-      partProgress: session.data.partProgress,
+      partProgress: store.data.partProgress,
       provider: legacyProvider(workspace.data.provider),
     }
   })
@@ -890,7 +792,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
                                     }}
                                     onClick={() => setViewingStack([])}
                                   >
-                                    {tabStore.tabs().find((t) => t.id === props.tabId)?.title ??
+                                    {props.title?.() ??
                                       language.t("command.session.new")}
                                   </button>
                                   <For each={viewingStack()}>
@@ -938,7 +840,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
                                                 <SessionQrCodeContent
                                                   url={mobileUrl()!}
                                                   sessionTitle={
-                                                    tabStore.tabs().find((t) => t.id === props.tabId)?.title ??
+                                                    props.title?.() ??
                                                     language.t("command.session.new")
                                                   }
                                                 />
@@ -986,7 +888,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
                                                           size="large"
                                                           onClick={async () => {
                                                             await device.client.conversation.delete(sid).catch(() => {})
-                                                            tabStore.close(props.tabId)
+                                                            props.onClose?.()
                                                             dialog.close()
                                                           }}
                                                         >
@@ -1014,7 +916,7 @@ export function DeviceSessionTab(props: { tabId: string; promptSeed?: string; hi
                                   <div class="flex-1 min-h-0 overflow-hidden">
                                     <Show
                                       when={!isNew()}
-                                      fallback={<NewSessionView worktree="main" onWorktreeChange={() => {}} />}
+                                      fallback={<NewSessionView />}
                                     >
                                       <MessageTimeline
                                         hideHeader

@@ -12,8 +12,9 @@ import { useFile } from "@/context/file"
 import { useDiff, useTreePolling } from "@/context/device-file"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { sessionTreeIDs } from "@/pages/session/composer/session-request-tree"
-import { DeviceSessionProvider } from "@/context/device-session"
-import { DeviceSessionTab } from "./device-session-tab"
+import { DeviceSessionStoreProvider } from "@/context/device-session"
+import { SessionTabProvider, useSessionTab } from "@/context/session-tab"
+import { DeviceSessionView } from "./device-session-view"
 import { TerminalTab } from "./terminal-tab"
 import { useDeviceTerminal } from "@/context/device-terminal"
 import { ContentTabContext, useContentTabs, type ContentTab } from "@/context/content-tabs"
@@ -165,6 +166,21 @@ function SessionTabIcon(props: { tab: ContentTab }) {
   )
 }
 
+function SessionTabAdapter(props: { tabId: string; sessionID?: string }) {
+  const sessionTab = useSessionTab()
+  const tabStore = useContentTabs()
+  const title = createMemo(() => tabStore.tabs().find((t) => t.id === props.tabId)?.title)
+  return (
+    <DeviceSessionView
+      sessionID={props.sessionID}
+      createdSessionID={sessionTab.createdSessionID}
+      title={title}
+      onSessionCreated={sessionTab.replaceTab}
+      onClose={() => tabStore.close(props.tabId)}
+    />
+  )
+}
+
 function TabContent(props: { tab: ContentTab }) {
   return (
     <Switch>
@@ -175,9 +191,9 @@ function TabContent(props: { tab: ContentTab }) {
         <DiffPreviewTab tab={props.tab} />
       </Match>
       <Match when={props.tab.kind === "session"}>
-        <DeviceSessionProvider sessionID={(props.tab.meta as any)?.sessionID}>
-          <DeviceSessionTab tabId={props.tab.id} />
-        </DeviceSessionProvider>
+        <SessionTabProvider tabId={props.tab.id} sessionID={(props.tab.meta as any)?.sessionID}>
+          <SessionTabAdapter tabId={props.tab.id} sessionID={(props.tab.meta as any)?.sessionID} />
+        </SessionTabProvider>
       </Match>
       <Match when={props.tab.kind === "terminal"}>
         <TerminalTab tab={props.tab} />
@@ -987,7 +1003,9 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
               </div>
             )}
           </Show>
-          <ContentTabPanel />
+          <DeviceSessionStoreProvider>
+            <ContentTabPanel />
+          </DeviceSessionStoreProvider>
         </div>
       </div>
       <Toast.Region />
