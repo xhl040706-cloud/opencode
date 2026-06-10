@@ -916,7 +916,7 @@ export function DeviceSessionView(props: {
                                   <div class="flex-1 min-h-0 overflow-hidden">
                                     <Show
                                       when={!isNew()}
-                                      fallback={<NewSessionView worktree="main" onWorktreeChange={() => {}} />}
+                                      fallback={<NewSessionView />}
                                     >
                                       <MessageTimeline
                                         hideHeader
