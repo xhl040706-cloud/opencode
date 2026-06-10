@@ -11,27 +11,14 @@ import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { Button } from "@opencode-ai/ui/button"
-import { Card } from "@opencode-ai/ui/card"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { useDeviceSessionStore } from "@/context/device-session"
 import { useDeviceLocal } from "@/context/device-local"
-import { deviceAdapter, ConversationAdapterContext } from "@/context/device-adapter"
 import { useLanguage } from "@/context/language"
-import { useFile } from "@/context/file"
-import { SyncContext } from "@/context/sync"
-import { LocalContext } from "@/context/local"
-import { SDKContext } from "@/context/sdk"
 import { PromptProvider, usePrompt } from "@/context/prompt"
-import { CommentsContext } from "@/context/comments"
-import { PermissionContext } from "@/context/permission"
-import { CommandContext } from "@/context/command"
-import { GlobalSyncContext } from "@/context/global-sync"
-import { SettingsContext } from "@/context/settings"
-import { DirectoryContext } from "@/context/directory"
-import { LayoutContext } from "@/context/layout"
-import { FileContext } from "@/context/file"
+
 import { NewSessionView } from "@/components/session/session-new-view"
 import { MessageTimeline } from "@/pages/session/message-timeline"
 import { SessionComposerRegion } from "@/pages/session/composer/session-composer-region"
@@ -47,12 +34,11 @@ import type {
   Command,
   Agent,
   VcsInfo,
-  ProviderListResponse,
   PermissionRequest,
   QuestionRequest,
 } from "@opencode-ai/sdk/v2/client"
 import type { Project, Path } from "@opencode-ai/sdk/v2/client"
-import type { ProviderCapability, ProviderCapabilitiesResponse } from "@/context/global-sync/types"
+import type { ProviderCapabilitiesResponse } from "@/context/global-sync/types"
 import { legacyProvider } from "@/utils/legacy-provider"
 
 import { SessionQrCodeContent } from "./session-qrcode-dialog"
@@ -60,7 +46,6 @@ import { isMobile } from "@/lib/mobile"
 import { env } from "@/lib/env"
 
 const emptyMessages: Message[] = []
-const idle: SessionStatus = { type: "idle" }
 const busySinceMap = new Map<string, number>()
 
 // One-shot prompt seeder: prefills the composer with a fixed prefix (e.g.
@@ -102,7 +87,6 @@ export function DeviceSessionView(props: {
   const store = useDeviceSessionStore()
   const local = useDeviceLocal()
   const language = useLanguage()
-  const file = useFile()
   const dialog = useDialog()
 
   let snapFrame: number | undefined
@@ -110,6 +94,9 @@ export function DeviceSessionView(props: {
   const sid = createMemo(() => props.createdSessionID?.() ?? props.sessionID)
 
   const [viewingStack, setViewingStack] = createSignal<{ id: string; name: string }[]>([])
+
+  local.setOnSessionCreated((input) => queueMicrotask(() => props.onSessionCreated?.(input)))
+  local.setNavigateBack(() => setViewingStack((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev)))
   const [phase, setPhase] = createStore<Record<string, "loading" | "ready" | "error">>({})
   createEffect((prev: string[]) => {
     const stack = viewingStack()
@@ -179,8 +166,6 @@ export function DeviceSessionView(props: {
       local.model.set(lastModel)
     }
   })
-
-  const adapter = createMemo(() => deviceAdapter(device.client))
 
   const effectiveMessages = createMemo(() => {
     const cid = currentSessionID()
@@ -280,284 +265,6 @@ export function DeviceSessionView(props: {
     if (snapFrame !== undefined) cancelAnimationFrame(snapFrame)
   })
 
-  // ── Adapt device providers to original context interfaces ──
-
-  // SDKContext value
-  const sdkValue = {
-    client: device.client,
-    directory: device.directory,
-    url: device.url,
-    createClient: device.createClient,
-    event: {
-      listen(cb: (e: any) => void) {
-        return () => {}
-      },
-    },
-  }
-
-  // SyncContext value — adapt DeviceWorkspaceProvider + DeviceSessionProvider
-  type SyncDataShape = {
-    status: "complete" | "loading"
-    agent: Agent[] | undefined
-    agentRuntimes: unknown[]
-    command: Command[] | undefined
-    project: string
-    projectMeta: any
-    icon: string | undefined
-    provider: ProviderCapabilitiesResponse | undefined
-    path: Path
-    session: Session[]
-    sessionTotal: number
-    session_status: Record<string, SessionStatus>
-    session_diff: Record<string, FileDiff[]>
-    todo: Record<string, Todo[]>
-    permission: Record<string, PermissionRequest[]>
-    question: Record<string, QuestionRequest[]>
-    mcp: Record<string, any>
-    lsp: any[]
-    vcs: VcsInfo | undefined
-    limit: number
-    message: Record<string, Message[]>
-    part: Record<string, Part[]>
-    partProgress: Record<string, string[]>
-  }
-
-  const [syncData, setSyncData] = createStore<SyncDataShape>({
-    status: "complete",
-    agent: undefined,
-    agentRuntimes: [],
-    command: undefined,
-    project: "",
-    projectMeta: undefined,
-    icon: undefined,
-    provider: undefined,
-    path: { directory: device.directory } as Path,
-    session: [],
-    sessionTotal: 0,
-    session_status: {},
-    session_diff: {},
-    todo: {},
-    permission: {},
-    question: {},
-    mcp: {},
-    lsp: [],
-    vcs: undefined,
-    limit: 50,
-    message: {},
-    part: {},
-    partProgress: {},
-  })
-
-  createEffect(() => {
-    const s = workspace.data.status
-    setSyncData(
-      "status",
-      s === "unavailable" ? ("complete" as const) : s === "loading" ? ("loading" as const) : ("complete" as const),
-    )
-  })
-  createEffect(() => setSyncData("agent", workspace.data.agent))
-  createEffect(() => setSyncData("command", workspace.data.command))
-  createEffect(() => setSyncData("provider", workspace.data.provider))
-  createEffect(() => setSyncData("session", workspace.data.session))
-  createEffect(() => setSyncData("sessionTotal", workspace.data.sessionTotal))
-  createEffect(() => setSyncData("permission", workspace.data.permissions))
-  createEffect(() => setSyncData("question", workspace.data.questions))
-  createEffect(() => setSyncData("vcs", workspace.data.vcs))
-  createEffect(() => {
-    const cid = currentSessionID()
-    const status = effectiveStatus()
-    setSyncData("session_status", {
-      ...workspace.data.sessionStatus,
-      ...(cid ? { [cid]: status } : {}),
-      "": status,
-      undefined: status,
-    })
-  })
-  createEffect(() => {
-    const cid = currentSessionID() ?? ""
-      setSyncData("todo", { [cid]: store.data.todos[cid] ?? [] })
-  })
-  createEffect(() => {
-    const msgs = effectiveMessages()
-    const cid = currentSessionID() ?? ""
-    setSyncData("message", { [cid]: msgs, "": msgs })
-  })
-  createEffect(() => {
-    setSyncData("partProgress", store.data.partProgress)
-  })
-
-  const syncSet = (...args: any[]) => {
-    if (!viewingSessionID()) return
-    if (args[0] === "session_status" && args[1]) {
-      workspace.session.setStatus(args[1] as string, args[2] as SessionStatus | undefined)
-    }
-  }
-
-  const syncValue = {
-    get data() {
-      return syncData
-    },
-    get set() {
-      return syncSet
-    },
-    get status() {
-      return syncData.status
-    },
-    get ready() {
-      return workspace.data.status !== "loading"
-    },
-    get project() {
-      return {
-        id: device.directory,
-        worktree: device.directory,
-        name: undefined as string | undefined,
-        time: { created: Date.now(), updated: Date.now() },
-      } as Project
-    },
-    session: {
-      get(id: string) {
-        return workspace.data.session.find((s) => s.id === id)
-      },
-      optimistic: {
-        add(input: { directory?: string; sessionID: string; message: Message; parts: Part[] }) {
-          const cid = currentSessionID() ?? input.sessionID
-          store.optimisticAdd({ sessionID: cid, message: input.message, parts: input.parts })
-        },
-        remove(input: { directory?: string; sessionID: string; messageID: string }) {
-          const cid = currentSessionID() ?? input.sessionID
-          store.optimisticRemove({ sessionID: cid, messageID: input.messageID })
-        },
-      },
-      addOptimisticMessage(input: {
-        sessionID: string
-        messageID: string
-        parts: Part[]
-        agent: string
-        model: { providerID: string; modelID: string }
-      }) {
-        const cid = currentSessionID() ?? input.sessionID
-        store.addOptimisticMessage({
-          sessionID: cid,
-          messageID: input.messageID,
-          parts: input.parts,
-          agent: input.agent,
-          model: input.model,
-        })
-      },
-      onSessionCreated(input: { sessionID: string; title?: string }) {
-        props.onSessionCreated?.(input)
-      },
-      async sync(id: string) {
-        await store.syncSession(id)
-      },
-      async diff(_id: string) {},
-      async todo(id: string) {
-        await store.todo(id)
-      },
-      history: {
-        more(id: string) {
-          return store.historyMore(id)
-        },
-        loading(id: string) {
-          return store.historyLoading(id)
-        },
-        async loadMore(id: string, count?: number) {
-          await store.historyLoadMore(id, count)
-        },
-      },
-      async fetch(count?: number) {
-        await workspace.session.fetch(count)
-      },
-      async remove(id: string) {
-        await workspace.session.remove(id)
-      },
-    },
-    command: {
-      async load() {
-        return workspace.command.load()
-      },
-    },
-    vcs: {
-      async load() {
-        return workspace.vcs.load()
-      },
-    },
-    directory: device.directory,
-    currentSessionID,
-    navigateBack: () => setViewingStack((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev)),
-  }
-
-  // LocalContext value
-  const localValue = local
-
-  // CommentsContext value
-  const commentsValue = {
-    add() {},
-    update() {},
-    remove() {},
-    clear() {},
-    all: () => [] as any[],
-    focus() {},
-    setFocus() {},
-    active: () => false,
-    setActive() {},
-    replace() {},
-  }
-
-  // PermissionContext value
-  const permissionValue = {
-    ready: () => true,
-    respond(input: any) {
-      store.permissionRespond(input)
-    },
-    autoResponds() {
-      return workspace.autoAccept.enabled()
-    },
-    isAutoAccepting() {
-      return workspace.autoAccept.enabled()
-    },
-    toggleAutoAccept() {
-      workspace.autoAccept.toggle()
-    },
-    enableAutoAccept() {
-      workspace.autoAccept.enable()
-    },
-    disableAutoAccept() {
-      workspace.autoAccept.disable()
-    },
-    permissionsEnabled: () => workspace.agentAvailable(),
-  }
-
-  // SettingsContext value
-  const settingsValue = {
-    ready: () => true,
-    general: {
-      showReasoningSummaries: () => true,
-      shellToolPartsExpanded: () => false,
-      editToolPartsExpanded: () => false,
-    },
-  }
-
-  // CommandContext value — stub
-  const commandValue = {
-    ready: () => true,
-    register: () => {},
-    trigger: () => {},
-    keybind: () => "",
-    show: () => {},
-    keybinds: () => {},
-    suspended: () => false,
-    get catalog() {
-      return []
-    },
-    get options() {
-      return []
-    },
-  }
-
-  // LayoutContext value — reuse DeviceLayoutProvider's
-  // Already provided by DeviceInterface
-
   const composer = createDeviceSessionComposerState({
     sessionID: currentSessionID,
     todos: () => {
@@ -608,7 +315,6 @@ export function DeviceSessionView(props: {
   let dockHeight = 0
 
   const messages = createMemo(() => effectiveMessages())
-  const messagesReady = createMemo(() => true)
 
   const enrichedMessages = createMemo(() => {
     const raw = effectiveMessages()
@@ -696,81 +402,49 @@ export function DeviceSessionView(props: {
 
   const anchor = (id: string) => `message-${id}`
 
-  const childStore = createMemo(() => {
-    const result = {
+  const dataProps = createMemo(() => {
+    const cid = currentSessionID()
+    const parts = effectiveParts()
+    const status = workspace.data.status
+    return {
+      status: (status === "unavailable" || status === "loading" ? "loading" : "complete") as "complete" | "loading",
+      agent: workspace.data.agent,
+      agentRuntimes: [] as unknown[],
+      command: workspace.data.command,
       project: "",
       projectMeta: undefined as any,
       icon: undefined as string | undefined,
-      provider: workspace.data.provider,
-      agent: workspace.data.agent,
-      agentRuntimes: [] as unknown[],
-      command: workspace.data.command ?? [],
+      provider: legacyProvider(workspace.data.provider),
       path: { directory: device.directory } as Path,
       session: workspace.data.session,
       sessionTotal: workspace.data.sessionTotal,
-      session_status: {} as Record<string, SessionStatus>,
+      session_status: {
+        ...workspace.data.sessionStatus,
+        ...(cid ? { [cid]: effectiveStatus() } : {}),
+        "": effectiveStatus(),
+        undefined: effectiveStatus(),
+      } as Record<string, SessionStatus>,
       session_diff: {} as Record<string, FileDiff[]>,
-      todo: {} as Record<string, Todo[]>,
-      permission: {} as Record<string, PermissionRequest[]>,
-      question: {} as Record<string, QuestionRequest[]>,
+      todo: { [cid ?? ""]: store.data.todos[cid ?? ""] ?? [] } as Record<string, Todo[]>,
+      permission: workspace.data.permissions,
+      question: workspace.data.questions,
       mcp: {} as Record<string, any>,
       lsp: [] as any[],
       vcs: workspace.data.vcs,
       limit: 50,
-      message: {} as Record<string, Message[]>,
-      part: {} as Record<string, Part[]>,
-      partProgress: {} as Record<string, string[]>,
-    }
-    return result
-  })
-
-  const globalSyncValue = {
-    data: { ready: true, error: undefined as string | undefined, project: [] as any[] },
-    set: () => {},
-    get ready() {
-      return true
-    },
-    get error() {
-      return undefined
-    },
-    child: (_dir?: string) => [childStore(), () => {}] as const,
-    bootstrap: async () => {},
-    project: {
-      loadSessions: async () => {},
-      meta: () => {},
-      icon: () => {},
-    },
-    todo: { set: () => {} },
-  }
-
-  const dataProps = createMemo(() => {
-    const cid = currentSessionID()
-    const parts = effectiveParts()
-    return {
-      ...syncData,
       message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() } as Record<
         string,
         Message[]
       >,
       part: { ...parts } as Record<string, Part[]>,
       partProgress: store.data.partProgress,
-      provider: legacyProvider(workspace.data.provider),
     }
   })
 
   return (
-    <ConversationAdapterContext.Provider value={adapter() as any}>
-      <GlobalSyncContext.Provider value={globalSyncValue as any}>
-        <SDKContext.Provider value={sdkValue as any}>
-          <SyncContext.Provider value={syncValue as any}>
-            <LocalContext.Provider value={localValue as any}>
-              <PromptProvider>
-                <PromptSeeder seed={props.promptSeed} />
-                <CommentsContext.Provider value={commentsValue as any}>
-                  <PermissionContext.Provider value={permissionValue as any}>
-                    <CommandContext.Provider value={commandValue as any}>
-                      <SettingsContext.Provider value={settingsValue as any}>
-                        <DataProvider
+        <PromptProvider>
+            <PromptSeeder seed={props.promptSeed} />
+              <DataProvider
                           data={dataProps()!}
                           directory={device.directory}
                           onNavigateToSession={(id: string) => {
@@ -994,15 +668,6 @@ export function DeviceSessionView(props: {
                             </div>
                           </FileComponentProvider>
                         </DataProvider>
-                      </SettingsContext.Provider>
-                    </CommandContext.Provider>
-                  </PermissionContext.Provider>
-                </CommentsContext.Provider>
-              </PromptProvider>
-            </LocalContext.Provider>
-          </SyncContext.Provider>
-        </SDKContext.Provider>
-      </GlobalSyncContext.Provider>
-    </ConversationAdapterContext.Provider>
+                  </PromptProvider>
   )
 }

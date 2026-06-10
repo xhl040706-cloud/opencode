@@ -1,16 +1,16 @@
 import { Component, createMemo } from "solid-js"
-import { useLocal } from "@/context/local"
+import { useDeviceLocal } from "@/context/device-local"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { List } from "@opencode-ai/ui/list"
 import { useLanguage } from "@/context/language"
 
 export const DialogSelectVariant: Component = () => {
-  const local = useLocal()
+  const local = useDeviceLocal()
   const language = useLanguage()
   const dialog = useDialog()
 
-  const variants = createMemo(() => local.model.variant.list().map((name) => ({ name })))
+  const variants = createMemo(() => (local.model.variant.list() as string[]).map((name) => ({ name })))
   const currentVariant = () => {
     const name = local.model.variant.current()
     return name ? { name } : undefined
