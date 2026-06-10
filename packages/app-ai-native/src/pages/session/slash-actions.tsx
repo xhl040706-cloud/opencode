@@ -6,6 +6,8 @@ import { useDeviceLocal } from "@/context/device-local"
 import { useDeviceSDK } from "@/context/device-sdk"
 import { useDeviceSessionStore } from "@/context/device-session"
 import { useConversationAdapter } from "@/context/device-adapter"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { DialogSelectModel } from "@/components/dialog-select-model"
 import { DialogFavorites } from "@/components/dialog-favorites"
 
 function exportTranscriptAsMarkdown(messages: any[], getParts: (id: string) => any[]): string {
@@ -31,6 +33,7 @@ export function useSlashActions() {
   const conversation = useConversationAdapter()
   const language = useLanguage()
   const layout = useLayout()
+  const dialog = useDialog()
 
   const sessionID = () => local.activeSessionID()
   const directory = () => sdk.directory
@@ -48,6 +51,7 @@ export function useSlashActions() {
         return
       }
       case "models": {
+        dialog.show(() => <DialogSelectModel />)
         return
       }
       case "agents": {
