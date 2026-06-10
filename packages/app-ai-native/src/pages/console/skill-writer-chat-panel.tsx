@@ -6,7 +6,7 @@ import { DeviceInterface, useDeviceLayout } from "@/pages/workspace/components/d
 import { useDeviceSDK } from "@/context/device-sdk"
 import { DeviceSessionProvider, DeviceSessionStoreProvider, useDeviceSession } from "@/context/device-session"
 import { ContentTabContext, createContentTabStore } from "@/context/content-tabs"
-import { DeviceSessionView } from "@/pages/workspace/components/device-session-tab"
+import { DeviceSessionView } from "@/pages/workspace/components/device-session-view"
 import { deviceApi } from "@/pages/workspace/lib/api"
 import { deviceFileApi } from "@/pages/workspace/lib/cloud-device-api"
 import { getProxyUrl } from "@/pages/workspace/lib/url"
@@ -323,7 +323,7 @@ function PanelBody(props: { directory: string; proxyId: string; onSkillReady: (t
                   session list isn't polluted. Best-effort, fires once. */}
               <SessionTitleGuard sessionID={sessionID} />
               <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <DeviceSessionView tabId={tabId} hiddenSeed={SKILL_WRITER_INSTRUCTIONS} />
+                <DeviceSessionView sessionID={sessionID()} hiddenSeed={SKILL_WRITER_INSTRUCTIONS} />
               </div>
             </DeviceSessionProvider>
             </DeviceSessionStoreProvider>

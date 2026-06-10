@@ -131,7 +131,7 @@ beforeAll(async () => {
     useSync: () => ({
       data: { command: [] },
       session: {
-        replaceTab: () => undefined,
+        onSessionCreated: () => undefined,
         optimistic: {
           add: () => undefined,
           remove: () => undefined,

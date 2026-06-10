@@ -282,7 +282,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     if (mode === "shell") {
       clearInput()
       if (isNewSession) {
-        sync.session.replaceTab({ sessionID: session.id, title: session.title })
+        sync.session.onSessionCreated({ sessionID: session.id, title: session.title })
         if (shouldAutoAccept) permission.enableAutoAccept()
       }
       void conversation
@@ -310,7 +310,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       if (customCommand && (customCommand.scope === "prompt" || !customCommand.scope)) {
         clearInput()
         if (isNewSession) {
-          sync.session.replaceTab({ sessionID: session.id, title: session.title })
+          sync.session.onSessionCreated({ sessionID: session.id, title: session.title })
           if (shouldAutoAccept) permission.enableAutoAccept()
         }
         void conversation
@@ -392,7 +392,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     clearInput()
 
     if (isNewSession) {
-      sync.session.replaceTab({ sessionID: session.id, title: session.title })
+      sync.session.onSessionCreated({ sessionID: session.id, title: session.title })
       if (shouldAutoAccept) permission.enableAutoAccept()
     }
 

@@ -15,8 +15,8 @@ import { DirectoryContext } from "@/context/directory"
 import { LayoutContext } from "@/context/layout"
 import { ContentTabContext, createContentTabStore, useContentTabs } from "@/context/content-tabs"
 import { DeviceSessionStoreProvider } from "@/context/device-session"
-import { SessionTabProvider } from "@/context/session-tab"
-import { DeviceSessionView } from "../components/device-session-tab"
+import { SessionTabProvider, useSessionTab } from "@/context/session-tab"
+import { DeviceSessionView } from "../components/device-session-view"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { createSdkForServer } from "@/utils/server"
 import { useDeviceLayout } from "../components/device-interface"
@@ -100,6 +100,21 @@ function MobileDeviceLayoutProvider(props: ParentProps<{ deviceLayout: ReturnTyp
   return <LayoutContext.Provider value={value}>{props.children}</LayoutContext.Provider>
 }
 
+function MobileSessionAdapter(props: { tabId: string; sessionID?: string }) {
+  const sessionTab = useSessionTab()
+  const tabStore = useContentTabs()
+  const title = createMemo(() => tabStore.tabs().find((t) => t.id === props.tabId)?.title)
+  return (
+    <DeviceSessionView
+      sessionID={props.sessionID}
+      createdSessionID={sessionTab.createdSessionID}
+      title={title}
+      onSessionCreated={sessionTab.replaceTab}
+      onClose={() => tabStore.close(props.tabId)}
+    />
+  )
+}
+
 function MobileContentTabPanel() {
   const tabStore = useContentTabs()
 
@@ -111,7 +126,7 @@ function MobileContentTabPanel() {
           <div class="flex-1 min-h-0 h-full">
             <Show when={tab.kind === "session"}>
               <SessionTabProvider tabId={tab.id} sessionID={(tab.meta as any)?.sessionID}>
-                <DeviceSessionView tabId={tab.id} />
+                <MobileSessionAdapter tabId={tab.id} sessionID={(tab.meta as any)?.sessionID} />
               </SessionTabProvider>
             </Show>
           </div>

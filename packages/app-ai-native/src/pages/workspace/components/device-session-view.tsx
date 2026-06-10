@@ -37,8 +37,6 @@ import { MessageTimeline } from "@/pages/session/message-timeline"
 import { SessionComposerRegion } from "@/pages/session/composer/session-composer-region"
 import { createDeviceSessionComposerState } from "@/pages/session/composer/device-session-composer-state"
 import { createScrollSpy } from "@/pages/session/scroll-spy"
-import { useContentTabs } from "@/context/content-tabs"
-import { useSessionTab } from "@/context/session-tab"
 import type {
   Message,
   Part,
@@ -68,7 +66,7 @@ const busySinceMap = new Map<string, number>()
 // One-shot prompt seeder: prefills the composer with a fixed prefix (e.g.
 // `/skill-writer `) once the device's model + agent are ready, placing the
 // cursor at the end so the user just types their request and presses Enter.
-// Opt-in via `DeviceSessionTab`'s `promptSeed` prop; never auto-sends, so it
+// Opt-in via `DeviceSessionView`'s `promptSeed` prop; never auto-sends, so it
 // does not affect ordinary workspace sessions.
 function PromptSeeder(props: { seed?: string }) {
   const prompt = usePrompt()
@@ -90,20 +88,27 @@ function PromptSeeder(props: { seed?: string }) {
   return null
 }
 
-export function DeviceSessionView(props: { tabId: string; promptSeed?: string; hiddenSeed?: string }) {
+export function DeviceSessionView(props: {
+  sessionID?: string
+  createdSessionID?: () => string | undefined
+  title?: () => string | undefined
+  promptSeed?: string
+  hiddenSeed?: string
+  onSessionCreated?: (input: { sessionID: string; title?: string }) => void
+  onClose?: () => void
+}) {
   const device = useDeviceSDK()
   const workspace = useDeviceWorkspace()
   const store = useDeviceSessionStore()
   const local = useDeviceLocal()
   const language = useLanguage()
   const file = useFile()
-  const tabStore = useContentTabs()
   const dialog = useDialog()
-  const sessionTab = useSessionTab()
 
   let snapFrame: number | undefined
 
-  const sid = createMemo(() => sessionTab.rootSessionID())
+  const sid = createMemo(() => props.createdSessionID?.() ?? props.sessionID)
+
   const [viewingStack, setViewingStack] = createSignal<{ id: string; name: string }[]>([])
   const [phase, setPhase] = createStore<Record<string, "loading" | "ready" | "error">>({})
   createEffect((prev: string[]) => {
@@ -141,9 +146,9 @@ export function DeviceSessionView(props: { tabId: string; promptSeed?: string; h
     )
   }
 
-  const isNew = sessionTab.isNew
+  const isNew = createMemo(() => !props.createdSessionID?.() && !props.sessionID)
 
-  const rootSessionID = sessionTab.rootSessionID
+  const rootSessionID = sid
 
   const mobileUrl = createMemo(() => {
     const host = `${env.MOBILE_HOST}${env.BASE_PATH ? `${env.BASE_PATH}` : ""}`
@@ -439,8 +444,8 @@ export function DeviceSessionView(props: { tabId: string; promptSeed?: string; h
           model: input.model,
         })
       },
-      replaceTab(input: { sessionID: string; title?: string }) {
-        sessionTab.replaceTab(input)
+      onSessionCreated(input: { sessionID: string; title?: string }) {
+        props.onSessionCreated?.(input)
       },
       async sync(id: string) {
         await store.syncSession(id)
@@ -787,7 +792,7 @@ export function DeviceSessionView(props: { tabId: string; promptSeed?: string; h
                                     }}
                                     onClick={() => setViewingStack([])}
                                   >
-                                    {tabStore.tabs().find((t) => t.id === props.tabId)?.title ??
+                                    {props.title?.() ??
                                       language.t("command.session.new")}
                                   </button>
                                   <For each={viewingStack()}>
@@ -835,7 +840,7 @@ export function DeviceSessionView(props: { tabId: string; promptSeed?: string; h
                                                 <SessionQrCodeContent
                                                   url={mobileUrl()!}
                                                   sessionTitle={
-                                                    tabStore.tabs().find((t) => t.id === props.tabId)?.title ??
+                                                    props.title?.() ??
                                                     language.t("command.session.new")
                                                   }
                                                 />
@@ -883,7 +888,7 @@ export function DeviceSessionView(props: { tabId: string; promptSeed?: string; h
                                                           size="large"
                                                           onClick={async () => {
                                                             await device.client.conversation.delete(sid).catch(() => {})
-                                                            tabStore.close(props.tabId)
+                                                            props.onClose?.()
                                                             dialog.close()
                                                           }}
                                                         >
