@@ -198,7 +198,10 @@ export const PromptPopover: Component<PromptPopoverProps> = (props) => {
                       </Show>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                      <Show when={cmd.type === "custom" && cmd.source !== "command"}>
+                       <Show when={cmd.type === "builtin"}>
+                         <span class="text-11-regular text-text-subtle px-1.5 py-0.5 bg-surface-base rounded">Builtin</span>
+                       </Show>
+                       <Show when={cmd.type === "custom" && cmd.source !== "command"}>
                         <span class="text-11-regular text-text-subtle px-1.5 py-0.5 bg-surface-base rounded">
                           {cmd.source === "skill"
                             ? props.t("prompt.slash.badge.skill")

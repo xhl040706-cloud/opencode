@@ -91,7 +91,7 @@ export function useSlashActions() {
         return
       }
       case "credit": {
-        dialog.show(() => <DialogCredit />)
+        window.open("/console/usage", "_blank")
         return
       }
       case "themes": {

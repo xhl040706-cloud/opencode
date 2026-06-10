@@ -709,6 +709,38 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           if (id) tabStore.replaceWithNewSession(id, language.t("command.session.new"))
         },
       },
+      {
+        id: "cmd.models",
+        trigger: "models",
+        title: language.t("command.model.choose"),
+        description: language.t("command.model.choose.description"),
+        type: "builtin" as const,
+        scope: "action",
+      },
+      {
+        id: "cmd.agents",
+        trigger: "agents",
+        title: language.t("command.agent.cycle"),
+        description: language.t("command.agent.cycle.description"),
+        type: "builtin" as const,
+        scope: "action",
+      },
+      {
+        id: "cmd.credit",
+        trigger: "credit",
+        title: language.t("command.credit.title"),
+        description: language.t("command.credit.description"),
+        type: "builtin" as const,
+        scope: "action",
+      },
+      // {
+      //   id: "cmd.hub",
+      //   trigger: "hub",
+      //   title: language.t("command.favorites.title"),
+      //   description: language.t("command.favorites.description"),
+      //   type: "builtin" as const,
+      //   scope: "action",
+      // },
     ]
 
     const frontendOnly = new Set(
