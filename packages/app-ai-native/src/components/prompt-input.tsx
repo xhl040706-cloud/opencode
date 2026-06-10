@@ -122,6 +122,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
   let slashPopoverRef!: HTMLDivElement
+  let atPopoverRef!: HTMLDivElement
 
   const mirror = { input: false }
   const inset = 44
@@ -592,6 +593,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       return rank(a.category) - rank(b.category)
     },
     onSelect: handleAtSelect,
+    maxItems: 10,
   })
 
   let wsSearchTimer: ReturnType<typeof setTimeout> | undefined
@@ -670,6 +672,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     filterKeys: ["display"],
     noInitialSelection: true,
     onSelect: handleWsFileSelect,
+    maxItems: 10,
   })
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
@@ -832,6 +835,16 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     requestAnimationFrame(() => {
       const element = slashPopoverRef.querySelector(`[data-slash-id="${activeId}"]`)
+      element?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+    })
+  })
+
+  createEffect(() => {
+    const activeKey = store.workspaceFileSearch ? wsFileActive() : atActive()
+    if (!activeKey || !atPopoverRef) return
+
+    requestAnimationFrame(() => {
+      const element = atPopoverRef.querySelector(`[data-at-key="${activeKey}"]`)
       element?.scrollIntoView({ block: "nearest", behavior: "smooth" })
     })
   })
@@ -1364,6 +1377,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       <PromptPopover
         popover={store.popover}
         setSlashPopoverRef={(el) => (slashPopoverRef = el)}
+        setAtPopoverRef={(el) => (atPopoverRef = el)}
         atFlat={atFlat()}
         atActive={atActive() ?? undefined}
         atKey={atKey}
