@@ -22,7 +22,7 @@ import HealthRadar from "./health-radar"
 import { DistributeDialog } from "./distribute-dialog"
 import { BuiltinContentDialog } from "./builtin-content-dialog"
 import { McpConfigForm } from "./mcp-config-form"
-import { detectMcpFields } from "../lib/mcp-config"
+import { detectMcpFields, mcpRequiresPluginRuntime } from "../lib/mcp-config"
 import type { McpConfigStatus } from "../lib/api"
 import "@/styles/vscode-markdown.css"
 
@@ -109,7 +109,6 @@ const TAG_COLOR_BY_CLASS = {
 let highlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined
 
 export function getInstallCommand(item: CapabilityItem) {
-  // Prefer metadata.install for plugin items (e.g. zip_download instructions)
   const install = (item.metadata as Record<string, any> | undefined)?.install
   if (install?.method === "zip_download" && Array.isArray(install.commands)) {
     return install.commands.join("\n")
@@ -283,6 +282,7 @@ interface ItemDetailContentProps {
   onBack?: () => void
   onItemLoaded?: (item: CapabilityItem) => void
   onDeleted?: () => void
+  onSelectItem?: (itemId: string) => void
   favorited?: boolean
   favoriteCount?: number
   previewCount?: number
@@ -343,6 +343,11 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
     (source) => highlight(source.json, source.mode),
   )
 
+  const [subSkills] = createResource(
+    () => (item()?.itemType === "plugin" ? item()!.id : null),
+    (pluginId) => itemApi.list({ parentPluginId: pluginId, pageSize: 100 }).then((res) => res.items),
+  )
+
   const meta = () => TYPE_META[item()?.itemType ?? "skill"] ?? TYPE_META.skill
   const canEditItem = () => !!item() && !!auth.user() && item()!.createdBy === auth.user()!.id
 
@@ -369,6 +374,13 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
   }
   // Subscribe is blocked only for an MCP item that still has unfilled required placeholders.
   const mcpGateBlocks = () => mcpHasFields() && !mcpConfigComplete()
+  // A plugin-runtime-dependent MCP (references ${CLAUDE_PLUGIN_ROOT} etc.) cannot run
+  // standalone — block subscribing it directly and point the user at the parent plugin.
+  // Unsubscribing an already-favorited item stays allowed.
+  const mcpPluginRuntimeBlocks = () =>
+    item()?.itemType === "mcp" &&
+    !props.favorited &&
+    mcpRequiresPluginRuntime(item()?.metadata as Record<string, unknown> | undefined)
 
   // Called by the inline config form after a successful save: reflect the new masked status
   // immediately (re-gates the subscribe button), then refetch so the per-user-resolved
@@ -394,6 +406,25 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
     await navigator.clipboard.writeText(id)
     setIdCopied(true)
     setTimeout(() => setIdCopied(false), 1500)
+  }
+
+  const openParentPlugin = () => {
+    const data = item()
+    const parentID = data?.parentPluginId
+    if (!parentID) return
+    if (props.onSelectItem) {
+      props.onSelectItem(parentID)
+      return
+    }
+    navigate(`/store/${parentID}`)
+  }
+
+  const openIncludedItem = (itemId: string) => {
+    if (props.onSelectItem) {
+      props.onSelectItem(itemId)
+      return
+    }
+    navigate(`/store/${itemId}`)
   }
 
   // Fork 仅对公共、非 archive 且非本人创建的 item 可用。
@@ -529,7 +560,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                     <Show when={props.onToggleFavorite}>
                       <button
                         onClick={() => void props.onToggleFavorite?.()}
-                        disabled={!props.isAuthenticated || props.favoritePending || mcpGateBlocks()}
+                        disabled={!props.isAuthenticated || props.favoritePending || mcpPluginRuntimeBlocks() || mcpGateBlocks()}
                         class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60"
                         classList={{
                           "bg-bg-muted text-text-strong hover:bg-bg-muted/70": props.favorited,
@@ -538,11 +569,13 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         title={
                           !props.isAuthenticated
                             ? language.t("store.detail.favoriteSignInTooltip")
-                            : mcpGateBlocks()
-                              ? language.t("store.detail.mcpConfig.gateReason")
-                              : props.favorited
-                                ? language.t("store.detail.unfavoriteTooltip")
-                                : language.t("store.detail.favoriteTooltip")
+                            : mcpPluginRuntimeBlocks()
+                              ? language.t("store.detail.mcpConfig.pluginRuntimeReason")
+                              : mcpGateBlocks()
+                                ? language.t("store.detail.mcpConfig.gateReason")
+                                : props.favorited
+                                  ? language.t("store.detail.unfavoriteTooltip")
+                                  : language.t("store.detail.favoriteTooltip")
                         }
                       >
                         <span class="inline-flex items-center" style={{ width: "14px", height: "14px" }}>
@@ -648,7 +681,12 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                     </Show>
                   </div>
                 </div>
-                <Show when={props.onToggleFavorite && props.isAuthenticated && mcpGateBlocks()}>
+                <Show when={props.onToggleFavorite && props.isAuthenticated && mcpPluginRuntimeBlocks()}>
+                  <p class="text-right text-12-regular text-text-weak">
+                    {language.t("store.detail.mcpConfig.pluginRuntimeReason")}
+                  </p>
+                </Show>
+                <Show when={props.onToggleFavorite && props.isAuthenticated && !mcpPluginRuntimeBlocks() && mcpGateBlocks()}>
                   <p class="text-right text-12-regular text-text-weak">
                     {language.t("store.detail.mcpConfig.gateHint")}
                   </p>
@@ -661,6 +699,21 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                 <div class="min-w-0 space-y-5">
                   <Show when={pickItemDescription(data(), language.locale())}>
                     <p class="text-[13px] leading-6 text-text-weak">{pickItemDescription(data(), language.locale())}</p>
+                  </Show>
+
+                  <Show when={data().parentPluginName && data().parentPluginId}>
+                    <div class="flex flex-wrap items-center gap-1.5 rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/40 px-3 py-2 text-[13px] leading-5 text-text-weak">
+                      <Icon name="configuration" size="small" />
+                      <span>{language.t("store.item.fromPluginLabel")}</span>
+                      <button
+                        type="button"
+                        class="font-semibold text-text-strong underline-offset-2 transition-colors hover:text-[var(--native-primary)] hover:underline"
+                        onClick={openParentPlugin}
+                        title={data().parentPluginName}
+                      >
+                        {data().parentPluginName}
+                      </button>
+                    </div>
                   </Show>
 
                   <Show when={hasHealthSignals(data().health) || hasEvaluation(data().evaluation)}>
@@ -797,6 +850,55 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                           class="thin-scrollbar min-h-[28rem] overflow-x-auto overflow-y-auto rounded-lg border border-border-weak-base bg-bg-muted/50 p-4 text-12-mono leading-6 [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:!p-0"
                           innerHTML={highlighted()}
                         />
+                      </Show>
+                    </div>
+                  </Show>
+
+                  <Show when={data().itemType === "plugin"}>
+                    <div>
+                      <div
+                        class="mb-3 text-xs"
+                        style={{
+                          color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                          "font-weight": 700,
+                        }}
+                      >
+                        {language.t("store.detail.bundledSkills")}
+                      </div>
+                      <Show
+                        when={(subSkills() ?? []).length > 0}
+                        fallback={
+                          <Show when={!subSkills.loading}>
+                            <p class="text-[13px] text-text-weak">{language.t("store.detail.bundledSkills.empty")}</p>
+                          </Show>
+                        }
+                      >
+                        <div class="space-y-2">
+                          <For each={subSkills()}>
+                            {(subSkill) => {
+                              const skillMeta = TYPE_META[subSkill.itemType] ?? TYPE_META.skill
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => openIncludedItem(subSkill.id)}
+                                  class="flex w-full items-center gap-3 rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/30 px-3 py-2 text-left transition-colors hover:border-[color:color-mix(in_oklab,var(--native-primary)_42%,var(--native-border))] hover:bg-bg-muted/50"
+                                  title={subSkill.name}
+                                >
+                                  <div
+                                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[0.375rem]"
+                                    style={{ "background-color": skillMeta.bg, color: skillMeta.accent }}
+                                  >
+                                    <Icon name={skillMeta.icon} size="small" />
+                                  </div>
+                                  <span class="min-w-0 flex-1 truncate text-[13px] font-semibold text-text-strong">
+                                    {subSkill.name}
+                                  </span>
+                                  <Icon name="chevron-right" size="small" />
+                                </button>
+                              )
+                            }}
+                          </For>
+                        </div>
                       </Show>
                     </div>
                   </Show>
