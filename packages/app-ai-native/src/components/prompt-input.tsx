@@ -17,8 +17,9 @@ import {
 } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createFocusSignal } from "@solid-primitives/active-element"
-import { useLocal } from "@/context/local"
-import { selectionFromLines, type SelectedLineRange, useFile } from "@/context/file"
+import { useDeviceLocal } from "@/context/device-local"
+import { useDeviceWorkspace } from "@/context/device-workspace"
+import { useFile } from "@/context/file"
 import { useDeviceClient } from "@/context/device-client"
 import {
   ContentPart,
@@ -32,10 +33,8 @@ import {
   WorkspacePart,
 } from "@/context/prompt"
 import { useLayout } from "@/context/layout"
-import { useSDK } from "@/context/sdk"
-import { useParams } from "@solidjs/router"
-import { useSync } from "@/context/sync"
-import { useComments } from "@/context/comments"
+import { useDeviceSDK } from "@/context/device-sdk"
+
 import { Button } from "@opencode-ai/ui/button"
 import { DockShellForm, DockTray } from "@opencode-ai/ui/dock-surface"
 import { Icon } from "@opencode-ai/ui/icon"
@@ -51,7 +50,6 @@ import { DialogSelectModelUnpaid } from "@/components/dialog-select-model-unpaid
 import { useProviders } from "@/hooks/use-providers"
 import { useCommand } from "@/context/command"
 import { Persist, persisted } from "@/utils/persist"
-import { usePermission } from "@/context/permission"
 import { useLanguage } from "@/context/language"
 import { useContentTabs } from "@/context/content-tabs"
 import { useSlashActions } from "@/pages/session/slash-actions"
@@ -62,7 +60,6 @@ import {
   canNavigateHistoryAtCursor,
   navigatePromptHistory,
   prependHistoryEntry,
-  type PromptHistoryComment,
   type PromptHistoryEntry,
   type PromptHistoryStoredEntry,
   promptLength,
@@ -96,24 +93,24 @@ const TIPS = [
   "prompt.tip.5",
   "prompt.tip.6",
   "prompt.tip.7",
+  "prompt.tip.8",
+  "prompt.tip.9",
+  "prompt.tip.10",
 ] as const
 
 const NON_EMPTY_TEXT = /[^\s\u200B]/
 
 export const PromptInput: Component<PromptInputProps> = (props) => {
-  const sdk = useSDK()
-  const sync = useSync()
-  const local = useLocal()
+  const sdk = useDeviceSDK()
+  const local = useDeviceLocal()
   const files = useFile()
   const device = useDeviceClient()
+  const workspace = useDeviceWorkspace()
   const prompt = usePrompt()
   const layout = useLayout()
-  const comments = useComments()
-  const params = useParams()
+  const command = useCommand()
   const dialog = useDialog()
   const providers = useProviders()
-  const command = useCommand()
-  const permission = usePermission()
   const language = useLanguage()
   const platform = usePlatform()
   const slashActions = useSlashActions()
@@ -122,11 +119,12 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
   let slashPopoverRef!: HTMLDivElement
+  let atPopoverRef!: HTMLDivElement
 
   const mirror = { input: false }
   const inset = 44
 
-  const sid = createMemo(() => (sync as any).currentSessionID?.())
+  const sid = createMemo(() => local.activeSessionID())
 
   const scrollCursorIntoView = () => {
     const container = scrollRef
@@ -169,55 +167,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const tabs = createMemo(() => layout.tabs(sessionKey))
   const view = createMemo(() => layout.view(sessionKey))
 
-  const commentInReview = (path: string) => {
-    const id = sid()
-    if (!id) return false
-
-    const diffs = sync.data.session_diff[id]
-    if (!diffs) return false
-    return diffs.some((diff) => diff.file === path)
-  }
-
-  const openComment = (item: { path: string; commentID?: string; commentOrigin?: "review" | "file" }) => {
-    if (!item.commentID) return
-
-    const focus = { file: item.path, id: item.commentID }
-    comments.setActive(focus)
-
-    const queueCommentFocus = (attempts = 6) => {
-      const schedule = (left: number) => {
-        requestAnimationFrame(() => {
-          comments.setFocus({ ...focus })
-          if (left <= 0) return
-          requestAnimationFrame(() => {
-            const current = comments.focus()
-            if (!current) return
-            if (current.file !== focus.file || current.id !== focus.id) return
-            schedule(left - 1)
-          })
-        })
-      }
-
-      schedule(attempts)
-    }
-
-    const wantsReview = item.commentOrigin === "review" || (item.commentOrigin !== "file" && commentInReview(item.path))
-    if (wantsReview) {
-      if (!view().reviewPanel.opened()) view().reviewPanel.open()
-      layout.fileTree.setTab("changes")
-      tabs().setActive("review")
-      queueCommentFocus()
-      return
-    }
-
-    if (!view().reviewPanel.opened()) view().reviewPanel.open()
-    layout.fileTree.setTab("all")
-    const tab = files.tab(item.path)
-    tabs().open(tab)
-    tabs().setActive(tab)
-    Promise.resolve(files.load(item.path)).finally(() => queueCommentFocus())
-  }
-
   const recent = createMemo(() => {
     const all = tabs().all()
     const active = tabs().active()
@@ -238,11 +187,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const info = createMemo(() => {
     const id = sid()
     if (!id) return undefined
-    return sync.session.get(id) ?? { id }
+    return workspace.session.get(id) ?? { id }
   })
   const status = createMemo(
     () =>
-      sync.data.session_status[sid() ?? ""] ?? {
+      workspace.data.sessionStatus[sid() ?? ""] ?? {
         type: "idle",
       },
   )
@@ -278,17 +227,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     () => !visible(),
   )
 
-  const commentCount = createMemo(() => {
-    if (store.mode === "shell") return 0
-    return prompt.context.items().filter((item) => !!item.comment?.trim()).length
-  })
-
-  const contextItems = createMemo(() => {
-    const items = prompt.context.items()
-    if (store.mode !== "shell") return items
-    return items.filter((item) => !item.comment?.trim())
-  })
-
+  const contextItems = createMemo(() => prompt.context.items())
 
   const [history, setHistory] = persisted(
     Persist.global("prompt-history", ["prompt-history.v1"]),
@@ -312,72 +251,16 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const placeholder = createMemo(() =>
     promptPlaceholder({
       mode: store.mode,
-      commentCount: commentCount(),
+      commentCount: 0,
       tip: tip(),
       t: (key, params) => language.t(key as Parameters<typeof language.t>[0], params as never),
     }),
   )
 
-  const historyComments = () => {
-    const byID = new Map(comments.all().map((item) => [`${item.file}\n${item.id}`, item] as const))
-    return prompt.context.items().flatMap((item) => {
-      if (item.type !== "file") return []
-      const comment = item.comment?.trim()
-      if (!comment) return []
-
-      const selection = item.commentID ? byID.get(`${item.path}\n${item.commentID}`)?.selection : undefined
-      const nextSelection =
-        selection ??
-        (item.selection
-          ? ({
-              start: item.selection.startLine,
-              end: item.selection.endLine,
-            } satisfies SelectedLineRange)
-          : undefined)
-      if (!nextSelection) return []
-
-      return [
-        {
-          id: item.commentID ?? item.key,
-          path: item.path,
-          selection: { ...nextSelection },
-          comment,
-          time: item.commentID ? (byID.get(`${item.path}\n${item.commentID}`)?.time ?? Date.now()) : Date.now(),
-          origin: item.commentOrigin,
-          preview: item.preview,
-        } satisfies PromptHistoryComment,
-      ]
-    })
-  }
-
-  const applyHistoryComments = (items: PromptHistoryComment[]) => {
-    comments.replace(
-      items.map((item) => ({
-        id: item.id,
-        file: item.path,
-        selection: { ...item.selection },
-        comment: item.comment,
-        time: item.time,
-      })),
-    )
-    prompt.context.replaceComments(
-      items.map((item) => ({
-        type: "file" as const,
-        path: item.path,
-        selection: selectionFromLines(item.selection),
-        comment: item.comment,
-        commentID: item.id,
-        commentOrigin: item.origin,
-        preview: item.preview,
-      })),
-    )
-  }
-
   const applyHistoryPrompt = (entry: PromptHistoryEntry, position: "start" | "end") => {
     const p = entry.prompt
     const length = position === "start" ? 0 : promptLength(p)
     setStore("applyingHistory", true)
-    applyHistoryComments(entry.comments)
     prompt.set(p, length)
     requestAnimationFrame(() => {
       editorRef.focus()
@@ -508,7 +391,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   }
 
   const agentList = createMemo(() =>
-    (sync.data.agent ?? [])
+    (workspace.data.agent ?? [])
       .filter((agent) => !agent.hidden && agent.mode !== "primary")
       .map((agent): AtOption => ({ type: "agent", name: agent.name, display: agent.name })),
   )
@@ -518,7 +401,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const workspaceList = createMemo(() => {
     if (!workspaceCtx) return []
     const all = workspaceCtx.workspaces()
-    const current = all.find((w) => w.id === params.workspaceID)
+    const current = all.find((w) => w.id === workspaceCtx.selectedWorkspaceId())
     if (!current?.deviceId) return []
     return all
       .filter((w) => w.deviceId === current.deviceId)
@@ -592,6 +475,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       return rank(a.category) - rank(b.category)
     },
     onSelect: handleAtSelect,
+    maxItems: 10,
   })
 
   let wsSearchTimer: ReturnType<typeof setTimeout> | undefined
@@ -670,6 +554,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     filterKeys: ["display"],
     noInitialSelection: true,
     onSelect: handleWsFileSelect,
+    maxItems: 10,
   })
 
   const slashCommands = createMemo<SlashCommand[]>(() => {
@@ -706,13 +591,45 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           if (id) tabStore.replaceWithNewSession(id, language.t("command.session.new"))
         },
       },
+      {
+        id: "cmd.models",
+        trigger: "models",
+        title: language.t("command.model.choose"),
+        description: language.t("command.model.choose.description"),
+        type: "builtin" as const,
+        scope: "action",
+      },
+      {
+        id: "cmd.agents",
+        trigger: "agents",
+        title: language.t("command.agent.cycle"),
+        description: language.t("command.agent.cycle.description"),
+        type: "builtin" as const,
+        scope: "action",
+      },
+      {
+        id: "cmd.credit",
+        trigger: "credit",
+        title: language.t("command.credit.title"),
+        description: language.t("command.credit.description"),
+        type: "builtin" as const,
+        scope: "action",
+      },
+      // {
+      //   id: "cmd.hub",
+      //   trigger: "hub",
+      //   title: language.t("command.favorites.title"),
+      //   description: language.t("command.favorites.description"),
+      //   type: "builtin" as const,
+      //   scope: "action",
+      // },
     ]
 
     const frontendOnly = new Set(
       builtin.filter((c) => c.scope === "action").map((c) => c.trigger),
     )
 
-    const backend = (sync.data.command ?? [])
+    const backend = (workspace.data.command ?? [])
       .filter((cmd) => cmd.scope !== "tui-only")
       .filter((cmd) => !frontendOnly.has(cmd.name))
       .map((cmd) => ({
@@ -832,6 +749,16 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     requestAnimationFrame(() => {
       const element = slashPopoverRef.querySelector(`[data-slash-id="${activeId}"]`)
+      element?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+    })
+  })
+
+  createEffect(() => {
+    const activeKey = store.workspaceFileSearch ? wsFileActive() : atActive()
+    if (!activeKey || !atPopoverRef) return
+
+    requestAnimationFrame(() => {
+      const element = atPopoverRef.querySelector(`[data-at-key="${activeKey}"]`)
       element?.scrollIntoView({ block: "nearest", behavior: "smooth" })
     })
   })
@@ -1023,7 +950,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           setStore("popover", "at")
         }
       } else if (slashMatch) {
-        void sync.command.load()
+        void workspace.command.load()
         slashOnInput(slashMatch[1])
         setStore("popover", "slash")
       } else {
@@ -1124,7 +1051,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const addToHistory = (prompt: Prompt, mode: "normal" | "shell") => {
     const currentHistory = mode === "shell" ? shellHistory : history
     const setCurrentHistory = mode === "shell" ? setShellHistory : setHistory
-    const next = prependHistoryEntry(currentHistory.entries, prompt, mode === "shell" ? [] : historyComments())
+    const next = prependHistoryEntry(currentHistory.entries, prompt, [])
     if (next === currentHistory.entries) return
     setCurrentHistory("entries", next)
   }
@@ -1135,7 +1062,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       entries: store.mode === "shell" ? shellHistory.entries : history.entries,
       historyIndex: store.historyIndex,
       currentPrompt: prompt.current(),
-      currentComments: historyComments(),
+      currentComments: [],
       savedPrompt: store.savedPrompt,
     })
     if (!result.handled) return false
@@ -1159,12 +1086,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const variants = createMemo(() => ["default", ...local.model.variant.list()])
-  const accepting = createMemo(() => permission.isAutoAccepting())
+  const accepting = createMemo(() => workspace.autoAccept.enabled())
 
   const { abort, handleSubmit } = createPromptSubmit({
     info,
     imageAttachments,
-    commentCount,
     autoAccept: () => accepting(),
     mode: () => store.mode,
     working,
@@ -1314,7 +1240,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         const active = atActive()
         const items = atFlat()
         const item = items.find((entry) => atKey(entry) === active)
-        if (item?.type === "workspace" && item.id !== params.workspaceID) {
+        if (item?.type === "workspace" && item.id !== workspaceCtx?.selectedWorkspaceId()) {
           enterWorkspaceFileSearch({ id: item.id, name: item.name, directory: item.directory })
           event.preventDefault()
           return
@@ -1364,6 +1290,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       <PromptPopover
         popover={store.popover}
         setSlashPopoverRef={(el) => (slashPopoverRef = el)}
+        setAtPopoverRef={(el) => (atPopoverRef = el)}
         atFlat={atFlat()}
         atActive={atActive() ?? undefined}
         atKey={atKey}
@@ -1374,7 +1301,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         wsFileActive={wsFileActive() ?? undefined}
         setWsFileActive={wsFileSetActiveActive}
         onWsFileSelect={handleWsFileSelect}
-        currentWorkspaceId={params.workspaceID ?? ""}
+        currentWorkspaceId={workspaceCtx?.selectedWorkspaceId() ?? ""}
         slashFlat={slashFlat()}
         slashActive={slashActive() ?? undefined}
         setSlashActive={setSlashActive}
@@ -1382,7 +1309,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         commandKeybind={command.keybind}
         t={(key) => language.t(key as Parameters<typeof language.t>[0])}
       />
-      <StatusDisplay working={working()} busySince={props.busySince} />
       <DockShellForm
         onSubmit={handleSubmit}
         classList={{
@@ -1398,13 +1324,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         />
         <PromptContextItems
           items={contextItems()}
-          active={(item) => {
-            const active = comments.active()
-            return !!item.commentID && item.commentID === active?.id && item.path === active?.file
-          }}
-          openComment={openComment}
           remove={(item) => {
-            if (item.commentID) comments.remove(item.path, item.commentID)
             prompt.context.remove(item.key)
           }}
           t={(key) => language.t(key as Parameters<typeof language.t>[0])}
@@ -1540,7 +1460,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 <IconButton
                   data-action="prompt-submit"
                   type="submit"
-                  disabled={store.mode !== "normal" || (!prompt.dirty() && !working() && commentCount() === 0)}
+                  disabled={store.mode !== "normal" || (!prompt.dirty() && !working())}
                   tabIndex={store.mode === "normal" ? undefined : -1}
                   icon={working() ? "stop" : "arrow-up"}
                   variant="primary"
@@ -1559,7 +1479,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       </DockShellForm>
       <Show when={store.mode === "normal" || store.mode === "shell"}>
         <DockTray attach="top">
-          <div class="px-1.75 pt-5.5 pb-2 flex items-center gap-2 min-w-0">
+          <div class="px-1.75 py-2 flex items-center gap-2 min-w-0">
             <div class="flex items-center gap-1.5 min-w-0 flex-1 relative">
               <div
                 class="h-7 flex items-center gap-1.5 max-w-[160px] min-w-0 absolute inset-y-0 left-0"
@@ -1720,7 +1640,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                         type="checkbox"
                         class="size-3.5 accent-[var(--native-primary)] cursor-pointer"
                         checked={accepting()}
-                        onChange={() => permission.toggleAutoAccept()}
+                        onChange={() => workspace.autoAccept.toggle()}
                       />
                       <span class="text-12-regular text-text-weak truncate">
                         {language.t("command.permissions.autoaccept.enable")}
@@ -1744,8 +1664,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       <UiSwitch
                         checked={accepting()}
                         onChange={(checked) => {
-                          if (checked) permission.enableAutoAccept()
-                          else permission.disableAutoAccept()
+                          if (checked) workspace.autoAccept.enable()
+                          else workspace.autoAccept.disable()
                         }}
                         data-variant="quiet"
                         hideLabel

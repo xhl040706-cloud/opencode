@@ -58,8 +58,8 @@ const defaultSettings: Settings = {
   general: {
     autoSave: true,
     releaseNotes: true,
-    showReasoningSummaries: false,
-    shellToolPartsExpanded: true,
+    showReasoningSummaries: true,
+    shellToolPartsExpanded: false,
     editToolPartsExpanded: false,
   },
   updates: {
