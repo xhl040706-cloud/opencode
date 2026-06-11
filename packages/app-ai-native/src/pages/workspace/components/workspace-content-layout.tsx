@@ -265,6 +265,7 @@ function ContentTabPanel() {
                         tabStore.open({
                           kind: "session",
                           title: input.title ?? language.t("command.session.new"),
+                          icon: SESSION_TAB_ICON,
                           key: input.sessionID,
                           meta: { sessionID: input.sessionID },
                         })
