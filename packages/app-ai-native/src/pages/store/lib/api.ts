@@ -280,6 +280,9 @@ export interface CapabilityItem {
   lastScanId?: string
   experienceScore?: number
   repoName?: string
+  parentPluginId?: string
+  parentPluginName?: string
+  parentPluginSlug?: string
   createdBy: string
   forkedFromItemId?: string
   forkedFromOwnerId?: string
@@ -851,6 +854,8 @@ export const itemApi = {
     favorited?: boolean
     includeForks?: boolean
     paginated?: boolean
+    parentPluginId?: string
+    excludeSubSkills?: boolean
   }) => {
     const p = new URLSearchParams()
     if (params?.type) p.set("type", params.type)
@@ -869,6 +874,8 @@ export const itemApi = {
     if (params?.favorited) p.set("favorited", "true")
     if (params?.includeForks) p.set("includeForks", "true")
     if (params?.paginated) p.set("paginated", "true")
+    if (params?.parentPluginId) p.set("parentPluginId", params.parentPluginId)
+    if (params?.excludeSubSkills) p.set("excludeSubSkills", "true")
     return apiFetch<{ items: CapabilityItem[]; total: number; hasMore: boolean }>(`/api/items?${p.toString()}`)
   },
 

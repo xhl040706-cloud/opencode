@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { cn } from "@/lib/utils"
 import { Persist, persisted } from "@/utils/persist"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
+import { CreateCapabilityDialog } from "@/pages/store/components/create-capability-dialog"
 import ItemDetailContent from "@/pages/store/components/item-detail-content"
 import { ItemDetailLoadingSkeleton } from "@/pages/store/components/item-detail-loading-skeleton"
 import { MoveCapabilityDialog } from "@/pages/store/components/move-capability-dialog"
@@ -1009,6 +1010,28 @@ export default function StoreManagerPage() {
                     <Icon name="plus" class="size-4" style={{ color: "#ffffff" }} />
                     {language.t("store.console.capabilities.create")}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 gap-1.5 px-3"
+                    onClick={() => {
+                      dialog.show(() => (
+                        <CreateCapabilityDialog
+                          userId={userId()}
+                          repositories={state.repos}
+                          defaultItemType="plugin"
+                          onCreated={(item) => {
+                            void loadCreated()
+                            setSelectedItemId("value", item.id)
+                          }}
+                        />
+                      ))
+                    }}
+                  >
+                    <Icon name="cloud-upload" size="small" />
+                    {language.t("store.uploadPlugin.title") || "Upload Plugin"}
+                  </Button>
                   {/* Plugin upload hidden — see PR #112 */}
                   {/* <Button
                     type="button"
@@ -1402,6 +1425,7 @@ export default function StoreManagerPage() {
                           setSelectedItemId("value", null)
                           refreshBothTabs()
                         }}
+                        onSelectItem={(id) => setSelectedItemId("value", id)}
                         favorited={detailState.favorited}
                         favoriteCount={detailState.favoriteCount}
                         previewCount={detailState.previewCount}
