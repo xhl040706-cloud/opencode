@@ -18,11 +18,7 @@ import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
-import { useDeviceSDK } from "@/context/device-sdk"
-import { useDeviceLocal } from "@/context/device-local"
-import { useDeviceWorkspace } from "@/context/device-workspace"
-import { useDeviceSessionStore } from "@/context/device-session"
-import { useConversationAdapter } from "@/context/device-adapter"
+import { useSessionChat } from "@/context/session-chat"
 import { parseCommentNote, readCommentMetadata } from "@/utils/comment-note"
 
 type MessageComment = {
@@ -212,17 +208,13 @@ export function MessageTimeline(props: {
 
   const params = useParams()
   const navigate = useNavigate()
-  const sdk = useDeviceSDK()
-  const conversation = useConversationAdapter()
-  const local = useDeviceLocal()
-  const workspace = useDeviceWorkspace()
-  const store = useDeviceSessionStore()
+  const chat = useSessionChat()
   const settings = useSettings()
   const dialog = useDialog()
   const language = useLanguage()
 
   const rendered = createMemo(() => props.renderedUserMessages.map((message) => message.id))
-  const sid = createMemo(() => local.activeSessionID())
+  const sid = createMemo(() => chat.activeSessionID())
   const sessionKey = createMemo(() => {
     const id = sid()
     return `${id ?? ""}`
@@ -231,7 +223,7 @@ export function MessageTimeline(props: {
   const sessionMessages = createMemo(() => {
     const id = sessionID()
     if (!id) return emptyMessages
-    return store.data.messages[id] ?? emptyMessages
+    return chat.messages(id)
   })
   const pending = createMemo(() =>
     sessionMessages().findLast(
@@ -241,7 +233,7 @@ export function MessageTimeline(props: {
   const sessionStatus = createMemo(() => {
     const id = sessionID()
     if (!id) return idle
-    return workspace.data.sessionStatus[id] ?? idle
+    return chat.sessionStatus(id)
   })
   const activeMessageID = createMemo(() => {
     const parentID = pending()?.parentID
@@ -265,7 +257,7 @@ export function MessageTimeline(props: {
   const info = createMemo(() => {
     const id = sessionID()
     if (!id) return
-    return workspace.session.get(id)
+    return chat.getSession(id)
   })
   const titleValue = createMemo(() => info()?.title)
   const parentID = createMemo(() => info()?.parentID)
@@ -313,8 +305,8 @@ export function MessageTimeline(props: {
       if (!document.hidden) {
         // 页面重新可见时，触发数据刷新以确保所有内容正确显示
         // 强制更新session messages引用，触发所有依赖的memo和effect重新执行
-        const currentMessages = store.data.messages[id] ?? []
-        store.data.messages[id] = [...currentMessages]
+        const currentMessages = chat.messages(id)
+        chat.refreshMessages(id)
       }
     }
 
@@ -351,8 +343,8 @@ export function MessageTimeline(props: {
     }
 
     setTitle("saving", true)
-    await conversation
-      .sessionUpdate({ sessionID: id, title: next })
+    await chat
+      .renameSession(id, next)
       .then(() => {
         setTitle({ editing: false, saving: false })
       })
@@ -376,12 +368,11 @@ export function MessageTimeline(props: {
   }
 
   const deleteSession = async (sessionID: string) => {
-    const session = workspace.session.get(sessionID)
+    const session = chat.getSession(sessionID)
     if (!session) return false
 
-    const result = await conversation
-      .sessionDelete(sessionID)
-      .then((x) => x.data)
+    const result = await chat
+      .deleteSession(sessionID)
       .catch((err) => {
         showToast({
           title: language.t("session.delete.failed.title"),
@@ -399,13 +390,13 @@ export function MessageTimeline(props: {
   const navigateParent = () => {
     const id = parentID()
     if (!id) return
-    const back = local.navigateBack?.()
+    const back = chat.navigateBack?.()
     if (back) { back(); return }
     navigate(`/workspace/${params.workspaceID}/${id}`)
   }
 
   function DialogDeleteSession(props: { sessionID: string }) {
-    const name = createMemo(() => workspace.session.get(props.sessionID)?.title ?? language.t("command.session.new"))
+    const name = createMemo(() => chat.getSession(props.sessionID)?.title ?? language.t("command.session.new"))
     const handleDelete = async () => {
       await deleteSession(props.sessionID)
       dialog.close()
@@ -654,7 +645,7 @@ export function MessageTimeline(props: {
                     if (activeID) return messageID > activeID
                     return false
                   })
-                  const comments = createMemo(() => messageComments(store.data.parts[messageID] ?? []), [], {
+                  const comments = createMemo(() => messageComments(chat.messageParts(messageID)), [], {
                     equals: (a, b) => JSON.stringify(a) === JSON.stringify(b),
                   })
                   const commentCount = createMemo(() => comments().length)

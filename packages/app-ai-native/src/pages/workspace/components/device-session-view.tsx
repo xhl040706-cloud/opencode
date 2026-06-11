@@ -5,10 +5,7 @@ import { createAutoScroll } from "@opencode-ai/ui/hooks"
 import { DataProvider } from "@opencode-ai/ui/context"
 import { FileComponentProvider } from "@opencode-ai/ui/context/file"
 import { File } from "@opencode-ai/ui/file"
-import { useDeviceSDK } from "@/context/device-sdk"
-import { useDeviceWorkspace } from "@/context/device-workspace"
-import { useDeviceSessionStore } from "@/context/device-session"
-import { useDeviceLocal } from "@/context/device-local"
+import { useSessionChat } from "@/context/session-chat"
 import { useLanguage } from "@/context/language"
 import { PromptProvider, usePrompt } from "@/context/prompt"
 
@@ -24,14 +21,8 @@ import type {
   SessionStatus,
   FileDiff,
   Todo,
-  Command,
-  Agent,
-  VcsInfo,
-  PermissionRequest,
-  QuestionRequest,
 } from "@opencode-ai/sdk/v2/client"
-import type { Project, Path } from "@opencode-ai/sdk/v2/client"
-import type { ProviderCapabilitiesResponse } from "@/context/global-sync/types"
+import type { Path } from "@opencode-ai/sdk/v2/client"
 import { legacyProvider } from "@/utils/legacy-provider"
 import { DeviceSessionViewHeader, type HeaderState } from "./device-session-view-header"
 import { env } from "@/lib/env"
@@ -39,21 +30,16 @@ import { env } from "@/lib/env"
 const emptyMessages: Message[] = []
 const busySinceMap = new Map<string, number>()
 
-// One-shot prompt seeder: prefills the composer with a fixed prefix (e.g.
-// `/skill-writer `) once the device's model + agent are ready, placing the
-// cursor at the end so the user just types their request and presses Enter.
-// Opt-in via `DeviceSessionView`'s `promptSeed` prop; never auto-sends, so it
-// does not affect ordinary workspace sessions.
 function PromptSeeder(props: { seed?: string }) {
   const prompt = usePrompt()
-  const local = useDeviceLocal()
+  const chat = useSessionChat()
   let seeded = false
   createEffect(() => {
     if (seeded) return
     const seed = props.seed
     if (!seed) return
     if (!prompt.ready()) return
-    if (!local.model.current() || !local.agent.current()) return
+    if (!chat.model.current() || !chat.agent.current()) return
     if (prompt.dirty()) {
       seeded = true
       return
@@ -74,10 +60,7 @@ export function DeviceSessionView(props: {
   onClose?: () => void
   header?: (state: HeaderState) => JSX.Element
 }) {
-  const device = useDeviceSDK()
-  const workspace = useDeviceWorkspace()
-  const store = useDeviceSessionStore()
-  const local = useDeviceLocal()
+  const chat = useSessionChat()
   const language = useLanguage()
 
   let snapFrame: number | undefined
@@ -86,8 +69,8 @@ export function DeviceSessionView(props: {
 
   const [viewingStack, setViewingStack] = createSignal<{ id: string; name: string }[]>([])
 
-  local.setOnSessionCreated((input) => queueMicrotask(() => props.onSessionCreated?.(input)))
-  local.setNavigateBack(() => setViewingStack((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev)))
+  chat.setOnSessionCreated((input) => queueMicrotask(() => props.onSessionCreated?.(input)))
+  chat.setNavigateBack(() => setViewingStack((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev)))
   const [phase, setPhase] = createStore<Record<string, "loading" | "ready" | "error">>({})
   createEffect((prev: string[]) => {
     const stack = viewingStack()
@@ -131,7 +114,7 @@ export function DeviceSessionView(props: {
   const mobileUrl = createMemo(() => {
     const host = `${env.MOBILE_HOST}${env.BASE_PATH ? `${env.BASE_PATH}` : ""}`
     if (!host) return ""
-    const wsId = workspace.workspaceId
+    const wsId = chat.workspaceId()
     const sid = rootSessionID()
     if (!wsId || !sid) return ""
     return `${host}/m/workspace/${wsId}?session=${sid}`
@@ -143,7 +126,7 @@ export function DeviceSessionView(props: {
   const currentSessionID = createMemo(() => viewingSessionID() ?? rootSessionID())
 
   createEffect(() => {
-    local.setActiveSession(currentSessionID())
+    chat.setActiveSession(currentSessionID())
   })
 
   createEffect(() => {
@@ -151,22 +134,22 @@ export function DeviceSessionView(props: {
     const msgs = effectiveMessages()
     const last = [...msgs].reverse().find((m) => m.role === "user")
     if (!last) return
-    if (last.agent) local.agent.set(last.agent)
+    if (last.agent) chat.agent.set(last.agent)
     const lastModel = (last as any).model as { providerID: string; modelID: string } | undefined
     if (lastModel && lastModel.providerID) {
-      local.model.set(lastModel)
+      chat.model.set(lastModel)
     }
   })
 
   const effectiveMessages = createMemo(() => {
     const cid = currentSessionID()
     if (!cid) return [] as Message[]
-    return store.data.messages[cid] ?? []
+    return chat.messages(cid)
   })
 
   const effectiveStatus = createMemo(() => {
     const cid = currentSessionID()
-    if (cid) return workspace.data.sessionStatus[cid] ?? ({ type: "idle" } as SessionStatus)
+    if (cid) return chat.sessionStatus(cid)
     return ({ type: "idle" } as SessionStatus)
   })
 
@@ -225,23 +208,23 @@ export function DeviceSessionView(props: {
 
   const reconcileSessionData = async (targetId: string) => {
     try {
-      await store.loadMessages(targetId)
+      await chat.loadMessages(targetId)
       requestAnimationFrame(() => resumeScroll())
     } catch {}
   }
 
   const effectiveParts = createMemo(() => {
-    return store.data.parts
+    return chat.parts()
   })
 
   createEffect(
     on(currentSessionID, (id) => {
       if (!id) return
-      const cached = store.data.messages[id]
+      const cached = chat.messages(id)
       setPhase(id, cached?.length ? "ready" : "loading")
       Promise.all([
-        store.loadMessages(id),
-        store.todo(id),
+        chat.loadMessages(id),
+        chat.loadTodo(id),
       ])
         .then(() => {
           if (currentSessionID() === id) setPhase(id, "ready")
@@ -257,13 +240,14 @@ export function DeviceSessionView(props: {
   })
 
   const composer = createDeviceSessionComposerState({
+    chat,
     sessionID: currentSessionID,
     todos: () => {
       const cid = currentSessionID()
-      return cid ? (store.data.todos[cid] ?? []) : []
+      return cid ? chat.todos(cid) : []
     },
-    isAutoAccepting: () => workspace.autoAccept.enabled(),
-    enableAutoAccept: () => workspace.autoAccept.enable(),
+    isAutoAccepting: () => chat.autoAccept.enabled(),
+    enableAutoAccept: () => chat.autoAccept.enable(),
   })
 
   const [composerMounted, setComposerMounted] = createSignal(true)
@@ -281,14 +265,14 @@ export function DeviceSessionView(props: {
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready" || phase[id] === "error"
-    return !!workspace.data.session.find((s) => s.id === id) && !store.historyLoading(id)
+    return !!chat.sessions().find((s) => s.id === id) && !chat.historyLoading(id)
   })
 
   const ready = createMemo(() => {
     const id = currentSessionID()
     if (!id) return false
     if (viewingSessionID()) return phase[id] === "ready"
-    return !!workspace.data.session.find((s) => s.id === id) && !store.historyLoading(id)
+    return !!chat.sessions().find((s) => s.id === id) && !chat.historyLoading(id)
   })
 
   const autoScroll = createAutoScroll({
@@ -304,8 +288,6 @@ export function DeviceSessionView(props: {
   let content: HTMLDivElement | undefined
   let promptDock: HTMLDivElement | undefined
   let dockHeight = 0
-
-  const messages = createMemo(() => effectiveMessages())
 
   const enrichedMessages = createMemo(() => {
     const raw = effectiveMessages()
@@ -396,39 +378,39 @@ export function DeviceSessionView(props: {
   const dataProps = createMemo(() => {
     const cid = currentSessionID()
     const parts = effectiveParts()
-    const status = workspace.data.status
+    const status = chat.workspaceStatus()
     return {
       status: (status === "unavailable" || status === "loading" ? "loading" : "complete") as "complete" | "loading",
-      agent: workspace.data.agent,
+      agent: chat.agents(),
       agentRuntimes: [] as unknown[],
-      command: workspace.data.command,
+      command: chat.commands(),
       project: "",
       projectMeta: undefined as any,
       icon: undefined as string | undefined,
-      provider: legacyProvider(workspace.data.provider),
-      path: { directory: device.directory } as Path,
-      session: workspace.data.session,
-      sessionTotal: workspace.data.sessionTotal,
+      provider: legacyProvider(chat.providerCaps()),
+      path: { directory: chat.directory() } as Path,
+      session: chat.sessions(),
+      sessionTotal: chat.sessionTotal(),
       session_status: {
-        ...workspace.data.sessionStatus,
+        ...Object.fromEntries(chat.sessions().map((s) => [s.id, chat.sessionStatus(s.id)])),
         ...(cid ? { [cid]: effectiveStatus() } : {}),
         "": effectiveStatus(),
         undefined: effectiveStatus(),
       } as Record<string, SessionStatus>,
       session_diff: {} as Record<string, FileDiff[]>,
-      todo: { [cid ?? ""]: store.data.todos[cid ?? ""] ?? [] } as Record<string, Todo[]>,
-      permission: workspace.data.permissions,
-      question: workspace.data.questions,
+      todo: { [cid ?? ""]: chat.todos(cid ?? "") } as Record<string, Todo[]>,
+      permission: chat.permissions(),
+      question: chat.questions(),
       mcp: {} as Record<string, any>,
       lsp: [] as any[],
-      vcs: workspace.data.vcs,
+      vcs: chat.vcs(),
       limit: 50,
       message: { [cid ?? ""]: enrichedMessages(), "": enrichedMessages(), undefined: enrichedMessages() } as Record<
         string,
         Message[]
       >,
       part: { ...parts } as Record<string, Part[]>,
-      partProgress: store.data.partProgress,
+      partProgress: chat.partProgress(),
     }
   })
 
@@ -450,10 +432,9 @@ export function DeviceSessionView(props: {
             <PromptSeeder seed={props.promptSeed} />
               <DataProvider
                           data={dataProps()!}
-                          directory={device.directory}
+                          directory={chat.directory()}
                           onNavigateToSession={(id: string) => {
-                            const s = workspace.data.session.find((s) => s.id === id)
-                            const name = s?.title ?? id.slice(0, 8)
+                            const name = chat.findSessionName(id)
                             setViewingStack((prev) => [...prev, { id, name }])
                           }}
                           onSessionHref={(id: string) => `#subagent-${id}`}
@@ -500,7 +481,7 @@ export function DeviceSessionView(props: {
                                     </Show>
                                   </div>
 
-                                  <Show when={workspace.agentAvailable() && composerMounted()}>
+                                  <Show when={chat.agentAvailable() && composerMounted()}>
                                     <SessionComposerRegion
                                       state={composer}
                                       ready={true}
@@ -509,7 +490,7 @@ export function DeviceSessionView(props: {
                                         if (!el) return
                                         const handler = () => {
                                           const sid = rootSessionID()
-                                          if (sid) workspace.session.clearUnread(sid)
+                                          if (sid) chat.clearUnread(sid)
                                         }
                                         el.addEventListener("focusin", handler)
                                         el.addEventListener("pointerdown", handler)
@@ -520,7 +501,7 @@ export function DeviceSessionView(props: {
                                       onSubmit={() => {
                                         resumeScroll()
                                         const sid = rootSessionID()
-                                        if (sid) workspace.session.clearUnread(sid)
+                                        if (sid) chat.clearUnread(sid)
                                       }}
                                       onResponseSubmit={resumeScroll}
                                       setPromptDockRef={(el) => {
@@ -532,7 +513,7 @@ export function DeviceSessionView(props: {
                                       busySince={busySince()}
                                     />
                                   </Show>
-                                  <Show when={!workspace.agentAvailable()}>
+                                  <Show when={!chat.agentAvailable()}>
                                     <div class="shrink-0 w-full pb-3 flex justify-center items-center">
                                       <span class="text-12-regular text-text-weak">
                                         {language.t("workspace.device.offline")}
