@@ -298,7 +298,13 @@ export interface CapabilityItem {
   tags?: ItemTag[]
   health?: {
     score?: number
-    signals: { freshness: number; popularity: number; source_trust: number }
+    // effective_score is the star-routing-aware weighted health the blended
+    // final_score actually uses (provided by the upstream catalog bundle); score
+    // is the raw simple-mean of the radar signals. excluded_signals lists the
+    // heuristic signals dropped from the blend (e.g. "popularity" on star-noise).
+    effective_score?: number
+    excluded_signals?: string[]
+    signals: { freshness: number; popularity: number; source_trust: number; manifest_completeness?: number }
     freshness_label?: string
     last_commit?: string
   }
@@ -309,6 +315,11 @@ export interface CapabilityItem {
     writing_quality?: number
     specificity?: number
     install_clarity?: number
+    // content_quality is the authoritative per-type weighted LLM quality
+    // subtotal (内容质量, 0-100, whole number) provided by the upstream catalog
+    // bundle. Prefer it over the client-side computeContentQuality fallback,
+    // which uses skill weights for every type.
+    content_quality?: number
     final_score: number
     decision?: string
     model_id?: string
