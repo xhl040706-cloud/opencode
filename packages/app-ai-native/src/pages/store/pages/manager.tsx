@@ -45,7 +45,7 @@ const SIDEBAR_ITEMS = [
 
 const STAT_CARDS = [
   { key: "created" as TabKey, labelKey: "store.console.capabilities.myCreated", icon: "archive" as const, color: "#3B82F6" },
-  { key: "favorited" as TabKey, labelKey: "store.console.capabilities.myFavorited", icon: "star" as const, color: "#F59E0B" },
+  { key: "favorited" as TabKey, labelKey: "store.console.capabilities.myFavorited", icon: "bell" as const, color: "#F59E0B" },
   { key: "received" as TabKey, labelKey: "store.received.title", icon: "inbox" as const, color: "#10B981" },
   { key: "sent" as TabKey, labelKey: "store.sent.title", icon: "share" as const, color: "#8B5CF6" },
 ] as const
@@ -1108,7 +1108,9 @@ export default function StoreManagerPage() {
                             color: card.color,
                           }}
                         >
-                          <Icon name={card.icon as any} class="size-6" />
+                          <Show when={card.key === "favorited"} fallback={<Icon name={card.icon as any} class="size-6" />}>
+                            <LocalIcon name="subscribe" class="size-6" />
+                          </Show>
                         </div>
                         <div>
                           <div class="text-2xl font-bold text-[var(--native-foreground)]">{formatCompact(count())}</div>
