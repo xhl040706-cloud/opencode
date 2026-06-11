@@ -58,6 +58,12 @@ const EVAL_DIM_WEIGHTS: Record<(typeof EVAL_DIMS)[number], number> = {
 
 // Content-quality subtotal (0-100): Σ (dim/5 * 100 * weight) over the dims present,
 // renormalizing weights across present dims so they still sum to 1. Returns null if no dims.
+//
+// FALLBACK ONLY. The upstream catalog bundle now provides an authoritative
+// per-type `evaluation.content_quality` (correct weights for plugin/rule/prompt),
+// passed through verbatim by the backend. Prefer that value; this client-side
+// recompute only runs for entries that predate it and is APPROXIMATE for
+// non-skill types (it always applies the 6-dim skill weights above).
 function computeContentQuality(evaluation: NonNullable<CapabilityItem["evaluation"]>): number | null {
   let weightSum = 0
   let weighted = 0
@@ -668,7 +674,9 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                       <div class="flex flex-wrap gap-4">
                         <Show
                           when={
-                            data().evaluation && computeContentQuality(data().evaluation!) != null && data().evaluation
+                            data().evaluation &&
+                            (data().evaluation!.content_quality ?? computeContentQuality(data().evaluation!)) != null &&
+                            data().evaluation
                           }
                         >
                           {(evaluation) => (
@@ -684,7 +692,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                                   {language.t("store.detail.eval.contentQuality")}
                                 </div>
                                 <span class="text-lg font-bold" style={{ color: meta().accent }}>
-                                  {computeContentQuality(evaluation())}
+                                  {evaluation().content_quality ?? computeContentQuality(evaluation())}
                                 </span>
                               </div>
                               <div class="space-y-2.5">
@@ -744,9 +752,24 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                               >
                                 {language.t("store.detail.health.title")}
                               </div>
-                              <Show when={data().health?.score != null}>
-                                <span class="text-lg font-bold" style={{ color: meta().accent }}>
-                                  {Math.round(data().health!.score!)}
+                              <Show when={(data().health?.effective_score ?? data().health?.score) != null}>
+                                <span
+                                  class="inline-flex items-baseline gap-0.5 text-lg font-bold"
+                                  style={{ color: meta().accent }}
+                                >
+                                  {Math.round((data().health!.effective_score ?? data().health!.score)!)}
+                                  <Show when={(data().health?.excluded_signals?.length ?? 0) > 0}>
+                                    <span
+                                      class="cursor-help text-[11px] leading-none text-text-weak"
+                                      title={
+                                        data().health?.excluded_signals?.includes("popularity")
+                                          ? language.t("store.detail.health.popularityExcluded")
+                                          : language.t("store.detail.health.signalsExcluded")
+                                      }
+                                    >
+                                      *
+                                    </span>
+                                  </Show>
                                 </span>
                               </Show>
                             </div>
@@ -771,7 +794,15 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                               <span class="text-lg font-bold" style={{ color: meta().accent }}>
                                 {Math.round(evaluation().final_score)}
                               </span>
-                              <Show when={data().health?.score != null}>
+                              {/* Show the 85/15 blend formula only when BOTH
+                                  terms exist: the per-type content_quality and
+                                  the star-routing-aware effective_health. This is
+                                  type-agnostic — it shows for skills and fully
+                                  evaluated plugins, and hides for health_only
+                                  plugins and legacy un-reingested data. */}
+                              <Show
+                                when={data().evaluation?.content_quality != null && data().health?.effective_score != null}
+                              >
                                 <span class="text-[11px] text-text-weak">
                                   {language.t("store.detail.overall.breakdown")}
                                 </span>
