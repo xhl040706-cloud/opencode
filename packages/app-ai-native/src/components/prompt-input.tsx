@@ -93,6 +93,9 @@ const TIPS = [
   "prompt.tip.5",
   "prompt.tip.6",
   "prompt.tip.7",
+  "prompt.tip.8",
+  "prompt.tip.9",
+  "prompt.tip.10",
 ] as const
 
 const NON_EMPTY_TEXT = /[^\s\u200B]/

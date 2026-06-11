@@ -214,6 +214,24 @@ function ContentTabPanel() {
   const layout = useLayout()
   const dw = useDeviceWorkspace()
 
+  const WELCOME_EXAMPLES = [
+    "workspace.content.welcome.example.1",
+    "workspace.content.welcome.example.2",
+    "workspace.content.welcome.example.3",
+    "workspace.content.welcome.example.4",
+    "workspace.content.welcome.example.5",
+    "workspace.content.welcome.example.6",
+  ] as const
+
+  const [exampleIdx, setExampleIdx] = createSignal(0)
+  let exampleTimer: ReturnType<typeof setInterval> | undefined
+  onMount(() => {
+    exampleTimer = setInterval(() => {
+      setExampleIdx((i) => (i + 1) % WELCOME_EXAMPLES.length)
+    }, 10000)
+  })
+  onCleanup(() => { if (exampleTimer) clearInterval(exampleTimer) })
+
   const closeTab = (id: string) => {
     const tab = tabStore.tabs().find((t) => t.id === id)
     if (tab?.kind === "terminal") {
@@ -228,22 +246,16 @@ function ContentTabPanel() {
       <Show
         when={tabStore.tabs().length > 0}
         fallback={
-          <div class="flex-1 h-full flex flex-col items-center justify-center vscode-markdown">
+          <div class="flex-1 h-full flex flex-col items-center justify-center">
             <div class="flex flex-col items-center gap-24 w-full max-w-[720px] 2xl:max-w-[900px] px-6">
-              <div class="flex flex-col gap-1.5" style={{ "min-width": "300px" }}>
-                <div class="flex items-center justify-between gap-8">
-                  <span>{language.t("workspace.content.shortcut.newSession")}</span>
-                  <span class="flex items-center gap-0.5"><code>Alt</code>+<code>N</code></span>
+              <Show when={dw.agentAvailable()}>
+                <div class="flex flex-col items-center gap-10 w-[80%]">
+                  <h2 class="text-text-strong" style={{ "font-size": "36px", "font-weight": "700" }}>{language.t("workspace.content.welcome.title")}</h2>
+                  <div class="h-6 flex items-center text-center">
+                    <span class="text-14-regular text-text-weak transition-opacity duration-500">{language.t("workspace.content.welcome.examplePrefix")}{language.t(WELCOME_EXAMPLES[exampleIdx()])}</span>
+                  </div>
                 </div>
-                <div class="flex items-center justify-between gap-8">
-                  <span>{language.t("workspace.content.shortcut.newTerminal")}</span>
-                  <span class="flex items-center gap-0.5"><code>Alt</code>+<code>T</code></span>
-                </div>
-                <div class="flex items-center justify-between gap-8">
-                  <span>{language.t("workspace.content.shortcut.toggleSidebar")}</span>
-                  <span class="flex items-center gap-0.5"><code>Alt</code>+<code>M</code></span>
-                </div>
-              </div>
+              </Show>
               <Show when={dw.agentAvailable()}>
                 <div class="w-full">
                   <DeviceSessionChatProvider>
