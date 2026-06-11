@@ -59,6 +59,7 @@ export function DeviceSessionView(props: {
   onSessionCreated?: (input: { sessionID: string; title?: string }) => void
   onClose?: () => void
   header?: (state: HeaderState) => JSX.Element
+  inputOnly?: boolean
 }) {
   const chat = useSessionChat()
   const language = useLanguage()
@@ -440,16 +441,17 @@ export function DeviceSessionView(props: {
                           onSessionHref={(id: string) => `#subagent-${id}`}
                         >
                           <FileComponentProvider component={File}>
-                            <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
-                              {props.header ? props.header(headerState) : <DeviceSessionViewHeader state={headerState} />}
+                            <div class="relative size-full flex flex-col" classList={{ "bg-background-base": !props.inputOnly, "overflow-hidden": !props.inputOnly }}>
+                              {!props.inputOnly && (props.header ? props.header(headerState) : <DeviceSessionViewHeader state={headerState} />)}
                               <div ref={containerRef} class="flex-1 min-h-0 flex flex-col">
-                                <div class="@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger flex-1">
-                                  <div class="flex-1 min-h-0 overflow-hidden">
-                                    <Show
-                                      when={!isNew()}
-                                      fallback={<NewSessionView />}
-                                    >
-                                      <MessageTimeline
+                                <div class="@container relative shrink-0 flex flex-col min-h-0 h-full flex-1" classList={{ "bg-background-stronger": !props.inputOnly }}>
+                                  <Show when={!props.inputOnly}>
+                                    <div class="flex-1 min-h-0 overflow-hidden">
+                                      <Show
+                                        when={!isNew()}
+                                        fallback={<NewSessionView />}
+                                      >
+                                        <MessageTimeline
                                         hideHeader
                                         mobileChanges={false}
                                         mobileFallback={<div />}
@@ -480,12 +482,13 @@ export function DeviceSessionView(props: {
                                       />
                                     </Show>
                                   </div>
-
+                                  </Show>
                                   <Show when={chat.agentAvailable() && composerMounted()}>
                                     <SessionComposerRegion
                                       state={composer}
                                       ready={true}
-                                      centered={true}
+                                      centered={!props.inputOnly}
+                                      compact={props.inputOnly}
                                       inputRef={(el: HTMLDivElement) => {
                                         if (!el) return
                                         const handler = () => {

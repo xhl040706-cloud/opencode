@@ -228,20 +228,39 @@ function ContentTabPanel() {
       <Show
         when={tabStore.tabs().length > 0}
         fallback={
-          <div class="flex-1 h-full flex items-center justify-center vscode-markdown">
-            <div class="flex flex-col gap-1.5" style={{ "min-width": "280px" }}>
-              <div class="flex items-center justify-between gap-8">
-                <span>{language.t("workspace.content.shortcut.newSession")}</span>
-                <span class="flex items-center gap-0.5"><code>Alt</code>+<code>N</code></span>
+          <div class="flex-1 h-full flex flex-col items-center justify-center vscode-markdown">
+            <div class="flex flex-col items-center gap-24 w-full max-w-[720px] 2xl:max-w-[900px] px-6">
+              <div class="flex flex-col gap-1.5" style={{ "min-width": "300px" }}>
+                <div class="flex items-center justify-between gap-8">
+                  <span>{language.t("workspace.content.shortcut.newSession")}</span>
+                  <span class="flex items-center gap-0.5"><code>Alt</code>+<code>N</code></span>
+                </div>
+                <div class="flex items-center justify-between gap-8">
+                  <span>{language.t("workspace.content.shortcut.newTerminal")}</span>
+                  <span class="flex items-center gap-0.5"><code>Alt</code>+<code>T</code></span>
+                </div>
+                <div class="flex items-center justify-between gap-8">
+                  <span>{language.t("workspace.content.shortcut.toggleSidebar")}</span>
+                  <span class="flex items-center gap-0.5"><code>Alt</code>+<code>M</code></span>
+                </div>
               </div>
-              <div class="flex items-center justify-between gap-8">
-                <span>{language.t("workspace.content.shortcut.newTerminal")}</span>
-                <span class="flex items-center gap-0.5"><code>Alt</code>+<code>T</code></span>
-              </div>
-              <div class="flex items-center justify-between gap-8">
-                <span>{language.t("workspace.content.shortcut.toggleSidebar")}</span>
-                <span class="flex items-center gap-0.5"><code>Alt</code>+<code>M</code></span>
-              </div>
+              <Show when={dw.agentAvailable()}>
+                <div class="w-full">
+                  <DeviceSessionChatProvider>
+                    <DeviceSessionView
+                      inputOnly
+                      onSessionCreated={(input) => {
+                        tabStore.open({
+                          kind: "session",
+                          title: input.title ?? language.t("command.session.new"),
+                          key: input.sessionID,
+                          meta: { sessionID: input.sessionID },
+                        })
+                      }}
+                    />
+                  </DeviceSessionChatProvider>
+                </div>
+              </Show>
             </div>
           </div>
         }
