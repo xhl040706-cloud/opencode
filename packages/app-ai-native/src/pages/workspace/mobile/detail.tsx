@@ -17,6 +17,7 @@ import { ContentTabContext, createContentTabStore, useContentTabs } from "@/cont
 import { DeviceSessionStoreProvider } from "@/context/device-session"
 import { SessionTabProvider, useSessionTab } from "@/context/session-tab"
 import { DeviceSessionView } from "../components/device-session-view"
+import { DeviceSessionViewHeader } from "../components/device-session-view-header"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { createSdkForServer } from "@/utils/server"
 import { useDeviceLayout } from "../components/device-interface"
@@ -111,6 +112,7 @@ function MobileSessionAdapter(props: { tabId: string; sessionID?: string }) {
       title={title}
       onSessionCreated={sessionTab.replaceTab}
       onClose={() => tabStore.close(props.tabId)}
+      header={(state) => <DeviceSessionViewHeader state={state} />}
     />
   )
 }
