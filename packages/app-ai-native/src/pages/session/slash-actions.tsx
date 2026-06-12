@@ -8,6 +8,7 @@ import { useDeviceSessionStore } from "@/context/device-session"
 import { useConversationAdapter } from "@/context/device-adapter"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { DialogSelectModel } from "@/components/dialog-select-model"
+import { DialogSelectAgent } from "@/components/dialog-select-agent"
 import { DialogFavorites } from "@/components/dialog-favorites"
 
 function exportTranscriptAsMarkdown(messages: any[], getParts: (id: string) => any[]): string {
@@ -55,35 +56,12 @@ export function useSlashActions() {
         return
       }
       case "agents": {
-        return
-      }
-      case "variants": {
-        return
-      }
-      case "connect": {
-        return
-      }
-      case "status": {
-        return
-      }
-      case "credit": {
-        window.open("/console/usage", "_blank")
-        return
-      }
-      case "themes": {
-        return
-      }
-      case "help": {
+        dialog.show(() => <DialogSelectAgent />)
         return
       }
       case "hub":
       case "favorites": {
-        return
-      }
-      case "skills": {
-        return
-      }
-      case "timeline": {
+        dialog.show(() => <DialogFavorites />)
         return
       }
       case "copy": {
