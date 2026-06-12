@@ -1,12 +1,16 @@
 import { createEffect, createMemo, createSignal, Match, Show, Switch } from "solid-js"
 import { Dynamic } from "solid-js/web"
 import { useFileComponent } from "@opencode-ai/ui/context/file"
+import { Icon } from "@opencode-ai/ui/icon"
+import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { getFilename } from "@opencode-ai/util/path"
 import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useDeviceSDK } from "@/context/device-sdk"
-import type { ContentTab } from "@/context/content-tabs"
+import { useContentTabs, type ContentTab } from "@/context/content-tabs"
 import type { DiffContentData } from "@/client/device-client"
+import { filePreviewConfig } from "../lib/file-preview-config"
 
 import { isRuntimeFileDisabledError } from "@/client/device-transport"
 
@@ -16,6 +20,7 @@ export function DiffPreviewTab(props: { tab: ContentTab }) {
   const fileComponent = useFileComponent()
   const layout = useLayout()
   const sdk = useDeviceSDK()
+  const tabStore = useContentTabs()
 
   const path = createMemo(() => props.tab.meta.path as string | undefined)
   const status = createMemo(() => props.tab.meta.status as string | undefined)
@@ -25,7 +30,6 @@ export function DiffPreviewTab(props: { tab: ContentTab }) {
     if (!p) return
     return file.get(p)
   })
-  const fileContent = createMemo(() => (state()?.content as { content?: string } | undefined))
 
   const [diffResult, setDiffResult] = createSignal<DiffContentData | undefined>()
   const [fetchingDiff, setFetchingDiff] = createSignal(false)
@@ -33,31 +37,20 @@ export function DiffPreviewTab(props: { tab: ContentTab }) {
   const [diffError, setDiffError] = createSignal<string | undefined>()
 
   const before = createMemo(() => {
-    const s = status()
-    if (s === "added") return ""
-    const result = diffResult()
-    if (result?.before !== undefined) return result.before
-    return fileContent()?.content ?? ""
+    if (status() === "added") return ""
+    return diffResult()?.before ?? ""
   })
 
   const after = createMemo(() => {
     if (status() === "deleted") return ""
-    const result = diffResult()
-    if (result?.after !== undefined) return result.after
-    return fileContent()?.content ?? ""
+    return diffResult()?.after ?? ""
   })
 
   const diffStyle = createMemo(() => layout.review.diffStyle())
 
-  const loaded = createMemo(() => {
-    if (status() === "deleted") return !!diffResult()
-    if (status() === "added") return !!diffResult()
-    return !!diffResult()
-  })
+  const loaded = createMemo(() => !!diffResult())
 
-  const loading = createMemo(() => {
-    return fetchingDiff()
-  })
+  const loading = createMemo(() => fetchingDiff())
 
   createEffect(() => {
     const p = path()
@@ -79,11 +72,32 @@ export function DiffPreviewTab(props: { tab: ContentTab }) {
     }
   })
 
+  const handleJumpToFile = () => {
+    const p = path()
+    if (!p) return
+    tabStore.open({
+      kind: "file",
+      key: p,
+      title: getFilename(p),
+      icon: "file-tree",
+      meta: { path: p },
+    })
+    void file.load(p, { limit: filePreviewConfig.initialPreviewLines })
+  }
+
   return (
     <div class="h-full flex flex-col">
       <Show when={path()}>
-        <div class="shrink-0 h-8 flex items-center gap-0.5 px-3 border-b bg-background-base z-10 text-12-medium text-text-weak truncate">
-          {path()}
+        <div class="shrink-0 h-8 flex items-center gap-0.5 px-3 border-b bg-background-base z-10 text-12-medium text-text-weak">
+          <span class="truncate flex-1 min-w-0">{path()}</span>
+          <Tooltip value={language.t("diff.preview.jumpToFile")} placement="bottom">
+            <button
+              class="shrink-0 ml-2 flex items-center justify-center h-5 w-5 rounded hover:bg-background-stronger transition-colors"
+              onClick={handleJumpToFile}
+            >
+              <Icon name="open-file" size="small" class="text-text-weak" />
+            </button>
+          </Tooltip>
         </div>
       </Show>
       <Switch>
