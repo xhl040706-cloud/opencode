@@ -147,7 +147,7 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
                     for (const id of ids) {
                       disableWorkspace(id)
                     }
-                    if (ids.includes(active.id)) active.clear()
+                    if (active.id && ids.includes(active.id)) active.clear()
                   }}
                   aria-label={t("workspace.closeAllRunning")}
                 />

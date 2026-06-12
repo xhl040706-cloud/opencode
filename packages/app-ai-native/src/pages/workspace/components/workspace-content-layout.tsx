@@ -30,6 +30,7 @@ import type { FileNode } from "@opencode-ai/sdk/v2"
 import type { Session } from "@opencode-ai/sdk/v2/client"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
 import { useWorkspace } from "../context"
+import { useWorkspaceVisible } from "./layout"
 import { filePreviewConfig } from "../lib/file-preview-config"
 import { MessageSquare, FolderOpen, GitBranch, Terminal } from "lucide-solid"
 
@@ -213,6 +214,31 @@ function ContentTabPanel() {
   const language = useLanguage()
   const layout = useLayout()
   const dw = useDeviceWorkspace()
+  const visible = useWorkspaceVisible()
+
+  const handleTabSwitch = (e: KeyboardEvent) => {
+    if (!visible()) return
+    if (!e.ctrlKey) return
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return
+    const target = e.target as HTMLElement
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return
+    e.preventDefault()
+
+    const tabs = tabStore.tabs()
+    if (tabs.length <= 1) return
+
+    const activeId = tabStore.activeId()
+    const currentIdx = tabs.findIndex((t) => t.id === activeId)
+    if (currentIdx === -1) return
+
+    const nextIdx = e.key === "ArrowRight"
+      ? (currentIdx + 1) % tabs.length
+      : (currentIdx - 1 + tabs.length) % tabs.length
+
+    tabStore.activate(tabs[nextIdx].id)
+  }
+  document.addEventListener("keydown", handleTabSwitch)
+  onCleanup(() => document.removeEventListener("keydown", handleTabSwitch))
 
   const WELCOME_EXAMPLES = [
     "workspace.content.welcome.example.1",

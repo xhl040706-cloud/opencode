@@ -96,6 +96,9 @@ const TIPS = [
   "prompt.tip.8",
   "prompt.tip.9",
   "prompt.tip.10",
+  "prompt.tip.11",
+  "prompt.tip.12",
+  "prompt.tip.13",
 ] as const
 
 const NON_EMPTY_TEXT = /[^\s\u200B]/
@@ -372,7 +375,16 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     if (cursor !== null) setCursorPosition(editorRef, cursor)
   }
 
-  onMount(() => requestAnimationFrame(() => editorRef?.focus()))
+  const handleGlobalKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== "t" && e.key !== "T") return
+    const target = e.target as HTMLElement
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return
+    if (!editorRef || editorRef.offsetParent === null) return
+    e.preventDefault()
+    focusEditorEnd()
+  }
+  document.addEventListener("keydown", handleGlobalKeyDown)
+  onCleanup(() => document.removeEventListener("keydown", handleGlobalKeyDown))
 
   createEffect(() => {
     if (prompt.dirty()) return
@@ -604,14 +616,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         trigger: "agents",
         title: language.t("command.agent.cycle"),
         description: language.t("command.agent.cycle.description"),
-        type: "builtin" as const,
-        scope: "action",
-      },
-      {
-        id: "cmd.credit",
-        trigger: "credit",
-        title: language.t("command.credit.title"),
-        description: language.t("command.credit.description"),
         type: "builtin" as const,
         scope: "action",
       },
@@ -1176,12 +1180,10 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         return
       }
 
-      if (escBlur()) {
-        editorRef.blur()
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
+      editorRef.blur()
+      event.preventDefault()
+      event.stopPropagation()
+      return
     }
 
     if (store.mode === "shell") {

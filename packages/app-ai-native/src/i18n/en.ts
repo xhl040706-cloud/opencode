@@ -1063,6 +1063,9 @@ export const dict = {
   "prompt.tip.8": "Press Alt+N to create a new session",
   "prompt.tip.9": "Press Alt+T to open a new terminal",
   "prompt.tip.10": "Press Alt+M to toggle the sidebar",
+  "prompt.tip.11": "Press Ctrl+↑/↓ to switch between running workspaces",
+  "prompt.tip.12": "Press Ctrl+←/→ to switch between tabs",
+  "prompt.tip.13": "Press T to focus the input, Esc to blur",
 
   "prompt.popover.emptyResults": "No matching results",
   "prompt.popover.emptyCommands": "No matching commands",
