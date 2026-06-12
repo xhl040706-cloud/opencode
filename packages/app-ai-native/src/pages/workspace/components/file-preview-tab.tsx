@@ -353,8 +353,9 @@ export function FilePreviewTab(props: { tab: ContentTab }) {
             placement="bottom"
           >
             <button
-              class="shrink-0 ml-2 flex items-center justify-center h-5 w-5 rounded hover:bg-background-stronger transition-colors text-12-medium"
-              classList={{ "bg-background-stronger": wrap(), "text-text-weak": !wrap(), "text-text-strong": wrap() }}
+              class="shrink-0 ml-2 flex items-center justify-center h-5 w-5 rounded-md hover:bg-background-stronger transition-colors text-text-weak"
+              classList={{ "border border-border-base": wrap() }}
+              style={{ "font-size": "10px", "font-weight": "600" }}
               onClick={() => setWrap((w) => !w)}
             >
               W
