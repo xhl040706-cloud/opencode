@@ -51,6 +51,7 @@ function languageLabelForPath(path: string) {
 function ReadOnlyCodeMirror(props: {
   source: string
   path: string
+  wrap?: boolean
   onScrollToBottom?: () => void
   onCursorChange?: (payload: { line: number; column: number }) => void
   onLineCountChange?: (count: number) => void
@@ -60,6 +61,7 @@ function ReadOnlyCodeMirror(props: {
   const languageCompartment = new Compartment()
   const themeCompartment = new Compartment()
   const scrollCompartment = new Compartment()
+  const wrapCompartment = new Compartment()
 
   const theme = () =>
     EditorView.theme({
@@ -128,6 +130,7 @@ function ReadOnlyCodeMirror(props: {
           languageCompartment.of(languageExtensionForPath(props.path)),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           themeCompartment.of(theme()),
+          wrapCompartment.of(props.wrap ? EditorView.lineWrapping : []),
           scrollCompartment.of(EditorView.updateListener.of((update) => {
             if (update.viewportChanged || update.geometryChanged) {
               const scroller = update.view.scrollDOM
@@ -186,6 +189,11 @@ function ReadOnlyCodeMirror(props: {
     })
   })
 
+  createEffect(() => {
+    if (!view) return
+    view.dispatch({ effects: wrapCompartment.reconfigure(props.wrap ? EditorView.lineWrapping : []) })
+  })
+
   onCleanup(() => view?.destroy())
 
   return <div ref={root} class="min-h-0 flex-1 select-text" />
@@ -196,6 +204,7 @@ export function FilePreviewTab(props: { tab: ContentTab }) {
   const language = useLanguage()
   const directory = useDirectory()
   const [preview, setPreview] = createSignal(true)
+  const [wrap, setWrap] = createSignal(true)
   const [cursorLine, setCursorLine] = createSignal(1)
   const [cursorCol, setCursorCol] = createSignal(1)
   const [totalLines, setTotalLines] = createSignal(0)
@@ -339,6 +348,18 @@ export function FilePreviewTab(props: { tab: ContentTab }) {
       <Show when={relativePath()}>
         <div class="shrink-0 h-8 flex items-center gap-0.5 px-3 border-b bg-background-base z-10 text-12-medium text-text-weak truncate">
           <span class="truncate flex-1 min-w-0">{relativePath()}</span>
+          <Tooltip
+            value={wrap() ? language.t("workspace.content.disableWrap") : language.t("workspace.content.enableWrap")}
+            placement="bottom"
+          >
+            <button
+              class="shrink-0 ml-2 flex items-center justify-center h-5 w-5 rounded hover:bg-background-stronger transition-colors text-12-medium"
+              classList={{ "bg-background-stronger": wrap(), "text-text-weak": !wrap(), "text-text-strong": wrap() }}
+              onClick={() => setWrap((w) => !w)}
+            >
+              W
+            </button>
+          </Tooltip>
           <Show when={md()}>
             <Tooltip
               value={markdownPreviewEnabled()
@@ -392,6 +413,7 @@ export function FilePreviewTab(props: { tab: ContentTab }) {
                 <ReadOnlyCodeMirror
                   source={contents()}
                   path={path() ?? ""}
+                  wrap={wrap()}
                   onScrollToBottom={() => {
                     if (canAutoLoadMore() && !loadingMore()) {
                       const now = Date.now()
