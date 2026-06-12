@@ -473,7 +473,6 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
         case "session.error": {
           const props = payload.properties as { sessionID?: string; error?: SessionError }
           if (props.error && eventSID) setStore("errors", eventSID, props.error)
-          if (eventSID) setStore("status", eventSID, idle)
           break
         }
         case "tool.progress": {

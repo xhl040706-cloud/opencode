@@ -663,13 +663,6 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   const p = payload.properties as { sessionID?: string }
                   const id = p?.sessionID ?? payload.sessionID
                   if (!id) break
-                  const timer = statusTimers.get(id)
-                  if (timer) {
-                    clearTimeout(timer)
-                    statusTimers.delete(id)
-                  }
-                  pendingStatus.delete(id)
-                  setSessionStatus(id, { type: "idle" })
                   summaryChanged = true
                   break
                 }
