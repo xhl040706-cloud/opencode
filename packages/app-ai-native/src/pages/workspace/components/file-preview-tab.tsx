@@ -285,8 +285,7 @@ export function FilePreviewTab(props: { tab: ContentTab }) {
 
   const markdownPreviewEnabled = createMemo(() => {
     if (!md()) return false
-    if (hasMore()) return false
-    return (chunk()?.totalLines ?? 0) <= filePreviewConfig.largeMarkdownLineThreshold || !chunk()
+    return !hasMore()
   })
 
   const canAutoLoadMore = createMemo(() => hasMore() && loadedLines() < filePreviewConfig.autoLoadMoreMaxLines)
