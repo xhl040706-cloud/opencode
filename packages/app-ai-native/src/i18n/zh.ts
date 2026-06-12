@@ -1699,6 +1699,7 @@ export const dict = {
   "workspace.empty": "暂无工作空间",
   "workspace.emptyHint": "从下方设备列表创建",
   "workspace.close": "关闭",
+  "workspace.closeAllRunning": "关闭所有运行中",
   "workspace.run": "运行",
   "workspace.rename": "重命名",
   "workspace.rename.placeholder": "工作空间名称",

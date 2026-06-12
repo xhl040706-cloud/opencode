@@ -1953,6 +1953,7 @@ export const dict = {
   "workspace.empty": "No workspaces",
   "workspace.emptyHint": "Create from device list below",
   "workspace.close": "Close",
+  "workspace.closeAllRunning": "Close all running",
   "workspace.run": "Run",
   "workspace.rename": "Rename",
   "workspace.rename.placeholder": "Workspace name",
