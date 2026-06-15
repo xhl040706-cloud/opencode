@@ -36,6 +36,9 @@ export interface StoreItemViewProps {
   formatDate: (iso?: string) => string
   searchQuery: string
   onToggleFavorite: (item: CapabilityItem) => void
+  // Reactive favorite state per item, sourced from home's per-item store (NOT the item object) so
+  // a subscribe toggle never replaces the item / rebuilds this row. Read it reactively in render.
+  favoriteState: (item: CapabilityItem) => { favorited: boolean; favoriteCount: number }
   favoriteActionItemId: string | null
   isAuthenticated: boolean
   favoriteLabels: { subscribe: string; subscribed: string; tooltip: string }
@@ -90,6 +93,9 @@ function StoreCard(props: { item: CapabilityItem; view: StoreItemViewProps }) {
   const categoryText = createMemo(() => (item().category ? view().categoryLabel(item().category) || item().category : ""))
   const scoreText = createMemo(() => view().formatSourceMetric(item().experienceScore, item().source))
   const pending = createMemo(() => view().favoriteActionItemId === item().id)
+  // Favorite state from home's per-item store (reactive; decoupled from the item object so a
+  // toggle flips `favorited` on the SAME SubscribeButton instance instead of remounting the row).
+  const favState = createMemo(() => view().favoriteState(item()))
 
   return (
     <article
@@ -257,8 +263,8 @@ function StoreCard(props: { item: CapabilityItem; view: StoreItemViewProps }) {
         <div class="ml-auto" onClick={(e: MouseEvent) => e.stopPropagation()}>
           <SubscribeButton
             item={item()}
-            favorited={Boolean(item().favorited)}
-            favoriteCount={item().favoriteCount ?? 0}
+            favorited={favState().favorited}
+            favoriteCount={favState().favoriteCount}
             pending={pending()}
             authenticated={view().isAuthenticated}
             disabled={mcpListSubscribeBlocked(item())}

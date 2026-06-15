@@ -1,9 +1,15 @@
-import { createSignal, onCleanup, Show, type JSX } from "solid-js"
+import { createEffect, createSignal, on, onCleanup, onMount, Show, type JSX } from "solid-js"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { formatCompact } from "./store-capability-table"
 import { StoreIcon } from "../lib/store-icons"
 import type { CapabilityItem } from "../lib/api"
+
+// Does the user prefer reduced motion? Read once per render so the width FLIP and the label
+// cross-fade both honor it (CSS already strips the bell/ping/transition keyframes separately).
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
 
 export interface SubscribeButtonProps {
   item: CapabilityItem
@@ -30,8 +36,57 @@ export function SubscribeButton(props: SubscribeButtonProps): JSX.Element {
   const [animating, setAnimating] = createSignal(false)
   let animationTimer: ReturnType<typeof setTimeout> | undefined
   let buttonRef: HTMLButtonElement | undefined
+  let widthAnimation: Animation | undefined
 
-  onCleanup(() => clearTimeout(animationTimer))
+  onCleanup(() => {
+    clearTimeout(animationTimer)
+    widthAnimation?.cancel()
+  })
+
+  // ─── Natural-width FLIP (research §方案 A) ─────────────────────────────────────────────────
+  // The button width is `auto` (inline-flex, content-driven): "订阅"(2 chars) is narrower than
+  // "已订阅"(3 chars), so the pill is intentionally NOT a fixed width — it grows/shrinks with the
+  // single label that renders straight off `props.favorited`. `width:auto` can't be
+  // CSS-transitioned, so on each favorited flip we FLIP it via the Web Animations API.
+  //
+  // Why the previous attempt failed (and this one works):
+  //  • Solid renders synchronously: when `favorited` flips, the new label is committed to the DOM
+  //    *before* any effect runs, so an effect that measures the button reads the NEW width — never
+  //    the OLD one. FLIP needs the OLD (First) width, so we cache it ACROSS runs: onMount seeds
+  //    `prevWidth` with the initial render width, and each run stores the just-measured width as
+  //    the prev for the next flip.
+  //  • The old effect used bare `void props.favorited` tracking, so it also re-ran on unrelated
+  //    re-renders and on first mount — clobbering `prevWidth` so `from ≈ to` and nothing animated.
+  //    Here `on(() => props.favorited, …, { defer: true })` isolates the dependency to ONLY the
+  //    favorited flip and skips the initial run, so prev(old) ≠ new every time it fires.
+  // WAAPI animates width without `fill`, so when the run ends the inline width clears and the
+  // button settles back to natural `auto` width, reflowing with layout afterwards.
+  let prevWidth = 0
+  onMount(() => {
+    prevWidth = buttonRef?.getBoundingClientRect().width ?? 0
+  })
+  createEffect(
+    on(
+      () => props.favorited,
+      () => {
+        const button = buttonRef
+        if (!button) return
+
+        const newWidth = button.getBoundingClientRect().width // Last: effect runs post-commit
+        if (!prefersReducedMotion() && prevWidth && Math.abs(prevWidth - newWidth) > 0.5) {
+          widthAnimation?.cancel()
+          widthAnimation = button.animate(
+            [{ width: `${prevWidth}px` }, { width: `${newWidth}px` }],
+            { duration: 280, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }, // no fill → settles to auto
+          )
+          widthAnimation.onfinish = () => (widthAnimation = undefined)
+          widthAnimation.oncancel = () => (widthAnimation = undefined)
+        }
+        prevWidth = newWidth
+      },
+      { defer: true },
+    ),
+  )
 
   // The control is interactive only when authenticated, not blocked, and not mid-flight.
   const interactive = () => props.authenticated && !props.disabled && !props.pending
@@ -68,15 +123,26 @@ export function SubscribeButton(props: SubscribeButtonProps): JSX.Element {
         onClick={handleClick}
         class={cn(
           // .sbtn — height 32, pill (radius-full), 1px border, gap 7px, pad 0 13px, 12.5px/800.
-          // Spring active scale .94 + 250ms ease transition (设计稿 var(--ease)). The
-          // `store-subscribe-btn` hook lets native-theme.css strip these transitions under
+          // Transition matches the design mock 1:1 via a single full `transition` shorthand
+          // (one arbitrary value, underscores = spaces): color/bg/border cross-fade over
+          // .25s var(--ease) so off↔on glides instead of snapping, while transform (the active
+          // press) gets a quick .12s var(--spring) recoil — per-property durations/easings that
+          // a Tailwind shorthand `transition-[props]` (single shared duration) can't express.
+          // The `store-subscribe-btn` hook lets native-theme.css strip these transitions under
           // prefers-reduced-motion (alongside the bell-ring / ping keyframes).
-          "store-subscribe-btn relative inline-flex h-8 cursor-pointer items-center gap-[7px] rounded-[var(--native-radius-full)] border px-[13px] text-[12.5px] font-extrabold transition-[background-color,color,border-color,transform] duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]",
+          // overflow-hidden + whitespace-nowrap: while the WAAPI width FLIP plays, the label that's
+          // wider than the animating width is clipped (not wrapped/overflowing), so the new text is
+          // revealed/concealed gradually for a natural expand/collapse feel.
+          "store-subscribe-btn relative inline-flex h-8 cursor-pointer items-center gap-[7px] overflow-hidden whitespace-nowrap rounded-[var(--native-radius-full)] border px-[13px] text-[12.5px] font-extrabold",
+          "[transition:background-color_0.25s_cubic-bezier(0.22,1,0.36,1),color_0.25s_cubic-bezier(0.22,1,0.36,1),border-color_0.25s_cubic-bezier(0.22,1,0.36,1),transform_0.12s_cubic-bezier(0.34,1.56,0.64,1)]",
+          "active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-[var(--native-disabled-opacity)]",
           props.favorited
-            ? // .sbtn.on — primary-tinted bg + primary border + primary text
-              "border-[color:color-mix(in_oklab,var(--native-primary)_45%,transparent)] bg-[color:color-mix(in_oklab,var(--native-primary)_12%,var(--native-panel))] text-[var(--native-primary)]"
-            : // .sbtn — glass pill (--pill-bg #ffffff0d / --pill-border #ffffff1f equivalents), hover→fg-weak border
-              "border-[color:color-mix(in_oklab,var(--native-foreground)_12%,transparent)] bg-[color:color-mix(in_oklab,var(--native-foreground)_5%,transparent)] text-[var(--native-foreground)] hover:border-[var(--native-dim)]",
+            ? // .sbtn.on — bg=--primary-bg (primary 15% over transparent), border=primary 45%, text=primary
+              "border-[color:color-mix(in_oklab,var(--native-primary)_45%,transparent)] bg-[color:color-mix(in_oklab,var(--native-primary)_15%,transparent)] text-[var(--native-primary)]"
+            : // .sbtn — glass pill: --pill-bg (light #0000000a≈4% / dark #ffffff0d≈5%) and
+              // --pill-border (light #0000001a≈10% / dark #ffffff1f≈12%). Tracked off the
+              // theme foreground so a single value works in both schemes; hover→fg-weak border.
+              "border-[color:color-mix(in_oklab,var(--native-foreground)_11%,transparent)] bg-[color:color-mix(in_oklab,var(--native-foreground)_4%,transparent)] text-[var(--native-foreground)] hover:border-[var(--native-dim)]",
         )}
       >
         {/* .ping — concentric ring (left 13, 18×18, 2px primary) that expands & fades on click */}
@@ -119,34 +185,13 @@ export function SubscribeButton(props: SubscribeButtonProps): JSX.Element {
             style={{ color: "currentColor" }}
           />
         </span>
-        {/* .lab — label cross-fades on state swap and is laid out in a fixed-width slot sized to
-            the wider "已订阅" string, so the button doesn't "pop" wider when 订阅(2) → 已订阅(3).
-            The two strings are absolutely stacked; a hidden spacer reserves the max width. */}
-        <span class="relative inline-flex shrink-0 items-center justify-center whitespace-nowrap">
-          {/* invisible spacer = widest label, reserves a stable slot so width never jumps */}
-          <span aria-hidden="true" class="invisible">
-            {props.labels.subscribed.length >= props.labels.subscribe.length
-              ? props.labels.subscribed
-              : props.labels.subscribe}
-          </span>
-          <span
-            aria-hidden={props.favorited}
-            class={cn(
-              "absolute inset-0 inline-flex items-center justify-center transition-opacity duration-[250ms] ease-out",
-              props.favorited ? "opacity-0" : "opacity-100",
-            )}
-          >
-            {props.labels.subscribe}
-          </span>
-          <span
-            aria-hidden={!props.favorited}
-            class={cn(
-              "absolute inset-0 inline-flex items-center justify-center transition-opacity duration-[250ms] ease-out",
-              props.favorited ? "opacity-100" : "opacity-0",
-            )}
-          >
-            {props.labels.subscribed}
-          </span>
+        {/* .lab — single natural-width label rendered straight off `props.favorited` (订阅=2 chars
+            / 已订阅=3 chars). No fixed slot, no two-label overlay padding the width — the label's
+            own intrinsic width drives the pill's content width, and the FLIP effect above animates
+            the resulting width change between the two states (which is exactly what the previous
+            stacked-overlay version suppressed by forcing a single max width). */}
+        <span class="inline-flex shrink-0 items-center justify-center whitespace-nowrap">
+          {props.favorited ? props.labels.subscribed : props.labels.subscribe}
         </span>
         {/* .cnt — tabular-nums (fixed-width digits so the count never reflows the button), weight
             700, muted → primary-tinted when subscribed. Owns its own color transition because the

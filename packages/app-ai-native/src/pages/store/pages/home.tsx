@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show, Suspense } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createStore, produce } from "solid-js/store"
 import { useNavigate, useSearchParams } from "@solidjs/router"
 import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useLanguage } from "@/context/language"
@@ -164,6 +164,21 @@ export default function Home() {
   const [showForks, setShowForks] = createSignal(false)
   let detailContentTimer: ReturnType<typeof setTimeout> | undefined
 
+  // ─── Per-item favorite state store (订阅态解耦) ─────────────────────────────────────────────
+  // BUG FIX: 之前 toggleRowFavorite 走 patchListItem，用 `items.map(i => i.id===id ? {...i,...} : i)`
+  // 替换了整个 item 对象 → 列表视图的 `<For each={rows}>`（Solid 按「引用」key）认定该行变了 →
+  // 重建该行 DOM → SubscribeButton 实例被销毁重建，组件内的宽度 FLIP / 颜色过渡永远拿不到「同实例
+  // 内 favorited 的变化」（实例直接被换掉）。
+  //
+  // 解法（零依赖）：把 favorited/favoriteCount 从「item 对象字段」解耦到这个 per-item 响应式 store，
+  // 按 itemId 索引。订阅切换只 setFavStore(id, …)，**不再替换 item 对象** → item 引用稳定 → `<For>`
+  // 不重建行 → SubscribeButton 保持同一实例，favorited 作为响应式 prop 变化，组件内动画得以触发。
+  // 视图 / 详情 Sheet 的 favorited / favoriteCount 都从这个 store 按 id 读，作为单一可信来源。
+  type FavState = { favorited: boolean; favoriteCount: number }
+  const [favStore, setFavStore] = createStore<Record<string, FavState>>({})
+  const favStateOf = (item: CapabilityItem): FavState =>
+    favStore[item.id] ?? { favorited: Boolean(item.favorited), favoriteCount: item.favoriteCount ?? 0 }
+
   // Card ⇄ list view mode (persisted). Defaults to "list" (列式). The card/list switch and any
   // filter/sort change that reorders the list run through withViewTransition for shared-element
   // animation; applyStagger sequences the items in document order.
@@ -284,7 +299,7 @@ export default function Home() {
 
   const listKey = createMemo(() => JSON.stringify(listParams()))
   const listSrc = createMemo(() => ({ key: listKey(), params: listParams() }))
-  const [list, { mutate: mutateList }] = createResource(listSrc, async (src) => ({
+  const [list] = createResource(listSrc, async (src) => ({
     key: src.key,
     data: await itemApi.list(src.params),
   }))
@@ -328,30 +343,6 @@ export default function Home() {
     setListCache(data)
   })
 
-  const patchListItem = (itemId: string, updater: (item: CapabilityItem) => CapabilityItem) => {
-    mutateList((prev) => {
-      if (!prev || prev.key !== listKey()) return prev
-      return {
-        ...prev,
-        data: {
-          ...prev.data,
-          items: prev.data.items.map((item) => (item.id === itemId ? updater(item) : item)),
-        },
-      }
-    })
-
-    setListCache((prev) => {
-      if (!prev || prev.key !== listKey()) return prev
-      return {
-        ...prev,
-        data: {
-          ...prev.data,
-          items: prev.data.items.map((item) => (item.id === itemId ? updater(item) : item)),
-        },
-      }
-    })
-  }
-
   const toggleFavorite = async () => {
     const data = detailItem()
     if (!data || !auth.user() || auth.loading() || favoritePending()) return
@@ -361,11 +352,9 @@ export default function Home() {
       const result = favorited() ? await behaviorApi.unfavorite(data.id) : await behaviorApi.favorite(data.id)
       setFavorited(result.favorited)
       setFavoriteCount(result.favoriteCount)
-      patchListItem(data.id, (current) => ({
-        ...current,
-        favorited: result.favorited,
-        favoriteCount: result.favoriteCount,
-      }))
+      // Keep the list view's per-item store in sync with a detail-page toggle (no item-object
+      // replacement → list rows stay mounted).
+      setFavStore(data.id, { favorited: result.favorited, favoriteCount: result.favoriteCount })
     } finally {
       setFavoritePending(false)
     }
@@ -377,20 +366,19 @@ export default function Home() {
     // already blocks this; this guards a bypass). Unsubscribing is always allowed.
     if (mcpListSubscribeBlocked(item)) return
 
+    // Read the current favorited state from the store (single source of truth), not off the (possibly
+    // stale) item object reference captured by the row.
+    const current = favStateOf(item)
     setFavoriteActionItemId(item.id)
     try {
-      const result = item.favorited ? await behaviorApi.unfavorite(item.id) : await behaviorApi.favorite(item.id)
+      const result = current.favorited ? await behaviorApi.unfavorite(item.id) : await behaviorApi.favorite(item.id)
 
-      patchListItem(item.id, (current) => ({
-        ...current,
-        favorited: result.favorited,
-        favoriteCount: result.favoriteCount,
-      }))
+      // Update ONLY the per-item favorite store — never replace the item object. This keeps the
+      // list `<For>` row (and its SubscribeButton instance) intact, so favorited flips as a
+      // reactive prop on the same instance and the in-component width FLIP / color transitions fire.
+      setFavStore(item.id, { favorited: result.favorited, favoriteCount: result.favoriteCount })
 
       if (detailItem()?.id === item.id) {
-        setDetailItem((current) =>
-          current ? { ...current, favorited: result.favorited, favoriteCount: result.favoriteCount } : current,
-        )
         setFavorited(result.favorited)
         setFavoriteCount(result.favoriteCount)
       }
@@ -404,8 +392,11 @@ export default function Home() {
     if (!data) return
     setPreviewCount(data.previewCount ?? 0)
     setInstallCount(data.installCount ?? 0)
-    setFavorited(Boolean(data.favorited))
-    setFavoriteCount(data.favoriteCount ?? 0)
+    // Prefer the per-item favorite store (latest truth after any prior list/detail toggle) over the
+    // possibly-stale detailItem snapshot, so reopening a row whose favorite was toggled is correct.
+    const fav = favStore[data.id]
+    setFavorited(fav ? fav.favorited : Boolean(data.favorited))
+    setFavoriteCount(fav ? fav.favoriteCount : (data.favoriteCount ?? 0))
   })
 
   createEffect(() => {
@@ -436,6 +427,39 @@ export default function Home() {
   const listError = createMemo(() => (list.error instanceof Error ? list.error.message : ""))
   const showError = createMemo(() => !!listError() && rows().length === 0)
   const detailOpen = createMemo(() => !!selectedItemId())
+
+  // Seed (only) the per-item favorite store from the current list data. Runs whenever `rows`
+  // changes (筛选/排序/翻页/新数据到达), seeding *new* ids the store hasn't recorded yet.
+  //
+  // BUG FIX (订阅点击后弹回): this effect must NEVER overwrite an existing favStore entry. The
+  // item object's `favorited`/`favoriteCount` are FROZEN at their stale original values (方案 C
+  // decoupled favorited off the item and we deliberately never mutate the item), so overwriting an
+  // already-seeded/toggled entry with `item.favorited` would clobber the optimistic/API truth and
+  // bounce the UI back. Once an id is in the store, that store entry is the single source of truth
+  // (toggleRowFavorite updates it from the API result), so we leave it untouched.
+  //
+  // We also DROP the `favoriteActionItemId` dependency: the old in-flight skip is no longer needed
+  // (existing entries are never overwritten regardless), and removing the dependency means the
+  // toggle's `setFavoriteActionItemId(null)` no longer re-runs this effect.
+  //
+  // Why toggling doesn't revert: a toggle never changes `rows()` (we never replace the item object,
+  // so listData/rows memos don't notify), so this effect simply doesn't fire on toggle. Why
+  // filter/sort/page still works: those swap in fresh list data → `rows()` changes → new ids get
+  // seeded here, while ids already in the store keep their current (optimistic/operated) value.
+  // produce() patches per-key in place — it never replaces item objects, so the list `<For>` keys
+  // (which key by item reference, not by this store) are unaffected and rows are not rebuilt.
+  createEffect(() => {
+    const items = rows()
+    setFavStore(
+      produce((store) => {
+        for (const item of items) {
+          if (!(item.id in store)) {
+            store[item.id] = { favorited: Boolean(item.favorited), favoriteCount: item.favoriteCount ?? 0 }
+          }
+        }
+      }),
+    )
+  })
 
   const openItemDetail = (item: CapabilityItem) => {
     setSelectedItemId(item.id)
@@ -594,6 +618,9 @@ export default function Home() {
     formatDate,
     searchQuery: debouncedSearch(),
     onToggleFavorite: (item) => void toggleRowFavorite(item),
+    // Reactive favorite state per item id, decoupled from the item object so toggling does NOT
+    // replace the item (which would rebuild the `<For>` row and the SubscribeButton instance).
+    favoriteState: favStateOf,
     favoriteActionItemId: favoriteActionItemId(),
     isAuthenticated: !!auth.user() && !auth.loading(),
     favoriteLabels: {

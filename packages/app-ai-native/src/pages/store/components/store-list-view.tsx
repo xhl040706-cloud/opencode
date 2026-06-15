@@ -17,7 +17,7 @@
 //
 // props 契约 StoreItemViewProps 与 store-card-grid 完全相同，便于卡片⇄列式无缝切换。
 
-import { For, Show, type JSX } from "solid-js"
+import { For, Show, createMemo, type JSX } from "solid-js"
 import { type IconProps } from "@opencode-ai/ui/icon"
 import { useLanguage } from "@/context/language"
 import { cn } from "@/lib/utils"
@@ -27,7 +27,7 @@ import { HighlightText, mcpListSubscribeBlocked } from "./store-capability-table
 import SecurityTag from "./security-tag"
 import FromPluginBadge from "./from-plugin-badge"
 import { SubscribeButton } from "./subscribe-button"
-import { matchEnterprise, matchEnterpriseByName } from "../lib/enterprise"
+import { matchEnterprise, matchEnterpriseByName, type EnterpriseInfo } from "../lib/enterprise"
 import { useLogoColor } from "../lib/use-logo-color"
 import { StoreIcon, type StoreIconName } from "../lib/store-icons"
 
@@ -42,6 +42,9 @@ export interface StoreItemViewProps {
   formatDate: (iso?: string) => string
   searchQuery: string
   onToggleFavorite: (item: CapabilityItem) => void
+  // Reactive favorite state per item, sourced from home's per-item store (NOT the item object) so
+  // a subscribe toggle never replaces the item / rebuilds this row. Read it reactively in render.
+  favoriteState: (item: CapabilityItem) => { favorited: boolean; favoriteCount: number }
   favoriteActionItemId: string | null
   isAuthenticated: boolean
   favoriteLabels: { subscribe: string; subscribed: string; tooltip: string }
@@ -83,43 +86,52 @@ function StoreListRow(props: {
   language: ReturnType<typeof useLanguage>
 }): JSX.Element {
   const view = props.parentProps
-  const item = props.item
-  const enterprise = matchEnterprise(item.createdBy) ?? matchEnterpriseByName(item.name)
+  // Accessor (not a snapshot const) so every `item()` read tracks reactively — aligned with
+  // store-card-grid's StoreCard. A subscribe toggle keeps the same item reference (favorited is
+  // decoupled into home's per-item store), so this row / its SubscribeButton instance is never
+  // rebuilt and the width FLIP + color animation play on the same instance.
+  const item = () => props.item
+  const enterprise = createMemo<EnterpriseInfo | null>(
+    () => matchEnterprise(item().createdBy) ?? matchEnterpriseByName(item().name),
+  )
   // 抽 logo 主题色（仅大客户命中时有意义）；非命中传 undefined，hook 内部回退中性色。
-  const brandColor = useLogoColor(() => enterprise?.logo)
-  const accent = () => view.typeColor(item.itemType) ?? "var(--native-muted)"
-  const description = () => pickItemDescription(item, props.language.locale())
-  const tags = () => (item.tags ?? []).slice(0, MAX_TAGS)
-  const scoreText = () => view.formatSourceMetric(item.experienceScore, item.source)
+  const brandColor = useLogoColor(() => enterprise()?.logo)
+  const accent = () => view.typeColor(item().itemType) ?? "var(--native-muted)"
+  const description = () => pickItemDescription(item(), props.language.locale())
+  const tags = () => (item().tags ?? []).slice(0, MAX_TAGS)
+  const scoreText = () => view.formatSourceMetric(item().experienceScore, item().source)
+  // Favorite state from home's per-item store (reactive; decoupled from the item object so a
+  // toggle flips `favorited` on the SAME SubscribeButton instance instead of remounting the row).
+  const favState = createMemo(() => view.favoriteState(item()))
 
   return (
     // .srow：gap 14px / padding 14px 18px / 圆角 16px。.srow.ent 金边 + 抽色背景。
     <div
       role="button"
       tabindex="0"
-      onClick={() => view.onRowClick(item)}
+      onClick={() => view.onRowClick(item())}
       onKeyDown={(e: KeyboardEvent) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault()
-          view.onRowClick(item)
+          view.onRowClick(item())
         }
       }}
       class={cn(
         // hover 丝滑：transform/border/shadow 同一缓动(ease-out-back-ish cubic-bezier)与时长(220ms)，
         // will-change-transform 提升合成层避免位移抖动；hover 时平滑右移 + 边框/阴影渐入。
         "group relative flex cursor-pointer items-center gap-3.5 overflow-hidden rounded-[1rem] px-[1.125rem] py-3.5 transition-[transform,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:translate-x-[3px] hover:shadow-[var(--native-shadow-md)]",
-        enterprise
+        enterprise()
           ? "border border-[color:color-mix(in_oklab,var(--bc)_36%,var(--native-border))] bg-[linear-gradient(100deg,color-mix(in_oklab,var(--bc)_12%,var(--native-panel)),var(--native-panel)_46%)] hover:border-[color:color-mix(in_oklab,var(--bc)_55%,var(--native-border))]"
           : "border border-[color:color-mix(in_oklab,var(--native-border)_28%,transparent)] bg-[var(--native-panel)] hover:border-[color:color-mix(in_oklab,var(--native-border)_55%,transparent)]",
       )}
       style={{
-        "view-transition-name": `vt-item-${item.id}`,
-        ...(enterprise ? { "--bc": brandColor() } : {}),
+        "view-transition-name": `vt-item-${item().id}`,
+        ...(enterprise() ? { "--bc": brandColor() } : {}),
       }}
     >
       {/* 大客户 logo 水印背景（设计稿 .srow.ent .wm：168px opacity .07）。
           加圆角柔化方形边缘，避免水印硬切（低透明度，圆角即可，无需边框）。 */}
-      <Show when={enterprise}>
+      <Show when={enterprise()}>
         {(ent) => (
           <img
             src={ent().logo}
@@ -132,7 +144,7 @@ function StoreListRow(props: {
 
       {/* 媒体（设计稿 .media 44px 圆角 13）：大客户白底 logo，否则 type 色图标 tile */}
       <Show
-        when={enterprise}
+        when={enterprise()}
         fallback={
           <span
             class="relative z-[1] flex size-11 shrink-0 items-center justify-center rounded-[0.8125rem] border"
@@ -140,10 +152,10 @@ function StoreListRow(props: {
               "background-color": `color-mix(in oklab, ${accent()} 14%, transparent)`,
               "border-color": `color-mix(in oklab, ${accent()} 26%, transparent)`,
               color: accent(),
-              "view-transition-name": `vt-media-${item.id}`,
+              "view-transition-name": `vt-media-${item().id}`,
             }}
           >
-            <StoreIcon name={typeIconName(item.itemType)} size={18} />
+            <StoreIcon name={typeIconName(item().itemType)} size={18} />
           </span>
         }
       >
@@ -152,7 +164,7 @@ function StoreListRow(props: {
           // 避免方形无圆角带来的突兀感（贴合 .srow .media 44px 尺寸）。
           <span
             class="relative z-[1] flex size-11 shrink-0 items-center justify-center rounded-[11px] border border-[color:color-mix(in_srgb,var(--native-border)_60%,transparent)] bg-[#fff] p-1.5"
-            style={{ "view-transition-name": `vt-media-${item.id}` }}
+            style={{ "view-transition-name": `vt-media-${item().id}` }}
           >
             <img src={ent().logo} alt={ent().name} class="size-full rounded-[5px] object-contain" />
           </span>
@@ -165,17 +177,17 @@ function StoreListRow(props: {
         <div class="flex min-w-0 items-center gap-2">
           <span
             class="truncate text-[16px] font-black leading-5 text-[var(--native-foreground)]"
-            style={{ "view-transition-name": `vt-name-${item.id}` }}
-            title={item.name}
+            style={{ "view-transition-name": `vt-name-${item().id}` }}
+            title={item().name}
           >
-            <HighlightText text={item.name} query={view.searchQuery} />
+            <HighlightText text={item().name} query={view.searchQuery} />
           </span>
 
           {/* 来源标识：官方不显示；大客户 → .seal 金色印章；用户上传 → .pill-soft */}
           <Show
-            when={enterprise}
+            when={enterprise()}
             fallback={
-              <Show when={item.createdBy !== "system"}>
+              <Show when={item().createdBy !== "system"}>
                 {/* .pill .pill-soft「用户上传」：设计稿 background:var(--pill-bg)/color:var(--fg-muted)，
                     淡中性底。浅色 #0000000a（淡黑）/ 深色 #ffffff0d（淡白），双主题靠
                     [data-color-scheme=dark] 祖先变体翻转；文字仍用 --native-muted（对齐 --fg-muted）。 */}
@@ -200,9 +212,9 @@ function StoreListRow(props: {
             )}
           </Show>
 
-          <FromPluginBadge name={item.parentPluginName} />
-          <Show when={item.securityStatus}>
-            <SecurityTag status={item.securityStatus} />
+          <FromPluginBadge name={item().parentPluginName} />
+          <Show when={item().securityStatus}>
+            <SecurityTag status={item().securityStatus} />
           </Show>
         </div>
 
@@ -216,13 +228,13 @@ function StoreListRow(props: {
         {/* 元信息行 .sline：分类 · 标签 · 时钟更新（.d 分隔点 opacity .45） */}
         <div class="mt-1.5 flex flex-wrap items-center gap-[0.5625rem] text-[12px] font-semibold text-[var(--native-dim)]">
           {/* .catchip：layers 图标 + 分类名 */}
-          <Show when={item.category}>
+          <Show when={item().category}>
             <span class="inline-flex items-center gap-1 text-[11.5px] text-[var(--native-muted)]">
               <StoreIcon name="layers" size={12} />
-              {view.categoryLabel(item.category) || item.category}
+              {view.categoryLabel(item().category) || item().category}
             </span>
           </Show>
-          <Show when={item.category && tags().length > 0}>
+          <Show when={item().category && tags().length > 0}>
             <span aria-hidden="true" class="opacity-45">
               ·
             </span>
@@ -234,13 +246,13 @@ function StoreListRow(props: {
             </span>
           </Show>
           {/* clock 图标 + 更新时间 */}
-          <Show when={item.updatedAt}>
+          <Show when={item().updatedAt}>
             <span aria-hidden="true" class="opacity-45">
               ·
             </span>
             <span class="inline-flex items-center gap-1 [font-variant-numeric:tabular-nums]">
               <StoreIcon name="clock" size={12} />
-              {view.formatDate(item.updatedAt)}
+              {view.formatDate(item().updatedAt)}
             </span>
           </Show>
         </div>
@@ -259,12 +271,12 @@ function StoreListRow(props: {
           </span>
         </Show>
         <SubscribeButton
-          item={item}
-          favorited={Boolean(item.favorited)}
-          favoriteCount={item.favoriteCount ?? 0}
-          pending={view.favoriteActionItemId === item.id}
+          item={item()}
+          favorited={favState().favorited}
+          favoriteCount={favState().favoriteCount}
+          pending={view.favoriteActionItemId === item().id}
           authenticated={view.isAuthenticated}
-          disabled={mcpListSubscribeBlocked(item)}
+          disabled={mcpListSubscribeBlocked(item())}
           onToggle={view.onToggleFavorite}
           labels={view.favoriteLabels}
         />
