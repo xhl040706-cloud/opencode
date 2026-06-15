@@ -221,7 +221,7 @@ function StoreCard(props: { item: CapabilityItem; view: StoreItemViewProps }) {
       {/* .gbody: padding 12px 15px 0. .gname (shared element) + .gdesc (2-line clamp). */}
       <div class="px-[15px] pt-[12px]">
         <div
-          class="truncate text-[16px] font-black text-[var(--native-foreground)]"
+          class="truncate [font-family:var(--native-font-display)] text-[16px] font-black text-[var(--native-foreground)]"
           style={{ "view-transition-name": `vt-name-${item().id}` }}
           title={item().name}
         >

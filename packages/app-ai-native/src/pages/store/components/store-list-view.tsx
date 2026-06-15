@@ -178,7 +178,7 @@ function StoreListRow(props: {
         {/* 标题行 .stitle：名称（16px/900 加粗突出）+ 来源（大客户 .seal / 用户上传 .pill-soft）+ 插件徽标 + 风险 */}
         <div class="flex min-w-0 items-center gap-2">
           <span
-            class="truncate text-[16px] font-black leading-5 text-[var(--native-foreground)]"
+            class="truncate [font-family:var(--native-font-display)] text-[16px] font-black leading-5 text-[var(--native-foreground)]"
             style={{ "view-transition-name": `vt-name-${item().id}` }}
             title={item().name}
           >

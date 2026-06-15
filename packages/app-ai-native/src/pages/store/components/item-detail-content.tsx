@@ -122,13 +122,26 @@ const TAG_COLOR_BY_CLASS = {
 
 let highlighter: Awaited<ReturnType<typeof createHighlighter>> | undefined
 
-export function getInstallCommand(item: CapabilityItem) {
+// Returns the install command, plugin items only:
+//  1) legacy zip_download (backend-injected for plugins lacking marketplace
+//     install metadata) -> the joined shell commands;
+//  2) marketplace plugins -> `csc plugin install <plugin_name>@costrict-plugins`.
+//     plugin_name comes from metadata.install.plugin_name (NOT item.slug, which
+//     carries an owner prefix); the `costrict-plugins` marketplace is the unified
+//     publish target every first-party plugin ships to (see server
+//     parser_service.go synthesizePluginContent), so it is intentionally fixed
+//     and must NOT use the upstream marketplace_name/marketplace_repo.
+// Non-plugin types (skill/subagent/command/mcp) are distributed via upstream
+// subscription and have no install command -> null (UI hides the block).
+export function getInstallCommand(item: CapabilityItem): string | null {
   const install = (item.metadata as Record<string, any> | undefined)?.install
   if (install?.method === "zip_download" && Array.isArray(install.commands)) {
     return install.commands.join("\n")
   }
-  const registry = item.repoName || "public"
-  return `cs plugin add ${item.itemType} ${registry}/${item.slug}`
+  if (item.itemType === "plugin" && typeof install?.plugin_name === "string" && install.plugin_name) {
+    return `csc plugin install ${install.plugin_name}@costrict-plugins`
+  }
+  return null
 }
 
 function formatDate(iso: string, locale?: string) {
@@ -419,8 +432,9 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
     (auth.user()!.systemRoles ?? []).includes("platform_admin")
 
   const copy = async () => {
-    if (!item()) return
-    await navigator.clipboard.writeText(getInstallCommand(item()!))
+    const cmd = item() ? getInstallCommand(item()!) : null
+    if (!cmd) return
+    await navigator.clipboard.writeText(cmd)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -781,39 +795,42 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                     </div>
                   </Show>
 
-                  {/* Usage：安装命令一键复制。命令来自 getInstallCommand(item)（cs plugin add …），
-                      复制按钮在命令框右侧，点击 navigator.clipboard.writeText + 反馈（图标 link→check 2s）。
-                      接上此前未被渲染的 copy()/copied() 声明（PR #112 隐藏了 plugin 本地安装框，这里是
-                      通用安装命令，不是那块）。 */}
-                  <div>
-                    <div
-                      class="mb-2 text-xs"
-                      style={{
-                        color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
-                        "font-weight": 700,
-                      }}
-                    >
-                      {language.t("store.detail.usage.title")}
-                    </div>
-                    <div class="flex items-stretch gap-2">
-                      <code class="thin-scrollbar min-w-0 flex-1 overflow-x-auto whitespace-pre rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/50 px-3 py-2.5 text-12-mono leading-5 text-text-strong">
-                        {getInstallCommand(data())}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => void copy()}
-                        class="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--native-radius-md)] border border-border-weak-base px-3 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
-                        classList={{ "!text-[var(--native-success)]": copied() }}
-                        title={copied() ? language.t("store.detail.usage.copied") : language.t("store.detail.usage.copy")}
-                        aria-label={language.t("store.detail.usage.copy")}
-                      >
-                        <Icon name={copied() ? "check" : "copy"} size="small" />
-                        <span class="max-sm:hidden">
-                          {copied() ? language.t("store.detail.usage.copied") : language.t("store.detail.usage.copy")}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
+                  {/* Usage：安装命令一键复制。仅当 item 有真实安装方式（getInstallCommand 非 null，
+                      当前只有 plugin 的 metadata.install zip_download）才渲染整块；skill 等靠上游订阅
+                      分发、无安装命令的类型不显示。复制按钮在命令框右侧（图标 link→check 2s）。 */}
+                  <Show when={getInstallCommand(data())}>
+                    {(installCmd) => (
+                      <div>
+                        <div
+                          class="mb-2 text-xs"
+                          style={{
+                            color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                            "font-weight": 700,
+                          }}
+                        >
+                          {language.t("store.detail.usage.title")}
+                        </div>
+                        <div class="flex items-stretch gap-2">
+                          <code class="thin-scrollbar min-w-0 flex-1 overflow-x-auto whitespace-pre rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/50 px-3 py-2.5 text-12-mono leading-5 text-text-strong">
+                            {installCmd()}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => void copy()}
+                            class="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--native-radius-md)] border border-border-weak-base px-3 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
+                            classList={{ "!text-[var(--native-success)]": copied() }}
+                            title={copied() ? language.t("store.detail.usage.copied") : language.t("store.detail.usage.copy")}
+                            aria-label={language.t("store.detail.usage.copy")}
+                          >
+                            <Icon name={copied() ? "check" : "copy"} size="small" />
+                            <span class="max-sm:hidden">
+                              {copied() ? language.t("store.detail.usage.copied") : language.t("store.detail.usage.copy")}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </Show>
 
                   <Show when={hasHealthSignals(data().health) || hasEvaluation(data().evaluation)}>
                     <div class="space-y-4">
