@@ -61,15 +61,6 @@ const PATHS: Record<StoreIconName, string> = {
   check: '<path d="M20 6 9 17l-5-5"/>',
 }
 
-// Filled-by-default lookup (mock used svgF for these). Callers can still override via `filled`,
-// but these read best as solid glyphs (e.g. the gold star, the ringing bell, the verified badge).
-const DEFAULT_FILLED: Partial<Record<StoreIconName, boolean>> = {
-  star: true,
-  bell: true,
-  badgeCheck: true,
-  check: true,
-}
-
 export function StoreIcon(props: {
   name: StoreIconName
   size?: number
@@ -97,5 +88,3 @@ export function StoreIcon(props: {
     />
   )
 }
-
-export { DEFAULT_FILLED as STORE_ICON_DEFAULT_FILLED }

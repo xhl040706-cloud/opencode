@@ -197,9 +197,13 @@ function StoreCard(props: { item: CapabilityItem; view: StoreItemViewProps }) {
           }
         >
           {(info) => (
-            <span class="relative z-[1] inline-flex h-6 items-center gap-1.5 rounded-[var(--native-radius-full)] border border-[#00000012] bg-[#ffffffcc] px-[9px] py-[2px] text-[11.5px] font-bold text-[var(--native-foreground)] backdrop-blur-[6px] [[data-color-scheme=dark]_&]:border-[#ffffff24] [[data-color-scheme=dark]_&]:bg-[#ffffff14]">
+            // 大客户企业名 pill：用 logo 抽出的品牌色 var(--card-brand) 做辨识度。
+            // 文字 + circle-check + 边框都走品牌色（招行红/工行红/建行蓝），背景保留白玻璃为主
+            // 并叠极淡品牌色（浅色 10% 于 #ffffffcc 上 / 深色 18% 于 #ffffff14 上），让 pill 微带品牌
+            // 色调又不牺牲在 type 色渐变 header 上的可读性（白玻璃底 + 饱和品牌色字，对比足够）。
+            <span class="relative z-[1] inline-flex h-6 items-center gap-1.5 rounded-[var(--native-radius-full)] border border-[color:color-mix(in_oklab,var(--card-brand)_35%,transparent)] bg-[color:color-mix(in_oklab,var(--card-brand)_10%,#ffffffcc)] px-[9px] py-[2px] text-[11.5px] font-bold text-[var(--card-brand)] backdrop-blur-[6px] [[data-color-scheme=dark]_&]:bg-[color:color-mix(in_oklab,var(--card-brand)_18%,#ffffff14)]">
               {info().name}
-              <StoreIcon name="checkCircle" size={11} style={{ color: "#1a1407" }} />
+              <StoreIcon name="checkCircle" size={11} style={{ color: "var(--card-brand)" }} />
             </span>
           )}
         </Show>

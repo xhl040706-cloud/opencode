@@ -1,4 +1,4 @@
-import { createEffect, createSignal, type Accessor } from "solid-js"
+import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js"
 
 // Cache extracted colors per logo source so repeated cards sharing one logo extract only once.
 const LOGO_COLOR_CACHE = new Map<string, string>()
@@ -55,9 +55,12 @@ export function useLogoColor(logo: Accessor<string | undefined>, fallback?: stri
     }
     img.src = src
 
-    return () => {
+    // Solid's createEffect does NOT treat a returned function as a disposer (that value becomes the
+    // effect's previous-value arg). Register the guard via onCleanup so a still-loading image whose
+    // row unmounts (filter/page/refresh) doesn't setColor on a disposed owner.
+    onCleanup(() => {
       disposed = true
-    }
+    })
   })
 
   return color

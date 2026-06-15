@@ -49,7 +49,6 @@ export interface StoreItemViewProps {
 }
 
 const MAX_TAGS = 3
-const GOLD = "#E5B645"
 const TYPE_ICON_NAMES = new Set<StoreIconName>(["skill", "subagent", "command", "mcp", "plugin"])
 
 // Map a CapabilityItem.itemType to a StoreIcon name (mock's `media()` calls `svg(it.type,…)`
@@ -188,13 +187,14 @@ function StoreListRow(props: {
             }
           >
             {(ent) => (
-              // .seal：金色渐变印章 + 圆圈对勾(checkCircle, stroke 线圈) + 企业名
+              // .seal：改用 logo 抽出的品牌色 var(--bc) 做辨识度（招行行=红印章 / 建行行=蓝印章，
+              // 肉眼可区分）。品牌色淡底 14% + 品牌色淡边 35% + 品牌色文字/circle-check，保持小巧精致
+              // （尺寸/字重与原金色印章一致，不抢眼）。
               <span
-                class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[var(--native-radius-full)] py-[2px] pl-[5px] pr-[7px] text-[10.5px] font-extrabold text-[#1a1407]"
-                style={{ background: `linear-gradient(135deg, #F7D774, ${GOLD})` }}
+                class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[var(--native-radius-full)] border border-[color:color-mix(in_oklab,var(--bc)_35%,transparent)] bg-[color:color-mix(in_oklab,var(--bc)_14%,transparent)] py-[2px] pl-[5px] pr-[7px] text-[10.5px] font-extrabold text-[var(--bc)]"
                 title={ent().name}
               >
-                <StoreIcon name="checkCircle" size={11} style={{ color: "#1a1407" }} />
+                <StoreIcon name="checkCircle" size={11} style={{ color: "var(--bc)" }} />
                 {ent().name}
               </span>
             )}
