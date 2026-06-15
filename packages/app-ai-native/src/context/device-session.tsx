@@ -1,8 +1,10 @@
 import { createContext, useContext, type ParentProps } from "solid-js"
 import { batch, createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore, produce } from "solid-js/store"
+import { showToast } from "@opencode-ai/ui/toast"
 import { useDeviceSDK } from "./device-sdk"
 import { useDeviceWorkspace } from "./device-workspace"
+import { useLanguage } from "./language"
 import type { Message, Part, Session, SessionStatus, FileDiff, Todo, PermissionRequest, QuestionRequest } from "@opencode-ai/sdk/v2/client"
 
 export type SessionError = {
@@ -170,6 +172,7 @@ export function treeEvent(input: {
 export function DeviceSessionStoreProvider(props: ParentProps) {
   const device = useDeviceSDK()
   const workspace = useDeviceWorkspace()
+  const language = useLanguage()
 
   const [store, setStore] = createStore<SessionSlice>({
     session: undefined,
@@ -216,16 +219,22 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
           for (const [mid, data] of fetched) {
             if (data.parts && data.parts.length > 0) {
               const existing = store.parts[mid]
-              if (!existing || existing.length !== data.parts.length) {
+              if (!existing || existing.length === 0) {
                 setStore("parts", mid, data.parts)
               } else {
-                for (let i = 0; i < data.parts.length; i++) {
+                const overlap = Math.min(existing.length, data.parts.length)
+                for (let i = 0; i < overlap; i++) {
                   const existingPart = existing[i] as any
                   const newPart = data.parts[i] as any
                   if (existingPart?.state?.status === "running" && newPart?.state?.status !== "running") {
                     continue
                   }
                   setStore("parts", mid, i, newPart)
+                }
+                if (data.parts.length > existing.length) {
+                  for (let i = existing.length; i < data.parts.length; i++) {
+                    setStore("parts", mid, i, data.parts[i])
+                  }
                 }
               }
             }
@@ -244,13 +253,21 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
               for (const [mid, data] of chunk) {
                 const idx = index.get(mid)
                 if (idx !== undefined) {
-                  const existing = draft[idx] as Record<string, unknown> | undefined
-                  const incoming = data.info as Record<string, unknown> | undefined
+                  const cur = draft[idx] as any
+                  const inc = data.info as any
+                  const curCompleted = cur?.time?.completed
+                  const incCompleted = inc?.time?.completed
+                  const curError = cur?.error
+                  const incError = inc?.error
+                  if (curCompleted && !incCompleted) continue
+                  if (curError && !incError) continue
+
+                  // Preserve time.created when incoming update lacks it
                   if (
-                    existing?.time && typeof existing.time === "object" && (existing.time as Record<string, unknown>)?.created &&
-                    incoming?.time && typeof incoming.time === "object" && !(incoming.time as Record<string, unknown>)?.created
+                    cur?.time?.created &&
+                    inc?.time && typeof inc.time === "object" && !inc.time.created
                   ) {
-                    draft[idx] = { ...data.info, time: { created: (existing.time as Record<string, unknown>).created, ...incoming.time } } as Message
+                    draft[idx] = { ...data.info, time: { created: cur.time.created, ...inc.time } } as Message
                   } else {
                     draft[idx] = data.info
                   }
@@ -521,8 +538,17 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
           break
         }
         case "session.error": {
-          const props = payload.properties as { sessionID?: string; error?: SessionError }
-          if (props.error && eventSID) setStore("errors", eventSID, props.error)
+          const props = payload.properties as { sessionID?: string; error?: string | SessionError; message?: string }
+          if (!eventSID) break
+          const err: SessionError = typeof props.error === "object" && props.error !== null
+            ? props.error
+            : { message: props.message }
+          setStore("errors", eventSID, err)
+          // showToast({
+          //   variant: "error",
+          //   title: language.t("notification.session.error.title"),
+          //   description: err.message ?? language.t("notification.session.error.fallbackDescription"),
+          // })
           break
         }
         case "tool.progress": {
