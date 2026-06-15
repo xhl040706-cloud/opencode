@@ -20,6 +20,8 @@ import { useLanguage } from "@/context/language"
 import { useSettings } from "@/context/settings"
 import { useSessionChat } from "@/context/session-chat"
 import { parseCommentNote, readCommentMetadata } from "@/utils/comment-note"
+import { MessageTransition } from "./message-transition"
+import { useDeviceSession } from "@/context/device-session"
 
 type MessageComment = {
   path: string
@@ -212,6 +214,7 @@ export function MessageTimeline(props: {
   const settings = useSettings()
   const dialog = useDialog()
   const language = useLanguage()
+  const deviceSession = useDeviceSession()
 
   const rendered = createMemo(() => props.renderedUserMessages.map((message) => message.id))
   const sid = createMemo(() => chat.activeSessionID())
@@ -698,20 +701,25 @@ export function MessageTimeline(props: {
                           </div>
                         </div>
                       </Show>
-                      <SessionTurn
-                        sessionID={sessionID() ?? ""}
+                      <MessageTransition
                         messageID={messageID}
-                        active={active()}
-                        status={active() ? sessionStatus() : undefined}
-                        showReasoningSummaries={settings.general.showReasoningSummaries()}
-                        shellToolDefaultOpen={settings.general.shellToolPartsExpanded()}
-                        editToolDefaultOpen={settings.general.editToolPartsExpanded()}
-                        classes={{
-                          root: "min-w-0 w-full relative",
-                          content: "flex flex-col justify-between !overflow-visible",
-                          container: "w-full px-4 md:px-5",
-                        }}
-                      />
+                        isUpdating={deviceSession.isUpdating(messageID)}
+                      >
+                        <SessionTurn
+                          sessionID={sessionID() ?? ""}
+                          messageID={messageID}
+                          active={active()}
+                          status={active() ? sessionStatus() : undefined}
+                          showReasoningSummaries={settings.general.showReasoningSummaries()}
+                          shellToolDefaultOpen={settings.general.shellToolPartsExpanded()}
+                          editToolDefaultOpen={settings.general.editToolPartsExpanded()}
+                          classes={{
+                            root: "min-w-0 w-full relative",
+                            content: "flex flex-col justify-between !overflow-visible",
+                            container: "w-full px-4 md:px-5",
+                          }}
+                        />
+                      </MessageTransition>
                     </div>
                   )
                 }}
