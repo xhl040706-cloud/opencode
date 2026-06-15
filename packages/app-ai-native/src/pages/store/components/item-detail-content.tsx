@@ -1,4 +1,4 @@
-import { createResource, createSignal, createEffect, Show, For } from "solid-js"
+import { createResource, createSignal, createEffect, createMemo, Show, For } from "solid-js"
 import { createHighlighter } from "shiki"
 import QRCode from "qrcode"
 import { useTheme } from "@opencode-ai/ui/theme"
@@ -19,6 +19,11 @@ import { useLanguage } from "@/context/language"
 import { pickItemDescription } from "../lib/item-description"
 import SecurityTag from "./security-tag"
 import HealthRadar from "./health-radar"
+import { SubscribeButton } from "./subscribe-button"
+import { mcpListSubscribeBlocked } from "./store-capability-table"
+import { matchEnterprise, matchEnterpriseByName, type EnterpriseInfo } from "../lib/enterprise"
+import { useLogoColor } from "../lib/use-logo-color"
+import { StoreIcon } from "../lib/store-icons"
 import { DistributeDialog } from "./distribute-dialog"
 import { BuiltinContentDialog } from "./builtin-content-dialog"
 import { McpConfigForm } from "./mcp-config-form"
@@ -36,6 +41,9 @@ const TYPE_META: Record<
   mcp: { accent: "#7338f9", bg: "color-mix(in srgb, #7338f9 12%, var(--native-panel))", label: "store.sidebar.nav.mcpServers", icon: "mcp" },
   plugin: { accent: "#EC4899", bg: "color-mix(in srgb, #EC4899 12%, var(--native-panel))", label: "store.sidebar.nav.plugins", icon: "configuration" },
 }
+
+// Gold accent (设计稿 --gold) for the enterprise gold edge / brand seal — matches store-card-grid.
+const ENTERPRISE_GOLD = "#E5B645"
 
 const EVAL_DIMS = [
   "coding_relevance",
@@ -357,6 +365,15 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
   const meta = () => TYPE_META[item()?.itemType ?? "skill"] ?? TYPE_META.skill
   const canEditItem = () => !!item() && !!auth.user() && item()!.createdBy === auth.user()!.id
 
+  // 大客户品牌化：与列表卡片一致的判定（createdBy 命中真实配置，回退 name 命中 demo）。命中时用
+  // logo 抽出的品牌色注入 --bc，详情 header 套上白底 logo tile + 品牌印章 + 品牌色渐变背景 + 水印。
+  const enterprise = createMemo<EnterpriseInfo | null>(() => {
+    const data = item()
+    if (!data) return null
+    return matchEnterprise(data.createdBy) ?? matchEnterpriseByName(data.name)
+  })
+  const brandColor = useLogoColor(() => enterprise()?.logo)
+
   // MCP per-user config gating. Detected placeholder fields come from the normalized template
   // `metadata`; whether each is filled comes from the masked `mcpConfig` status (merged with a
   // just-saved override). When an MCP item has fillable placeholders, subscribe is gated until
@@ -484,7 +501,40 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
       >
         {(data) => (
           <div class={`detail-panel flex h-full flex-col ${props.class ?? ""}`.trim()}>
-            <div class="detail-panel-header border-b border-border-weak-base px-6 pb-5 pr-14 pt-6">
+            <div
+              class="detail-panel-header relative overflow-hidden border-b border-border-weak-base px-6 pb-5 pr-14 pt-6"
+              classList={{ "border-b-[color:color-mix(in_oklab,var(--detail-brand)_30%,var(--native-border))]": !!enterprise() }}
+              style={enterprise() ? { "--detail-brand": brandColor() } : undefined}
+            >
+              {/* 大客户：品牌色淡渐变 header 背景 + logo 水印 + 顶部金线，和列表卡片同一套设计语言。 */}
+              <Show when={enterprise()}>
+                {(info) => (
+                  <>
+                    <div
+                      aria-hidden="true"
+                      class="pointer-events-none absolute inset-0"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, color-mix(in oklab, var(--detail-brand) 12%, transparent), transparent 46%)",
+                      }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      class="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
+                      style={{
+                        background: `linear-gradient(90deg, color-mix(in oklab, ${ENTERPRISE_GOLD} 70%, transparent), transparent 40%, color-mix(in oklab, var(--detail-brand) 55%, transparent))`,
+                      }}
+                    />
+                    <img
+                      src={info().logo}
+                      alt=""
+                      aria-hidden="true"
+                      class="pointer-events-none absolute right-[-30px] top-1/2 size-[168px] -translate-y-1/2 rounded-[18px] object-contain opacity-[0.06]"
+                    />
+                  </>
+                )}
+              </Show>
+              <div class="relative">
               <Show when={props.onBack && props.showBackButton}>
                 <button
                   onClick={props.onBack}
@@ -498,18 +548,50 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
               <div class="space-y-3">
                 <div class="flex items-start justify-between gap-6">
                   <div class="min-w-0 flex flex-1 items-center gap-3">
-                    <div
-                      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--native-radius-md)]"
-                      style={{ "background-color": meta().bg, color: meta().accent }}
+                    {/* 大客户：白底圆角 logo tile（与列表卡片一致）；否则 type 图标 tile。 */}
+                    <Show
+                      when={enterprise()}
+                      fallback={
+                        <div
+                          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--native-radius-md)]"
+                          style={{ "background-color": meta().bg, color: meta().accent }}
+                        >
+                          <Icon name={meta().icon} />
+                        </div>
+                      }
                     >
-                      <Icon name={meta().icon} />
+                      {(info) => (
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--native-radius-md)] border border-[color:color-mix(in_srgb,var(--native-border)_60%,transparent)] bg-[#fff] p-[5px] shadow-[var(--native-shadow-sm)]">
+                          <img src={info().logo} alt={info().name} class="size-full object-contain" />
+                        </div>
+                      )}
+                    </Show>
+                    <div class="min-w-0 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                      <h1
+                        class="min-w-0 text-text-strong"
+                        style={{ "font-size": "24px", "letter-spacing": "-0.02em", "line-height": "1.25" }}
+                      >
+                        {data().name}
+                      </h1>
+                      {/* 大客户企业名印章：品牌色文字 + 边 + circle-check（与列表 seal 同语言）。 */}
+                      <Show when={enterprise()}>
+                        {(info) => (
+                          <span
+                            class="inline-flex shrink-0 items-center gap-1 rounded-[var(--native-radius-full)] border px-2.5 py-[2px] text-[11.5px] font-bold"
+                            style={{
+                              "--detail-brand": brandColor(),
+                              "border-color": "color-mix(in oklab, var(--detail-brand) 35%, transparent)",
+                              "background-color": "color-mix(in oklab, var(--detail-brand) 10%, var(--native-panel))",
+                              color: "var(--detail-brand)",
+                            }}
+                            title={language.t("store.detail.enterprise.label")}
+                          >
+                            {info().name}
+                            <StoreIcon name="checkCircle" size={12} style={{ color: "var(--detail-brand)" }} />
+                          </span>
+                        )}
+                      </Show>
                     </div>
-                    <h1
-                      class="min-w-0 text-text-strong"
-                      style={{ "font-size": "24px", "letter-spacing": "-0.02em", "line-height": "1.25" }}
-                    >
-                      {data().name}
-                    </h1>
                   </div>
                   <div class="flex shrink-0 items-center gap-1.5 self-start">
                     <Show when={data().sourceType === "archive"}>
@@ -563,48 +645,24 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         <span>{language.t("common.delete")}</span>
                       </button>
                     </Show>
+                    {/* 订阅按钮：复用列表/卡片同款 SubscribeButton（铃铛 ring + ping + 自然宽度 FLIP），
+                        与全站设计语言对齐。详情页 onToggleFavorite 无参，包一层喂给 (item)=>void 签名；
+                        MCP 未配置 / 依赖插件运行时仍沿用详情页已算好的 gate 作为 disabled。 */}
                     <Show when={props.onToggleFavorite}>
-                      <button
-                        onClick={() => void props.onToggleFavorite?.()}
-                        disabled={!props.isAuthenticated || props.favoritePending || mcpPluginRuntimeBlocks() || mcpGateBlocks()}
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60"
-                        classList={{
-                          "bg-bg-muted text-text-strong hover:bg-bg-muted/70": props.favorited,
-                          "text-text-weak hover:text-text-strong hover:bg-bg-muted": !props.favorited,
+                      <SubscribeButton
+                        item={data()}
+                        favorited={!!props.favorited}
+                        favoriteCount={props.favoriteCount ?? data().favoriteCount ?? 0}
+                        pending={props.favoritePending}
+                        authenticated={!!props.isAuthenticated}
+                        disabled={mcpPluginRuntimeBlocks() || mcpGateBlocks() || mcpListSubscribeBlocked(data())}
+                        onToggle={() => void props.onToggleFavorite?.()}
+                        labels={{
+                          subscribe: language.t("store.detail.favorite"),
+                          subscribed: language.t("store.detail.unfavorite"),
+                          tooltip: language.t("store.distribute.tooltip"),
                         }}
-                        title={
-                          !props.isAuthenticated
-                            ? language.t("store.detail.favoriteSignInTooltip")
-                            : mcpPluginRuntimeBlocks()
-                              ? language.t("store.detail.mcpConfig.pluginRuntimeReason")
-                              : mcpGateBlocks()
-                                ? language.t("store.detail.mcpConfig.gateReason")
-                                : props.favorited
-                                  ? language.t("store.detail.unfavoriteTooltip")
-                                  : language.t("store.detail.favoriteTooltip")
-                        }
-                      >
-                        <span class="inline-flex items-center" style={{ width: "14px", height: "14px" }}>
-                          <LocalIcon
-                            name={props.favorited ? "subscribe-filled" : "subscribe"}
-                            size="small"
-                            style={{
-                              color: props.favorited
-                                ? (TYPE_META[item()?.itemType ?? ""]?.accent ?? "var(--native-primary)")
-                                : undefined,
-                              width: "14px",
-                              height: "14px",
-                            }}
-                          />
-                        </span>
-                        <span>
-                          {props.isAuthenticated
-                            ? props.favorited
-                              ? language.t("store.detail.favorited")
-                              : language.t("store.detail.favorite")
-                            : language.t("store.detail.favoriteSignIn")}
-                        </span>
-                      </button>
+                      />
                     </Show>
                     <Show when={canForkItem()}>
                       <button
@@ -698,6 +756,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                   </p>
                 </Show>
               </div>
+              </div>
             </div>
 
             <div class="detail-panel-body flex-1 overflow-auto px-6 py-5">
@@ -722,6 +781,40 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                     </div>
                   </Show>
 
+                  {/* Usage：安装命令一键复制。命令来自 getInstallCommand(item)（cs plugin add …），
+                      复制按钮在命令框右侧，点击 navigator.clipboard.writeText + 反馈（图标 link→check 2s）。
+                      接上此前未被渲染的 copy()/copied() 声明（PR #112 隐藏了 plugin 本地安装框，这里是
+                      通用安装命令，不是那块）。 */}
+                  <div>
+                    <div
+                      class="mb-2 text-xs"
+                      style={{
+                        color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                        "font-weight": 700,
+                      }}
+                    >
+                      {language.t("store.detail.usage.title")}
+                    </div>
+                    <div class="flex items-stretch gap-2">
+                      <code class="thin-scrollbar min-w-0 flex-1 overflow-x-auto whitespace-pre rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/50 px-3 py-2.5 text-12-mono leading-5 text-text-strong">
+                        {getInstallCommand(data())}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => void copy()}
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--native-radius-md)] border border-border-weak-base px-3 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
+                        classList={{ "!text-[var(--native-success)]": copied() }}
+                        title={copied() ? language.t("store.detail.usage.copied") : language.t("store.detail.usage.copy")}
+                        aria-label={language.t("store.detail.usage.copy")}
+                      >
+                        <Icon name={copied() ? "check" : "copy"} size="small" />
+                        <span class="max-sm:hidden">
+                          {copied() ? language.t("store.detail.usage.copied") : language.t("store.detail.usage.copy")}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
                   <Show when={hasHealthSignals(data().health) || hasEvaluation(data().evaluation)}>
                     <div class="space-y-4">
                       <div class="flex flex-wrap gap-4">
@@ -744,8 +837,9 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                                 >
                                   {language.t("store.detail.eval.contentQuality")}
                                 </div>
-                                <span class="text-lg font-bold" style={{ color: meta().accent }}>
-                                  {evaluation().content_quality ?? computeContentQuality(evaluation())}
+                                <span class="inline-flex items-baseline gap-0.5 font-bold" style={{ color: meta().accent }}>
+                                  <span class="text-lg">{evaluation().content_quality ?? computeContentQuality(evaluation())}</span>
+                                  <span class="text-[11px] font-semibold opacity-60">/100</span>
                                 </span>
                               </div>
                               <div class="space-y-2.5">
@@ -807,10 +901,11 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                               </div>
                               <Show when={(data().health?.effective_score ?? data().health?.score) != null}>
                                 <span
-                                  class="inline-flex items-baseline gap-0.5 text-lg font-bold"
+                                  class="inline-flex items-baseline gap-0.5 font-bold"
                                   style={{ color: meta().accent }}
                                 >
-                                  {Math.round((data().health!.effective_score ?? data().health!.score)!)}
+                                  <span class="text-lg">{Math.round((data().health!.effective_score ?? data().health!.score)!)}</span>
+                                  <span class="text-[11px] font-semibold opacity-60">/100</span>
                                   <Show when={(data().health?.excluded_signals?.length ?? 0) > 0}>
                                     <span
                                       class="cursor-help text-[11px] leading-none text-text-weak"
@@ -847,19 +942,18 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                               <span class="text-lg font-bold" style={{ color: meta().accent }}>
                                 {Math.round(evaluation().final_score)}
                               </span>
-                              {/* Show the 85/15 blend formula only when BOTH
-                                  terms exist: the per-type content_quality and
-                                  the star-routing-aware effective_health. This is
-                                  type-agnostic — it shows for skills and fully
-                                  evaluated plugins, and hides for health_only
-                                  plugins and legacy un-reingested data. */}
-                              <Show
-                                when={data().evaluation?.content_quality != null && data().health?.effective_score != null}
-                              >
-                                <span class="text-[11px] text-text-weak">
-                                  {language.t("store.detail.overall.breakdown")}
-                                </span>
-                              </Show>
+                              {/* Show the 85/15 blend formula whenever an overall
+                                  score exists. The breakdown is a fixed caption
+                                  (store.detail.overall.breakdown) describing the
+                                  blend ratio, not the concrete per-term values, so
+                                  it is safe to show alongside the score even when
+                                  the raw content_quality / effective_score fields
+                                  are null (the displayed number falls back to
+                                  computeContentQuality / health.score). This keeps
+                                  the overall score detailed instead of a lone digit. */}
+                              <span class="text-[11px] text-text-weak">
+                                {language.t("store.detail.overall.breakdown")}
+                              </span>
                             </div>
                           </Show>
                         )}
@@ -958,13 +1052,6 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                           >
                             <LocalIcon name="view" size="small" />
                             <span>{formatCompactCount(props.previewCount ?? data().previewCount ?? 0)}</span>
-                          </span>
-                          <span
-                            class="inline-flex items-center gap-1.5"
-                            title={`${language.t("store.detail.installCount")}: ${(props.installCount ?? data().installCount ?? 0).toLocaleString()}`}
-                          >
-                            <LocalIcon name="download" size="small" />
-                            <span>{formatCompactCount(props.installCount ?? data().installCount ?? 0)}</span>
                           </span>
                           <span
                             class="inline-flex items-center gap-1.5"
