@@ -40,6 +40,7 @@ type SessionSlice = {
   toolProgress: Record<string, string>
   partProgress: Record<string, string[]>
   tasks: Record<string, Record<string, TaskState>>
+  updating: Record<string, boolean>
 }
 
 type StoreValue = {
@@ -86,6 +87,7 @@ type DeviceSessionValue = {
   reconcileMessages: (sessionID: string) => Promise<void>
   diff: (sessionID: string) => Promise<void>
   todo: (sessionID: string) => Promise<void>
+  isUpdating: (messageID: string) => boolean
   optimistic: {
     add(input: { sessionID: string; message: Message; parts: Part[] }): void
     remove(input: { sessionID: string; messageID: string }): void
@@ -187,9 +189,13 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
     toolProgress: {},
     partProgress: {},
     tasks: {},
+    updating: {},
   })
 
   const inflight = new Map<string, Promise<void>>()
+  const updatingMessages = new Set<string>()
+  const updatingParts = new Map<string, Set<string>>()
+
   const runInflight = (key: string, task: () => Promise<void>) => {
     const pending = inflight.get(key)
     if (pending) return pending
@@ -207,13 +213,70 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
         if (!result) return
         const raw = Array.isArray(result) ? result : []
         const fetched = new Map<string, { info: Message; parts?: Part[] }>()
+        const changedMessages = new Set<string>()
+
+        // Compare with existing data to detect actual changes
         for (const item of raw as any[]) {
           if (!item?.info?.id) continue
-          fetched.set(item.info.id, {
+          const mid = item.info.id
+          const existingMessage = store.messages[sessionID]?.find((m) => m.id === mid)
+          const existingParts = store.parts[mid]
+
+          // Efficient comparison of message changes
+          let messageChanged = false
+          if (!existingMessage) {
+            messageChanged = true
+          } else {
+            // Compare key fields that matter for rendering
+            const newInfo = item.info
+            messageChanged =
+              existingMessage.content !== newInfo.content ||
+              existingMessage.role !== newInfo.role ||
+              (existingMessage.time?.completed ?? 0) !== (newInfo.time?.completed ?? 0) ||
+              existingMessage.error !== newInfo.error ||
+              (existingMessage as any).status !== (newInfo as any).status
+          }
+
+          // Compare parts changes (efficient length and content check)
+          let partsChanged = false
+          if (!existingParts) {
+            partsChanged = !!item.parts && item.parts.length > 0
+          } else if (item.parts && item.parts.length > 0) {
+            partsChanged = existingParts.length !== item.parts.length
+            if (!partsChanged) {
+              // Compare each part's key fields
+              for (let i = 0; i < item.parts.length; i++) {
+                const existingPart = existingParts[i] as any
+                const newPart = item.parts[i] as any
+                if (
+                  existingPart?.type !== newPart?.type ||
+                  existingPart?.state?.status !== newPart?.state?.status ||
+                  existingPart?.state?.output !== newPart?.state?.output
+                ) {
+                  partsChanged = true
+                  break
+                }
+              }
+            }
+          }
+
+          if (messageChanged || partsChanged) {
+            changedMessages.add(mid)
+          }
+
+          fetched.set(mid, {
             info: item.info as Message,
             parts: Array.isArray(item.parts) ? (item.parts as Part[]) : undefined,
           })
         }
+
+        // Only mark messages that actually changed as updating
+        batch(() => {
+          for (const mid of changedMessages) {
+            updatingMessages.add(mid)
+            setStore("updating", mid, true)
+          }
+        })
 
         batch(() => {
           for (const [mid, data] of fetched) {
@@ -226,7 +289,19 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
                 for (let i = 0; i < overlap; i++) {
                   const existingPart = existing[i] as any
                   const newPart = data.parts[i] as any
-                  if (existingPart?.state?.status === "running" && newPart?.state?.status !== "running") {
+                  const existingStatus = existingPart?.state?.status
+                  const newStatus = newPart?.state?.status
+                  if (existingStatus === "running" && newStatus !== "running") {
+                    continue
+                  }
+                  if (existingStatus === "completed" && newStatus === "running") {
+                    continue
+                  }
+                  const existingOutput = existingPart?.state?.output
+                  const newOutput = newPart?.state?.output
+                  if (existingOutput && !newOutput && newStatus === "completed") {
+                    const merged = { ...newPart, state: { ...newPart.state, output: existingOutput } }
+                    setStore("parts", mid, i, merged)
                     continue
                   }
                   setStore("parts", mid, i, newPart)
@@ -262,14 +337,20 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
                   if (curCompleted && !incCompleted) continue
                   if (curError && !incError) continue
 
+                  // Parts-aware: skip when current has parts but incoming doesn't (same completion state)
+                  if (curCompleted === incCompleted) {
+                    const curParts = store.parts[mid]
+                    const incParts = data.parts
+                    if (!incParts && curParts && curParts.length > 0) continue
+                  }
+                  draft[idx] = data.info
+
                   // Preserve time.created when incoming update lacks it
                   if (
                     cur?.time?.created &&
                     inc?.time && typeof inc.time === "object" && !inc.time.created
                   ) {
-                    draft[idx] = { ...data.info, time: { created: cur.time.created, ...inc.time } } as Message
-                  } else {
-                    draft[idx] = data.info
+                    draft[idx] = { ...draft[idx], time: { created: cur.time.created, ...inc.time } } as Message
                   }
                 } else {
                   // Dedup: check if an assistant message with same parentID+timestamp already exists
@@ -313,6 +394,16 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
             await new Promise<void>(r => requestAnimationFrame(() => r()))
           }
         }
+
+        // Clear updating state only for messages that changed
+        await new Promise<void>(r => setTimeout(r, 100))
+        batch(() => {
+          for (const mid of changedMessages) {
+            updatingMessages.delete(mid)
+            setStore("updating", mid, false)
+          }
+        })
+
       } catch {}
     })
   }
@@ -674,6 +765,9 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     },
     diff: store.diff,
     todo: store.todo,
+    isUpdating: (messageID: string) => {
+      return store.data.updating[messageID] ?? false
+    },
     optimistic: {
       add: store.optimisticAdd,
       remove: store.optimisticRemove,

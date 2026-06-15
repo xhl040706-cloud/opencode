@@ -24,6 +24,7 @@ import type {
 } from "@opencode-ai/sdk/v2/client"
 import type { Path } from "@opencode-ai/sdk/v2/client"
 import { legacyProvider } from "@/utils/legacy-provider"
+import { DeviceSessionProvider } from "@/context/device-session"
 import { DeviceSessionViewHeader, type HeaderState } from "./device-session-view-header"
 import { env } from "@/lib/env"
 
@@ -195,7 +196,7 @@ export function DeviceSessionView(props: {
         reconcileTimer = undefined
         if (currentSessionID() !== targetId) return
         reconcileSessionData(targetId)
-      }, 150)
+      }, 1000)
     }
     wasActive = active
   })
@@ -445,6 +446,7 @@ export function DeviceSessionView(props: {
   }
 
   return (
+    <DeviceSessionProvider sessionID={sid()}>
         <PromptProvider>
             <PromptSeeder seed={props.promptSeed} />
               <DataProvider
@@ -545,5 +547,6 @@ export function DeviceSessionView(props: {
                           </FileComponentProvider>
                         </DataProvider>
                   </PromptProvider>
+    </DeviceSessionProvider>
   )
 }
