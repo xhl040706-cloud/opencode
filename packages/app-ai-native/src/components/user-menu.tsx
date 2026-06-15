@@ -28,21 +28,16 @@ export function UserMenuContent() {
 
   return (
     <DropdownMenu.Content class="w-[280px]">
-      <div class="px-3 py-2 min-w-0">
-        <p class="text-13-medium text-text-strong truncate" title={displayName()}>
+      <div class="px-2 pt-2 pb-0.5 min-w-0">
+        <p class="text-13-medium text-text-strong truncate" style={{ "font-weight": 600 }} title={displayName()}>
           {displayName()}
         </p>
-        <p class="text-[10px] text-text-weak mt-0.5 truncate" title={`@${username()}`}>
-          @{username()}
-        </p>
       </div>
-      <div class="px-3 py-1.5 flex items-center justify-between gap-2">
-        <div class="min-w-0 flex-1">
-          <p class="text-11-medium text-text-weak">{language.t("sidebar.user.subjectId")}</p>
-          <p class="text-11-regular text-text-weak truncate" title={subjectId()}>
-            {subjectId()}
-          </p>
-        </div>
+      <div class="px-2 py-1.5 flex items-center gap-2">
+        <span class="text-11-medium text-text-weak shrink-0">{language.t("sidebar.user.subjectId")}</span>
+        <span class="text-11-regular text-text-weak truncate min-w-0 flex-1" title={subjectId()}>
+          {subjectId()}
+        </span>
         <IconButton
           icon="copy"
           variant="ghost"
@@ -56,7 +51,7 @@ export function UserMenuContent() {
         />
       </div>
       <DropdownMenu.Separator class="my-0 mx-0" />
-      <div class="px-3 py-2 flex items-center justify-between gap-3">
+      <div class="px-2 py-1.5 flex items-center justify-between gap-3">
         <span class="text-12-medium leading-none text-text-strong">{language.t("sidebar.user.language")}</span>
         <RadioGroup
           options={languageOptions}
@@ -70,7 +65,7 @@ export function UserMenuContent() {
         />
       </div>
       <DropdownMenu.Separator class="my-0 mx-0" />
-      <div class="px-3 py-2 flex items-center justify-between gap-3">
+      <div class="px-2 py-1.5 flex items-center justify-between gap-3">
         <span class="text-12-medium leading-none text-text-strong">{language.t("settings.general.row.appearance.title")}</span>
         <button
           type="button"
@@ -83,9 +78,12 @@ export function UserMenuContent() {
         </button>
       </div>
       <DropdownMenu.Separator class="my-0 mx-0" />
-      <DropdownMenu.Item onSelect={logout}>
-        <DropdownMenu.ItemLabel>{language.t("sidebar.user.signOut")}</DropdownMenu.ItemLabel>
-      </DropdownMenu.Item>
+      <div
+        class="mt-1 px-2 py-1.5 flex items-center justify-between gap-3 cursor-pointer transition-colors rounded-sm hover:bg-accent"
+        onClick={logout}
+      >
+        <span class="text-12-medium leading-none text-text-strong">{language.t("sidebar.user.signOut")}</span>
+      </div>
     </DropdownMenu.Content>
   )
 }

@@ -2,12 +2,12 @@ import { createEffect, createMemo, on, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
 import type { PermissionRequest, QuestionRequest, Todo } from "@opencode-ai/sdk/v2"
 import { showToast } from "@opencode-ai/ui/toast"
-import { useDeviceSDK } from "@/context/device-sdk"
-import { useDeviceWorkspace } from "@/context/device-workspace"
 import { useLanguage } from "@/context/language"
+import type { SessionChatBackend } from "@/context/session-chat"
 import { sessionPermissionRequest, sessionQuestionRequest } from "./session-request-tree"
 
 type ComposerDeps = {
+  chat: SessionChatBackend
   sessionID: () => string | undefined
   todos: () => Todo[]
   isAutoAccepting: () => boolean
@@ -15,18 +15,16 @@ type ComposerDeps = {
 }
 
 export function createDeviceSessionComposerState(deps: ComposerDeps, options?: { closeMs?: number | (() => number) }) {
-  const device = useDeviceSDK()
-  const workspace = useDeviceWorkspace()
   const language = useLanguage()
 
   const questionRequest = createMemo((): QuestionRequest | undefined => {
     const sid = deps.sessionID()
-    return sessionQuestionRequest(workspace.data.session, workspace.data.questions, sid)
+    return sessionQuestionRequest(deps.chat.sessions(), deps.chat.questions(), sid)
   })
 
   const permissionRequest = createMemo((): PermissionRequest | undefined => {
     const sid = deps.sessionID()
-    return sessionPermissionRequest(workspace.data.session, workspace.data.permissions, sid, () => {
+    return sessionPermissionRequest(deps.chat.sessions(), deps.chat.permissions(), sid, () => {
       return !deps.isAutoAccepting()
     })
   })
@@ -57,14 +55,11 @@ export function createDeviceSessionComposerState(deps: ComposerDeps, options?: {
 
     const sid = deps.sessionID()
     setStore("responding", perm.id)
-    device.client.permission
-      .respond(perm.id, {
-        decision: response,
-      })
+    deps.chat.permissionRespond(perm.id, response)
       .catch((err: unknown) => {
         const description = err instanceof Error ? err.message : String(err)
         showToast({ title: language.t("common.requestFailed"), description })
-        if (sid) workspace.session.removePermission(sid, perm.id)
+        if (sid) deps.chat.removePermission(sid, perm.id)
       })
       .finally(() => {
         setStore("responding", (id) => (id === perm.id ? undefined : id))
@@ -74,15 +69,14 @@ export function createDeviceSessionComposerState(deps: ComposerDeps, options?: {
   const autoAccept = () => {
     deps.enableAutoAccept()
 
-    const perms = workspace.data.permissions
+    const perms = deps.chat.permissions()
     for (const [sessionID, list] of Object.entries(perms)) {
       if (!Array.isArray(list)) continue
       for (const perm of list) {
-        device.client.permission
-          .respond(perm.id, { decision: "once" })
+        deps.chat.permissionRespond(perm.id, "once")
           .catch(() => {})
           .finally(() => {
-            workspace.session.removePermission(sessionID, perm.id)
+            deps.chat.removePermission(sessionID, perm.id)
           })
       }
     }

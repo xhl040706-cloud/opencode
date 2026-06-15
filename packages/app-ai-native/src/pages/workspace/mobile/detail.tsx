@@ -17,6 +17,8 @@ import { ContentTabContext, createContentTabStore, useContentTabs } from "@/cont
 import { DeviceSessionStoreProvider } from "@/context/device-session"
 import { SessionTabProvider, useSessionTab } from "@/context/session-tab"
 import { DeviceSessionView } from "../components/device-session-view"
+import { DeviceSessionViewHeader } from "../components/device-session-view-header"
+import { DeviceSessionChatProvider } from "@/context/device-session-chat"
 import { useDeviceWorkspace } from "@/context/device-workspace"
 import { createSdkForServer } from "@/utils/server"
 import { useDeviceLayout } from "../components/device-interface"
@@ -105,13 +107,16 @@ function MobileSessionAdapter(props: { tabId: string; sessionID?: string }) {
   const tabStore = useContentTabs()
   const title = createMemo(() => tabStore.tabs().find((t) => t.id === props.tabId)?.title)
   return (
-    <DeviceSessionView
-      sessionID={props.sessionID}
-      createdSessionID={sessionTab.createdSessionID}
-      title={title}
-      onSessionCreated={sessionTab.replaceTab}
-      onClose={() => tabStore.close(props.tabId)}
-    />
+    <DeviceSessionChatProvider>
+      <DeviceSessionView
+        sessionID={props.sessionID}
+        createdSessionID={sessionTab.createdSessionID}
+        title={title}
+        onSessionCreated={sessionTab.replaceTab}
+        onClose={() => tabStore.close(props.tabId)}
+        header={(state) => <DeviceSessionViewHeader state={state} />}
+      />
+    </DeviceSessionChatProvider>
   )
 }
 
