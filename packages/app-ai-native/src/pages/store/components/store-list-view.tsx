@@ -278,7 +278,7 @@ function StoreListRow(props: {
           favoriteCount={favState().favoriteCount}
           pending={view.favoriteActionItemId === item().id}
           authenticated={view.isAuthenticated}
-          disabled={mcpListSubscribeBlocked(item())}
+          disabled={mcpListSubscribeBlocked(item(), favState().favorited)}
           onToggle={view.onToggleFavorite}
           labels={view.favoriteLabels}
         />

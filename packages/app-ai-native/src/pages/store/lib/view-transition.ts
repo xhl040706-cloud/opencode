@@ -30,7 +30,13 @@ export function withViewTransition(update: () => void): void {
   }
   const doc = document as DocumentWithViewTransition
   if (typeof doc.startViewTransition !== "function") {
+    // No View Transitions API (Safari < 18 / older Firefox): run synchronously, then clear the
+    // injected stagger `<style>` ourselves. The `finished` promise path below never runs here
+    // (transition is undefined), so without this the per-item `animation-delay` rules from the
+    // caller's applyStagger() would linger in <head> on every view switch (same-id overwrite, so
+    // bounded but never cleaned). The fallback has no transition for the delays to affect anyway.
     update()
+    applyStagger([])
     return
   }
   const transition = doc.startViewTransition(() => update())

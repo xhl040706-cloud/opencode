@@ -72,9 +72,14 @@ export function SubscribeButton(props: SubscribeButtonProps): JSX.Element {
         const button = buttonRef
         if (!button) return
 
+        // Cancel any in-flight FLIP BEFORE measuring. On rapid re-clicks the previous WAAPI width
+        // animation is still interpolating between two pixel widths, so getBoundingClientRect()
+        // would read a mid-animation width and stash it as prevWidth → next FLIP starts from a
+        // drifted origin and visibly jumps. cancel() has no `fill`, so it immediately clears the
+        // inline width back to auto, making the measurement the correct target (auto) width.
+        widthAnimation?.cancel()
         const newWidth = button.getBoundingClientRect().width // Last: effect runs post-commit
         if (!prefersReducedMotion() && prevWidth && Math.abs(prevWidth - newWidth) > 0.5) {
-          widthAnimation?.cancel()
           widthAnimation = button.animate(
             [{ width: `${prevWidth}px` }, { width: `${newWidth}px` }],
             { duration: 280, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }, // no fill → settles to auto

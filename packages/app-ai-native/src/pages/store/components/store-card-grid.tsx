@@ -270,7 +270,7 @@ function StoreCard(props: { item: CapabilityItem; view: StoreItemViewProps }) {
             favoriteCount={favState().favoriteCount}
             pending={pending()}
             authenticated={view().isAuthenticated}
-            disabled={mcpListSubscribeBlocked(item())}
+            disabled={mcpListSubscribeBlocked(item(), favState().favorited)}
             onToggle={view().onToggleFavorite}
             labels={view().favoriteLabels}
           />

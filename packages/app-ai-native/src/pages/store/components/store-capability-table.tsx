@@ -725,8 +725,18 @@ export { HighlightText }
 // detected placeholders: an unsubscribed MCP that still has fillable placeholder params must be
 // configured on the detail page first. Already-favorited rows (unsubscribe) are never blocked,
 // and non-MCP / MCP-without-placeholders rows are unaffected. Mirrors detail-page gating.
-export function mcpListSubscribeBlocked(item: Pick<CapabilityItem, "itemType" | "metadata" | "favorited">): boolean {
-  return item.itemType === "mcp" && !item.favorited && (mcpRequiresPluginRuntime(item.metadata) || detectMcpFields(item.metadata).length > 0)
+//
+// `favoritedOverride`: the redesign decouples favorited state into home's per-item favStore, so the
+// item object's `favorited` is FROZEN at its stale original value and never reflects a subscribe
+// toggle. Callers with access to the live favStore truth (the card/list views) MUST pass it here,
+// otherwise an MCP subscribed via the detail page keeps `!item.favorited === true` and can never be
+// unsubscribed from the list. Falls back to `item.favorited` when omitted (table column callers).
+export function mcpListSubscribeBlocked(
+  item: Pick<CapabilityItem, "itemType" | "metadata" | "favorited">,
+  favoritedOverride?: boolean,
+): boolean {
+  const favorited = favoritedOverride ?? item.favorited
+  return item.itemType === "mcp" && !favorited && (mcpRequiresPluginRuntime(item.metadata) || detectMcpFields(item.metadata).length > 0)
 }
 
 // mcpListBlockReason picks the tooltip for a blocked row: plugin-runtime dependency wins
