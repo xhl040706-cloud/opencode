@@ -8,13 +8,20 @@
 const STAGGER_STYLE_ID = "store-vt-stagger"
 const STAGGER_STEP_MS = 22
 
+type ViewTransition = { finished?: Promise<unknown> }
 type DocumentWithViewTransition = Document & {
-  startViewTransition?: (callback: () => void) => unknown
+  startViewTransition?: (callback: () => void) => ViewTransition
 }
 
 /**
  * Run `update` inside a view transition when supported, otherwise run it directly.
  * `update` should perform the synchronous Solid signal writes that mutate the DOM.
+ *
+ * PERF: once the transition settles we clear the per-item stagger `<style>` (see applyStagger).
+ * The injected `animation-delay` rules are only meaningful during this transition; leaving them
+ * resident would (a) keep up to PAGE_SIZE stale rules in <head> and (b) risk delaying an unrelated
+ * later transition that didn't call applyStagger. Clearing after `finished` can't affect the
+ * already-completed animation.
  */
 export function withViewTransition(update: () => void): void {
   if (typeof document === "undefined") {
@@ -26,7 +33,8 @@ export function withViewTransition(update: () => void): void {
     update()
     return
   }
-  doc.startViewTransition(() => update())
+  const transition = doc.startViewTransition(() => update())
+  transition?.finished?.then?.(() => applyStagger([])).catch(() => applyStagger([]))
 }
 
 /**

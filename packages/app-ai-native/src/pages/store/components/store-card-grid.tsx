@@ -111,8 +111,11 @@ function StoreCard(props: { item: CapabilityItem; view: StoreItemViewProps }) {
       // .gcard: bg panel, 1px border, radius 18px, overflow hidden, hover lift + type-color border + shadow.
       // Hover uses a longer 260ms spring-ish ease so the lift / border / shadow glide in (and back
       // out) smoothly; will-change-transform promotes a compositor layer to avoid sub-pixel jitter.
+      // PERF: scope will-change to :hover only — a *static* will-change on every card keeps a
+      // compositor layer resident for all 15 cards permanently (extra GPU memory / composited
+      // layers). hover:will-change-transform lets the browser promote on hover and release after.
       class={cn(
-        "group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-[var(--native-panel)] will-change-transform transition-[transform,border-color,box-shadow] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[3px] hover:shadow-[var(--native-shadow-md)]",
+        "group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-[var(--native-panel)] transition-[transform,border-color,box-shadow] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-[3px] hover:shadow-[var(--native-shadow-md)] hover:will-change-transform",
         enterprise()
           ? "border-[color:color-mix(in_oklab,var(--card-brand)_45%,var(--native-border))]"
           : "border-[color:color-mix(in_oklab,var(--native-border)_42%,transparent)] hover:border-[color:color-mix(in_oklab,var(--card-type)_55%,var(--native-border))]",

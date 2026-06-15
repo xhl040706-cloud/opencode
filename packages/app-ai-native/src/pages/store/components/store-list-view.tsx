@@ -119,7 +119,9 @@ function StoreListRow(props: {
       class={cn(
         // hover 丝滑：transform/border/shadow 同一缓动(ease-out-back-ish cubic-bezier)与时长(220ms)，
         // will-change-transform 提升合成层避免位移抖动；hover 时平滑右移 + 边框/阴影渐入。
-        "group relative flex cursor-pointer items-center gap-3.5 overflow-hidden rounded-[1rem] px-[1.125rem] py-3.5 transition-[transform,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:translate-x-[3px] hover:shadow-[var(--native-shadow-md)]",
+        // PERF: will-change 仅在 :hover 时生效 — 静态 will-change 会让 15 行各自常驻一个合成层
+        // （额外显存/合成层）。hover:will-change-transform 让浏览器仅在 hover 时提升、离开后释放。
+        "group relative flex cursor-pointer items-center gap-3.5 overflow-hidden rounded-[1rem] px-[1.125rem] py-3.5 transition-[transform,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:translate-x-[3px] hover:shadow-[var(--native-shadow-md)] hover:will-change-transform",
         enterprise()
           ? "border border-[color:color-mix(in_oklab,var(--bc)_36%,var(--native-border))] bg-[linear-gradient(100deg,color-mix(in_oklab,var(--bc)_12%,var(--native-panel)),var(--native-panel)_46%)] hover:border-[color:color-mix(in_oklab,var(--bc)_55%,var(--native-border))]"
           : "border border-[color:color-mix(in_oklab,var(--native-border)_28%,transparent)] bg-[var(--native-panel)] hover:border-[color:color-mix(in_oklab,var(--native-border)_55%,transparent)]",
