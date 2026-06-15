@@ -654,6 +654,7 @@ export const dict = {
   "store.home.sort.recentlyUpdated": "Recently updated",
   "store.home.view.card": "Cards",
   "store.home.view.list": "List",
+  "store.home.pagination.perPage": "{{count}}/page",
   "store.home.typeTab.all": "All",
   "store.home.typeTab.skill": "Skills",
   "store.home.typeTab.subagent": "Subagents",

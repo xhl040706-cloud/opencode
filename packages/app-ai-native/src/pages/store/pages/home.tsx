@@ -99,13 +99,17 @@ const STORE_TYPES = [
 type StoreType = (typeof STORE_TYPES)[number]["value"]
 type ListData = Awaited<ReturnType<typeof itemApi.list>>
 type SecurityFilterValue = SecurityRiskGroup
-const PAGE_SIZE = 15
+// 每页条数：可选项 + 默认值。页大小现由用户在分页器里选择并持久化（store.pageSize）。
+const PAGE_SIZE_OPTIONS = [15, 30, 50] as const
+const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[0]
+const MAX_PAGE_SIZE = Math.max(...PAGE_SIZE_OPTIONS)
 
 // Entrance animation for the card/list items when an applied filter/sort/search query yields a
 // fresh result set. The keyed wrapper (`[data-store-list-enter]`) remounts on each new query, so
 // its item children freshly mount and play `store-row-enter` once. Stagger by document order via
-// nth-child (covers up to PAGE_SIZE rows). reduced-motion disables it. The card⇄list view switch
-// does NOT use this path (it animates as shared elements via View Transitions).
+// nth-child (covers up to MAX_PAGE_SIZE rows so any selected page size is fully staggered).
+// reduced-motion disables it. The card⇄list view switch does NOT use this path (it animates as
+// shared elements via View Transitions).
 const STORE_LIST_ENTER_CSS = `
 @keyframes store-row-enter {
   from { opacity: 0; transform: translateY(8px); }
@@ -114,7 +118,7 @@ const STORE_LIST_ENTER_CSS = `
 [data-store-list-enter] > div > * {
   animation: store-row-enter 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-${Array.from({ length: PAGE_SIZE }, (_, i) =>
+${Array.from({ length: MAX_PAGE_SIZE }, (_, i) =>
   `[data-store-list-enter] > div > *:nth-child(${i + 1}){animation-delay:${i * 22}ms}`,
 ).join("")}
 @media (prefers-reduced-motion: reduce) {
@@ -193,6 +197,20 @@ export default function Home() {
     if (mode === viewMode()) return
     applyStagger(rows().map((row) => row.id))
     withViewTransition(() => setViewPrefs("mode", mode))
+  }
+
+  // 每页条数（persisted）。默认 15，用户可在分页器里切换 15/30/50。切换时回到第一页并关闭详情，
+  // listParams.pageSize 变化会触发 createResource 重取（正常）。
+  const [pageSizePrefs, setPageSizePrefs] = persisted(
+    Persist.global("store.pageSize"),
+    createStore({ size: DEFAULT_PAGE_SIZE as number }),
+  )
+  const pageSize = createMemo(() => pageSizePrefs.size)
+  const setPageSize = (size: number) => {
+    if (size === pageSize()) return
+    setPageSizePrefs("size", size)
+    setPage(1)
+    setSelectedItemId(null)
   }
 
   // ─── 筛选 / 排序 / 搜索导致列表内容变化时的丝滑入场 ───
@@ -285,7 +303,7 @@ export default function Home() {
     tags: appliedTagFilters().length ? appliedTagFilters() : undefined,
     securityStatuses: appliedSecurityFilters().length ? appliedSecurityFilters() : undefined,
     page: page(),
-    pageSize: PAGE_SIZE,
+    pageSize: pageSize(),
     sortBy: sort.by,
     sortOrder: sort.order,
     includeForks: showForks() || undefined,
@@ -318,7 +336,7 @@ export default function Home() {
     setListAnimEpoch((n) => n + 1)
     setListEnterActive(true)
     clearTimeout(listEnterTimer)
-    listEnterTimer = setTimeout(() => setListEnterActive(false), PAGE_SIZE * 22 + 340 + 80)
+    listEnterTimer = setTimeout(() => setListEnterActive(false), pageSize() * 22 + 340 + 80)
   })
 
   const typeMeta = createMemo(() => STORE_TYPES.find((entry) => entry.value === activeType()) ?? STORE_TYPES[0])
@@ -424,7 +442,7 @@ export default function Home() {
   const securityOptions = createMemo(() => itemFilterOptions.securityRiskGroups())
   const rows = createMemo(() => listData()?.items ?? [])
   const totalItems = createMemo(() => listData()?.total ?? 0)
-  const totalPages = createMemo(() => Math.max(1, Math.ceil(totalItems() / PAGE_SIZE)))
+  const totalPages = createMemo(() => Math.max(1, Math.ceil(totalItems() / pageSize())))
   const listError = createMemo(() => (list.error instanceof Error ? list.error.message : ""))
   const showError = createMemo(() => !!listError() && rows().length === 0)
   const detailOpen = createMemo(() => !!selectedItemId())
@@ -1116,17 +1134,19 @@ export default function Home() {
 
         <StoreTableFooter
           page={page()}
-          pageSize={PAGE_SIZE}
+          pageSize={pageSize()}
           totalPages={totalPages()}
           totalItems={totalItems()}
           summary={formatStoreTablePaginationSummary({
             page: page(),
-            pageSize: PAGE_SIZE,
+            pageSize: pageSize(),
             totalItems: totalItems(),
             showingLabel: (args) => language.t("store.console.capabilities.showing", args),
             emptyLabel: language.t("store.home.pagination.empty"),
           })}
           onPageChange={handlePageChange}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[...PAGE_SIZE_OPTIONS]}
         />
         </div>
       </section>

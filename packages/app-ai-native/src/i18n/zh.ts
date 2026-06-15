@@ -1581,6 +1581,7 @@ export const dict = {
   "store.home.sort.recentlyUpdated": "最近更新",
   "store.home.view.card": "卡片",
   "store.home.view.list": "列式",
+  "store.home.pagination.perPage": "{{count}}/页",
   "store.home.typeTab.all": "全部",
   "store.home.typeTab.skill": "技能",
   "store.home.typeTab.subagent": "子代理",

@@ -1,4 +1,4 @@
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { TextField, TextFieldInput } from "@/components/ui/text-field"
 import { LocalIcon } from "@/components/local-icon"
@@ -654,12 +654,43 @@ export function StoreTableFooter(props: {
   totalItems: number
   summary: string
   onPageChange: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
+  pageSizeOptions?: number[]
 }) {
+  const language = useLanguage()
   const visiblePages = () => rangePages(props.page, props.totalPages)
+  const pageSizeOptions = () => props.pageSizeOptions ?? [15, 30, 50]
+  const perPageLabel = (count: number) => language.t("store.home.pagination.perPage", { count })
 
   return (
     <div class={sx.pager}>
-      <div class={sx.pagerSum}>{props.summary}</div>
+      <div class="flex flex-wrap items-center gap-3">
+        <div class={sx.pagerSum}>{props.summary}</div>
+        <Show when={props.onPageSizeChange}>
+          {/* 每页条数选择器：复用工具栏排序下拉的 pill/下拉风格（--native-* token），单选总是回第一页 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              as="button"
+              class="inline-flex h-[1.9375rem] shrink-0 cursor-pointer items-center gap-1.5 rounded-[var(--native-radius-sm)] border border-[color:color-mix(in_oklab,var(--native-border)_48%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_82%,var(--native-bg-subtle))] px-2.5 text-[0.8125rem] font-medium text-[var(--native-muted)] transition-all hover:border-[color:color-mix(in_oklab,var(--native-border-strong)_34%,transparent)] hover:text-[var(--native-foreground)]"
+            >
+              <span class="whitespace-nowrap">{perPageLabel(props.pageSize)}</span>
+              <Icon name="chevron-down" size="small" class="opacity-70" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent class="min-w-[6rem]">
+              <DropdownMenuRadioGroup
+                value={String(props.pageSize)}
+                onChange={(value) => props.onPageSizeChange?.(Number(value))}
+              >
+                <For each={pageSizeOptions()}>
+                  {(option) => (
+                    <DropdownMenuRadioItem value={String(option)}>{perPageLabel(option)}</DropdownMenuRadioItem>
+                  )}
+                </For>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </Show>
+      </div>
       <div class={sx.pagerActs}>
         <button class={st.page(false)} disabled={props.page <= 1} onClick={() => props.onPageChange(1)}>
           <span aria-hidden="true">«</span>
