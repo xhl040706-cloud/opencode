@@ -36,6 +36,7 @@ import { StoreCardGrid, type StoreItemViewProps } from "../components/store-card
 import { StoreListView } from "../components/store-list-view"
 import { StoreFilterBar } from "../components/store-filter-bar"
 import { withViewTransition, applyStagger } from "../lib/view-transition"
+import { ensureEnterpriseLoaded } from "../lib/enterprise"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -516,6 +517,9 @@ export default function Home() {
   })
 
   onMount(() => {
+    // Pull the 大客户 roster from the backend once; falls back to the built-in demo list on
+    // failure/empty (e.g. demo mode where the endpoint is absent). Idempotent across mounts.
+    ensureEnterpriseLoaded()
     const onResize = () => {
       measureTabThumb()
       measureSegThumb()
