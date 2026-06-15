@@ -618,7 +618,8 @@ function ColumnToggleMenu(props: {
   label: string
 }) {
   return (
-    <DropdownMenu>
+    // modal={false}：一致性 + 预防 scroll-lock 残留（同 page-size 下拉，不锁滚动，点外部/Esc 仍关闭）。
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger as="button" class="inline-flex size-7 items-center justify-center rounded-[0.375rem] text-[var(--native-muted)] transition-colors hover:bg-accent hover:text-accent-foreground" title="Toggle columns">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true">
           <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
@@ -667,8 +668,12 @@ export function StoreTableFooter(props: {
       <div class="flex flex-wrap items-center gap-3">
         <div class={sx.pagerSum}>{props.summary}</div>
         <Show when={props.onPageSizeChange}>
-          {/* 每页条数选择器：复用工具栏排序下拉的 pill/下拉风格（--native-* token），单选总是回第一页 */}
-          <DropdownMenu>
+          {/* 每页条数选择器：复用工具栏排序下拉的 pill/下拉风格（--native-* token），单选总是回第一页。
+              modal={false}：Kobalte DropdownMenu 默认 modal=true 会锁 body 滚动；选项一改就触发
+              home setPageSize → setPage(1) → 列表 keyed 重挂 + footer 重渲染，会在 scroll-lock
+              cleanup 跑完前卸载该菜单，残留 body scroll-lock 导致滚轮失效。关掉 modal 即不锁滚动，
+              点外部 / Esc 仍正常关闭。 */}
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger
               as="button"
               class="inline-flex h-[1.9375rem] shrink-0 cursor-pointer items-center gap-1.5 rounded-[var(--native-radius-sm)] border border-[color:color-mix(in_oklab,var(--native-border)_48%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_82%,var(--native-bg-subtle))] px-2.5 text-[0.8125rem] font-medium text-[var(--native-muted)] transition-all hover:border-[color:color-mix(in_oklab,var(--native-border-strong)_34%,transparent)] hover:text-[var(--native-foreground)]"

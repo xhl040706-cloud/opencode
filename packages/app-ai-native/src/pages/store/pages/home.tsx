@@ -970,8 +970,10 @@ export default function Home() {
             <span class="whitespace-nowrap max-[640px]:hidden">{hidePluginItemsLabel()}</span>
           </button>
 
-          {/* 排序下拉：订阅最多 / 评分最高 / 最近更新（始终 desc）；触发器对齐设计稿 .fbtn */}
-          <DropdownMenu>
+          {/* 排序下拉：订阅最多 / 评分最高 / 最近更新（始终 desc）；触发器对齐设计稿 .fbtn。
+              modal={false}：预防同类 scroll-lock（选排序也会 setPage(1) → 列表重挂），且与 page-size/
+              列显隐下拉保持一致——不锁 body 滚动，点外部 / Esc 仍正常关闭。 */}
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger
               as="button"
               class="inline-flex h-[34px] shrink-0 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[var(--native-border)] bg-[var(--native-panel)] px-3 text-[12.5px] font-bold text-[var(--native-foreground)] transition-[color,border-color,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[var(--native-dim)] hover:text-[var(--native-foreground)]"
