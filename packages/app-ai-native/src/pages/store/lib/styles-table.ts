@@ -1,6 +1,28 @@
 export const table = {
   tableShell: "relative overflow-hidden rounded-[0.375rem] border border-[color:color-mix(in_oklab,var(--native-border)_38%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_76%,var(--native-bg-subtle))]",
   state: "px-4 py-12 text-center text-[var(--native-muted)]",
+  // ─── 三态可区分视觉编码（T2-7）：error 警示色+图标+重试按钮 / empty 中性图标+引导 / loading 区别呈现 ───
+  // 通用容器：纵向居中、留白与原 `state` 对齐，子元素之间留间距。
+  stateBox: "flex flex-col items-center justify-center gap-3 px-4 py-12 text-center",
+  // error：警示色文案；图标用 warning 配 #dc2626（与确认弹窗一致）。
+  stateError: "text-sm font-medium text-[#dc2626]",
+  stateErrorIcon: "text-[#dc2626]",
+  // empty：中性图标 + 弱化引导文案。
+  stateEmpty: "text-sm text-[var(--native-muted)]",
+  stateEmptyIcon: "text-[color:color-mix(in_srgb,var(--native-muted)_70%,transparent)]",
+  stateLoading: "text-sm text-[var(--native-muted)]",
+  // 行内重试按钮（error 态、刷新提示条复用）。
+  stateRetry:
+    "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-[8px] border border-[color:color-mix(in_srgb,#dc2626_40%,transparent)] bg-[color:color-mix(in_srgb,#dc2626_8%,transparent)] px-3 text-[12.5px] font-bold text-[#dc2626] transition-[background-color,border-color] hover:bg-[color:color-mix(in_srgb,#dc2626_14%,transparent)]",
+  // empty 态的「清除搜索与筛选」按钮（中性主色描边）。
+  stateClear:
+    "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-[8px] border border-[var(--native-border)] bg-[var(--native-panel)] px-3 text-[12.5px] font-bold text-[var(--native-foreground)] transition-[border-color,color] hover:border-[var(--native-dim)]",
+  // 非阻断刷新提示条（T2-1）：表格顶部一条警示色细条。
+  refreshBar:
+    "mb-3 flex items-center justify-between gap-3 rounded-[8px] border border-[color:color-mix(in_srgb,#dc2626_30%,transparent)] bg-[color:color-mix(in_srgb,#dc2626_6%,transparent)] px-3 py-2 text-[12.5px] font-medium text-[#dc2626]",
+  // loading 骨架行：与 error/empty 的居中灰字明显不同。
+  skeletonRow:
+    "h-12 w-full animate-pulse rounded-[8px] bg-[color:color-mix(in_oklab,var(--native-surface)_70%,var(--native-panel))]",
   overlay: "absolute inset-0 z-10 flex items-center justify-center bg-[color:color-mix(in_oklab,var(--native-panel)_70%,transparent)] backdrop-blur-[4px]",
   spinner: "h-8 w-8 animate-spin rounded-full border-[3px] border-[color:color-mix(in_srgb,var(--native-border)_30%,transparent)] border-t-[var(--native-primary)]",
   thead: "bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))]",
