@@ -244,7 +244,16 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
               for (const [mid, data] of chunk) {
                 const idx = index.get(mid)
                 if (idx !== undefined) {
-                  draft[idx] = data.info
+                  const existing = draft[idx] as Record<string, unknown> | undefined
+                  const incoming = data.info as Record<string, unknown> | undefined
+                  if (
+                    existing?.time && typeof existing.time === "object" && (existing.time as Record<string, unknown>)?.created &&
+                    incoming?.time && typeof incoming.time === "object" && !(incoming.time as Record<string, unknown>)?.created
+                  ) {
+                    draft[idx] = { ...data.info, time: { created: (existing.time as Record<string, unknown>).created, ...incoming.time } } as Message
+                  } else {
+                    draft[idx] = data.info
+                  }
                 } else {
                   draft.push(data.info)
                 }
@@ -377,8 +386,18 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
           if (!store.messages[msgSID]) setStore("messages", msgSID, [])
           setStore("messages", msgSID, produce((draft: Message[]) => {
             const idx = draft.findIndex((m) => m.id === info.id)
-            if (idx !== -1) draft[idx] = info
-            else draft.push(info)
+            if (idx !== -1) {
+              const existing = draft[idx] as Record<string, unknown> | undefined
+              const incoming = info as Record<string, unknown> | undefined
+              if (
+                existing?.time && typeof existing.time === "object" && (existing.time as Record<string, unknown>)?.created &&
+                incoming?.time && typeof incoming.time === "object" && !(incoming.time as Record<string, unknown>)?.created && (incoming.time as Record<string, unknown>)?.completed
+              ) {
+                draft[idx] = { ...info, time: { created: (existing.time as Record<string, unknown>).created, ...incoming.time } } as Message
+              } else {
+                draft[idx] = info
+              }
+            } else draft.push(info)
           }))
           break
         }
