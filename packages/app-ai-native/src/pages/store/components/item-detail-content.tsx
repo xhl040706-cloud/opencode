@@ -145,12 +145,15 @@ export function getInstallCommand(item: CapabilityItem): string | null {
 }
 
 function formatDate(iso: string, locale?: string) {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
   const normalizedLocale = locale?.startsWith("zh") ? "zh-CN" : "en-US"
   return new Intl.DateTimeFormat(normalizedLocale, {
     year: "numeric",
     month: normalizedLocale === "zh-CN" ? "long" : "short",
     day: "numeric",
-  }).format(new Date(iso))
+  }).format(d)
 }
 
 function formatDuration(ms: number) {
@@ -297,7 +300,7 @@ function ScanRow(props: { scan: ScanResult }) {
                   <div class="text-text-strong">{formatDuration(props.scan.durationMs)}</div>
                 </div>
                 <div>
-                  <div class="mb-0.5 text-xs text-text-weak/70">Finished</div>
+                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.finished")}</div>
                   <div class="text-text-strong">{formatDate(props.scan.finishedAt, language.locale())}</div>
                 </div>
               </div>
@@ -306,11 +309,11 @@ function ScanRow(props: { scan: ScanResult }) {
                 <div class="rounded-lg bg-bg-muted p-2.5">
                   <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.suggestions")}</div>
                   <Show
-                    when={props.scan.recommendations.length > 0}
+                    when={(props.scan.recommendations ?? []).length > 0}
                     fallback={<div class="text-text-weak">{language.t("store.scanResults.noRecommendations")}</div>}
                   >
                     <ul class="space-y-1">
-                      <For each={props.scan.recommendations}>
+                      <For each={props.scan.recommendations ?? []}>
                         {(item) => <li class="break-words text-text-strong">{formatValue(item)}</li>}
                       </For>
                     </ul>
@@ -320,11 +323,11 @@ function ScanRow(props: { scan: ScanResult }) {
                 <div class="rounded-lg bg-bg-muted p-2.5">
                   <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.foundIssues")}</div>
                   <Show
-                    when={props.scan.redFlags.length > 0}
+                    when={(props.scan.redFlags ?? []).length > 0}
                     fallback={<div class="text-text-weak">{language.t("store.scanResults.noRedFlags")}</div>}
                   >
                     <ul class="space-y-1">
-                      <For each={props.scan.redFlags}>
+                      <For each={props.scan.redFlags ?? []}>
                         {(item) => <li class="break-words text-text-strong">{formatValue(item)}</li>}
                       </For>
                     </ul>
@@ -1394,7 +1397,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         </div>
                       </div>
 
-                      <Show when={(scans()?.length ?? 0) > 0}>
+                      <Show when={!scans.error && (scans()?.length ?? 0) > 0}>
                         <div>
                           <div
                             class="mb-2 text-xs"
