@@ -1204,6 +1204,20 @@ export const tagApi = {
   },
 }
 
+// 大客户 (enterprise customer) branding config. Each entry binds one customer's uploader account
+// ID(s) to a display name + logo, so store items whose `createdBy` matches an id get branded.
+// Readable by any signed-in user; in demo mode the endpoint is absent and the call rejects (the
+// frontend then falls back to its built-in demo roster — see lib/enterprise.ts).
+export interface EnterpriseCustomer {
+  ids: string[]
+  name: string
+  logo: string
+}
+
+export const enterpriseApi = {
+  list: () => apiFetch<{ customers: EnterpriseCustomer[] }>("/api/enterprise-customers"),
+}
+
 export interface ChannelConfig {
   id: string
   userId: string

@@ -2122,7 +2122,7 @@ export default function CapabilityEditorPage() {
 
   const copyInstallCommand = async () => {
     try {
-      await navigator.clipboard.writeText(installCommand())
+      await navigator.clipboard.writeText(installCommand() ?? "")
       setForm("installCommandCopied", true)
       setTimeout(() => setForm("installCommandCopied", false), 2000)
     } catch {
