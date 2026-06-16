@@ -229,12 +229,14 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
           } else {
             // Compare key fields that matter for rendering
             const newInfo = item.info
+            const m1 = existingMessage as any
+            const m2 = newInfo as any
             messageChanged =
-              existingMessage.content !== newInfo.content ||
-              existingMessage.role !== newInfo.role ||
-              (existingMessage.time?.completed ?? 0) !== (newInfo.time?.completed ?? 0) ||
-              existingMessage.error !== newInfo.error ||
-              (existingMessage as any).status !== (newInfo as any).status
+              m1.content !== m2.content ||
+              m1.role !== m2.role ||
+              (m1.time?.completed ?? 0) !== (m2.time?.completed ?? 0) ||
+              m1.error !== m2.error ||
+              m1.status !== m2.status
           }
 
           // Compare parts changes (efficient length and content check)

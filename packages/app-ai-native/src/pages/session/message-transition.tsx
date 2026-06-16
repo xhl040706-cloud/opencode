@@ -174,7 +174,7 @@ export function createMessageUpdateTracker() {
   }
 
   const clearUpdatingState = () => {
-    setUpdatingMessages(new Set())
+    setUpdatingMessages(new Set<string>())
     setUpdatingParts({})
   }
 
