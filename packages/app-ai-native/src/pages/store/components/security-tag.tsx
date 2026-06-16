@@ -36,7 +36,8 @@ const PULSE: Set<SecurityStatus> = new Set(["pending", "scanning"])
 export default function SecurityTag(props: { status?: SecurityStatus }) {
   const language = useLanguage()
   const itemFilterOptions = useItemFilterOptions()
-  const status = () => props.status ?? "unscanned"
+  const status = (): SecurityStatus =>
+    props.status && (props.status as string) in COLORS ? (props.status as SecurityStatus) : "unscanned"
   const text = () => itemFilterOptions.securityStatusLabel(props.status) || language.t(KEYS[status()]).replace(/\.{2,}$/, "")
 
   return (
