@@ -298,6 +298,10 @@ export function DeviceSessionView(props: {
     for (const m of raw) {
       if (m.role === "user") userIDs.add(m.id)
     }
+    const parentIDs = new Set<string>()
+    for (const m of raw) {
+      if (m.role === "assistant" && (m as any).parentID) parentIDs.add((m as any).parentID)
+    }
     let orphanID: string | undefined
     let orphanCreated = false
     const orphan = {
@@ -322,7 +326,7 @@ export function DeviceSessionView(props: {
           continue
         }
       }
-      if (m.role === "user" && !parts[m.id]?.length) continue
+      if (m.role === "user" && !parts[m.id]?.length && !parentIDs.has(m.id)) continue
       enriched.push(m)
     }
     return enriched
