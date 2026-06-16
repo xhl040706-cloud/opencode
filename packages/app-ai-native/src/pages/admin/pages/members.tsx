@@ -1,7 +1,7 @@
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Icon } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
-import { createMemo, For, onMount, Show } from "solid-js"
+import { createMemo, createSignal, For, onMount, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import AvatarDisplay from "@/components/avatar-display"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -9,8 +9,10 @@ import { useAuth } from "@/context/auth"
 import { useLanguage } from "@/context/language"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
 import {
+  adminDeptApi,
   adminUserApi,
-  type AdminOrganization,
+  type AdminDept,
+  type AdminDeptMember,
   type AdminUser,
   type AdminUserProfile,
   type AdminUserStatus,
@@ -20,6 +22,11 @@ import { sx, st } from "../lib/styles"
 const STATUS_FILTERS = ["", "active", "disabled", "banned"] as const
 const PAGE_SIZE = 20
 type Tab = "members" | "organizations"
+
+// dept-sync proxy responds 503 with a stable code when the department service is
+// not configured/unreachable; the org tab keys on this to show a notice instead
+// of a generic error toast.
+const DEPT_UNAVAILABLE_CODE = "dept_sync_unavailable"
 
 export default function AdminMembers() {
   const language = useLanguage()
@@ -35,9 +42,15 @@ export default function AdminMembers() {
     search: string
     debouncedSearch: string
     page: number
-    organizations: AdminOrganization[]
-    orgsLoading: boolean
-    orgsLoaded: boolean
+    // Department-tree (org) tab.
+    tree: AdminDept[]
+    treeLoading: boolean
+    treeLoaded: boolean
+    treeUnavailable: boolean
+    selectedDeptId: string
+    selectedDeptName: string
+    deptMembers: AdminDeptMember[]
+    deptMembersLoading: boolean
   }>({
     tab: "members",
     users: [],
@@ -47,10 +60,20 @@ export default function AdminMembers() {
     search: "",
     debouncedSearch: "",
     page: 1,
-    organizations: [],
-    orgsLoading: false,
-    orgsLoaded: false,
+    tree: [],
+    treeLoading: false,
+    treeLoaded: false,
+    treeUnavailable: false,
+    selectedDeptId: "",
+    selectedDeptName: "",
+    deptMembers: [],
+    deptMembersLoading: false,
   })
+
+  // Collapsible state for tree nodes (default: expanded).
+  const [collapsed, setCollapsed] = createSignal<Record<string, boolean>>({})
+  const isCollapsed = (id: string) => collapsed()[id] === true
+  const toggleCollapse = (id: string) => setCollapsed((c) => ({ ...c, [id]: !c[id] }))
 
   // Per-row status-action loading guard.
   const [actionLoading, setActionLoading] = createStore<Record<string, boolean>>({})
@@ -90,20 +113,58 @@ export default function AdminMembers() {
     }
   }
 
-  async function loadOrganizations() {
-    setState("orgsLoading", true)
+  // Distinguish "department service unavailable" (503 dept_sync_unavailable) from
+  // a real error: the former renders an inline notice, the latter toasts.
+  function isDeptUnavailable(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err)
+    return msg.includes(DEPT_UNAVAILABLE_CODE) || msg.includes("department service")
+  }
+
+  async function loadTree() {
+    setState("treeLoading", true)
+    setState("treeUnavailable", false)
     try {
-      const res = await adminUserApi.listOrganizations()
-      setState("organizations", res.organizations ?? [])
-      setState("orgsLoaded", true)
+      const res = await adminDeptApi.tree()
+      setState("tree", res.departments ?? [])
+      setState("treeLoaded", true)
     } catch (err) {
-      showToast({
-        variant: "error",
-        title: language.t("admin.members.toast.orgsFailed"),
-        description: err instanceof Error ? err.message : String(err),
-      })
+      if (isDeptUnavailable(err)) {
+        setState("treeUnavailable", true)
+        setState("treeLoaded", true)
+      } else {
+        showToast({
+          variant: "error",
+          title: language.t("admin.members.toast.treeFailed"),
+          description: err instanceof Error ? err.message : String(err),
+        })
+      }
     } finally {
-      setState("orgsLoading", false)
+      setState("treeLoading", false)
+    }
+  }
+
+  async function selectDept(d: AdminDept) {
+    setState("selectedDeptId", d.deptId)
+    setState("selectedDeptName", d.deptName)
+    setState("deptMembers", [])
+    setState("deptMembersLoading", true)
+    try {
+      const res = await adminDeptApi.deptUsers(d.deptId)
+      // Guard against a stale response if the user clicked another dept meanwhile.
+      if (state.selectedDeptId !== d.deptId) return
+      setState("deptMembers", res.members ?? [])
+    } catch (err) {
+      if (isDeptUnavailable(err)) {
+        setState("treeUnavailable", true)
+      } else {
+        showToast({
+          variant: "error",
+          title: language.t("admin.members.toast.deptUsersFailed"),
+          description: err instanceof Error ? err.message : String(err),
+        })
+      }
+    } finally {
+      if (state.selectedDeptId === d.deptId) setState("deptMembersLoading", false)
     }
   }
 
@@ -111,7 +172,7 @@ export default function AdminMembers() {
 
   function switchTab(tab: Tab) {
     setState("tab", tab)
-    if (tab === "organizations" && !state.orgsLoaded) void loadOrganizations()
+    if (tab === "organizations" && !state.treeLoaded) void loadTree()
   }
 
   function setStatusFilter(value: string) {
@@ -151,6 +212,25 @@ export default function AdminMembers() {
     } finally {
       setDetail("loading", false)
     }
+  }
+
+  // Open the member detail drawer from a linked dept-sync member: build a minimal
+  // AdminUser from the linked local user, then load the full profile by subject id.
+  function openLinkedMemberDetail(member: AdminDeptMember) {
+    if (!member.linked) return
+    const l = member.linked
+    void openDetail({
+      subject_id: l.subjectId,
+      username: member.username,
+      displayName: l.displayName,
+      email: l.email,
+      avatarUrl: l.avatarUrl,
+      organization: l.organization,
+      status: l.status,
+      roles: l.roles,
+      lastLoginAt: null,
+      createdAt: "",
+    })
   }
 
   async function applyStatus(u: AdminUser, status: AdminUserStatus) {
@@ -210,6 +290,63 @@ export default function AdminMembers() {
     const d = new Date(iso)
     return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString(language.locale() === "zh" ? "zh-CN" : "en-US")
   }
+
+  // Recursive department-tree node. Renders a row (collapse toggle + name) and,
+  // when expanded, its children indented one level deeper.
+  function DeptTreeNode(props: { node: AdminDept; depth: number }) {
+    const node = () => props.node
+    const hasChildren = () => !!node().children && node().children!.length > 0
+    const selected = () => state.selectedDeptId === node().deptId
+    return (
+      <li role="treeitem" aria-expanded={hasChildren() ? !isCollapsed(node().deptId) : undefined} aria-selected={selected()}>
+        <div
+          class={`flex items-center gap-1 rounded-[var(--native-radius-sm)] transition-colors ${
+            selected()
+              ? "bg-[color:color-mix(in_oklab,var(--native-primary)_12%,transparent)]"
+              : "hover:bg-[color:color-mix(in_oklab,var(--native-border)_22%,transparent)]"
+          }`}
+          style={{ "padding-left": `${props.depth * 16}px` }}
+        >
+          <Show
+            when={hasChildren()}
+            fallback={<span class="inline-block w-5 shrink-0" aria-hidden="true" />}
+          >
+            <button
+              type="button"
+              class="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--native-primary)]"
+              aria-label={
+                isCollapsed(node().deptId) ? language.t("admin.members.org.expand") : language.t("admin.members.org.collapse")
+              }
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleCollapse(node().deptId)
+              }}
+            >
+              <Icon name={isCollapsed(node().deptId) ? "chevron-right" : "chevron-down"} size="small" />
+            </button>
+          </Show>
+          <button
+            type="button"
+            class={`flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 py-1 pr-2 text-left text-[0.8125rem] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--native-primary)] ${
+              selected() ? "font-semibold text-[var(--native-primary)]" : "text-[var(--native-foreground)]"
+            }`}
+            onClick={() => void selectDept(node())}
+          >
+            <Icon name="folder" size="small" class="shrink-0 text-[var(--native-muted)]" />
+            <span class="truncate">{node().deptName}</span>
+          </button>
+        </div>
+        <Show when={hasChildren() && !isCollapsed(node().deptId)}>
+          <ul role="group">
+            <For each={node().children}>{(child) => <DeptTreeNode node={child} depth={props.depth + 1} />}</For>
+          </ul>
+        </Show>
+      </li>
+    )
+  }
+
+  // Semantic status pill class shared by member rows and the dept-member list.
+  const memberStatusStyle = (s: string) => statusStyle(s)
 
   return (
     <section class={sx.section}>
@@ -418,40 +555,169 @@ export default function AdminMembers() {
         </Show>
       </Show>
 
-      {/* Organizations tab */}
+      {/* Organizations tab — real department tree (via dept-sync) */}
       <Show when={state.tab === "organizations"}>
-        <div class={sx.tableShell}>
-          <Show when={state.orgsLoading}>
-            <div class={sx.overlay}>
-              <div class={sx.spinner} />
+        {/* dept-sync not configured / unreachable → inline notice (no crash) */}
+        <Show when={state.treeUnavailable}>
+          <div class="flex flex-col items-center gap-3 rounded-[var(--native-radius-lg)] border border-dashed border-[color:color-mix(in_oklab,var(--native-border)_55%,transparent)] px-6 py-12 text-center">
+            <Icon name="warning" size="large" class="text-[var(--native-muted)]" />
+            <div class="text-[0.9375rem] font-semibold text-[var(--native-foreground)]">
+              {language.t("admin.members.org.unavailableTitle")}
             </div>
-          </Show>
+            <p class="max-w-md text-[0.8125rem] leading-relaxed text-[var(--native-muted)]">
+              {language.t("admin.members.org.unavailableHint")}
+            </p>
+            <button
+              type="button"
+              class="cursor-pointer rounded-[var(--native-radius-md)] border border-[var(--native-primary)] px-3 py-1.5 text-[0.8125rem] text-[var(--native-primary)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-primary)_10%,transparent)]"
+              onClick={() => void loadTree()}
+            >
+              {language.t("admin.members.org.retry")}
+            </button>
+          </div>
+        </Show>
 
-          <table class={sx.dtStatic}>
-            <thead>
-              <tr>
-                <th>{language.t("admin.members.org.columns.name")}</th>
-                <th class="w-32 text-right">{language.t("admin.members.org.columns.members")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={state.organizations}>
-                {(org) => (
-                  <tr>
-                    <td class="font-semibold text-[var(--native-foreground)]">{org.organization}</td>
-                    <td class="text-right text-[var(--native-muted)] [font-variant-numeric:tabular-nums]">
-                      {org.memberCount}
-                    </td>
-                  </tr>
-                )}
-              </For>
-            </tbody>
-          </table>
+        <Show when={!state.treeUnavailable}>
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(220px,300px)_1fr]">
+            {/* Left: department tree */}
+            <div class="relative min-h-[200px] rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] bg-background-base p-2">
+              <div class="mb-1.5 px-1 pt-0.5">
+                <div class="text-[0.8125rem] font-semibold text-[var(--native-foreground)]">
+                  {language.t("admin.members.org.treeTitle")}
+                </div>
+                <div class="text-[11px] text-[var(--native-muted)]">{language.t("admin.members.org.treeSubtitle")}</div>
+              </div>
 
-          <Show when={!state.orgsLoading && state.organizations.length === 0}>
-            <div class={sx.state}>{language.t("admin.members.org.empty")}</div>
-          </Show>
-        </div>
+              <Show when={state.treeLoading}>
+                <div class={sx.overlay}>
+                  <div class={sx.spinner} />
+                </div>
+              </Show>
+
+              <Show
+                when={!state.treeLoading && state.tree.length === 0}
+                fallback={
+                  <ul role="tree" aria-label={language.t("admin.members.org.treeTitle")} class="thin-scrollbar max-h-[60vh] overflow-y-auto">
+                    <For each={state.tree}>{(node) => <DeptTreeNode node={node} depth={0} />}</For>
+                  </ul>
+                }
+              >
+                <div class={sx.state}>{language.t("admin.members.org.treeEmpty")}</div>
+              </Show>
+            </div>
+
+            {/* Right: selected department members */}
+            <div class="relative min-h-[200px] rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] bg-background-base">
+              <Show
+                when={state.selectedDeptId}
+                fallback={<div class={sx.state}>{language.t("admin.members.org.selectDept")}</div>}
+              >
+                <div class="flex items-center justify-between gap-2 border-b border-[color:color-mix(in_oklab,var(--native-border)_30%,transparent)] px-3 py-2.5">
+                  <div class="min-w-0">
+                    <div class="truncate text-[0.875rem] font-semibold text-[var(--native-foreground)]">
+                      {state.selectedDeptName}
+                    </div>
+                    <div class="text-[11px] text-[var(--native-muted)]">
+                      {language.t("admin.members.org.memberCount", { count: String(state.deptMembers.length) })}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="relative">
+                  <Show when={state.deptMembersLoading}>
+                    <div class={sx.overlay}>
+                      <div class={sx.spinner} />
+                    </div>
+                  </Show>
+
+                  <table class={sx.dtStatic}>
+                    <thead>
+                      <tr>
+                        <th>{language.t("admin.members.columns.user")}</th>
+                        <th class="w-36">{language.t("admin.members.org.position")}</th>
+                        <th class="w-24">{language.t("admin.members.columns.status")}</th>
+                        <th class="w-40">{language.t("admin.members.columns.roles")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <For each={state.deptMembers}>
+                        {(member) => (
+                          <tr>
+                            <td>
+                              <Show
+                                when={member.registered && member.linked}
+                                fallback={
+                                  <div class="flex items-center gap-2.5">
+                                    <AvatarDisplay avatarUrl="" username={member.username} size={28} radius={6} />
+                                    <span class="min-w-0">
+                                      <span class="block truncate font-semibold text-[var(--native-foreground)]">
+                                        {member.username}
+                                      </span>
+                                      <span class="block truncate text-[11px] text-[var(--native-muted)]">
+                                        {language.t("admin.members.org.unregistered")}
+                                      </span>
+                                    </span>
+                                  </div>
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  class="flex cursor-pointer items-center gap-2.5 text-left"
+                                  onClick={() => openLinkedMemberDetail(member)}
+                                >
+                                  <AvatarDisplay
+                                    avatarUrl={member.linked!.avatarUrl}
+                                    username={member.linked!.displayName || member.username}
+                                    size={28}
+                                    radius={6}
+                                  />
+                                  <span class="min-w-0">
+                                    <span class="block truncate font-semibold text-[var(--native-foreground)] hover:underline">
+                                      {member.linked!.displayName || member.username}
+                                    </span>
+                                    <span class="block truncate text-[11px] text-[var(--native-muted)]">
+                                      {member.linked!.email || member.username}
+                                    </span>
+                                  </span>
+                                </button>
+                              </Show>
+                            </td>
+                            <td class="truncate text-[var(--native-muted)]">
+                              {member.position || "—"}
+                              <Show when={member.isMain}>
+                                <span class="ml-1.5 inline-flex items-center rounded-[var(--native-radius-sm)] bg-[color:color-mix(in_oklab,var(--native-primary)_12%,transparent)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--native-primary)]">
+                                  {language.t("admin.members.org.mainDept")}
+                                </span>
+                              </Show>
+                            </td>
+                            <td>
+                              <Show when={member.linked} fallback={<span class="text-[var(--native-muted)]">—</span>}>
+                                <span
+                                  class={`inline-flex items-center rounded-[var(--native-radius-sm)] px-1.5 py-0.5 text-[11px] font-medium ${memberStatusStyle(member.linked!.status)}`}
+                                >
+                                  {statusLabel(member.linked!.status)}
+                                </span>
+                              </Show>
+                            </td>
+                            <td class="text-[var(--native-muted)]">
+                              <Show when={member.linked && member.linked.roles.length > 0} fallback={<span>—</span>}>
+                                <span class="text-[12px]">{member.linked!.roles.map(roleLabel).join(", ")}</span>
+                              </Show>
+                            </td>
+                          </tr>
+                        )}
+                      </For>
+                    </tbody>
+                  </table>
+
+                  <Show when={!state.deptMembersLoading && state.deptMembers.length === 0}>
+                    <div class={sx.state}>{language.t("admin.members.org.membersEmpty")}</div>
+                  </Show>
+                </div>
+              </Show>
+            </div>
+          </div>
+        </Show>
       </Show>
 
       {/* Detail drawer */}

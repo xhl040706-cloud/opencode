@@ -20,9 +20,12 @@ import {
   seedAdminReceipts,
   seedResourcePermissions,
   seedUserSystemRoles,
+  seedPermissionGrants,
   seedAdminUsers,
   getMockAdminUserProfile,
   getMockAdminOrganizations,
+  seedAdminDeptTree,
+  getMockAdminDeptMembers,
   seedSystemNotificationChannels,
   seedSystemSettings,
   seedAuditLogs,
@@ -43,6 +46,7 @@ import type {
   DistributionReceipt,
   DistributionResult,
   ResourcePermission,
+  PermissionGrant,
   SystemNotificationChannel,
 } from "./api"
 
@@ -81,6 +85,23 @@ function matchesSubResource(path: string, prefix: string, suffix: string): boole
   return rest.endsWith(suffix)
 }
 
+// Resolve a department's materialized dept_path from the seeded dept-sync tree.
+// Mirrors the backend's GetDepartmentPath (tree walk) so department grants stored
+// in demo mode carry the same dept_path used for prefix-based inheritance.
+function findMockDeptPath(deptId: string): string {
+  const walk = (nodes: { deptId: string; deptPath: string; children?: typeof nodes }[]): string => {
+    for (const n of nodes) {
+      if (n.deptId === deptId) return n.deptPath
+      if (n.children?.length) {
+        const found = walk(n.children)
+        if (found) return found
+      }
+    }
+    return ""
+  }
+  return walk(seedAdminDeptTree())
+}
+
 // In-memory enterprise customers store for demo mode. MUST start empty so the
 // store's one-shot ensureEnterpriseLoaded() sees an empty list and keeps the
 // built-in DEMO_FALLBACK branding intact on first paint.
@@ -95,6 +116,7 @@ let adminDistributions: AdminDistribution[] = seedAdminDistributions()
 const adminReceipts: Record<string, DistributionReceipt[]> = seedAdminReceipts()
 const resourcePermissions: ResourcePermission[] = seedResourcePermissions()
 const userSystemRoles: Record<string, string[]> = seedUserSystemRoles()
+let permissionGrants: PermissionGrant[] = seedPermissionGrants()
 let adminUsers: AdminUser[] = seedAdminUsers()
 let notificationChannels: SystemNotificationChannel[] = seedSystemNotificationChannels()
 const systemSettings: Record<string, unknown> = seedSystemSettings()
@@ -430,6 +452,45 @@ export async function mockApiFetch<T>(url: string, options?: RequestInit): Promi
     return { success: true } as T
   }
 
+  // Fine-grained permission grants (mentor RBAC Phase 2).
+  // GET /api/admin/permission-grants?permissionCode=
+  if (path.endsWith("/api/admin/permission-grants") && method === "GET") {
+    const code = params.get("permissionCode") ?? ""
+    const rows = code ? permissionGrants.filter((g) => g.permissionCode === code) : permissionGrants
+    return { grants: rows.map((g) => ({ ...g })) } as T
+  }
+  // POST /api/admin/permission-grants  body {permissionCode,subjectType,subjectId}
+  if (path.endsWith("/api/admin/permission-grants") && method === "POST") {
+    const body = options?.body ? JSON.parse(options.body as string) : {}
+    const permissionCode = String(body.permissionCode ?? "").trim()
+    const subjectType = body.subjectType === "department" ? "department" : "user"
+    const subjectId = String(body.subjectId ?? "").trim()
+    // Department grants store the materialized dept_path so descendants inherit.
+    const deptPath = subjectType === "department" ? findMockDeptPath(subjectId) : ""
+    // Idempotent: return the existing grant if (code,type,id) already exists.
+    const existing = permissionGrants.find(
+      (g) => g.permissionCode === permissionCode && g.subjectType === subjectType && g.subjectId === subjectId,
+    )
+    if (existing) return { grant: { ...existing } } as T
+    const grant: PermissionGrant = {
+      id: `pg-${Date.now()}`,
+      permissionCode,
+      subjectType,
+      subjectId,
+      deptPath,
+      grantedBy: MOCK_USER.subjectId,
+      createdAt: new Date().toISOString(),
+    }
+    permissionGrants = [grant, ...permissionGrants]
+    return { grant: { ...grant } } as T
+  }
+  // DELETE /api/admin/permission-grants/:id
+  if (matchesSubResource(path, "/api/admin/permission-grants/", "") && method === "DELETE") {
+    const id = decodeURIComponent(extractSegment(path, "/api/admin/permission-grants/") ?? "")
+    permissionGrants = permissionGrants.filter((g) => g.id !== id)
+    return { success: true } as T
+  }
+
   // System roles (per-user grant/revoke).
   // GET /api/admin/system-roles/users/:id
   if (matchesSubResource(path, "/api/admin/system-roles/users/", "") && method === "GET") {
@@ -475,6 +536,18 @@ export async function mockApiFetch<T>(url: string, options?: RequestInit): Promi
   // GET /api/admin/organizations
   if (path.endsWith("/api/admin/organizations") && method === "GET") {
     return { organizations: getMockAdminOrganizations(adminUsers) } as T
+  }
+
+  // ── Admin · Department tree (M1, dept-sync proxy) ─────────────────────────
+  // GET /api/admin/departments/tree
+  if (path.endsWith("/api/admin/departments/tree") && method === "GET") {
+    return { departments: seedAdminDeptTree() } as T
+  }
+  // GET /api/admin/departments/:id/users
+  if (matchesSubResource(path, "/api/admin/departments/", "/users") && method === "GET") {
+    const rest = path.slice("/api/admin/departments/".length)
+    const id = decodeURIComponent(rest.replace(/\/users$/, ""))
+    return { members: getMockAdminDeptMembers(id, adminUsers) } as T
   }
   // GET /api/admin/users?search&status&organization&page&pageSize
   if ((path.endsWith("/api/admin/users") || path.includes("/api/admin/users?")) && method === "GET") {

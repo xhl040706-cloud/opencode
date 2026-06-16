@@ -17,9 +17,12 @@ import type {
   SearchedUser,
   DistributionReceipt,
   ResourcePermission,
+  PermissionGrant,
   AdminUser,
   AdminUserProfile,
   AdminOrganization,
+  AdminDept,
+  AdminDeptMember,
   SystemNotificationChannel,
   AdminAuditLog,
   AdminItem,
@@ -743,6 +746,26 @@ export function seedUserSystemRoles(): Record<string, string[]> {
   }
 }
 
+// Fine-grained permission grants (mentor RBAC Phase 2). Seeds the canonical
+// mentor examples so the admin "department/fine-grained grant" tab is populated
+// in demo mode:
+//   - kanban/admin  → user 邓彬 (subject_id user-009)
+//   - kanban/reader → department Costrict研发部 (dept_id 6560, the materialized
+//     dept_path lets descendants like 开发组 inherit it)
+export function seedPermissionGrants(): PermissionGrant[] {
+  const COS = "/深信服科技股份有限公司/研发体系/Costrict研发部"
+  return [
+    {
+      id: "pg-1", permissionCode: "kanban/admin", subjectType: "user",
+      subjectId: "user-009", deptPath: "", grantedBy: "demo-user-001", createdAt: daysAgoIso(2),
+    },
+    {
+      id: "pg-2", permissionCode: "kanban/reader", subjectType: "department",
+      subjectId: "6560", deptPath: COS, grantedBy: "demo-user-001", createdAt: daysAgoIso(2),
+    },
+  ]
+}
+
 // ---------------------------------------------------------------------------
 // M1 · Members + organizations
 // ---------------------------------------------------------------------------
@@ -807,6 +830,111 @@ export function getMockAdminOrganizations(users: AdminUser[]): AdminOrganization
     counts.set(u.organization, (counts.get(u.organization) ?? 0) + 1)
   }
   return [...counts.entries()].map(([organization, memberCount]) => ({ organization, memberCount }))
+}
+
+// ---------------------------------------------------------------------------
+// M1 · Department tree (dept-sync demo) — mirrors the real 深信服 org sample from
+// research/dept-sync.md so demo mode renders a believable nested tree without a
+// live dept-sync service.
+// ---------------------------------------------------------------------------
+const dept = (
+  deptId: string,
+  deptName: string,
+  deptPath: string,
+  parentDeptId: string,
+  deptLevel: number,
+  children: AdminDept[] = [],
+): AdminDept => ({
+  deptId,
+  deptName,
+  deptPath,
+  parentDeptId,
+  deptLevel,
+  childDeptCount: children.length,
+  leaderId: "",
+  orderNum: 0,
+  children: children.length ? children : undefined,
+})
+
+export function seedAdminDeptTree(): AdminDept[] {
+  const SF = "/深信服科技股份有限公司"
+  const RD = `${SF}/研发体系`
+  const ET = `${RD}/工程技术部`
+  const UEDC = `${ET}/用户体验驱动中心`
+  const AI = `${ET}/AI效能部`
+  const COS = `${RD}/Costrict研发部`
+  return [
+    dept("49", "深信服科技股份有限公司", SF, "", 1, [
+      dept("1416", "研发体系", RD, "49", 2, [
+        dept("3099", "工程技术部", ET, "1416", 3, [
+          dept("1492", "用户体验驱动中心", UEDC, "3099", 4, [
+            dept("2681", "UEDC-大安全分部", `${UEDC}/UEDC-大安全分部`, "1492", 5),
+          ]),
+          dept("5889", "AI效能部", AI, "3099", 4, [
+            dept("6652", "AI Native组", `${AI}/AI Native组`, "5889", 5),
+          ]),
+        ]),
+        dept("6560", "Costrict研发部", COS, "1416", 3, [
+          dept("6571", "开发组", `${COS}/开发组`, "6560", 4),
+          dept("6572", "客户成功组", `${COS}/客户成功组`, "6560", 4),
+        ]),
+      ]),
+    ]),
+  ]
+}
+
+// Department members keyed by dept_id. Members link back to local users (the
+// adminUsers seed) by universal id where applicable; unregistered dept-sync
+// users carry linked=null so the UI can mark them "not registered".
+const linkMember = (
+  userId: string,
+  username: string,
+  universalId: string,
+  position: string,
+  isMain: boolean,
+  local?: AdminUser,
+): AdminDeptMember => ({
+  userId,
+  username,
+  universalId,
+  isMain,
+  position,
+  registered: !!local,
+  linked: local
+    ? {
+        subjectId: local.subject_id,
+        displayName: local.displayName,
+        email: local.email,
+        avatarUrl: local.avatarUrl,
+        organization: local.organization,
+        status: local.status,
+        roles: [...local.roles],
+      }
+    : null,
+})
+
+export function getMockAdminDeptMembers(deptId: string, users: AdminUser[]): AdminDeptMember[] {
+  const byId = (id: string) => users.find((u) => u.subject_id === id)
+  switch (deptId) {
+    case "6560": // Costrict研发部
+      return [linkMember("u-wtd", "韦体东", "demo-user-001", "研发主管", true, byId("demo-user-001"))]
+    case "6571": // 开发组
+      return [
+        linkMember("u-zhj", "朱海俊", "user-002", "实习生", true, byId("user-002")),
+        linkMember("u-yhf", "杨航锋", "user-003", "开发工程师", true, byId("user-003")),
+        linkMember("u-xlm", "谢黎明", "uid-xlm", "开发工程师", true),
+        linkMember("u-yqz", "鄢桥志", "uid-yqz", "开发工程师", true),
+        linkMember("u-cx", "陈烜", "user-007", "开发工程师", true, byId("user-007")),
+      ]
+    case "6572": // 客户成功组
+      return [linkMember("u-cs1", "李成功", "user-005", "客户成功经理", true, byId("user-005"))]
+    case "6652": // AI Native组
+      return [linkMember("u-zk", "周凯", "uid-zk", "TMO", true)]
+    case "2681": // UEDC-大安全分部
+      return [linkMember("u-ux1", "赵安全", "user-004", "体验设计师", true, byId("user-004"))]
+    default:
+      return []
+  }
 }
 
 // ---------------------------------------------------------------------------

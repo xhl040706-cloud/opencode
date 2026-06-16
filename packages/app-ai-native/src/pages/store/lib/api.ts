@@ -1315,6 +1315,41 @@ export const adminPermissionApi = {
     }),
 }
 
+// ── Admin · Fine-grained permission grants (mentor RBAC, Phase 2) ───────────
+// A grant binds a permission_code to a subject (user | department). Department
+// grants inherit to descendants via the materialized dept_path (resolved from
+// dept-sync at grant time and stored redundantly server-side). Coexists with the
+// resource-permission role matrix: final authz = role path ∪ grant path.
+export type GrantSubjectType = "user" | "department"
+
+export interface PermissionGrant {
+  id: string
+  permissionCode: string
+  subjectType: GrantSubjectType
+  subjectId: string
+  deptPath: string
+  grantedBy: string
+  createdAt: string
+}
+
+export const adminGrantApi = {
+  listGrants: (permissionCode?: string) => {
+    const qs = permissionCode ? `?permissionCode=${encodeURIComponent(permissionCode)}` : ""
+    return apiFetch<{ grants: PermissionGrant[] }>(`/api/admin/permission-grants${qs}`)
+  },
+
+  grant: (payload: { permissionCode: string; subjectType: GrantSubjectType; subjectId: string }) =>
+    apiFetch<{ grant: PermissionGrant }>("/api/admin/permission-grants", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  revoke: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/admin/permission-grants/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+}
+
 // ── Admin · Member management (M1) ─────────────────────────────────────────
 // Platform-admin member console: paginated/searchable/status-filtered user list,
 // per-member profile aggregation, account-status switch, and organization roll-up.
@@ -1372,6 +1407,50 @@ export const adminUserApi = {
     }),
 
   listOrganizations: () => apiFetch<{ organizations: AdminOrganization[] }>("/api/admin/organizations"),
+}
+
+// ── Admin · Department tree (M1 org view, via dept-sync) ───────────────────
+// Proxies the external dept-sync service (real org tree). dept-sync is an
+// optional backend dependency: when it is not configured/unreachable the
+// endpoints return 503 and the UI shows a "department service unavailable"
+// notice instead of crashing.
+export interface AdminDept {
+  deptId: string
+  deptName: string
+  deptPath: string
+  parentDeptId: string
+  deptLevel: number
+  childDeptCount: number
+  leaderId: string
+  orderNum: number
+  children?: AdminDept[]
+}
+
+// One member of a department: the dept-sync record plus the correlated local
+// user (linked === null when the dept-sync member has no costrict-web account).
+export interface AdminDeptMember {
+  userId: string
+  username: string
+  universalId: string
+  isMain: boolean
+  position: string
+  registered: boolean
+  linked: {
+    subjectId: string
+    displayName: string
+    email: string
+    avatarUrl: string
+    organization: string
+    status: AdminUserStatus
+    roles: string[]
+  } | null
+}
+
+export const adminDeptApi = {
+  tree: () => apiFetch<{ departments: AdminDept[] }>("/api/admin/departments/tree"),
+
+  deptUsers: (id: string) =>
+    apiFetch<{ members: AdminDeptMember[] }>(`/api/admin/departments/${encodeURIComponent(id)}/users`),
 }
 
 // ── Admin · Content management (M6) ────────────────────────────────────────
