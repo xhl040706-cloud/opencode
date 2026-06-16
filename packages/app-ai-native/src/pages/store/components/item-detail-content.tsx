@@ -14,10 +14,10 @@ import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useAuth } from "@/context/auth"
 import { useNavigate } from "@solidjs/router"
 import { env } from "@/lib/env"
-import { itemApi, userApi, type CapabilityItem } from "../lib/api"
+import { itemApi, scanApi, userApi, type CapabilityItem, type ScanResult } from "../lib/api"
 import { useLanguage } from "@/context/language"
 import { pickItemDescription } from "../lib/item-description"
-import SecurityTag from "./security-tag"
+import SecurityTag, { VerdictTag, type Verdict } from "./security-tag"
 import HealthRadar from "./health-radar"
 import { SubscribeButton } from "./subscribe-button"
 import { mcpListSubscribeBlocked } from "./store-capability-table"
@@ -250,6 +250,111 @@ async function highlight(json: string, mode: "light" | "dark") {
   return highlighter.codeToHtml(json, { lang: "json", theme: THEMES[mode] })
 }
 
+function ScanRow(props: { scan: ScanResult }) {
+  const [open, setOpen] = createSignal(false)
+  const language = useLanguage()
+
+  return (
+    <div class="overflow-hidden rounded-lg border border-border-weak-base">
+      <div
+        onClick={() => setOpen((value) => !value)}
+        class="flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-bg-muted/50"
+      >
+        <div class="min-w-0 flex-1">
+          <div class="mb-0.5 flex items-center gap-2">
+            <SecurityTag status={props.scan.riskLevel as never} />
+            <VerdictTag verdict={props.scan.verdict as Verdict} />
+          </div>
+          <p class="break-words text-12-regular text-text-strong">{props.scan.summary || "No summary available"}</p>
+          <div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-text-weak">
+            <span>{formatDate(props.scan.createdAt, language.locale())}</span>
+          </div>
+        </div>
+        <div class="shrink-0 text-text-weak">
+          <Icon
+            name="chevron-down"
+            size="small"
+            class={`transition-transform duration-150 ${open() ? "rotate-0" : "-rotate-90"}`}
+          />
+        </div>
+      </div>
+      <Show when={open()}>
+        {(() => {
+          const perms = Object.entries(props.scan.permissions ?? {})
+          return (
+            <div class="space-y-2.5 px-3 pb-3 pt-1 text-12-regular text-text-weak">
+              <div class="grid gap-2.5 rounded-lg bg-bg-muted p-2.5 sm:grid-cols-2">
+                <div>
+                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.model")}</div>
+                  <div class="text-text-strong">{props.scan.scanModel}</div>
+                </div>
+                <div>
+                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.trigger")}</div>
+                  <div class="capitalize text-text-strong">{props.scan.triggerType}</div>
+                </div>
+                <div>
+                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.duration")}</div>
+                  <div class="text-text-strong">{formatDuration(props.scan.durationMs)}</div>
+                </div>
+                <div>
+                  <div class="mb-0.5 text-xs text-text-weak/70">Finished</div>
+                  <div class="text-text-strong">{formatDate(props.scan.finishedAt, language.locale())}</div>
+                </div>
+              </div>
+
+              <div class="grid gap-2.5 lg:grid-cols-2">
+                <div class="rounded-lg bg-bg-muted p-2.5">
+                  <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.suggestions")}</div>
+                  <Show
+                    when={props.scan.recommendations.length > 0}
+                    fallback={<div class="text-text-weak">{language.t("store.scanResults.noRecommendations")}</div>}
+                  >
+                    <ul class="space-y-1">
+                      <For each={props.scan.recommendations}>
+                        {(item) => <li class="break-words text-text-strong">{formatValue(item)}</li>}
+                      </For>
+                    </ul>
+                  </Show>
+                </div>
+
+                <div class="rounded-lg bg-bg-muted p-2.5">
+                  <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.foundIssues")}</div>
+                  <Show
+                    when={props.scan.redFlags.length > 0}
+                    fallback={<div class="text-text-weak">{language.t("store.scanResults.noRedFlags")}</div>}
+                  >
+                    <ul class="space-y-1">
+                      <For each={props.scan.redFlags}>
+                        {(item) => <li class="break-words text-text-strong">{formatValue(item)}</li>}
+                      </For>
+                    </ul>
+                  </Show>
+                </div>
+              </div>
+
+              <Show when={perms.length > 0}>
+                <div class="rounded-lg bg-bg-muted p-2.5">
+                  <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.permissionNeeds")}</div>
+                  <dl class="grid gap-2 sm:grid-cols-2">
+                    <For each={perms}>
+                      {(entry) => (
+                        <div>
+                          <dt class="text-xs text-text-weak/70">{entry[0]}</dt>
+                          <dd class="mt-0.5 break-words text-text-strong">{formatValue(entry[1])}</dd>
+                        </div>
+                      )}
+                    </For>
+                  </dl>
+                </div>
+              </Show>
+            </div>
+          )
+        })()}
+      </Show>
+    </div>
+  )
+}
+
 function ShareButton(props: { itemId: string; itemName: string }) {
   const language = useLanguage()
   const [qrDataUrl, setQrDataUrl] = createSignal("")
@@ -329,6 +434,10 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
   const [item, { mutate: mutateItem, refetch: refetchItem }] = createResource(
     () => props.itemId,
     (id) => itemApi.get(id),
+  )
+  const [scans] = createResource(
+    () => props.itemId,
+    (id) => scanApi.list(id).then((r) => r.results),
   )
 
   createEffect(() => {
@@ -497,6 +606,29 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
       when={!item.loading}
       fallback={<div class="flex justify-center py-16 text-text-weak">{language.t("store.loading")}</div>}
     >
+      <Show
+        when={!item.error}
+        fallback={
+          <div class="flex flex-col items-center justify-center gap-4 py-16">
+            <p class="text-destructive">{language.t("store.detail.loadFailed")}</p>
+            <button
+              onClick={() => void refetchItem()}
+              class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
+            >
+              <Icon name="reset" size="small" />
+              <span>{language.t("store.detail.retry")}</span>
+            </button>
+            <Show when={props.onBack && props.showBackButton}>
+              <button
+                onClick={props.onBack}
+                class="text-12-regular text-text-weak transition-colors hover:text-text-strong"
+              >
+                {language.t("store.detail.back")}
+              </button>
+            </Show>
+          </div>
+        }
+      >
       <Show
         when={item()}
         fallback={
@@ -735,10 +867,18 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             ))
                           }}
                           class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
-                          title={data().isBuiltIn ? "取消内置 Plugin" : "设为内置 Plugin"}
+                          title={
+                            data().isBuiltIn
+                              ? language.t("store.detail.cancelBuiltInPlugin")
+                              : language.t("store.detail.setBuiltInPlugin")
+                          }
                         >
                           <LocalIcon name={data().isBuiltIn ? "star-filled" : "star"} size="small" />
-                          <span>{data().isBuiltIn ? "取消内置" : "设为内置"}</span>
+                          <span>
+                            {data().isBuiltIn
+                              ? language.t("store.detail.cancelBuiltIn")
+                              : language.t("store.detail.setBuiltIn")}
+                          </span>
                         </button>
                       </Show>
                       <button
@@ -1254,6 +1394,26 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         </div>
                       </div>
 
+                      <Show when={(scans()?.length ?? 0) > 0}>
+                        <div>
+                          <div
+                            class="mb-2 text-xs"
+                            style={{
+                              color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                              "font-weight": 700,
+                            }}
+                          >
+                            {language.t("store.scanResults.securityScan")}
+                          </div>
+                          <div class="space-y-2">
+                            <For each={scans()}>{(scan) => <ScanRow scan={scan} />}</For>
+                          </div>
+                        </div>
+                      </Show>
+                      <Show when={scans.loading}>
+                        <p class="text-12-regular text-text-weak">{language.t("store.loading")}</p>
+                      </Show>
+
                       <Show when={(data().tags ?? []).length > 0}>
                         <div>
                           <div
@@ -1349,6 +1509,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
             </div>
           </div>
         )}
+      </Show>
       </Show>
     </Show>
   )
