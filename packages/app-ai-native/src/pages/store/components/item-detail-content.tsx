@@ -162,9 +162,26 @@ function formatDuration(ms: number) {
   return `${(ms / 60_000).toFixed(1)} min`
 }
 
-function formatValue(value: unknown) {
+// Extracts a human-readable reason from a scan finding object (redFlags/recommendations),
+// preferring known text fields with an optional severity/type label prefix.
+function formatValue(value: unknown): string {
   if (typeof value === "string") return value
   if (typeof value === "number" || typeof value === "boolean") return String(value)
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>
+    const pick = (keys: string[]): string | undefined => {
+      for (const key of keys) {
+        const candidate = record[key]
+        if (typeof candidate === "string" && candidate.length > 0) return candidate
+      }
+      return undefined
+    }
+    const text = pick(["message", "reason", "description", "detail", "text", "title", "name"])
+    if (text) {
+      const label = pick(["severity", "type", "level", "category"])
+      return label ? `[${label}] ${text}` : text
+    }
+  }
   return JSON.stringify(value)
 }
 
