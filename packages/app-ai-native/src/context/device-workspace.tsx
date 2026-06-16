@@ -619,9 +619,45 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
   }
 
   let streamAbort: AbortController | undefined
+  let streamAliveTimer: ReturnType<typeof setTimeout> | undefined
   let streamDisposed = false
+  let streamFailures = 0
+
+  const STREAM_MAX_FAILURES = 5
+  const STREAM_ALIVE_TIMEOUT_MS = 30_000
 
   const PROXY_FATAL_CODES = new Set(["FILTER_ERROR"])
+
+  const disarmAliveTimer = () => {
+    if (streamAliveTimer) {
+      clearTimeout(streamAliveTimer)
+      streamAliveTimer = undefined
+    }
+  }
+
+  const onAliveTimeout = () => {
+    streamAliveTimer = undefined
+    streamFailed()
+  }
+
+  const armAliveTimer = () => {
+    disarmAliveTimer()
+    streamAliveTimer = setTimeout(onAliveTimeout, STREAM_ALIVE_TIMEOUT_MS)
+  }
+
+  const streamFailed = () => {
+    disarmAliveTimer()
+    streamFailures += 1
+    if (streamFailures > STREAM_MAX_FAILURES) {
+      streamDisposed = true
+      streamAbort?.abort()
+      streamAbort = undefined
+      clearDebounceTimers()
+      setStore("status", "unavailable")
+      return
+    }
+    void rebootstrap()
+  }
 
   const startEventStream = async () => {
     streamAbort?.abort()
@@ -636,7 +672,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
           if (proxyCode) {
             setProxyError(proxyCode)
             if (!PROXY_FATAL_CODES.has(proxyCode)) {
-              void rebootstrap()
+              streamFailed()
             }
           }
         },
@@ -644,8 +680,11 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
       const readLoop = async () => {
         try {
           setProxyError(undefined)
+          streamFailures = 0
+          armAliveTimer()
           for await (const event of stream as any) {
             if (signal.aborted) break
+            armAliveTimer()
             if (!event) continue
             const payload = (event.payload ?? event) as EventPayload
             if (!payload?.type) continue
@@ -821,17 +860,19 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             })
           }
           if (!signal.aborted) {
-            void rebootstrap()
+            streamFailed()
           }
         } catch (e) {
+          disarmAliveTimer()
           if ((e as any)?.name === "AbortError") return
-          void rebootstrap()
+          streamFailed()
         }
       }
       void readLoop()
     } catch (e) {
+      disarmAliveTimer()
       if ((e as any)?.name === "AbortError") return
-      void rebootstrap()
+      streamFailed()
     }
   }
 
@@ -839,6 +880,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     streamDisposed = true
     streamAbort?.abort()
     streamAbort = undefined
+    disarmAliveTimer()
     clearDebounceTimers()
     if (props.workspaceId) clearSummary(props.workspaceId)
   })
