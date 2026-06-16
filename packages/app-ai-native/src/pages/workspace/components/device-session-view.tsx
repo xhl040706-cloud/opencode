@@ -465,7 +465,7 @@ export function DeviceSessionView(props: {
                                         onScheduleScrollState={() => {}}
                                         onAutoScrollHandleScroll={autoScroll.handleScroll}
                                         onMarkScrollGesture={() => {}}
-                                        hasScrollGesture={() => false}
+                                        hasScrollGesture={() => true}
                                         isDesktop={true}
                                         onScrollSpyScroll={scrollSpy.onScroll}
                                         onTurnBackfillScroll={() => {}}
