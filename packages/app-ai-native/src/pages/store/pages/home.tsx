@@ -1286,7 +1286,11 @@ export default function Home() {
                       }
                     >
                       <Icon name="magnifying-glass" class={cn("size-7", sx.stateEmptyIcon)} />
-                      <div class={sx.stateEmpty}>{language.t("store.home.noMatch", { query: debouncedSearch() })}</div>
+                      <div class={sx.stateEmpty}>
+                        {debouncedSearch()
+                          ? language.t("store.home.noMatch", { query: debouncedSearch() })
+                          : language.t("store.home.noMatchFilters")}
+                      </div>
                       <button type="button" onClick={clearSearchAndFilters} class={sx.stateClear}>
                         {language.t("store.home.clearFilters")}
                       </button>
