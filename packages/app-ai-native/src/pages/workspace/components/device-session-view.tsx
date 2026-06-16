@@ -290,6 +290,18 @@ export function DeviceSessionView(props: {
   let promptDock: HTMLDivElement | undefined
   let dockHeight = 0
 
+  let scrollGesture = 0
+  const scrollGestureWindowMs = 250
+  const markScrollGesture = (target?: EventTarget | null) => {
+    const root = scroller
+    if (!root) return
+    const el = target instanceof Element ? target : undefined
+    const nested = el?.closest("[data-scrollable]")
+    if (nested && nested !== root) return
+    scrollGesture = Date.now()
+  }
+  const hasScrollGesture = () => Date.now() - scrollGesture < scrollGestureWindowMs
+
   const enrichedMessages = createMemo(() => {
     const raw = effectiveMessages()
     if (!raw || raw.length === 0) return raw ?? []
@@ -464,8 +476,8 @@ export function DeviceSessionView(props: {
                                         setScrollRef={setScrollRef}
                                         onScheduleScrollState={() => {}}
                                         onAutoScrollHandleScroll={autoScroll.handleScroll}
-                                        onMarkScrollGesture={() => {}}
-                                        hasScrollGesture={() => true}
+                                        onMarkScrollGesture={markScrollGesture}
+                                        hasScrollGesture={hasScrollGesture}
                                         isDesktop={true}
                                         onScrollSpyScroll={scrollSpy.onScroll}
                                         onTurnBackfillScroll={() => {}}
