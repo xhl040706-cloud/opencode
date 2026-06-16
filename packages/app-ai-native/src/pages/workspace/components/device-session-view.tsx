@@ -277,7 +277,7 @@ export function DeviceSessionView(props: {
   })
 
   const autoScroll = createAutoScroll({
-    working: () => snap() || effectiveStatus()?.type === "busy",
+    working: () => true,
     overflowAnchor: "dynamic",
   })
 
