@@ -274,102 +274,113 @@ function ScanRow(props: { scan: ScanResult }) {
   const [open, setOpen] = createSignal(false)
   const language = useLanguage()
 
+  const permLabel = (key: string) => {
+    if (key === "files") return language.t("store.scanResults.permFiles")
+    if (key === "network") return language.t("store.scanResults.permNetwork")
+    if (key === "commands") return language.t("store.scanResults.permCommands")
+    return key
+  }
+
+  const formatPermValue = (val: unknown): string => {
+    if (Array.isArray(val)) return val.length ? val.map(String).join(", ") : "—"
+    const formatted = formatValue(val)
+    return formatted === "" ? "—" : formatted
+  }
+
+  const redFlags = () => props.scan.redFlags ?? []
+  const recommendations = () => props.scan.recommendations ?? []
+  const perms = () => Object.entries(props.scan.permissions ?? {})
+  const meta = () =>
+    [
+      props.scan.scanModel,
+      props.scan.triggerType,
+      formatDuration(props.scan.durationMs),
+      formatDate(props.scan.finishedAt, language.locale()),
+    ]
+      .filter(Boolean)
+      .join(" · ")
+
   return (
-    <div class="overflow-hidden rounded-lg border border-border-weak-base">
-      <div
-        onClick={() => setOpen((value) => !value)}
-        class="flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-bg-muted/50"
-      >
-        <div class="min-w-0 flex-1">
-          <div class="mb-0.5 flex items-center gap-2">
-            <SecurityTag status={props.scan.riskLevel as never} />
-            <VerdictTag verdict={props.scan.verdict as Verdict} />
-          </div>
-          <p class="break-words text-12-regular text-text-strong">{props.scan.summary || "No summary available"}</p>
-          <div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-text-weak">
-            <span>{formatDate(props.scan.createdAt, language.locale())}</span>
-          </div>
+    <div>
+      <div class="flex items-center justify-between gap-4">
+        <div
+          class="text-xs"
+          style={{
+            color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+            "font-weight": 700,
+          }}
+        >
+          {language.t("store.security.riskLevel")}
         </div>
-        <div class="shrink-0 text-text-weak">
-          <Icon
-            name="chevron-down"
-            size="small"
-            class={`transition-transform duration-150 ${open() ? "rotate-0" : "-rotate-90"}`}
-          />
+        <div class="flex items-center gap-1.5">
+          <SecurityTag status={props.scan.riskLevel as never} />
+          <VerdictTag verdict={props.scan.verdict as Verdict} />
         </div>
       </div>
+
+      <Show when={props.scan.summary}>
+        <p class="mt-1 break-words text-12-regular leading-5 text-text-weak">{props.scan.summary}</p>
+      </Show>
+
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        class="mt-1 inline-flex items-center gap-1 text-12-regular text-text-weak transition-colors hover:text-text-strong"
+      >
+        <span>{language.t("store.scanResults.details")}</span>
+        <Icon
+          name="chevron-down"
+          size="small"
+          class={`transition-transform duration-150 ${open() ? "rotate-180" : ""}`}
+        />
+      </button>
+
       <Show when={open()}>
-        {(() => {
-          const perms = Object.entries(props.scan.permissions ?? {})
-          return (
-            <div class="space-y-2.5 px-3 pb-3 pt-1 text-12-regular text-text-weak">
-              <div class="grid gap-2.5 rounded-lg bg-bg-muted p-2.5 sm:grid-cols-2">
-                <div>
-                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.model")}</div>
-                  <div class="text-text-strong">{props.scan.scanModel}</div>
-                </div>
-                <div>
-                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.trigger")}</div>
-                  <div class="capitalize text-text-strong">{props.scan.triggerType}</div>
-                </div>
-                <div>
-                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.duration")}</div>
-                  <div class="text-text-strong">{formatDuration(props.scan.durationMs)}</div>
-                </div>
-                <div>
-                  <div class="mb-0.5 text-xs text-text-weak/70">{language.t("store.scanResults.finished")}</div>
-                  <div class="text-text-strong">{formatDate(props.scan.finishedAt, language.locale())}</div>
-                </div>
+        <div class="mt-2 space-y-3 text-12-regular">
+          <div>
+            <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.foundIssues")}</div>
+            <Show
+              when={redFlags().length > 0}
+              fallback={<div class="text-text-weak">{language.t("store.scanResults.noRedFlags")}</div>}
+            >
+              <ul class="list-disc space-y-1 pl-4">
+                <For each={redFlags()}>{(f) => <li class="break-words text-text-strong">{formatValue(f)}</li>}</For>
+              </ul>
+            </Show>
+          </div>
+
+          <div>
+            <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.suggestions")}</div>
+            <Show
+              when={recommendations().length > 0}
+              fallback={<div class="text-text-weak">{language.t("store.scanResults.noRecommendations")}</div>}
+            >
+              <ul class="list-disc space-y-1 pl-4">
+                <For each={recommendations()}>{(r) => <li class="break-words text-text-strong">{formatValue(r)}</li>}</For>
+              </ul>
+            </Show>
+          </div>
+
+          <Show when={perms().length > 0}>
+            <div>
+              <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.permissionNeeds")}</div>
+              <div class="space-y-1">
+                <For each={perms()}>
+                  {(entry) => (
+                    <div class="flex items-center justify-between gap-4">
+                      <span class="text-text-weak/70">{permLabel(entry[0])}</span>
+                      <span class="break-words text-right text-text-strong">{formatPermValue(entry[1])}</span>
+                    </div>
+                  )}
+                </For>
               </div>
-
-              <div class="grid gap-2.5 lg:grid-cols-2">
-                <div class="rounded-lg bg-bg-muted p-2.5">
-                  <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.suggestions")}</div>
-                  <Show
-                    when={(props.scan.recommendations ?? []).length > 0}
-                    fallback={<div class="text-text-weak">{language.t("store.scanResults.noRecommendations")}</div>}
-                  >
-                    <ul class="space-y-1">
-                      <For each={props.scan.recommendations ?? []}>
-                        {(item) => <li class="break-words text-text-strong">{formatValue(item)}</li>}
-                      </For>
-                    </ul>
-                  </Show>
-                </div>
-
-                <div class="rounded-lg bg-bg-muted p-2.5">
-                  <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.foundIssues")}</div>
-                  <Show
-                    when={(props.scan.redFlags ?? []).length > 0}
-                    fallback={<div class="text-text-weak">{language.t("store.scanResults.noRedFlags")}</div>}
-                  >
-                    <ul class="space-y-1">
-                      <For each={props.scan.redFlags ?? []}>
-                        {(item) => <li class="break-words text-text-strong">{formatValue(item)}</li>}
-                      </For>
-                    </ul>
-                  </Show>
-                </div>
-              </div>
-
-              <Show when={perms.length > 0}>
-                <div class="rounded-lg bg-bg-muted p-2.5">
-                  <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.permissionNeeds")}</div>
-                  <dl class="grid gap-2 sm:grid-cols-2">
-                    <For each={perms}>
-                      {(entry) => (
-                        <div>
-                          <dt class="text-xs text-text-weak/70">{entry[0]}</dt>
-                          <dd class="mt-0.5 break-words text-text-strong">{formatValue(entry[1])}</dd>
-                        </div>
-                      )}
-                    </For>
-                  </dl>
-                </div>
-              </Show>
             </div>
-          )
-        })()}
+          </Show>
+
+          <Show when={meta()}>
+            <div class="text-text-weak/70">{meta()}</div>
+          </Show>
+        </div>
       </Show>
     </div>
   )
@@ -1399,39 +1410,29 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         </div>
                       </Show>
 
-                      <div>
-                        <div
-                          class="mb-1 text-xs"
-                          style={{
-                            color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
-                            "font-weight": 700,
-                          }}
-                        >
-                          {language.t("store.security.riskLevel")}
-                        </div>
-                        <div>
-                          <SecurityTag status={data().securityStatus} />
-                        </div>
-                      </div>
-
-                      <Show when={!scans.error && (scans()?.length ?? 0) > 0}>
-                        <div>
-                          <div
-                            class="mb-2 text-xs"
-                            style={{
-                              color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
-                              "font-weight": 700,
-                            }}
-                          >
-                            {language.t("store.scanResults.securityScan")}
+                      <Show
+                        when={!scans.error && scans()?.[0]}
+                        fallback={
+                          <div class="flex items-center justify-between gap-4">
+                            <div
+                              class="text-xs"
+                              style={{
+                                color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                                "font-weight": 700,
+                              }}
+                            >
+                              {language.t("store.security.riskLevel")}
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                              <Show when={scans.loading}>
+                                <span class="text-12-regular text-text-weak">{language.t("store.loading")}</span>
+                              </Show>
+                              <SecurityTag status={data().securityStatus} />
+                            </div>
                           </div>
-                          <div class="space-y-2">
-                            <For each={scans()}>{(scan) => <ScanRow scan={scan} />}</For>
-                          </div>
-                        </div>
-                      </Show>
-                      <Show when={scans.loading}>
-                        <p class="text-12-regular text-text-weak">{language.t("store.loading")}</p>
+                        }
+                      >
+                        {(scan) => <ScanRow scan={scan()} />}
                       </Show>
 
                       <Show when={(data().tags ?? []).length > 0}>

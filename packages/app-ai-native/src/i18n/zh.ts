@@ -1725,6 +1725,10 @@ export const dict = {
   "store.scanResults.noRedFlags": "无",
   "store.scanResults.rescan": "重新扫描",
   "store.scanResults.securityScan": "安全扫描",
+  "store.scanResults.details": "详情",
+  "store.scanResults.permFiles": "文件",
+  "store.scanResults.permNetwork": "网络",
+  "store.scanResults.permCommands": "命令",
   "store.security.riskLevel": "安全状态",
 
   "store.security.unscanned": "待扫描",

@@ -797,6 +797,10 @@ export const dict = {
   "store.scanResults.noRedFlags": "None",
   "store.scanResults.rescan": "Rescan",
   "store.scanResults.securityScan": "Security",
+  "store.scanResults.details": "Details",
+  "store.scanResults.permFiles": "Files",
+  "store.scanResults.permNetwork": "Network",
+  "store.scanResults.permCommands": "Commands",
   "store.security.riskLevel": "Security Status",
 
   "store.security.unscanned": "Unscanned",
