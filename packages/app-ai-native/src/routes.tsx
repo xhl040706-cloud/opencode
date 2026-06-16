@@ -55,6 +55,8 @@ const ConsoleDevicesRoute: Component = () => <ConsoleDevices />
 const ConsoleNotificationsRoute: Component = () => <ConsoleNotifications />
 const ConsoleKanbanRoute: Component = () => <ConsoleKanban />
 const MulticaPage = lazy(() => import("@/pages/multica").then((m) => ({ default: m.MulticaPage })))
+const AdminLayout = lazy(() => import("@/pages/admin").then((m) => ({ default: m.AdminLayout })))
+const AdminEnterprise = lazy(() => import("@/pages/admin").then((m) => ({ default: m.AdminEnterprise })))
 
 
 const wrap = (Component: Component<{ children?: JSX.Element }>) => (props: { children?: JSX.Element }) => (
@@ -207,5 +209,15 @@ export const routeConfig: RouteConfig[] = [
     path: "/multica",
     component: MulticaPage,
     auth: true,
+  },
+  {
+    path: "/admin",
+    component: AdminLayout,
+    auth: true,
+    menu: "admin",
+    children: [
+      { path: "/", component: () => <Navigate href="/admin/enterprise" /> },
+      { path: "/enterprise", component: AdminEnterprise },
+    ],
   },
 ]

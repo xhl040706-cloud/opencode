@@ -60,6 +60,11 @@ function matchesSubResource(path: string, prefix: string, suffix: string): boole
   return rest.endsWith(suffix)
 }
 
+// In-memory enterprise customers store for demo mode. MUST start empty so the
+// store's one-shot ensureEnterpriseLoaded() sees an empty list and keeps the
+// built-in DEMO_FALLBACK branding intact on first paint.
+let enterpriseCustomers: { id: string; name: string; logo: string; ids: string[] }[] = []
+
 /**
  * Mock implementation of apiFetch that returns appropriate mock data.
  */
@@ -308,6 +313,36 @@ export async function mockApiFetch<T>(url: string, options?: RequestInit): Promi
   // ── Updates ─────────────────────────────────────────────────────────────
   if (path.includes("/api/updates/check")) {
     return { hasUpdate: false, currentVersion: "1.0.0" } as T
+  }
+
+  // ── Enterprise customers (大客户) ─────────────────────────────────────────
+  // POST /api/admin/enterprise-customers (create)
+  if (path.endsWith("/api/admin/enterprise-customers") && method === "POST") {
+    const body = options?.body ? JSON.parse(options.body as string) : {}
+    const c = { id: crypto.randomUUID(), name: body.name, logo: body.logo, ids: body.ids ?? [] }
+    enterpriseCustomers.push(c)
+    return { customer: { ...c, ids: [...c.ids] } } as T
+  }
+  // PUT /api/admin/enterprise-customers/:id (update)
+  if (matchesSubResource(path, "/api/admin/enterprise-customers/", "") && method === "PUT") {
+    const id = extractSegment(path, "/api/admin/enterprise-customers/")
+    const body = options?.body ? JSON.parse(options.body as string) : {}
+    const existing = enterpriseCustomers.find((e) => e.id === id)
+    if (!existing) throw new Error(`Enterprise customer not found: ${id}`)
+    existing.name = body.name
+    existing.logo = body.logo
+    existing.ids = body.ids ?? []
+    return { customer: { ...existing, ids: [...existing.ids] } } as T
+  }
+  // DELETE /api/admin/enterprise-customers/:id (remove)
+  if (matchesSubResource(path, "/api/admin/enterprise-customers/", "") && method === "DELETE") {
+    const id = extractSegment(path, "/api/admin/enterprise-customers/")
+    enterpriseCustomers = enterpriseCustomers.filter((e) => e.id !== id)
+    return { success: true } as T
+  }
+  // GET /api/enterprise-customers (public read)
+  if (path.endsWith("/api/enterprise-customers") && method === "GET") {
+    return { customers: enterpriseCustomers.map((e) => ({ ...e, ids: [...e.ids] })) } as T
   }
 
   // ── Fallback: log and return empty object ───────────────────────────────

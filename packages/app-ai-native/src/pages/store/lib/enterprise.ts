@@ -94,22 +94,41 @@ export function matchEnterpriseByName(name: string | undefined): EnterpriseInfo 
 }
 
 // One-shot fetch of the backend roster. Guarded so it runs at most once per session regardless of
-// how many store views mount. On success-with-data we swap in the backend list (ids-keyed); on
-// failure or empty response we leave DEMO_FALLBACK in place (covers demo mode, where the endpoint
-// 404s, and any transient error — branding simply stays on the built-in roster).
-let enterpriseLoadStarted = false
-export function ensureEnterpriseLoaded() {
-  if (enterpriseLoadStarted) return
-  enterpriseLoadStarted = true
-  enterpriseApi
+// how many store views mount. On success we map the backend list (ids-keyed); on failure we leave
+// the current roster in place (covers demo mode, where the endpoint 404s, and any transient error).
+//
+// `allowEmpty` controls what happens when the backend returns an EMPTY list:
+//   - false (first load / ensureEnterpriseLoaded): keep DEMO_FALLBACK so demo mode and cold starts
+//     still show branding instead of blanking out.
+//   - true  (refetchEnterprise after admin edits): apply the empty list so deleting the last 大客户
+//     in the admin page actually clears store branding instead of leaving stale brands behind.
+function fetchAndApplyEnterprise(allowEmpty: boolean) {
+  return enterpriseApi
     .list()
     .then((res) => {
       const fetched = (res.customers ?? [])
         .filter((c) => Array.isArray(c.ids) && c.ids.length > 0 && c.name && c.logo)
         .map<EnterpriseConfig>((c) => ({ name: c.name, logo: c.logo, ids: c.ids }))
-      if (fetched.length > 0) setCustomers(fetched)
+      if (fetched.length > 0 || allowEmpty) setCustomers(fetched)
     })
     .catch(() => {
-      // Keep DEMO_FALLBACK on error (demo mode / network failure).
+      // Keep current roster on error (demo mode / network failure).
     })
+}
+
+let enterpriseLoadStarted = false
+export function ensureEnterpriseLoaded() {
+  if (enterpriseLoadStarted) return
+  enterpriseLoadStarted = true
+  void fetchAndApplyEnterprise(false)
+}
+
+/**
+ * Force a re-fetch of the backend roster, bypassing the one-shot guard. Used by the admin
+ * enterprise-config page after create/update/delete so store branding reflects changes immediately.
+ * Passes `allowEmpty: true` so removing the last customer truly clears branding.
+ */
+export function refetchEnterprise() {
+  enterpriseLoadStarted = true
+  return fetchAndApplyEnterprise(true)
 }

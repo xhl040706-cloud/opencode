@@ -1209,13 +1209,35 @@ export const tagApi = {
 // Readable by any signed-in user; in demo mode the endpoint is absent and the call rejects (the
 // frontend then falls back to its built-in demo roster — see lib/enterprise.ts).
 export interface EnterpriseCustomer {
+  id: string
   ids: string[]
   name: string
   logo: string
 }
 
+export interface EnterpriseCustomerInput {
+  name: string
+  logo: string
+  ids: string[]
+}
+
 export const enterpriseApi = {
   list: () => apiFetch<{ customers: EnterpriseCustomer[] }>("/api/enterprise-customers"),
+
+  create: (data: EnterpriseCustomerInput) =>
+    apiFetch<{ customer: EnterpriseCustomer }>("/api/admin/enterprise-customers", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: EnterpriseCustomerInput) =>
+    apiFetch<{ customer: EnterpriseCustomer }>(`/api/admin/enterprise-customers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  remove: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/admin/enterprise-customers/${id}`, { method: "DELETE" }),
 }
 
 export interface ChannelConfig {
