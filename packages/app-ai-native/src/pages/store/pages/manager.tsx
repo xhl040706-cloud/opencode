@@ -345,7 +345,7 @@ export default function StoreManagerPage() {
     }
     catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setState({ receivedLoaded: true, receivedError: message })
+      setState({ receivedLoaded: true, receivedError: message || language.t("store.received.toast.loadFailed") })
       showToast({
         variant: "error",
         title: language.t("store.received.toast.loadFailed"),
@@ -366,7 +366,7 @@ export default function StoreManagerPage() {
     }
     catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setState({ sentLoaded: true, sentError: message })
+      setState({ sentLoaded: true, sentError: message || language.t("store.sent.toast.loadFailed") })
       showToast({
         variant: "error",
         title: language.t("store.sent.toast.loadFailed"),
