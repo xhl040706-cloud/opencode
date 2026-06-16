@@ -460,7 +460,12 @@ export default function AdminMembers() {
             </For>
           </div>
           <div class={sx.searchWrap}>
-            <Icon name="magnifying-glass" size="small" class={sx.searchIcon} />
+            <svg class={sx.searchIcon} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <g transform="scale(0.833333)">
+                <path d="m21 21-4.34-4.34" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="11" cy="11" r="8" stroke="currentColor" />
+              </g>
+            </svg>
             <input
               class={sx.search}
               placeholder={language.t("admin.members.searchPlaceholder")}
@@ -525,52 +530,54 @@ export default function AdminMembers() {
                         </Show>
                       </td>
                       <td class="text-right">
-                        <div class="inline-flex items-center gap-3">
-                          <Show when={u.status !== "active"}>
+                        <div class="flex flex-col items-end gap-1">
+                          <div class="flex items-center justify-end gap-3">
+                            <Show when={u.status !== "active"}>
+                              <button
+                                type="button"
+                                class="cursor-pointer text-[var(--native-primary)] transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={actionLoading[u.subject_id]}
+                                onClick={() => void applyStatus(u, "active")}
+                              >
+                                {language.t("admin.members.actions.active")}
+                              </button>
+                            </Show>
+                            <Show when={u.status === "active"}>
+                              <button
+                                type="button"
+                                class="cursor-pointer text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={actionLoading[u.subject_id] || self()}
+                                aria-describedby={self() ? selfHintId : undefined}
+                                onClick={() => confirmStatus(u, "disabled")}
+                              >
+                                {language.t("admin.members.actions.disabled")}
+                              </button>
+                            </Show>
+                            <Show when={u.status !== "banned"}>
+                              <button
+                                type="button"
+                                class="cursor-pointer text-[var(--native-error)] transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={actionLoading[u.subject_id] || self()}
+                                aria-describedby={self() ? selfHintId : undefined}
+                                onClick={() => confirmStatus(u, "banned")}
+                              >
+                                {language.t("admin.members.actions.banned")}
+                              </button>
+                            </Show>
                             <button
                               type="button"
-                              class="cursor-pointer text-[var(--native-primary)] transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={actionLoading[u.subject_id]}
-                              onClick={() => void applyStatus(u, "active")}
+                              class="cursor-pointer text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)] hover:underline"
+                              onClick={() => void openDetail(u)}
                             >
-                              {language.t("admin.members.actions.active")}
+                              {language.t("admin.members.actions.detail")}
                             </button>
+                          </div>
+                          <Show when={self()}>
+                            <p id={selfHintId} class="text-[11px] text-[var(--native-muted)]">
+                              {language.t("admin.members.selfHint")}
+                            </p>
                           </Show>
-                          <Show when={u.status === "active"}>
-                            <button
-                              type="button"
-                              class="cursor-pointer text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={actionLoading[u.subject_id] || self()}
-                              aria-describedby={self() ? selfHintId : undefined}
-                              onClick={() => confirmStatus(u, "disabled")}
-                            >
-                              {language.t("admin.members.actions.disabled")}
-                            </button>
-                          </Show>
-                          <Show when={u.status !== "banned"}>
-                            <button
-                              type="button"
-                              class="cursor-pointer text-[var(--native-error)] transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={actionLoading[u.subject_id] || self()}
-                              aria-describedby={self() ? selfHintId : undefined}
-                              onClick={() => confirmStatus(u, "banned")}
-                            >
-                              {language.t("admin.members.actions.banned")}
-                            </button>
-                          </Show>
-                          <button
-                            type="button"
-                            class="cursor-pointer text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)] hover:underline"
-                            onClick={() => void openDetail(u)}
-                          >
-                            {language.t("admin.members.actions.detail")}
-                          </button>
                         </div>
-                        <Show when={self()}>
-                          <p id={selfHintId} class="mt-1 text-right text-[11px] text-[var(--native-muted)]">
-                            {language.t("admin.members.selfHint")}
-                          </p>
-                        </Show>
                       </td>
                     </tr>
                   )

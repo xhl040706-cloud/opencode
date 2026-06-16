@@ -284,7 +284,12 @@ export default function AdminContent() {
           </div>
         </div>
         <div class={sx.searchWrap}>
-          <Icon name="magnifying-glass" size="small" class={sx.searchIcon} />
+          <svg class={sx.searchIcon} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <g transform="scale(0.833333)">
+              <path d="m21 21-4.34-4.34" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+              <circle cx="11" cy="11" r="8" stroke="currentColor" />
+            </g>
+          </svg>
           <input
             class={sx.search}
             placeholder={language.t("admin.content.searchPlaceholder")}
@@ -355,7 +360,7 @@ export default function AdminContent() {
                     {fmtDate(item.updatedAt)}
                   </td>
                   <td class="text-right">
-                    <div class="inline-flex items-center gap-3">
+                    <div class="flex items-center justify-end gap-3">
                       <button
                         type="button"
                         class={
