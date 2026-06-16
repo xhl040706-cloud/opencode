@@ -14,7 +14,11 @@ export const { use: useItemFilterOptions, provider: ItemFilterOptionsProvider } 
   name: "ItemFilterOptions",
   init: () => {
     const language = useLanguage()
-    const [options, { refetch }] = createResource(async () => itemFilterApi.list().catch(() => EMPTY_FILTER_OPTIONS))
+    // NOTE: do NOT swallow the error here — `data()` already defaults to
+    // EMPTY_FILTER_OPTIONS via `options() ?? EMPTY`, while letting `options.error`
+    // surface so consumers (filter popovers) can show a retry instead of an
+    // indistinguishable empty list.
+    const [options, { refetch }] = createResource(() => itemFilterApi.list())
 
     const data = createMemo(() => options() ?? EMPTY_FILTER_OPTIONS)
     const securityStatuses = createMemo(() => data().securityStatuses ?? [])
