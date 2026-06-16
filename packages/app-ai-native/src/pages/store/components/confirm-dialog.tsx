@@ -16,16 +16,18 @@ type ConfirmDialogProps = {
 export function ConfirmDialog(props: ConfirmDialogProps) {
   const dialog = useDialog()
   const language = useLanguage()
-  const [state, setState] = createStore({ loading: false })
+  const [state, setState] = createStore({ loading: false, error: "" })
   const danger = () => (props.variant ?? "danger") === "danger"
 
   async function handle() {
-    setState("loading", true)
+    setState({ loading: true, error: "" })
     try {
       await props.onConfirm()
       dialog.close()
-    } catch {
-      setState("loading", false)
+    } catch (err) {
+      // Surface the failure instead of silently resetting — every confirm-guarded
+      // destructive action (delete / revoke / remove sync source) gets feedback.
+      setState({ loading: false, error: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -75,6 +77,11 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
             {props.description}
           </div>
         </div>
+        <Show when={state.error}>
+          <div class="modal-error" role="alert" style={{ padding: "0", "margin-top": "0.75rem" }}>
+            {state.error}
+          </div>
+        </Show>
       </div>
     </Modal>
   )
