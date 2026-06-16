@@ -1046,6 +1046,40 @@ export const distributionApi = {
     apiFetch<CapabilityItem>(`/api/distributions/${id}/fork`, { method: "POST" }),
 }
 
+export interface DistributionReceipt {
+  id: string
+  distributionId: string
+  userId: string
+  receiptStatus: string
+  forkedItemId?: string
+  createdAt: string
+}
+
+// Platform-admin global distribution management (M3).
+export const adminDistributionApi = {
+  listAll: (filter?: {
+    status?: string
+    scope?: string
+    search?: string
+    page?: number
+    pageSize?: number
+  }) => {
+    const p = new URLSearchParams()
+    if (filter?.status) p.set("status", filter.status)
+    if (filter?.scope) p.set("scope", filter.scope)
+    if (filter?.search) p.set("search", filter.search)
+    if (filter?.page) p.set("page", String(filter.page))
+    if (filter?.pageSize) p.set("pageSize", String(filter.pageSize))
+    const qs = p.toString()
+    return apiFetch<{ distributions: DistributionResult["distribution"][]; total: number }>(
+      `/api/admin/distributions${qs ? `?${qs}` : ""}`,
+    )
+  },
+
+  listReceipts: (id: string) =>
+    apiFetch<{ receipts: DistributionReceipt[] }>(`/api/admin/distributions/${id}/receipts`),
+}
+
 export const registryApi2 = {
   getPublic: () => apiFetch<CapabilityRegistry>("/api/registries/public"),
 }
@@ -1238,6 +1272,234 @@ export const enterpriseApi = {
 
   remove: (id: string) =>
     apiFetch<{ success: boolean }>(`/api/admin/enterprise-customers/${id}`, { method: "DELETE" }),
+}
+
+// ── Admin · Permission management (M2) ─────────────────────────────────────
+// System roles reuse the existing systemrole backend; resource-permission
+// matrix uses the authz endpoints added for M2.
+
+export type SystemRole = "platform_admin" | "business_admin"
+
+export interface ResourcePermission {
+  id: string
+  resourceCode: string
+  resourceType: "menu" | "api"
+  allowedRoles: string[]
+}
+
+export const adminPermissionApi = {
+  // System role grant/revoke (reuses systemrole routes).
+  listUserRoles: (userId: string) =>
+    apiFetch<{ userId: string; roles: string[] }>(`/api/admin/system-roles/users/${encodeURIComponent(userId)}`),
+
+  grantRole: (userId: string, role: SystemRole) =>
+    apiFetch<{ success: boolean }>(`/api/admin/system-roles/users/${encodeURIComponent(userId)}`, {
+      method: "POST",
+      body: JSON.stringify({ role }),
+    }),
+
+  revokeRole: (userId: string, role: SystemRole) =>
+    apiFetch<{ success: boolean }>(
+      `/api/admin/system-roles/users/${encodeURIComponent(userId)}/${encodeURIComponent(role)}`,
+      { method: "DELETE" },
+    ),
+
+  // Resource-permission matrix (authz, added for M2).
+  listResourcePermissions: () =>
+    apiFetch<{ permissions: ResourcePermission[] }>("/api/admin/resource-permissions"),
+
+  updateResourcePermission: (code: string, allowedRoles: string[]) =>
+    apiFetch<{ success: boolean }>(`/api/admin/resource-permissions/${encodeURIComponent(code)}`, {
+      method: "PUT",
+      body: JSON.stringify({ allowedRoles }),
+    }),
+}
+
+// ── Admin · Member management (M1) ─────────────────────────────────────────
+// Platform-admin member console: paginated/searchable/status-filtered user list,
+// per-member profile aggregation, account-status switch, and organization roll-up.
+// Backed by /api/admin/users + /api/admin/organizations (platform_admin gated).
+// Reads the LOCAL users table shape (subject_id/status/organization), NOT the
+// Casdoor-shaped SearchedUser returned by userApi.search.
+
+export type AdminUserStatus = "active" | "disabled" | "banned"
+
+export interface AdminUser {
+  subject_id: string
+  username: string
+  displayName: string
+  email: string
+  avatarUrl: string
+  organization: string
+  status: AdminUserStatus
+  roles: string[]
+  lastLoginAt: string | null
+  createdAt: string
+}
+
+export interface AdminUserProfile {
+  createdItemCount: number
+  distributedCount: number
+  receivedCount: number
+}
+
+export interface AdminOrganization {
+  organization: string
+  memberCount: number
+}
+
+export const adminUserApi = {
+  list: (filter?: { search?: string; organization?: string; status?: string; page?: number; pageSize?: number }) => {
+    const p = new URLSearchParams()
+    if (filter?.search) p.set("search", filter.search)
+    if (filter?.organization) p.set("organization", filter.organization)
+    if (filter?.status) p.set("status", filter.status)
+    if (filter?.page) p.set("page", String(filter.page))
+    if (filter?.pageSize) p.set("pageSize", String(filter.pageSize))
+    const qs = p.toString()
+    return apiFetch<{ users: AdminUser[]; total: number; page: number; pageSize: number }>(
+      `/api/admin/users${qs ? `?${qs}` : ""}`,
+    )
+  },
+
+  getProfile: (id: string) =>
+    apiFetch<{ user: AdminUser; profile: AdminUserProfile }>(`/api/admin/users/${encodeURIComponent(id)}/profile`),
+
+  setStatus: (id: string, status: AdminUserStatus) =>
+    apiFetch<{ success: boolean }>(`/api/admin/users/${encodeURIComponent(id)}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    }),
+
+  listOrganizations: () => apiFetch<{ organizations: AdminOrganization[] }>("/api/admin/organizations"),
+}
+
+// ── Admin · Ops (M5): system notification channels ─────────────────────────
+// System-level notification channels configured by platform admins. This is a
+// DIFFERENT surface from `channelApi` (/api/channels, user two-way channels) and
+// `notificationChannelApi` (/api/notification-channels, user one-way channels):
+// it targets /api/admin/notification-channels (platform_admin gated), whose
+// backend CRUD already exists (internal/notification). systemConfig is free-form
+// JSON whose shape depends on `type` (wecom / webhook).
+export interface SystemNotificationChannel {
+  id: string
+  type: string
+  name: string
+  workspaceId: string
+  enabled: boolean
+  systemConfig: Record<string, unknown>
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SystemNotificationChannelCreateInput {
+  type: string
+  name: string
+  workspaceId?: string
+  systemConfig?: Record<string, unknown>
+}
+
+export interface SystemNotificationChannelUpdateInput {
+  name?: string
+  enabled?: boolean
+  systemConfig?: Record<string, unknown>
+}
+
+export const adminNotificationChannelApi = {
+  list: () =>
+    apiFetch<{ channels: SystemNotificationChannel[] }>("/api/admin/notification-channels"),
+
+  create: (data: SystemNotificationChannelCreateInput) =>
+    apiFetch<{ channel: SystemNotificationChannel }>("/api/admin/notification-channels", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: SystemNotificationChannelUpdateInput) =>
+    apiFetch<{ channel: SystemNotificationChannel }>(`/api/admin/notification-channels/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  remove: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/admin/notification-channels/${id}`, { method: "DELETE" }),
+}
+
+// ── Admin · Ops (M5): system settings (feature flags / maintenance mode) ────
+// Global system-level KV configured by platform admins. Backed by the new
+// /api/admin/settings endpoints (internal/settings). Values are arbitrary JSON
+// (bool for flags, string/object for richer config).
+export const adminSettingsApi = {
+  list: () => apiFetch<{ settings: Record<string, unknown> }>("/api/admin/settings"),
+
+  update: (key: string, value: unknown) =>
+    apiFetch<{ setting: { key: string; value: unknown; updatedBy: string } }>(
+      `/api/admin/settings/${encodeURIComponent(key)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ value }),
+      },
+    ),
+}
+
+// ── Admin · Ops (M5): audit log ─────────────────────────────────────────────
+// Read-only feed of management write-operations (enterprise / role / permission
+// / distribution / channel / setting / announcement). Backed by the new
+// /api/admin/audit-logs endpoint (internal/audit). Records are written
+// fire-and-forget at each management write-site.
+export interface AdminAuditLog {
+  id: string
+  actorId: string
+  action: string
+  targetType: string
+  targetId: string
+  payload: Record<string, unknown>
+  createdAt: string
+}
+
+export const adminAuditApi = {
+  list: (filter?: {
+    action?: string
+    actorId?: string
+    targetType?: string
+    from?: string
+    to?: string
+    page?: number
+    pageSize?: number
+  }) => {
+    const p = new URLSearchParams()
+    if (filter?.action) p.set("action", filter.action)
+    if (filter?.actorId) p.set("actorId", filter.actorId)
+    if (filter?.targetType) p.set("targetType", filter.targetType)
+    if (filter?.from) p.set("from", filter.from)
+    if (filter?.to) p.set("to", filter.to)
+    if (filter?.page) p.set("page", String(filter.page))
+    if (filter?.pageSize) p.set("pageSize", String(filter.pageSize))
+    const qs = p.toString()
+    return apiFetch<{ logs: AdminAuditLog[]; total: number; page: number; pageSize: number }>(
+      `/api/admin/audit-logs${qs ? `?${qs}` : ""}`,
+    )
+  },
+}
+
+// ── Admin · Ops (M5): announcements / broadcast ─────────────────────────────
+// Send an in-app announcement to all users / an organization / a single user.
+// Backed by the new /api/admin/announcements endpoint (internal/notification
+// Broadcast helper). Returns the number of recipients reached.
+export interface AnnouncementPayload {
+  scope: { type: "all" | "organization" | "user"; targetId?: string }
+  title: string
+  content: string
+  pushExternal?: boolean
+}
+
+export const adminAnnouncementApi = {
+  send: (payload: AnnouncementPayload) =>
+    apiFetch<{ sentCount: number }>("/api/admin/announcements", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 }
 
 export interface ChannelConfig {

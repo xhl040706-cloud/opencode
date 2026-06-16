@@ -15,6 +15,13 @@ import type {
   DistributionResult,
   UserBasicInfo,
   SearchedUser,
+  DistributionReceipt,
+  ResourcePermission,
+  AdminUser,
+  AdminUserProfile,
+  AdminOrganization,
+  SystemNotificationChannel,
+  AdminAuditLog,
 } from "./api"
 
 // ---------------------------------------------------------------------------
@@ -636,4 +643,205 @@ export function getMockTags(params?: { query?: string; page?: number; pageSize?:
     pageSize,
     hasMore: start + pageSize < tags.length,
   }
+}
+
+// ===========================================================================
+// Admin console seed data (M1 members / M2 permissions / M3 distributions /
+// M5 ops). Consumed by the in-memory stores in mock-api.ts so demo mode renders
+// real-looking data and write operations actually mutate state.
+// ===========================================================================
+
+const daysAgoIso = (d: number) => new Date(Date.now() - d * 86400000).toISOString()
+
+// ---------------------------------------------------------------------------
+// M3 · Distributions (global admin view)
+// ---------------------------------------------------------------------------
+export function seedAdminDistributions(): (DistributionResult["distribution"] & { status: string })[] {
+  const pick = (i: number) => MOCK_ITEMS[i]!
+  return [
+    {
+      id: "adist-1", itemId: pick(0).id, distributorId: "demo-user-001",
+      permissionMode: "readonly", status: "active", scopeType: "user",
+      targetId: "user-003", message: "团队代码审查规范，请大家采用",
+      createdAt: daysAgoIso(1), item: pick(0),
+    },
+    {
+      id: "adist-2", itemId: pick(1).id, distributorId: "demo-user-001",
+      permissionMode: "dismissible", status: "active", scopeType: "organization",
+      targetId: "研发一部", message: "测试用例自动生成器，提升覆盖率",
+      createdAt: daysAgoIso(3), item: pick(1),
+    },
+    {
+      id: "adist-3", itemId: pick(6).id, distributorId: "user-002",
+      permissionMode: "readonly", status: "paused", scopeType: "user",
+      targetId: "user-004", message: "PR 自动审查代理（暂停灰度中）",
+      createdAt: daysAgoIso(6), item: pick(6),
+    },
+    {
+      id: "adist-4", itemId: pick(3).id, distributorId: "demo-user-001",
+      permissionMode: "dismissible", status: "revoked", scopeType: "organization",
+      targetId: "平台架构组", message: "文档生成器（已收回，等待新版本）",
+      createdAt: daysAgoIso(12), item: pick(3),
+    },
+    {
+      id: "adist-5", itemId: pick(5).id, distributorId: "user-003",
+      permissionMode: "readonly", status: "active", scopeType: "user",
+      targetId: "user-005", message: "SQL 优化助手，慢查询必备",
+      createdAt: daysAgoIso(2), item: pick(5),
+    },
+  ]
+}
+
+// Per-distribution receipts (keyed by distribution id) for the detail drawer.
+export function seedAdminReceipts(): Record<string, DistributionReceipt[]> {
+  return {
+    "adist-1": [
+      { id: "arc-1", distributionId: "adist-1", userId: "user-003", receiptStatus: "accepted", forkedItemId: "fork-001", createdAt: daysAgoIso(1) },
+      { id: "arc-2", distributionId: "adist-1", userId: "user-004", receiptStatus: "read", createdAt: daysAgoIso(1) },
+      { id: "arc-3", distributionId: "adist-1", userId: "user-005", receiptStatus: "unread", createdAt: daysAgoIso(1) },
+    ],
+    "adist-2": [
+      { id: "arc-4", distributionId: "adist-2", userId: "user-002", receiptStatus: "accepted", createdAt: daysAgoIso(3) },
+      { id: "arc-5", distributionId: "adist-2", userId: "user-004", receiptStatus: "dismissed", createdAt: daysAgoIso(2) },
+    ],
+    "adist-3": [
+      { id: "arc-6", distributionId: "adist-3", userId: "user-004", receiptStatus: "read", createdAt: daysAgoIso(6) },
+    ],
+    "adist-5": [
+      { id: "arc-7", distributionId: "adist-5", userId: "user-005", receiptStatus: "unread", createdAt: daysAgoIso(2) },
+    ],
+  }
+}
+
+// ---------------------------------------------------------------------------
+// M2 · Resource permission matrix + per-user system roles
+// ---------------------------------------------------------------------------
+export function seedResourcePermissions(): ResourcePermission[] {
+  return [
+    { id: "rp-1", resourceCode: "repositories", resourceType: "menu", allowedRoles: [] },
+    { id: "rp-2", resourceCode: "projects", resourceType: "menu", allowedRoles: [] },
+    { id: "rp-3", resourceCode: "capabilities", resourceType: "menu", allowedRoles: ["platform_admin"] },
+    { id: "rp-4", resourceCode: "devices", resourceType: "menu", allowedRoles: [] },
+    { id: "rp-5", resourceCode: "notifications", resourceType: "menu", allowedRoles: ["platform_admin"] },
+    { id: "rp-6", resourceCode: "kanban", resourceType: "menu", allowedRoles: ["business_admin", "platform_admin"] },
+    { id: "rp-7", resourceCode: "admin", resourceType: "menu", allowedRoles: ["platform_admin"] },
+    { id: "rp-8", resourceCode: "admin.system-roles", resourceType: "api", allowedRoles: ["platform_admin"] },
+    { id: "rp-9", resourceCode: "admin.notification-channels", resourceType: "api", allowedRoles: ["platform_admin"] },
+    { id: "rp-10", resourceCode: "api.kanban.overview", resourceType: "api", allowedRoles: ["business_admin", "platform_admin"] },
+  ]
+}
+
+// Per-user system role grants, keyed by subject id.
+export function seedUserSystemRoles(): Record<string, string[]> {
+  return {
+    "demo-user-001": ["platform_admin"],
+    "user-002": ["business_admin"],
+    "user-003": [],
+    "user-004": [],
+    "user-005": ["business_admin"],
+  }
+}
+
+// ---------------------------------------------------------------------------
+// M1 · Members + organizations
+// ---------------------------------------------------------------------------
+export function seedAdminUsers(): AdminUser[] {
+  return [
+    {
+      subject_id: "demo-user-001", username: "demo_user", displayName: "Demo User",
+      email: "demo@example.com", avatarUrl: "", organization: "研发一部",
+      status: "active", roles: ["platform_admin"], lastLoginAt: daysAgoIso(0), createdAt: daysAgoIso(420),
+    },
+    {
+      subject_id: "user-002", username: "alice.chen", displayName: "陈爱丽",
+      email: "alice.chen@example.com", avatarUrl: "", organization: "研发一部",
+      status: "active", roles: ["business_admin"], lastLoginAt: daysAgoIso(1), createdAt: daysAgoIso(310),
+    },
+    {
+      subject_id: "user-003", username: "bob.zhang", displayName: "张博文",
+      email: "bob.zhang@example.com", avatarUrl: "", organization: "研发二部",
+      status: "active", roles: [], lastLoginAt: daysAgoIso(2), createdAt: daysAgoIso(260),
+    },
+    {
+      subject_id: "user-004", username: "carol.li", displayName: "李卡罗",
+      email: "carol.li@example.com", avatarUrl: "", organization: "平台架构组",
+      status: "disabled", roles: [], lastLoginAt: daysAgoIso(45), createdAt: daysAgoIso(190),
+    },
+    {
+      subject_id: "user-005", username: "david.wang", displayName: "王大伟",
+      email: "david.wang@example.com", avatarUrl: "", organization: "研发二部",
+      status: "active", roles: ["business_admin"], lastLoginAt: daysAgoIso(0), createdAt: daysAgoIso(150),
+    },
+    {
+      subject_id: "user-006", username: "emma.zhao", displayName: "赵艾玛",
+      email: "emma.zhao@example.com", avatarUrl: "", organization: "平台架构组",
+      status: "banned", roles: [], lastLoginAt: daysAgoIso(90), createdAt: daysAgoIso(120),
+    },
+    {
+      subject_id: "user-007", username: "frank.sun", displayName: "孙弗兰克",
+      email: "frank.sun@example.com", avatarUrl: "", organization: "研发一部",
+      status: "active", roles: [], lastLoginAt: daysAgoIso(5), createdAt: daysAgoIso(80),
+    },
+  ]
+}
+
+const ADMIN_USER_PROFILES: Record<string, AdminUserProfile> = {
+  "demo-user-001": { createdItemCount: 8, distributedCount: 12, receivedCount: 3 },
+  "user-002": { createdItemCount: 5, distributedCount: 2, receivedCount: 6 },
+  "user-003": { createdItemCount: 3, distributedCount: 0, receivedCount: 9 },
+  "user-004": { createdItemCount: 1, distributedCount: 0, receivedCount: 2 },
+  "user-005": { createdItemCount: 4, distributedCount: 1, receivedCount: 4 },
+  "user-006": { createdItemCount: 0, distributedCount: 0, receivedCount: 1 },
+  "user-007": { createdItemCount: 2, distributedCount: 0, receivedCount: 3 },
+}
+
+export function getMockAdminUserProfile(id: string): AdminUserProfile {
+  return ADMIN_USER_PROFILES[id] ?? { createdItemCount: 0, distributedCount: 0, receivedCount: 0 }
+}
+
+export function getMockAdminOrganizations(users: AdminUser[]): AdminOrganization[] {
+  const counts = new Map<string, number>()
+  for (const u of users) {
+    if (!u.organization) continue
+    counts.set(u.organization, (counts.get(u.organization) ?? 0) + 1)
+  }
+  return [...counts.entries()].map(([organization, memberCount]) => ({ organization, memberCount }))
+}
+
+// ---------------------------------------------------------------------------
+// M5 · Ops: notification channels / settings / audit logs
+// ---------------------------------------------------------------------------
+export function seedSystemNotificationChannels(): SystemNotificationChannel[] {
+  return [
+    {
+      id: "snc-1", type: "wecom", name: "企业微信 · 全员群", workspaceId: "ws-default",
+      enabled: true, systemConfig: { webhookUrl: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=demo" },
+      createdBy: "demo-user-001", createdAt: daysAgoIso(60), updatedAt: daysAgoIso(4),
+    },
+    {
+      id: "snc-2", type: "webhook", name: "运维告警 Webhook", workspaceId: "ws-default",
+      enabled: false, systemConfig: { url: "https://hooks.example.com/admin-alerts", secret: "demo-secret" },
+      createdBy: "demo-user-001", createdAt: daysAgoIso(30), updatedAt: daysAgoIso(30),
+    },
+  ]
+}
+
+export function seedSystemSettings(): Record<string, unknown> {
+  return {
+    maintenance_mode: false,
+    announcement_enabled: true,
+  }
+}
+
+export function seedAuditLogs(): AdminAuditLog[] {
+  return [
+    { id: "al-1", actorId: "demo-user-001", action: "enterprise.create", targetType: "enterprise_customer", targetId: "ent-招商银行", payload: { name: "招商银行", ids: 3 }, createdAt: daysAgoIso(0) },
+    { id: "al-2", actorId: "demo-user-001", action: "system_role.grant", targetType: "user", targetId: "user-002", payload: { role: "business_admin" }, createdAt: daysAgoIso(1) },
+    { id: "al-3", actorId: "user-005", action: "distribution.create", targetType: "distribution", targetId: "adist-5", payload: { item: "SQL Optimizer", recipients: 1 }, createdAt: daysAgoIso(2) },
+    { id: "al-4", actorId: "demo-user-001", action: "resource_permission.update", targetType: "resource_permission", targetId: "kanban", payload: { allowedRoles: ["business_admin", "platform_admin"] }, createdAt: daysAgoIso(3) },
+    { id: "al-5", actorId: "demo-user-001", action: "setting.update", targetType: "setting", targetId: "announcement_enabled", payload: { value: true }, createdAt: daysAgoIso(4) },
+    { id: "al-6", actorId: "demo-user-001", action: "notification_channel.update", targetType: "notification_channel", targetId: "snc-1", payload: { enabled: true }, createdAt: daysAgoIso(5) },
+    { id: "al-7", actorId: "demo-user-001", action: "announcement.send", targetType: "announcement", targetId: "broadcast", payload: { scope: "all", sentCount: 128 }, createdAt: daysAgoIso(6) },
+    { id: "al-8", actorId: "user-002", action: "distribution.revoke", targetType: "distribution", targetId: "adist-4", payload: { reason: "等待新版本" }, createdAt: daysAgoIso(12) },
+  ]
 }
