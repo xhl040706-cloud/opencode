@@ -41,7 +41,7 @@ export default function StoreDetail() {
       <ItemDetailContent
         itemId={params.itemId}
         showBackButton={true}
-        onBack={() => navigate("/store")}
+        onBack={() => (window.history.length > 1 ? navigate(-1) : navigate("/store"))}
         onItemLoaded={onItemLoaded}
         favorited={favorited()}
         favoriteCount={favoriteCount()}

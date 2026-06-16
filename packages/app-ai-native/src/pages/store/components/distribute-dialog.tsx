@@ -1,5 +1,6 @@
 import { Icon } from "@opencode-ai/ui/icon"
 import { showToast } from "@opencode-ai/ui/toast"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
 import AvatarDisplay from "@/components/avatar-display"
 import { useLanguage } from "@/context/language"
 import { For, Show, createSignal } from "solid-js"
@@ -24,6 +25,7 @@ const SCOPE_OPTIONS = [
 
 export function DistributeDialog(props: Props) {
   const language = useLanguage()
+  const dialog = useDialog()
   const [store, setStore] = createStore({
     permissionMode: "readonly" as "readonly" | "dismissible",
     scopeType: "user" as "user" | "organization",
@@ -111,8 +113,7 @@ export function DistributeDialog(props: Props) {
           count: String(totalRecipients),
         }),
       })
-      const dialog = document.querySelector("[data-dialog-close]") as HTMLButtonElement | null
-      dialog?.click()
+      dialog.close()
     } catch (err) {
       showToast({
         variant: "error",
@@ -126,15 +127,16 @@ export function DistributeDialog(props: Props) {
 
   return (
     <Modal
-      title={language.t("store.distribute.title")}
+      title={
+        props.itemName
+          ? language.t("store.distribute.titleNamed", { name: props.itemName })
+          : language.t("store.distribute.title")
+      }
       maxWidth="520px"
       maxHeight="640px"
       footer={
         <div class="modal-foot">
-          <button class="modal-btn modal-btn-ghost" onClick={() => {
-            const closeBtn = document.querySelector(".modal-close") as HTMLButtonElement | null
-            closeBtn?.click()
-          }}>
+          <button class="modal-btn modal-btn-ghost" onClick={() => dialog.close()}>
             {language.t("common.cancel")}
           </button>
           <button
