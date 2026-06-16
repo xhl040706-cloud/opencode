@@ -302,37 +302,37 @@ function ScanRow(props: { scan: ScanResult }) {
 
   return (
     <div>
-      <div class="flex items-center justify-between gap-4">
-        <div
-          class="text-xs"
-          style={{
-            color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
-            "font-weight": 700,
-          }}
-        >
-          {language.t("store.security.riskLevel")}
-        </div>
-        <div class="flex items-center gap-1.5">
-          <SecurityTag status={props.scan.riskLevel as never} />
-          <VerdictTag verdict={props.scan.verdict as Verdict} />
-        </div>
-      </div>
-
-      <Show when={props.scan.summary}>
-        <p class="mt-1 break-words text-12-regular leading-5 text-text-weak">{props.scan.summary}</p>
-      </Show>
-
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        class="mt-1 inline-flex items-center gap-1 text-12-regular text-text-weak transition-colors hover:text-text-strong"
+        aria-expanded={open()}
+        aria-label={language.t("store.scanResults.details")}
+        class="group -mx-1.5 flex w-full flex-col gap-1 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--native-muted)_8%,transparent)]"
       >
-        <span>{language.t("store.scanResults.details")}</span>
-        <Icon
-          name="chevron-down"
-          size="small"
-          class={`transition-transform duration-150 ${open() ? "rotate-180" : ""}`}
-        />
+        <div class="flex items-center justify-between gap-4">
+          <div
+            class="text-xs"
+            style={{
+              color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+              "font-weight": 700,
+            }}
+          >
+            {language.t("store.security.riskLevel")}
+          </div>
+          <div class="flex items-center gap-1.5">
+            <SecurityTag status={props.scan.riskLevel as never} />
+            <VerdictTag verdict={props.scan.verdict as Verdict} />
+            <Icon
+              name="chevron-down"
+              size="small"
+              class={`shrink-0 text-text-weak transition-transform duration-150 ${open() ? "rotate-180" : ""}`}
+            />
+          </div>
+        </div>
+
+        <Show when={props.scan.summary}>
+          <p class="break-words text-12-regular leading-5 text-text-weak">{props.scan.summary}</p>
+        </Show>
       </button>
 
       <Show when={open()}>
