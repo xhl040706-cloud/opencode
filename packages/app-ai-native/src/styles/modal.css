@@ -73,6 +73,13 @@
   transform: translateY(-1px);
 }
 
+.modal-close:focus-visible {
+  outline: none;
+  border-color: var(--native-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--native-primary) 10%, transparent);
+  color: var(--native-foreground);
+}
+
 .modal-close svg {
   width: 16px;
   height: 16px;

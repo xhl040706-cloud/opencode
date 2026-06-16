@@ -399,7 +399,7 @@ export default function MobileStoreDetail() {
               </div>
 
               {/* Bottom bar */}
-              <div class="shrink-0 border-t border-border-weak-base bg-background-base px-4 py-3 safe-area-bottom space-y-2">
+              <div class="shrink-0 border-t border-border-weak-base bg-background-base px-4 pt-3 safe-area-bottom space-y-2">
                 <Show when={auth.user() && mcpPluginRuntimeBlocks()}>
                   <p class="text-center text-12-regular text-text-weak">
                     {language.t("store.detail.mcpConfig.pluginRuntimeReason")}
