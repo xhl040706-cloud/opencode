@@ -10,16 +10,19 @@ import { useLanguage } from "@/context/language"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
 import {
   adminDeptApi,
+  adminPermissionApi,
   adminUserApi,
   type AdminDept,
   type AdminDeptMember,
   type AdminUser,
   type AdminUserProfile,
   type AdminUserStatus,
+  type SystemRole,
 } from "@/pages/store/lib/api"
 import { sx, st } from "../lib/styles"
 
 const STATUS_FILTERS = ["", "active", "disabled", "banned"] as const
+const SYSTEM_ROLES: readonly SystemRole[] = ["platform_admin", "business_admin"] as const
 const PAGE_SIZE = 20
 type Tab = "members" | "organizations"
 
@@ -77,6 +80,9 @@ export default function AdminMembers() {
 
   // Per-row status-action loading guard.
   const [actionLoading, setActionLoading] = createStore<Record<string, boolean>>({})
+
+  // System-role grant/revoke guard (per role), scoped to the open detail drawer.
+  const [roleSaving, setRoleSaving] = createSignal<SystemRole | null>(null)
 
   // Detail drawer state.
   const [detail, setDetail] = createStore<{
@@ -262,6 +268,63 @@ export default function AdminMembers() {
         confirm={language.t(`admin.members.actions.${status}` as "admin.members.actions.banned")}
         variant="danger"
         onConfirm={() => applyStatus(u, status)}
+      />
+    ))
+
+  // ── System-role management (merged from the former Permissions "Role Grants" tab) ──
+  // Grant immediately; revoke goes through a confirm dialog. Both update the open
+  // drawer's roles in place so the UI reflects the change without a reload.
+  const detailHasRole = (role: SystemRole) => (detail.user?.roles ?? []).includes(role)
+
+  async function grantRole(role: SystemRole) {
+    const u = detail.user
+    if (!u || roleSaving()) return
+    setRoleSaving(role)
+    try {
+      await adminPermissionApi.grantRole(u.subject_id, role)
+      setDetail("user", (d) => (d ? { ...d, roles: [...d.roles, role] } : d))
+      setState("users", (x) => x.subject_id === u.subject_id, "roles", (r) => [...r, role])
+      showToast({ variant: "success", title: language.t("admin.members.roleMgmt.toast.granted") })
+    } catch (err) {
+      showToast({
+        variant: "error",
+        title: language.t("admin.members.roleMgmt.toast.actionFailed"),
+        description: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setRoleSaving(null)
+    }
+  }
+
+  async function revokeRole(role: SystemRole) {
+    const u = detail.user
+    if (!u || roleSaving()) return
+    setRoleSaving(role)
+    try {
+      await adminPermissionApi.revokeRole(u.subject_id, role)
+      setDetail("user", (d) => (d ? { ...d, roles: d.roles.filter((r) => r !== role) } : d))
+      setState("users", (x) => x.subject_id === u.subject_id, "roles", (r) => r.filter((x) => x !== role))
+      showToast({ variant: "success", title: language.t("admin.members.roleMgmt.toast.revoked") })
+    } catch (err) {
+      // Backend rejects revoking the last platform_admin with a 400; surface its message.
+      showToast({
+        variant: "error",
+        title: language.t("admin.members.roleMgmt.toast.actionFailed"),
+        description: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setRoleSaving(null)
+    }
+  }
+
+  const confirmRevokeRole = (role: SystemRole) =>
+    dialog.show(() => (
+      <ConfirmDialog
+        title={language.t("admin.members.roleMgmt.confirm.title")}
+        description={language.t("admin.members.roleMgmt.confirm.description", { role: roleLabel(role) })}
+        confirm={language.t("admin.members.roleMgmt.revoke")}
+        variant="danger"
+        onConfirm={() => void revokeRole(role)}
       />
     ))
 
@@ -578,9 +641,9 @@ export default function AdminMembers() {
         </Show>
 
         <Show when={!state.treeUnavailable}>
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(220px,300px)_1fr]">
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(340px,440px)_1fr]">
             {/* Left: department tree */}
-            <div class="relative min-h-[200px] rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] bg-background-base p-2">
+            <div class="relative min-h-[480px] rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] bg-background-base p-2">
               <div class="mb-1.5 px-1 pt-0.5">
                 <div class="text-[0.8125rem] font-semibold text-[var(--native-foreground)]">
                   {language.t("admin.members.org.treeTitle")}
@@ -597,7 +660,7 @@ export default function AdminMembers() {
               <Show
                 when={!state.treeLoading && state.tree.length === 0}
                 fallback={
-                  <ul role="tree" aria-label={language.t("admin.members.org.treeTitle")} class="thin-scrollbar max-h-[60vh] overflow-y-auto">
+                  <ul role="tree" aria-label={language.t("admin.members.org.treeTitle")} class="thin-scrollbar max-h-[72vh] min-h-[440px] overflow-y-auto">
                     <For each={state.tree}>{(node) => <DeptTreeNode node={node} depth={0} />}</For>
                   </ul>
                 }
@@ -607,7 +670,7 @@ export default function AdminMembers() {
             </div>
 
             {/* Right: selected department members */}
-            <div class="relative min-h-[200px] rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] bg-background-base">
+            <div class="relative min-h-[480px] rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] bg-background-base">
               <Show
                 when={state.selectedDeptId}
                 fallback={<div class={sx.state}>{language.t("admin.members.org.selectDept")}</div>}
@@ -756,13 +819,59 @@ export default function AdminMembers() {
                     </div>
                     <div class="mt-0.5 text-[var(--native-foreground)]">{fmtDate(u().lastLoginAt)}</div>
                   </div>
-                  <div class="col-span-2">
+                </div>
+
+                {/* System role management (grant / revoke) */}
+                <div class="border-t border-[color:color-mix(in_oklab,var(--native-border)_30%,transparent)] pt-4">
+                  <div class="mb-2 flex items-center justify-between">
                     <div class="text-[12px] uppercase tracking-[0.06em] text-[var(--native-muted)]">
-                      {language.t("admin.members.columns.roles")}
+                      {language.t("admin.members.roleMgmt.title")}
                     </div>
-                    <div class="mt-0.5 text-[var(--native-foreground)]">
-                      {u().roles.length ? u().roles.map(roleLabel).join(", ") : "—"}
-                    </div>
+                  </div>
+                  <p class="mb-3 text-[12px] leading-relaxed text-[var(--native-muted)]">
+                    {language.t("admin.members.roleMgmt.help")}
+                  </p>
+                  <div class="flex flex-col gap-1.5">
+                    <For each={SYSTEM_ROLES}>
+                      {(role) => {
+                        const has = () => detailHasRole(role)
+                        const busy = () => roleSaving() === role
+                        return (
+                          <div class="flex items-center justify-between gap-3 rounded-[var(--native-radius-md)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] px-3 py-2">
+                            <div class="min-w-0">
+                              <div class="text-[0.8125rem] font-medium text-[var(--native-foreground)]">
+                                {roleLabel(role)}
+                              </div>
+                              <div class="text-[12px] leading-relaxed text-[var(--native-muted)]">
+                                {language.t(`admin.members.roleMgmt.role.${role}.desc` as "admin.members.roleMgmt.role.platform_admin.desc")}
+                              </div>
+                            </div>
+                            <Show
+                              when={has()}
+                              fallback={
+                                <button
+                                  type="button"
+                                  class="shrink-0 cursor-pointer rounded-[var(--native-radius-md)] border border-[var(--native-primary)] px-3 py-1.5 text-[0.8125rem] text-[var(--native-primary)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-primary)_10%,transparent)] disabled:cursor-not-allowed disabled:opacity-50"
+                                  disabled={busy()}
+                                  onClick={() => void grantRole(role)}
+                                >
+                                  {language.t("admin.members.roleMgmt.grant")}
+                                </button>
+                              }
+                            >
+                              <button
+                                type="button"
+                                class="shrink-0 cursor-pointer rounded-[var(--native-radius-md)] border border-[var(--native-error)] px-3 py-1.5 text-[0.8125rem] text-[var(--native-error)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-error)_10%,transparent)] disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={busy()}
+                                onClick={() => confirmRevokeRole(role)}
+                              >
+                                {language.t("admin.members.roleMgmt.revoke")}
+                              </button>
+                            </Show>
+                          </div>
+                        )
+                      }}
+                    </For>
                   </div>
                 </div>
 

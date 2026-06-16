@@ -21,7 +21,9 @@ import {
 import { sx, st } from "../lib/styles"
 
 const ROLES: readonly SystemRole[] = ["platform_admin", "business_admin"] as const
-const TABS = ["roles", "matrix", "grants", "mine"] as const
+// Role granting moved into Member Management (member detail drawer); this page now
+// covers the resource matrix, fine-grained grants, and the personal access view.
+const TABS = ["matrix", "grants", "mine"] as const
 type Tab = (typeof TABS)[number]
 
 const DEPT_UNAVAILABLE_CODE = "dept_sync_unavailable"
@@ -45,105 +47,10 @@ const userIdOf = (u: SearchedUser) => String(u.subject_id || u.sub || u.id)
 export default function AdminPermissions() {
   const language = useLanguage()
   const auth = useAuth()
-  const [tab, setTab] = createSignal<Tab>("roles")
+  const [tab, setTab] = createSignal<Tab>("matrix")
 
   const roleLabel = (role: SystemRole) =>
     language.t(`admin.permissions.role.${role}` as "admin.permissions.role.platform_admin")
-
-  // ── Role grants ───────────────────────────────────────────────────────────
-  const [grant, setGrant] = createStore<{
-    query: string
-    results: SearchedUser[]
-    searching: boolean
-    selected: SearchedUser | null
-    roles: string[]
-    rolesLoading: boolean
-    saving: SystemRole | null
-  }>({
-    query: "",
-    results: [],
-    searching: false,
-    selected: null,
-    roles: [],
-    rolesLoading: false,
-    saving: null,
-  })
-
-  let searchTimer: ReturnType<typeof setTimeout>
-
-  function onSearchInput(value: string) {
-    setGrant("query", value)
-    clearTimeout(searchTimer)
-    const trimmed = value.trim()
-    if (!trimmed) {
-      setGrant("results", [])
-      return
-    }
-    searchTimer = setTimeout(async () => {
-      setGrant("searching", true)
-      try {
-        const res = await userApi.search(trimmed)
-        setGrant("results", res.users ?? [])
-      } catch (err) {
-        showToast({
-          variant: "error",
-          title: language.t("admin.permissions.toast.searchFailed"),
-          description: err instanceof Error ? err.message : String(err),
-        })
-      } finally {
-        setGrant("searching", false)
-      }
-    }, 300)
-  }
-
-  async function selectUser(u: SearchedUser) {
-    setGrant({ selected: u, results: [], query: "", rolesLoading: true, roles: [] })
-    try {
-      const res = await adminPermissionApi.listUserRoles(userIdOf(u))
-      setGrant("roles", res.roles ?? [])
-    } catch (err) {
-      showToast({
-        variant: "error",
-        title: language.t("admin.permissions.toast.rolesFailed"),
-        description: err instanceof Error ? err.message : String(err),
-      })
-    } finally {
-      setGrant("rolesLoading", false)
-    }
-  }
-
-  function clearSelected() {
-    setGrant({ selected: null, roles: [], query: "", results: [] })
-  }
-
-  const hasRole = (role: SystemRole) => grant.roles.includes(role)
-
-  async function toggleRole(role: SystemRole) {
-    const u = grant.selected
-    if (!u) return
-    const currentlyHas = hasRole(role)
-    setGrant("saving", role)
-    try {
-      if (currentlyHas) {
-        await adminPermissionApi.revokeRole(userIdOf(u), role)
-        setGrant("roles", grant.roles.filter((r) => r !== role))
-        showToast({ variant: "success", title: language.t("admin.permissions.toast.revokeSuccess") })
-      } else {
-        await adminPermissionApi.grantRole(userIdOf(u), role)
-        setGrant("roles", [...grant.roles, role])
-        showToast({ variant: "success", title: language.t("admin.permissions.toast.grantSuccess") })
-      }
-    } catch (err) {
-      // Backend rejects revoking the last platform_admin with a 400; surface its message.
-      showToast({
-        variant: "error",
-        title: language.t("admin.permissions.toast.roleActionFailed"),
-        description: err instanceof Error ? err.message : String(err),
-      })
-    } finally {
-      setGrant("saving", null)
-    }
-  }
 
   // ── Resource permission matrix ─────────────────────────────────────────────
   const [matrix, setMatrix] = createStore<{
@@ -407,137 +314,6 @@ export default function AdminPermissions() {
           )}
         </For>
       </div>
-
-      {/* ── Tab: Role grants ── */}
-      <Show when={tab() === "roles"}>
-        <div class="flex flex-col gap-4">
-          <p class={sx.sub}>{language.t("admin.permissions.roles.help")}</p>
-
-          {/* User search */}
-          <div class="max-w-[520px]">
-            <div class={sx.searchWrap}>
-              <Icon name="magnifying-glass" size="small" class={sx.searchIcon} />
-              <input
-                class={sx.search}
-                placeholder={language.t("admin.permissions.roles.searchPlaceholder")}
-                value={grant.query}
-                aria-label={language.t("admin.permissions.roles.searchPlaceholder")}
-                onInput={(e) => onSearchInput(e.currentTarget.value)}
-              />
-            </div>
-
-            <Show when={grant.searching}>
-              <div class="py-3 text-center text-[0.8125rem] text-[var(--native-muted)]">
-                {language.t("admin.permissions.roles.searching")}
-              </div>
-            </Show>
-
-            <Show when={!grant.searching && grant.results.length > 0}>
-              <div class="mt-2 flex flex-col gap-1.5">
-                <For each={grant.results}>
-                  {(u) => (
-                    <button
-                      type="button"
-                      class="flex cursor-pointer items-center justify-between gap-3 rounded-[var(--native-radius-sm)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] bg-transparent px-2.5 py-2 text-left transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-surface)_62%,transparent)]"
-                      onClick={() => void selectUser(u)}
-                    >
-                      <div class="flex min-w-0 items-center gap-2.5">
-                        <AvatarDisplay
-                          avatarUrl={u.picture}
-                          username={u.name || u.preferred_username || u.email}
-                          size="1.75rem"
-                          class="shrink-0"
-                        />
-                        <div class="min-w-0">
-                          <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">
-                            {u.name || u.preferred_username}
-                          </div>
-                          <div class="truncate text-[12px] text-[var(--native-muted)]">{u.email}</div>
-                        </div>
-                      </div>
-                      <Icon name="plus-small" size="small" class="shrink-0 text-[var(--native-muted)]" />
-                    </button>
-                  )}
-                </For>
-              </div>
-            </Show>
-
-            <Show when={!grant.searching && grant.query.trim() && grant.results.length === 0}>
-              <div class="py-3 text-center text-[0.8125rem] text-[var(--native-muted)]">
-                {language.t("admin.permissions.roles.noResults")}
-              </div>
-            </Show>
-          </div>
-
-          {/* Selected user + role toggles */}
-          <Show when={grant.selected}>
-            {(u) => (
-              <div class="max-w-[520px] rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-border)_45%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_80%,transparent)] p-4">
-                <div class="mb-3 flex items-center justify-between gap-3">
-                  <div class="flex min-w-0 items-center gap-2.5">
-                    <AvatarDisplay
-                      avatarUrl={u().picture}
-                      username={u().name || u().preferred_username || u().email}
-                      size="2rem"
-                      class="shrink-0"
-                    />
-                    <div class="min-w-0">
-                      <div class="truncate text-[0.875rem] font-semibold text-[var(--native-foreground)]">
-                        {u().name || u().preferred_username}
-                      </div>
-                      <div class="truncate text-[12px] text-[var(--native-muted)]">{u().email}</div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    class="shrink-0 cursor-pointer rounded-[var(--native-radius-sm)] p-1 text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"
-                    aria-label={language.t("common.cancel")}
-                    onClick={clearSelected}
-                  >
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M18 6 6 18" />
-                      <path d="m6 6 12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                <Show
-                  when={!grant.rolesLoading}
-                  fallback={
-                    <div class="py-3 text-center text-[0.8125rem] text-[var(--native-muted)]">
-                      {language.t("admin.permissions.roles.searching")}
-                    </div>
-                  }
-                >
-                  <div class="flex flex-col gap-2">
-                    <For each={ROLES}>
-                      {(role) => (
-                        <label class="flex cursor-pointer items-center justify-between gap-3 rounded-[var(--native-radius-sm)] px-1 py-1.5 transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-surface)_50%,transparent)]">
-                          <div class="min-w-0">
-                            <div class="text-[0.8125rem] font-medium text-[var(--native-foreground)]">
-                              {roleLabel(role)}
-                            </div>
-                            <div class="text-[12px] text-[var(--native-muted)]">
-                              {language.t(`admin.permissions.role.${role}.desc` as "admin.permissions.role.platform_admin.desc")}
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            class="size-4 shrink-0 cursor-pointer accent-[var(--native-primary)]"
-                            checked={hasRole(role)}
-                            disabled={grant.saving !== null}
-                            onChange={() => void toggleRole(role)}
-                          />
-                        </label>
-                      )}
-                    </For>
-                  </div>
-                </Show>
-              </div>
-            )}
-          </Show>
-        </div>
-      </Show>
 
       {/* ── Tab: Resource matrix ── */}
       <Show when={tab() === "matrix"}>

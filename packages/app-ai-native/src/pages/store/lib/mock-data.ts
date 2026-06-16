@@ -151,12 +151,16 @@ export const MOCK_FILTER_OPTIONS: ItemFilterOptions = {
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
+// Display names mirror the admin-users seed (Chinese) so demo authorship labels
+// and role-grant search resolve consistently.
 const MOCK_USERS: Record<string, UserBasicInfo> = {
   "demo-user-001": { id: "demo-user-001", name: "Demo User", avatarUrl: "" },
-  "user-002": { id: "user-002", name: "Alice Chen", avatarUrl: "" },
-  "user-003": { id: "user-003", name: "Bob Zhang", avatarUrl: "" },
-  "user-004": { id: "user-004", name: "Carol Li", avatarUrl: "" },
-  "user-005": { id: "user-005", name: "David Wang", avatarUrl: "" },
+  "user-002": { id: "user-002", name: "陈爱丽", avatarUrl: "" },
+  "user-003": { id: "user-003", name: "张博文", avatarUrl: "" },
+  "user-004": { id: "user-004", name: "李卡罗", avatarUrl: "" },
+  "user-005": { id: "user-005", name: "王大伟", avatarUrl: "" },
+  "user-006": { id: "user-006", name: "赵艾玛", avatarUrl: "" },
+  "user-007": { id: "user-007", name: "孙弗兰克", avatarUrl: "" },
   system: { id: "system", name: "System", avatarUrl: "" },
 }
 
@@ -532,17 +536,24 @@ export function getMockUserNames(ids: string[]): Record<string, string> {
 }
 
 export function getMockSearchedUsers(q: string): SearchedUser[] {
-  const query = q.toLowerCase()
-  return Object.values(MOCK_USERS)
-    .filter((u) => u.name.toLowerCase().includes(query))
+  const query = q.trim().toLowerCase()
+  if (!query) return []
+  // Source from the richer admin-users seed so demo search mirrors the backend
+  // (which matches username / display_name / email) and resolves Chinese names.
+  return seedAdminUsers()
+    .filter((u) => {
+      const haystack = [u.displayName, u.username, u.email, u.subject_id].filter(Boolean).join(" ").toLowerCase()
+      return haystack.includes(query)
+    })
     .map((u) => ({
-      email: `${u.name.toLowerCase().replace(" ", ".")}@example.com`,
-      id: u.id,
-      name: u.name,
+      email: u.email,
+      id: u.subject_id,
+      name: u.displayName || u.username,
       owner: "demo-org",
       picture: u.avatarUrl ?? "",
-      preferred_username: u.name.toLowerCase().replace(" ", "_"),
-      sub: u.id,
+      preferred_username: u.username,
+      sub: u.subject_id,
+      subject_id: u.subject_id,
     }))
 }
 
