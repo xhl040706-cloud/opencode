@@ -26,6 +26,8 @@ import {
   seedSystemNotificationChannels,
   seedSystemSettings,
   seedAuditLogs,
+  seedAdminItems,
+  ADMIN_ITEM_SECURITY_GROUPS,
   MOCK_CATEGORIES,
   MOCK_FILTER_OPTIONS,
   MOCK_REGISTRIES,
@@ -36,6 +38,7 @@ import {
 } from "./mock-data"
 import type {
   AdminAuditLog,
+  AdminItem,
   AdminUser,
   DistributionReceipt,
   DistributionResult,
@@ -96,6 +99,7 @@ let adminUsers: AdminUser[] = seedAdminUsers()
 let notificationChannels: SystemNotificationChannel[] = seedSystemNotificationChannels()
 const systemSettings: Record<string, unknown> = seedSystemSettings()
 const auditLogs: AdminAuditLog[] = seedAuditLogs()
+let adminItems: AdminItem[] = seedAdminItems()
 
 /**
  * Mock implementation of apiFetch that returns appropriate mock data.
@@ -578,6 +582,49 @@ export async function mockApiFetch<T>(url: string, options?: RequestInit): Promi
       createdAt: new Date().toISOString(),
     })
     return { sentCount } as T
+  }
+
+  // ── Admin · Content management (M6) ───────────────────────────────────────
+  // PUT /api/admin/items/:id/status  body {status}
+  if (matchesSubResource(path, "/api/admin/items/", "/status") && method === "PUT") {
+    const rest = path.slice("/api/admin/items/".length)
+    const id = decodeURIComponent(rest.replace(/\/status$/, ""))
+    const body = options?.body ? JSON.parse(options.body as string) : {}
+    const item = adminItems.find((i) => i.id === id)
+    if (item && (body.status === "active" || body.status === "archived")) item.status = body.status
+    return { success: true } as T
+  }
+  // DELETE /api/admin/items/:id
+  if (matchesSubResource(path, "/api/admin/items/", "") && method === "DELETE") {
+    const id = decodeURIComponent(extractSegment(path, "/api/admin/items/") ?? "")
+    adminItems = adminItems.filter((i) => i.id !== id)
+    return { success: true } as T
+  }
+  // GET /api/admin/items?type&status&securityStatus&search&createdBy&page&pageSize
+  if ((path.endsWith("/api/admin/items") || path.includes("/api/admin/items?")) && method === "GET") {
+    const type = params.get("type") ?? ""
+    const status = params.get("status") ?? ""
+    const security = params.get("securityStatus") ?? ""
+    const search = (params.get("search") ?? "").toLowerCase()
+    const createdBy = params.get("createdBy") ?? ""
+    let rows = adminItems
+    if (type) rows = rows.filter((i) => i.itemType === type)
+    if (status) rows = rows.filter((i) => i.status === status)
+    if (security) {
+      const allowed = ADMIN_ITEM_SECURITY_GROUPS[security] ?? [security]
+      rows = rows.filter((i) => allowed.includes(i.securityStatus))
+    }
+    if (createdBy) rows = rows.filter((i) => i.createdBy === createdBy)
+    if (search) rows = rows.filter((i) => i.name.toLowerCase().includes(search))
+    const page = params.get("page") ? Number(params.get("page")) : 1
+    const pageSize = params.get("pageSize") ? Number(params.get("pageSize")) : 20
+    const start = (page - 1) * pageSize
+    return {
+      items: rows.slice(start, start + pageSize).map((i) => ({ ...i })),
+      total: rows.length,
+      page,
+      pageSize,
+    } as T
   }
 
   // ── Enterprise customers (大客户) ─────────────────────────────────────────

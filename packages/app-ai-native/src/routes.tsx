@@ -61,6 +61,7 @@ const AdminEnterprise = lazy(() => import("@/pages/admin").then((m) => ({ defaul
 const AdminDistributions = lazy(() => import("@/pages/admin").then((m) => ({ default: m.AdminDistributions })))
 const AdminPermissions = lazy(() => import("@/pages/admin").then((m) => ({ default: m.AdminPermissions })))
 const AdminOps = lazy(() => import("@/pages/admin").then((m) => ({ default: m.AdminOps })))
+const AdminContent = lazy(() => import("@/pages/admin").then((m) => ({ default: m.AdminContent })))
 
 
 const wrap = (Component: Component<{ children?: JSX.Element }>) => (props: { children?: JSX.Element }) => (
@@ -224,6 +225,7 @@ export const routeConfig: RouteConfig[] = [
       { path: "/members", component: AdminMembers },
       { path: "/permissions", component: AdminPermissions },
       { path: "/distributions", component: AdminDistributions },
+      { path: "/content", component: AdminContent },
       { path: "/enterprise", component: AdminEnterprise },
       { path: "/ops", component: AdminOps },
     ],

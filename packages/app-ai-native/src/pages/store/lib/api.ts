@@ -1374,6 +1374,62 @@ export const adminUserApi = {
   listOrganizations: () => apiFetch<{ organizations: AdminOrganization[] }>("/api/admin/organizations"),
 }
 
+// ── Admin · Content management (M6) ────────────────────────────────────────
+// Platform-admin moderation surface for capability items: a cross-registry list
+// (all statuses by default), an across-author status switch (上下架), and an
+// across-author delete. These target /api/admin/items/* (platform_admin gated),
+// NOT the bare /api/items/:id paths — those now enforce author/admin ownership
+// and are meant for the item's own author, while these are the admin override.
+export type AdminItemStatus = "active" | "archived"
+
+export interface AdminItem {
+  id: string
+  name: string
+  itemType: string
+  status: AdminItemStatus
+  securityStatus: SecurityStatus
+  experienceScore: number
+  createdBy: string
+  registryId: string
+  repoName: string
+  updatedAt: string
+  createdAt: string
+}
+
+export const adminItemApi = {
+  list: (filter?: {
+    type?: string
+    status?: string
+    securityStatus?: string
+    search?: string
+    createdBy?: string
+    page?: number
+    pageSize?: number
+  }) => {
+    const p = new URLSearchParams()
+    if (filter?.type) p.set("type", filter.type)
+    if (filter?.status) p.set("status", filter.status)
+    if (filter?.securityStatus) p.set("securityStatus", filter.securityStatus)
+    if (filter?.search) p.set("search", filter.search)
+    if (filter?.createdBy) p.set("createdBy", filter.createdBy)
+    if (filter?.page) p.set("page", String(filter.page))
+    if (filter?.pageSize) p.set("pageSize", String(filter.pageSize))
+    const qs = p.toString()
+    return apiFetch<{ items: AdminItem[]; total: number; page: number; pageSize: number }>(
+      `/api/admin/items${qs ? `?${qs}` : ""}`,
+    )
+  },
+
+  setStatus: (id: string, status: AdminItemStatus) =>
+    apiFetch<{ success: boolean }>(`/api/admin/items/${encodeURIComponent(id)}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    }),
+
+  remove: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/admin/items/${encodeURIComponent(id)}`, { method: "DELETE" }),
+}
+
 // ── Admin · Ops (M5): system notification channels ─────────────────────────
 // System-level notification channels configured by platform admins. This is a
 // DIFFERENT surface from `channelApi` (/api/channels, user two-way channels) and

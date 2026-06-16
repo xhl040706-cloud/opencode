@@ -22,6 +22,7 @@ import type {
   AdminOrganization,
   SystemNotificationChannel,
   AdminAuditLog,
+  AdminItem,
 } from "./api"
 
 // ---------------------------------------------------------------------------
@@ -844,4 +845,61 @@ export function seedAuditLogs(): AdminAuditLog[] {
     { id: "al-7", actorId: "demo-user-001", action: "announcement.send", targetType: "announcement", targetId: "broadcast", payload: { scope: "all", sentCount: 128 }, createdAt: daysAgoIso(6) },
     { id: "al-8", actorId: "user-002", action: "distribution.revoke", targetType: "distribution", targetId: "adist-4", payload: { reason: "等待新版本" }, createdAt: daysAgoIso(12) },
   ]
+}
+
+// ---------------------------------------------------------------------------
+// M6 · Content management: cross-registry capability items
+// ---------------------------------------------------------------------------
+export function seedAdminItems(): AdminItem[] {
+  return [
+    {
+      id: "aitem-1", name: "Code Reviewer", itemType: "skill", status: "active",
+      securityStatus: "clean", experienceScore: 4.8, createdBy: "user-002",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(1), createdAt: daysAgoIso(180),
+    },
+    {
+      id: "aitem-2", name: "SQL Optimizer", itemType: "skill", status: "active",
+      securityStatus: "low", experienceScore: 4.2, createdBy: "user-003",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(2), createdAt: daysAgoIso(150),
+    },
+    {
+      id: "aitem-3", name: "Deployment Agent", itemType: "subagent", status: "active",
+      securityStatus: "medium", experienceScore: 3.9, createdBy: "user-004",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(3), createdAt: daysAgoIso(120),
+    },
+    {
+      id: "aitem-4", name: "Shell Runner", itemType: "command", status: "active",
+      securityStatus: "high", experienceScore: 2.6, createdBy: "user-005",
+      registryId: "reg-team", repoName: "研发一部", updatedAt: daysAgoIso(4), createdAt: daysAgoIso(90),
+    },
+    {
+      id: "aitem-5", name: "Crypto Miner Helper", itemType: "plugin", status: "archived",
+      securityStatus: "extreme", experienceScore: 1.1, createdBy: "user-006",
+      registryId: "reg-team", repoName: "研发一部", updatedAt: daysAgoIso(8), createdAt: daysAgoIso(70),
+    },
+    {
+      id: "aitem-6", name: "Filesystem MCP", itemType: "mcp", status: "active",
+      securityStatus: "clean", experienceScore: 4.5, createdBy: "demo-user-001",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(5), createdAt: daysAgoIso(60),
+    },
+    {
+      id: "aitem-7", name: "Legacy Doc Writer", itemType: "skill", status: "archived",
+      securityStatus: "unscanned", experienceScore: 0, createdBy: "user-007",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(40), createdAt: daysAgoIso(220),
+    },
+    {
+      id: "aitem-8", name: "API Designer", itemType: "skill", status: "active",
+      securityStatus: "clean", experienceScore: 4.6, createdBy: "demo-user-001",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(6), createdAt: daysAgoIso(45),
+    },
+  ]
+}
+
+// Coarse security-risk groups understood by the demo content list filter,
+// mirroring the backend securityStatusGroups expansion.
+export const ADMIN_ITEM_SECURITY_GROUPS: Record<string, string[]> = {
+  unknown: ["unscanned", "pending", "scanning", "error", "skipped"],
+  low: ["clean", "low"],
+  medium: ["medium"],
+  high: ["high", "extreme"],
 }
