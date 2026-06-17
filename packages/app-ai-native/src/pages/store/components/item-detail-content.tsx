@@ -14,10 +14,10 @@ import { useItemFilterOptions } from "@/context/item-filter-options"
 import { useAuth } from "@/context/auth"
 import { useNavigate } from "@solidjs/router"
 import { env } from "@/lib/env"
-import { itemApi, userApi, type CapabilityItem } from "../lib/api"
+import { itemApi, scanApi, userApi, type CapabilityItem, type ScanResult } from "../lib/api"
 import { useLanguage } from "@/context/language"
 import { pickItemDescription } from "../lib/item-description"
-import SecurityTag from "./security-tag"
+import SecurityTag, { VerdictTag, type Verdict } from "./security-tag"
 import HealthRadar from "./health-radar"
 import { SubscribeButton } from "./subscribe-button"
 import { mcpListSubscribeBlocked } from "./store-capability-table"
@@ -145,12 +145,15 @@ export function getInstallCommand(item: CapabilityItem): string | null {
 }
 
 function formatDate(iso: string, locale?: string) {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
   const normalizedLocale = locale?.startsWith("zh") ? "zh-CN" : "en-US"
   return new Intl.DateTimeFormat(normalizedLocale, {
     year: "numeric",
     month: normalizedLocale === "zh-CN" ? "long" : "short",
     day: "numeric",
-  }).format(new Date(iso))
+  }).format(d)
 }
 
 function formatDuration(ms: number) {
@@ -159,9 +162,26 @@ function formatDuration(ms: number) {
   return `${(ms / 60_000).toFixed(1)} min`
 }
 
-function formatValue(value: unknown) {
+// Extracts a human-readable reason from a scan finding object (redFlags/recommendations),
+// preferring known text fields with an optional severity/type label prefix.
+function formatValue(value: unknown): string {
   if (typeof value === "string") return value
   if (typeof value === "number" || typeof value === "boolean") return String(value)
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>
+    const pick = (keys: string[]): string | undefined => {
+      for (const key of keys) {
+        const candidate = record[key]
+        if (typeof candidate === "string" && candidate.length > 0) return candidate
+      }
+      return undefined
+    }
+    const text = pick(["message", "reason", "description", "detail", "text", "title", "name"])
+    if (text) {
+      const label = pick(["severity", "type", "level", "category"])
+      return label ? `[${label}] ${text}` : text
+    }
+  }
   return JSON.stringify(value)
 }
 
@@ -250,6 +270,122 @@ async function highlight(json: string, mode: "light" | "dark") {
   return highlighter.codeToHtml(json, { lang: "json", theme: THEMES[mode] })
 }
 
+function ScanRow(props: { scan: ScanResult }) {
+  const [open, setOpen] = createSignal(false)
+  const language = useLanguage()
+
+  const permLabel = (key: string) => {
+    if (key === "files") return language.t("store.scanResults.permFiles")
+    if (key === "network") return language.t("store.scanResults.permNetwork")
+    if (key === "commands") return language.t("store.scanResults.permCommands")
+    return key
+  }
+
+  const formatPermValue = (val: unknown): string => {
+    if (Array.isArray(val)) return val.length ? val.map(String).join(", ") : "—"
+    const formatted = formatValue(val)
+    return formatted === "" ? "—" : formatted
+  }
+
+  const redFlags = () => props.scan.redFlags ?? []
+  const recommendations = () => props.scan.recommendations ?? []
+  const perms = () => Object.entries(props.scan.permissions ?? {})
+  const meta = () =>
+    [
+      props.scan.scanModel,
+      props.scan.triggerType,
+      formatDuration(props.scan.durationMs),
+      formatDate(props.scan.finishedAt, language.locale()),
+    ]
+      .filter(Boolean)
+      .join(" · ")
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open()}
+        aria-label={language.t("store.scanResults.details")}
+        class="group -mx-1.5 flex w-full flex-col gap-1 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--native-muted)_8%,transparent)]"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <div
+            class="text-xs"
+            style={{
+              color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+              "font-weight": 700,
+            }}
+          >
+            {language.t("store.security.riskLevel")}
+          </div>
+          <div class="flex items-center gap-1.5">
+            <SecurityTag status={props.scan.riskLevel as never} />
+            <VerdictTag verdict={props.scan.verdict as Verdict} />
+            <Icon
+              name="chevron-down"
+              size="small"
+              class={`shrink-0 text-text-weak transition-transform duration-150 ${open() ? "rotate-180" : ""}`}
+            />
+          </div>
+        </div>
+
+        <Show when={props.scan.summary}>
+          <p class="break-words text-12-regular leading-5 text-text-weak">{props.scan.summary}</p>
+        </Show>
+      </button>
+
+      <Show when={open()}>
+        <div class="mt-2 space-y-3 text-12-regular">
+          <div>
+            <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.foundIssues")}</div>
+            <Show
+              when={redFlags().length > 0}
+              fallback={<div class="text-text-weak">{language.t("store.scanResults.noRedFlags")}</div>}
+            >
+              <ul class="list-disc space-y-1 pl-4">
+                <For each={redFlags()}>{(f) => <li class="break-words text-text-strong">{formatValue(f)}</li>}</For>
+              </ul>
+            </Show>
+          </div>
+
+          <div>
+            <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.suggestions")}</div>
+            <Show
+              when={recommendations().length > 0}
+              fallback={<div class="text-text-weak">{language.t("store.scanResults.noRecommendations")}</div>}
+            >
+              <ul class="list-disc space-y-1 pl-4">
+                <For each={recommendations()}>{(r) => <li class="break-words text-text-strong">{formatValue(r)}</li>}</For>
+              </ul>
+            </Show>
+          </div>
+
+          <Show when={perms().length > 0}>
+            <div>
+              <div class="mb-1 text-xs text-text-weak/70">{language.t("store.security.permissionNeeds")}</div>
+              <div class="space-y-1">
+                <For each={perms()}>
+                  {(entry) => (
+                    <div class="flex items-center justify-between gap-4">
+                      <span class="text-text-weak/70">{permLabel(entry[0])}</span>
+                      <span class="break-words text-right text-text-strong">{formatPermValue(entry[1])}</span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+
+          <Show when={meta()}>
+            <div class="text-text-weak/70">{meta()}</div>
+          </Show>
+        </div>
+      </Show>
+    </div>
+  )
+}
+
 function ShareButton(props: { itemId: string; itemName: string }) {
   const language = useLanguage()
   const [qrDataUrl, setQrDataUrl] = createSignal("")
@@ -329,6 +465,10 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
   const [item, { mutate: mutateItem, refetch: refetchItem }] = createResource(
     () => props.itemId,
     (id) => itemApi.get(id),
+  )
+  const [scans] = createResource(
+    () => props.itemId,
+    (id) => scanApi.list(id).then((r) => r.results),
   )
 
   createEffect(() => {
@@ -497,6 +637,29 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
       when={!item.loading}
       fallback={<div class="flex justify-center py-16 text-text-weak">{language.t("store.loading")}</div>}
     >
+      <Show
+        when={!item.error}
+        fallback={
+          <div class="flex flex-col items-center justify-center gap-4 py-16">
+            <p class="text-destructive">{language.t("store.detail.loadFailed")}</p>
+            <button
+              onClick={() => void refetchItem()}
+              class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
+            >
+              <Icon name="reset" size="small" />
+              <span>{language.t("store.detail.retry")}</span>
+            </button>
+            <Show when={props.onBack && props.showBackButton}>
+              <button
+                onClick={props.onBack}
+                class="text-12-regular text-text-weak transition-colors hover:text-text-strong"
+              >
+                {language.t("store.detail.back")}
+              </button>
+            </Show>
+          </div>
+        }
+      >
       <Show
         when={item()}
         fallback={
@@ -735,10 +898,18 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                             ))
                           }}
                           class="inline-flex items-center gap-1.5 rounded-lg border border-border-weak-base px-3 py-1.5 text-12-regular text-text-weak transition-colors duration-150 hover:bg-bg-muted hover:text-text-strong"
-                          title={data().isBuiltIn ? "取消内置 Plugin" : "设为内置 Plugin"}
+                          title={
+                            data().isBuiltIn
+                              ? language.t("store.detail.cancelBuiltInPlugin")
+                              : language.t("store.detail.setBuiltInPlugin")
+                          }
                         >
                           <LocalIcon name={data().isBuiltIn ? "star-filled" : "star"} size="small" />
-                          <span>{data().isBuiltIn ? "取消内置" : "设为内置"}</span>
+                          <span>
+                            {data().isBuiltIn
+                              ? language.t("store.detail.cancelBuiltIn")
+                              : language.t("store.detail.setBuiltIn")}
+                          </span>
                         </button>
                       </Show>
                       <button
@@ -1239,20 +1410,30 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                         </div>
                       </Show>
 
-                      <div>
-                        <div
-                          class="mb-1 text-xs"
-                          style={{
-                            color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
-                            "font-weight": 700,
-                          }}
-                        >
-                          {language.t("store.security.riskLevel")}
-                        </div>
-                        <div>
-                          <SecurityTag status={data().securityStatus} />
-                        </div>
-                      </div>
+                      <Show
+                        when={!scans.error && scans()?.[0]}
+                        fallback={
+                          <div class="flex items-center justify-between gap-4">
+                            <div
+                              class="text-xs"
+                              style={{
+                                color: "color-mix(in srgb, var(--native-muted) 70%, var(--native-panel))",
+                                "font-weight": 700,
+                              }}
+                            >
+                              {language.t("store.security.riskLevel")}
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                              <Show when={scans.loading}>
+                                <span class="text-12-regular text-text-weak">{language.t("store.loading")}</span>
+                              </Show>
+                              <SecurityTag status={data().securityStatus} />
+                            </div>
+                          </div>
+                        }
+                      >
+                        {(scan) => <ScanRow scan={scan()} />}
+                      </Show>
 
                       <Show when={(data().tags ?? []).length > 0}>
                         <div>
@@ -1349,6 +1530,7 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
             </div>
           </div>
         )}
+      </Show>
       </Show>
     </Show>
   )

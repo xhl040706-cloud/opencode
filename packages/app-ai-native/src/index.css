@@ -1,2 +1,10 @@
 @import "@opencode-ai/ui/styles/tailwind";
 @import "./styles/native-theme.css";
+
+/* iOS home-indicator safe area for bottom-fixed bars.
+   Pairs with `pt-3` on the container so total bottom padding stays ~0.75rem
+   plus the device inset (previously this class was referenced but never
+   defined, so the subscribe CTA could sit under the home indicator). */
+.safe-area-bottom {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}

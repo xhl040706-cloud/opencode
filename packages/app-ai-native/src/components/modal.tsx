@@ -1,6 +1,7 @@
 import type { JSX, ParentProps } from "solid-js"
 import { Dialog as Kobalte } from "@kobalte/core/dialog"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useLanguage } from "@/context/language"
 import "../styles/modal.css"
 
 type Props = ParentProps<{
@@ -12,6 +13,7 @@ type Props = ParentProps<{
 
 export function Modal(props: Props) {
   const dialog = useDialog()
+  const language = useLanguage()
 
   return (
     <div class="modal-wrap">
@@ -32,8 +34,8 @@ export function Modal(props: Props) {
       >
         <div class="modal-hdr">
           <span class="modal-title">{props.title}</span>
-          <button class="modal-close" type="button" onClick={() => dialog.close()}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="modal-close" type="button" aria-label={language.t("common.close")} onClick={() => dialog.close()}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 6 6 18" />
               <path d="m6 6 12 12" />
             </svg>

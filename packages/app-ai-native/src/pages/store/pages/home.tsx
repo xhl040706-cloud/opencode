@@ -26,6 +26,7 @@ import {
   StoreTableFooter,
 } from "../components/store-capability-table"
 import { Icon, type IconProps } from "@opencode-ai/ui/icon"
+import { showToast } from "@opencode-ai/ui/toast"
 import { LocalIcon } from "@/components/local-icon"
 import { useAuth } from "../hooks/use-auth"
 import { cn } from "@/lib/utils"
@@ -318,7 +319,7 @@ export default function Home() {
 
   const listKey = createMemo(() => JSON.stringify(listParams()))
   const listSrc = createMemo(() => ({ key: listKey(), params: listParams() }))
-  const [list] = createResource(listSrc, async (src) => ({
+  const [list, { refetch: refetchList }] = createResource(listSrc, async (src) => ({
     key: src.key,
     data: await itemApi.list(src.params),
   }))
@@ -366,6 +367,12 @@ export default function Home() {
     const data = detailItem()
     if (!data || !auth.user() || auth.loading() || favoritePending()) return
 
+    // Snapshot prior state so a failed request can be rolled back (otherwise the toggle fails
+    // silently — no global error surface exists at the API layer).
+    const prevFavorited = favorited()
+    const prevCount = favoriteCount()
+    const prevStore = favStore[data.id]
+
     setFavoritePending(true)
     try {
       const result = favorited() ? await behaviorApi.unfavorite(data.id) : await behaviorApi.favorite(data.id)
@@ -374,6 +381,17 @@ export default function Home() {
       // Keep the list view's per-item store in sync with a detail-page toggle (no item-object
       // replacement → list rows stay mounted).
       setFavStore(data.id, { favorited: result.favorited, favoriteCount: result.favoriteCount })
+    } catch (err) {
+      // Roll back the optimistic UI to the snapshot and surface the failure.
+      setFavorited(prevFavorited)
+      setFavoriteCount(prevCount)
+      if (prevStore) setFavStore(data.id, prevStore)
+      showToast({
+        variant: "error",
+        icon: "circle-x",
+        title: language.t("store.toast.favoriteFailed"),
+        description: err instanceof Error ? err.message : String(err),
+      })
     } finally {
       setFavoritePending(false)
     }
@@ -388,6 +406,10 @@ export default function Home() {
     // Read the current favorited state from the store (single source of truth), not off the (possibly
     // stale) item object reference captured by the row.
     const current = favStateOf(item)
+    // Snapshot for rollback on failure (the API layer has no global error surface, so without this
+    // a failed subscribe/unsubscribe is silent).
+    const prevDetailFavorited = favorited()
+    const prevDetailCount = favoriteCount()
     setFavoriteActionItemId(item.id)
     try {
       const result = current.favorited ? await behaviorApi.unfavorite(item.id) : await behaviorApi.favorite(item.id)
@@ -401,6 +423,19 @@ export default function Home() {
         setFavorited(result.favorited)
         setFavoriteCount(result.favoriteCount)
       }
+    } catch (err) {
+      // Roll the per-item store (and any mirrored detail state) back to the snapshot.
+      setFavStore(item.id, current)
+      if (detailItem()?.id === item.id) {
+        setFavorited(prevDetailFavorited)
+        setFavoriteCount(prevDetailCount)
+      }
+      showToast({
+        variant: "error",
+        icon: "circle-x",
+        title: language.t("store.toast.favoriteFailed"),
+        description: err instanceof Error ? err.message : String(err),
+      })
     } finally {
       setFavoriteActionItemId((current) => (current === item.id ? null : current))
     }
@@ -444,8 +479,32 @@ export default function Home() {
   const totalItems = createMemo(() => listData()?.total ?? 0)
   const totalPages = createMemo(() => Math.max(1, Math.ceil(totalItems() / pageSize())))
   const listError = createMemo(() => (list.error instanceof Error ? list.error.message : ""))
+  // 致命错误：本次请求失败且没有任何缓存行可显示 → 整块错误态。
   const showError = createMemo(() => !!listError() && rows().length === 0)
+  // 刷新错误：本次请求失败但仍有缓存行 → 保留旧数据，仅在表格顶部挂一条非阻断提示条。
+  const refreshError = createMemo(() => !!listError() && rows().length > 0)
   const detailOpen = createMemo(() => !!selectedItemId())
+
+  // ─── 生效查询/筛选汇总（T2-3 空态区分 / T2-4 生效筛选 chips）───
+  // 是否存在任一「会改变结果集」的查询条件（搜索词 OR 四组 applied 过滤器）。
+  const hasActiveQuery = createMemo(
+    () =>
+      debouncedSearch().length > 0 ||
+      appliedCategoryFilters().length > 0 ||
+      appliedSourceFilters().length > 0 ||
+      appliedSecurityFilters().length > 0 ||
+      appliedTagFilters().length > 0,
+  )
+  // 一键重置搜索词 + 四组 applied 过滤器（空态/生效筛选行的「清除全部」复用）。
+  const clearSearchAndFilters = () => {
+    clearTimeout(searchTimer)
+    setSearchText("")
+    setDebouncedSearch("")
+    setAppliedCategoryFilters([])
+    setAppliedSourceFilters([])
+    setAppliedSecurityFilters([])
+    afterFilterChange()
+  }
 
   // Seed (only) the per-item favorite store from the current list data. Runs whenever `rows`
   // changes (筛选/排序/翻页/新数据到达), seeding *new* ids the store hasn't recorded yet.
@@ -551,6 +610,10 @@ export default function Home() {
     setActiveType(type)
     setSearchText("")
     setDebouncedSearch("")
+    // 切类型时一并清空四组 applied 过滤器，避免「从技能切到 MCP 仍套用技能的筛选」的静默约束。
+    setAppliedCategoryFilters([])
+    setAppliedSourceFilters([])
+    setAppliedSecurityFilters([])
     setPage(1)
     setSelectedItemId(null)
   }
@@ -616,6 +679,35 @@ export default function Home() {
     setAppliedSourceFilters([])
     afterFilterChange()
   }
+
+  // ─── 生效筛选 chips（T2-4）───
+  // 把四组 applied 过滤器摊平成可单独删除的 chip 列表（值已解析为可读 label），主视图据此渲染。
+  type ActiveFilterChip = { id: string; label: string; remove: () => void }
+  const activeFilterChips = createMemo<ActiveFilterChip[]>(() => {
+    const chips: ActiveFilterChip[] = []
+    for (const value of appliedCategoryFilters()) {
+      chips.push({
+        id: `category:${value}`,
+        label: itemFilterOptions.categoryLabel(value) || value,
+        remove: () => toggleCategoryFilter(value),
+      })
+    }
+    for (const value of appliedSourceFilters()) {
+      chips.push({
+        id: `source:${value}`,
+        label: itemFilterOptions.sourceLabel(value) || value,
+        remove: () => toggleSourceFilter(value),
+      })
+    }
+    for (const value of appliedSecurityFilters()) {
+      chips.push({
+        id: `security:${value}`,
+        label: itemFilterOptions.securityRiskGroupLabel(value) || value,
+        remove: () => toggleSecurityFilter(value),
+      })
+    }
+    return chips
+  })
 
   const typeLabel = (value: string) => language.t(typeKey(value))
 
@@ -891,8 +983,9 @@ export default function Home() {
   function SearchControls() {
     return (
       <section class={sx.section}>
-        {/* 居中容器，对齐设计稿 .wrap（max-width:1200px; padding:0 26px） */}
-        <div class="mx-auto flex w-full max-w-[1200px] items-center gap-3 px-[26px] max-[640px]:gap-2 max-[640px]:px-4">
+        {/* 居中列容器：第一行=搜索 + 控件，第二行（T2-4）=生效筛选 chips（仅有生效筛选时才渲染） */}
+        <div class="mx-auto flex w-full max-w-[1200px] flex-col gap-3 px-[26px] max-[640px]:gap-2 max-[640px]:px-4">
+        <div class="flex w-full items-center gap-3 max-[640px]:gap-2">
             {/* 搜索框：对齐设计稿 .search input（h 42 / rounded 13 / native-border / native-panel） */}
             <div class="relative min-w-0 flex-1 max-w-[560px] rounded-[13px] transition-shadow hover:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))] focus-within:shadow-[0_2px_6px_-3px_color-mix(in_srgb,var(--native-primary)_22%,rgba(15,23,42,0.3))]">
             <div class="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-[13px] text-[color:color-mix(in_srgb,var(--native-muted)_82%,white)]">
@@ -1044,6 +1137,38 @@ export default function Home() {
             </button>
           </div>
           </div>
+          </div>
+
+          {/* T2-4：生效筛选 chips 行。每个 chip = 值 + x（单独删除）；末尾「清除全部」。仅有生效筛选时渲染。 */}
+          <Show when={activeFilterChips().length > 0}>
+            <div class="flex w-full flex-wrap items-center gap-1.5">
+              <span class="text-[12px] font-semibold text-[var(--native-muted)]">
+                {language.t("store.home.activeFilters")}
+              </span>
+              <For each={activeFilterChips()}>
+                {(chip) => (
+                  <span class="inline-flex items-center gap-1 rounded-[var(--native-radius-full)] border border-[color:color-mix(in_srgb,var(--native-primary)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--native-primary)_8%,var(--native-panel))] py-0.5 pl-2.5 pr-1 text-[12px] font-semibold text-[var(--native-primary)]">
+                    <span class="whitespace-nowrap">{chip.label}</span>
+                    <button
+                      type="button"
+                      aria-label={language.t("common.clear")}
+                      onClick={chip.remove}
+                      class="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--native-primary)] transition-colors hover:bg-[color:color-mix(in_srgb,var(--native-primary)_18%,transparent)]"
+                    >
+                      <StoreIcon name="x" size={11} />
+                    </button>
+                  </span>
+                )}
+              </For>
+              <button
+                type="button"
+                onClick={clearSearchAndFilters}
+                class="inline-flex h-6 cursor-pointer items-center rounded-[var(--native-radius-full)] px-2 text-[12px] font-semibold text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"
+              >
+                {language.t("store.home.clearFilters")}
+              </button>
+            </div>
+          </Show>
         </div>
       </section>
     )
@@ -1099,36 +1224,93 @@ export default function Home() {
           labels={filterBarLabels()}
         />
 
+        {/* T2-1：刷新错误（有缓存但本次请求失败）→ 非阻断提示条，保留旧数据继续显示，提供「重试」。 */}
+        <Show when={refreshError()}>
+          <div class={sx.refreshBar}>
+            <span class="inline-flex items-center gap-1.5">
+              <Icon name="warning" class="size-4" style={{ color: "#dc2626" }} />
+              {language.t("store.home.refreshFailed")}
+            </span>
+            <button type="button" onClick={() => void refetchList()} class={sx.stateRetry}>
+              <Icon name="reset" class="size-3.5" style={{ color: "#dc2626" }} />
+              {language.t("common.retry")}
+            </button>
+          </div>
+        </Show>
+
         {/* 列表区：relative 定位仅用于承载 loading 半透明遮罩（absolute inset-0），
             最小高度保证空态/加载态不塌陷；不抢占整页滚动。 */}
         <div class="relative min-h-[18rem]">
           <Show
             when={!showError()}
             fallback={
-              <div class={sx.state}>{listError() || language.t("store.console.capabilities.toast.loadFailed")}</div>
+              /* T2-7 fatal error：警示色 + 图标 + 可见「重试」按钮。 */
+              <div class={sx.stateBox}>
+                <Icon name="warning" class="size-7" style={{ color: "#dc2626" }} />
+                <div class={sx.stateError}>
+                  {listError() || language.t("store.console.capabilities.toast.loadFailed")}
+                </div>
+                <button type="button" onClick={() => void refetchList()} class={sx.stateRetry}>
+                  <Icon name="reset" class="size-3.5" style={{ color: "#dc2626" }} />
+                  {language.t("common.retry")}
+                </button>
+              </div>
             }
           >
             <Show
               when={listCache() !== null || !list.loading}
-              fallback={<div class={sx.state}>{language.t("store.loading")}</div>}
+              fallback={
+                /* T2-7 loading：骨架行（与 error/empty 的居中图标态明显不同）。 */
+                <div class="flex flex-col gap-2 py-2" aria-busy="true">
+                  <For each={Array.from({ length: 6 })}>{() => <div class={sx.skeletonRow} />}</For>
+                </div>
+              }
             >
               <Show when={list.loading && listCache() !== null}>
                 <div class={sx.overlay}>
                   <div class={sx.spinner} />
                 </div>
               </Show>
-              {/* 入场动画：筛选/排序/搜索使「已生效查询」变化并取回新数据后，listAnimEpoch 自增，
-                  下面的 keyed <Show> 把列表子树重挂一次，子项各自播放 store-row-enter（stagger）。
-                  卡片⇄列式切换不经过这里（走 withViewTransition 共享元素），两套动画互不干扰。 */}
-              <style>{STORE_LIST_ENTER_CSS}</style>
-              {/* keyed 用 epoch+1 保证始终为真值（首屏也渲染）；epoch 变化时整子树重挂以触发入场。 */}
-              <Show keyed when={listAnimEpoch() + 1}>
-                <div data-store-list-enter={listEnterActive() ? "" : undefined}>
-                  {/* 卡片 / 列式 视图（共用 StoreItemViewProps 契约，由 viewMode 切换） */}
-                  <Show when={viewMode() === "card"} fallback={<StoreListView {...viewProps()} />}>
-                    <StoreCardGrid {...viewProps()} />
-                  </Show>
-                </div>
+              {/* T2-3 + T2-7 empty：区分「搜索/筛选无匹配」与「分类本身为空」，并给可区分的中性视觉。 */}
+              <Show
+                when={rows().length > 0}
+                fallback={
+                  <div class={sx.stateBox}>
+                    <Show
+                      when={hasActiveQuery()}
+                      fallback={
+                        <>
+                          <Icon name="inbox" class={cn("size-7", sx.stateEmptyIcon)} />
+                          <div class={sx.stateEmpty}>{language.t("store.home.emptyCategory")}</div>
+                        </>
+                      }
+                    >
+                      <Icon name="magnifying-glass" class={cn("size-7", sx.stateEmptyIcon)} />
+                      <div class={sx.stateEmpty}>
+                        {debouncedSearch()
+                          ? language.t("store.home.noMatch", { query: debouncedSearch() })
+                          : language.t("store.home.noMatchFilters")}
+                      </div>
+                      <button type="button" onClick={clearSearchAndFilters} class={sx.stateClear}>
+                        {language.t("store.home.clearFilters")}
+                      </button>
+                    </Show>
+                  </div>
+                }
+              >
+                {/* 入场动画：筛选/排序/搜索使「已生效查询」变化并取回新数据后，listAnimEpoch 自增，
+                    下面的 keyed <Show> 把列表子树重挂一次，子项各自播放 store-row-enter（stagger）。
+                    卡片⇄列式切换不经过这里（走 withViewTransition 共享元素），两套动画互不干扰。 */}
+                <style>{STORE_LIST_ENTER_CSS}</style>
+                {/* keyed 用 epoch+1 保证始终为真值（首屏也渲染）；epoch 变化时整子树重挂以触发入场。 */}
+                <Show keyed when={listAnimEpoch() + 1}>
+                  <div data-store-list-enter={listEnterActive() ? "" : undefined}>
+                    {/* 卡片 / 列式 视图（共用 StoreItemViewProps 契约，由 viewMode 切换） */}
+                    <Show when={viewMode() === "card"} fallback={<StoreListView {...viewProps()} />}>
+                      <StoreCardGrid {...viewProps()} />
+                    </Show>
+                  </div>
+                </Show>
               </Show>
             </Show>
           </Show>

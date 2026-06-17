@@ -109,9 +109,11 @@ export default function StoreManagerPage() {
     receivedItems: [] as ReceiptItem[],
     receivedLoading: false,
     receivedLoaded: false,
+    receivedError: "",
     sentItems: [] as DistributionResult["distribution"][],
     sentLoading: false,
     sentLoaded: false,
+    sentError: "",
     repos: [] as Repository[],
     typeFilterOpen: false,
     typeFilterQuery: "",
@@ -336,15 +338,18 @@ export default function StoreManagerPage() {
 
   const loadReceived = async () => {
     if (state.receivedLoading) return
-    setState("receivedLoading", true)
+    setState({ receivedLoading: true, receivedError: "" })
     try {
       const res = await distributionApi.listMyReceived()
-      setState({ receivedItems: res.receipts ?? [], receivedLoaded: true })
+      setState({ receivedItems: res.receipts ?? [], receivedLoaded: true, receivedError: "" })
     }
     catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setState({ receivedLoaded: true, receivedError: message || language.t("store.received.toast.loadFailed") })
       showToast({
+        variant: "error",
         title: language.t("store.received.toast.loadFailed"),
-        description: error instanceof Error ? error.message : String(error),
+        description: message,
       })
     }
     finally {
@@ -354,15 +359,18 @@ export default function StoreManagerPage() {
 
   const loadSent = async () => {
     if (state.sentLoading) return
-    setState("sentLoading", true)
+    setState({ sentLoading: true, sentError: "" })
     try {
       const res = await distributionApi.listMySent()
-      setState({ sentItems: res.distributions ?? [], sentLoaded: true })
+      setState({ sentItems: res.distributions ?? [], sentLoaded: true, sentError: "" })
     }
     catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setState({ sentLoaded: true, sentError: message || language.t("store.sent.toast.loadFailed") })
       showToast({
-        title: language.t("store.received.toast.loadFailed"),
-        description: error instanceof Error ? error.message : String(error),
+        variant: "error",
+        title: language.t("store.sent.toast.loadFailed"),
+        description: message,
       })
     }
     finally {
@@ -1187,7 +1195,7 @@ export default function StoreManagerPage() {
                     <div class={sx.spinner} />
                   </div>
                 </Show>
-                <Show when={!state.receivedLoading && state.receivedLoaded}>
+                <Show when={!state.receivedLoading && state.receivedLoaded && !state.receivedError}>
                   <Show when={filteredReceivedItems().length > 0} fallback={
                     <div class="flex flex-1 items-center justify-center">
                       <div class={sx.state}>
@@ -1287,7 +1295,26 @@ export default function StoreManagerPage() {
                     </table>
                   </Show>
                 </Show>
-                <Show when={!state.receivedLoaded}>
+                <Show when={!state.receivedLoading && state.receivedError}>
+                  <div class="flex flex-1 items-center justify-center">
+                    <div class={sx.state}>
+                      <p class="mb-1 text-[0.9375rem] font-medium">{language.t("store.received.toast.loadFailed")}</p>
+                      <p class="mb-3 text-[0.8125rem] opacity-60">{state.receivedError}</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setState({ receivedLoaded: false, receivedError: "" })
+                          void loadReceived()
+                        }}
+                      >
+                        {language.t("common.retry")}
+                      </Button>
+                    </div>
+                  </div>
+                </Show>
+                <Show when={!state.receivedLoaded && !state.receivedError}>
                   <div class={sx.state}>{language.t("store.loading")}</div>
                 </Show>
               </Show>
@@ -1298,7 +1325,7 @@ export default function StoreManagerPage() {
                     <div class={sx.spinner} />
                   </div>
                 </Show>
-                <Show when={!state.sentLoading && state.sentLoaded}>
+                <Show when={!state.sentLoading && state.sentLoaded && !state.sentError}>
                   <Show when={filteredSentItems().length > 0} fallback={
                     <div class="flex flex-1 items-center justify-center">
                       <div class={sx.state}>
@@ -1385,7 +1412,26 @@ export default function StoreManagerPage() {
                     </table>
                   </Show>
                 </Show>
-                <Show when={!state.sentLoaded}>
+                <Show when={!state.sentLoading && state.sentError}>
+                  <div class="flex flex-1 items-center justify-center">
+                    <div class={sx.state}>
+                      <p class="mb-1 text-[0.9375rem] font-medium">{language.t("store.sent.toast.loadFailed")}</p>
+                      <p class="mb-3 text-[0.8125rem] opacity-60">{state.sentError}</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setState({ sentLoaded: false, sentError: "" })
+                          void loadSent()
+                        }}
+                      >
+                        {language.t("common.retry")}
+                      </Button>
+                    </div>
+                  </div>
+                </Show>
+                <Show when={!state.sentLoaded && !state.sentError}>
                   <div class={sx.state}>{language.t("store.loading")}</div>
                 </Show>
               </Show>

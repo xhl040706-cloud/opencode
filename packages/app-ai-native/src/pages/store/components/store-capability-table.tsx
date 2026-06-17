@@ -10,6 +10,7 @@ import { tagApi, type CapabilityItem, type Category, type ItemOrder, type ItemSo
 import { detectMcpFields, mcpRequiresPluginRuntime } from "../lib/mcp-config"
 import { pickItemDescription } from "../lib/item-description"
 import { useLanguage } from "@/context/language"
+import { useItemFilterOptions } from "@/context/item-filter-options"
 import { st, sx } from "../lib/styles"
 import SecurityTag from "./security-tag"
 import FromPluginBadge from "./from-plugin-badge"
@@ -294,7 +295,10 @@ function CheckboxHeaderFilter(props: {
   noResultsLabel: string
   resetLabel: string
   confirmLabel: string
+  loadError?: boolean
+  onRetry?: () => void
 }) {
+  const language = useLanguage()
   return (
     <Popover modal={false} open={props.open} onOpenChange={props.onOpenChange}>
       <PopoverTrigger as="button" class={cn(st.sort(false), "items-center gap-2")}>
@@ -312,16 +316,30 @@ function CheckboxHeaderFilter(props: {
             />
           </TextField>
           <div class="thin-scrollbar flex max-h-[19.2rem] flex-col gap-1 overflow-y-auto pr-1">
-            <For each={props.options}>
-              {(option) => (
-                <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
-                  <input type="checkbox" checked={props.selectedValues.includes(option.value)} onChange={() => props.onToggle(option.value)} />
-                  <span class="min-w-0 truncate">{option.label}</span>
-                </label>
-              )}
-            </For>
-            <Show when={props.options.length === 0}>
-              <div class="px-2 py-3 text-sm text-[var(--native-muted)]">{props.noResultsLabel}</div>
+            <Show
+              when={props.loadError}
+              fallback={
+                <>
+                  <For each={props.options}>
+                    {(option) => (
+                      <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        <input type="checkbox" checked={props.selectedValues.includes(option.value)} onChange={() => props.onToggle(option.value)} />
+                        <span class="min-w-0 truncate">{option.label}</span>
+                      </label>
+                    )}
+                  </For>
+                  <Show when={props.options.length === 0}>
+                    <div class="px-2 py-3 text-sm text-[var(--native-muted)]">{props.noResultsLabel}</div>
+                  </Show>
+                </>
+              }
+            >
+              <div class="flex flex-col items-center gap-2 px-2 py-3 text-sm text-[var(--native-muted)]">
+                <span>{language.t("store.filterOptions.loadFailed")}</span>
+                <button type="button" class="cursor-pointer rounded-md px-2.5 py-1 text-[var(--native-primary)] hover:bg-accent hover:text-accent-foreground" onClick={() => props.onRetry?.()}>
+                  {language.t("common.retry")}
+                </button>
+              </div>
             </Show>
           </div>
           <div class="flex items-center justify-end gap-2 border-t pt-2">
@@ -620,7 +638,7 @@ function ColumnToggleMenu(props: {
   return (
     // modal={false}：一致性 + 预防 scroll-lock 残留（同 page-size 下拉，不锁滚动，点外部/Esc 仍关闭）。
     <DropdownMenu modal={false}>
-      <DropdownMenuTrigger as="button" class="inline-flex size-7 items-center justify-center rounded-[0.375rem] text-[var(--native-muted)] transition-colors hover:bg-accent hover:text-accent-foreground" title="Toggle columns">
+      <DropdownMenuTrigger as="button" class="inline-flex size-7 items-center justify-center rounded-[0.375rem] text-[var(--native-muted)] transition-colors hover:bg-accent hover:text-accent-foreground" aria-label={props.label}>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true">
           <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
           <circle cx="12" cy="12" r="3" />
@@ -867,6 +885,8 @@ export function StoreCapabilityTable(props: {
   searchQuery?: string
 }) {
   const language = useLanguage()
+  const itemFilterOptions = useItemFilterOptions()
+  const filterOptionsLoadFailed = createMemo(() => Boolean(itemFilterOptions.error()))
   const isColumnVisible = (key: TableColumnKey) => props.visibleColumns[key]
   const stickyHeadClass = "sticky top-0 z-10 bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))]"
   const stickyHeadRowClass = "sticky top-0 z-20 bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))]"
@@ -945,6 +965,8 @@ export function StoreCapabilityTable(props: {
                     noResultsLabel={props.labels.noResults}
                     resetLabel={props.labels.reset}
                     confirmLabel={props.labels.confirm}
+                    loadError={filterOptionsLoadFailed()}
+                    onRetry={() => itemFilterOptions.refetch()}
                   />
                 </th>
               </Show>
@@ -967,6 +989,8 @@ export function StoreCapabilityTable(props: {
                     noResultsLabel={props.labels.noResults}
                     resetLabel={props.labels.reset}
                     confirmLabel={props.labels.confirm}
+                    loadError={filterOptionsLoadFailed()}
+                    onRetry={() => itemFilterOptions.refetch()}
                   />
                 </th>
               </Show>
@@ -1005,6 +1029,8 @@ export function StoreCapabilityTable(props: {
                     noResultsLabel={props.labels.noResults}
                     resetLabel={props.labels.reset}
                     confirmLabel={props.labels.confirm}
+                    loadError={filterOptionsLoadFailed()}
+                    onRetry={() => itemFilterOptions.refetch()}
                   />
                 </th>
               </Show>

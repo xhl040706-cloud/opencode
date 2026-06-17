@@ -9,7 +9,7 @@ const COLORS: Record<SecurityStatus, [string, string]> = {
   pending: ["rgba(156,163,175,0.15)", "rgb(156,163,175)"],
   scanning: ["rgba(156,163,175,0.15)", "rgb(156,163,175)"],
   clean: ["rgba(34,197,94,0.12)", "rgb(22,163,74)"],
-  low: ["rgba(34,197,94,0.12)", "rgb(22,163,74)"],
+  low: ["rgba(132,204,22,0.14)", "rgb(101,163,13)"],
   medium: ["rgba(240,159,20,0.12)", "rgb(202,138,4)"],
   high: ["rgba(249,115,22,0.12)", "rgb(234,88,12)"],
   extreme: ["rgba(252,74,74,0.12)", "rgb(220,38,38)"],
@@ -36,7 +36,8 @@ const PULSE: Set<SecurityStatus> = new Set(["pending", "scanning"])
 export default function SecurityTag(props: { status?: SecurityStatus }) {
   const language = useLanguage()
   const itemFilterOptions = useItemFilterOptions()
-  const status = () => props.status ?? "unscanned"
+  const status = (): SecurityStatus =>
+    props.status && (props.status as string) in COLORS ? (props.status as SecurityStatus) : "unscanned"
   const text = () => itemFilterOptions.securityStatusLabel(props.status) || language.t(KEYS[status()]).replace(/\.{2,}$/, "")
 
   return (
@@ -71,9 +72,18 @@ const VERDICT_KEYS: Record<Verdict, string> = {
   reject: "store.verdict.reject",
 }
 
+// Scan payloads use verdict values like "pass" / "fail" / "warn" that don't
+// match the typed Verdict union. Normalize so an unexpected value never indexes
+// VERDICT_COLORS/VERDICT_KEYS as undefined (which crashed the detail page).
+const VERDICT_ALIASES: Record<string, Verdict> = {
+  safe: "safe", pass: "safe", passed: "safe", ok: "safe", clean: "safe", low: "safe",
+  caution: "caution", warn: "caution", warning: "caution", review: "caution", medium: "caution",
+  reject: "reject", fail: "reject", failed: "reject", block: "reject", blocked: "reject", danger: "reject", high: "reject",
+}
+
 export function VerdictTag(props: { verdict?: Verdict }) {
   const language = useLanguage()
-  const verdict = () => props.verdict ?? "safe"
+  const verdict = (): Verdict => VERDICT_ALIASES[String(props.verdict ?? "").toLowerCase()] ?? "safe"
 
   return (
     <Show when={props.verdict}>

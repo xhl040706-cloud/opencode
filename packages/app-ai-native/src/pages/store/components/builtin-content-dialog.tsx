@@ -26,10 +26,10 @@ export function BuiltinContentDialog(props: Props) {
 
   const validateFile = (file: File): string | null => {
     if (!file.name.toLowerCase().endsWith(".md")) {
-      return "请上传 .md 格式的 Markdown 文件"
+      return language.t("store.builtinContent.error.notMd")
     }
     if (file.size > 5 * 1024 * 1024) {
-      return "文件超过 5MB 限制"
+      return language.t("store.builtinContent.error.tooLarge")
     }
     return null
   }
@@ -38,7 +38,7 @@ export function BuiltinContentDialog(props: Props) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = (e) => resolve(String(e.target?.result ?? ""))
-      reader.onerror = () => reject(new Error("读取文件失败"))
+      reader.onerror = () => reject(new Error(language.t("store.builtinContent.error.readFailed")))
       reader.readAsText(file)
     })
   }
@@ -57,7 +57,7 @@ export function BuiltinContentDialog(props: Props) {
       const content = await readFile(file)
       setStore("fileContent", content)
     } catch {
-      setStore("error", "读取文件失败")
+      setStore("error", language.t("store.builtinContent.error.readFailed"))
       setStore("fileContent", "")
     }
   }
@@ -84,7 +84,7 @@ export function BuiltinContentDialog(props: Props) {
       })
       showToast({
         variant: "success",
-        title: language.t("store.detail.setBuiltInSuccess") || "已设为内置 Plugin",
+        title: language.t("store.detail.setBuiltInSuccess"),
       })
       props.onSuccess?.(item)
       dialog.close()
@@ -93,7 +93,7 @@ export function BuiltinContentDialog(props: Props) {
       setStore("error", message)
       showToast({
         variant: "error",
-        title: language.t("store.detail.toggleBuiltInFailed") || "设置失败",
+        title: language.t("store.detail.toggleBuiltInFailed"),
         description: message,
       })
     } finally {
@@ -104,7 +104,7 @@ export function BuiltinContentDialog(props: Props) {
   return (
     <form onSubmit={handleSubmit}>
       <Modal
-        title={`设置 "${props.itemName}" 为内置`}
+        title={language.t("store.builtinContent.title", { name: props.itemName })}
         maxWidth="520px"
         footer={
           <>
@@ -117,15 +117,15 @@ export function BuiltinContentDialog(props: Props) {
               disabled={store.uploading || !store.fileContent}
             >
               {store.uploading
-                ? language.t("common.loading") || "保存中"
-                : language.t("common.confirm") || "确认设为内置"}
+                ? language.t("store.builtinContent.saving")
+                : language.t("store.builtinContent.confirm")}
             </button>
           </>
         }
       >
         <div class="space-y-4">
           <p class="text-12-regular text-text-weak">
-            请上传一个 Markdown 文件作为该内置 Plugin 的展示内容。
+            {language.t("store.builtinContent.description")}
           </p>
 
           {/* Drag & Drop area */}
@@ -145,9 +145,9 @@ export function BuiltinContentDialog(props: Props) {
                 <>
                   <Icon name="cloud-upload" class="mx-auto mb-2 text-text-weak" />
                   <p class="text-12-regular text-text-weak">
-                    拖拽 Markdown 文件到此处，或
+                    {language.t("store.builtinContent.dragHint")}
                     <label class="cursor-pointer text-[var(--native-primary)] hover:underline">
-                      点击选择
+                      {language.t("store.builtinContent.clickSelect")}
                       <input
                         type="file"
                         accept=".md"
@@ -159,7 +159,7 @@ export function BuiltinContentDialog(props: Props) {
                       />
                     </label>
                   </p>
-                  <p class="mt-1 text-[11px] text-text-weak">仅支持 .md，最大 5MB</p>
+                  <p class="mt-1 text-[11px] text-text-weak">{language.t("store.builtinContent.sizeHint")}</p>
                 </>
               }
             >

@@ -26,10 +26,10 @@ export function UploadPluginDialog(props: Props) {
 
   const validateFile = (file: File): string | null => {
     if (!file.name.toLowerCase().endsWith(".zip")) {
-      return language.t("store.uploadPlugin.error.notZip") || "请上传 .zip 格式的压缩包"
+      return language.t("store.uploadPlugin.error.notZip")
     }
     if (file.size > 50 * 1024 * 1024) {
-      return language.t("store.uploadPlugin.error.tooLarge") || "文件超过 50MB 限制"
+      return language.t("store.uploadPlugin.error.tooLarge")
     }
     return null
   }
@@ -66,7 +66,7 @@ export function UploadPluginDialog(props: Props) {
         setStore("progress", p)
       })
       showToast({
-        title: language.t("store.uploadPlugin.success") || "Plugin 上传成功",
+        title: language.t("store.uploadPlugin.success"),
       })
       props.onUploaded?.(item)
       dialog.close()
@@ -75,7 +75,7 @@ export function UploadPluginDialog(props: Props) {
       setStore("error", message)
       showToast({
         variant: "error",
-        title: language.t("store.uploadPlugin.failed") || "上传失败",
+        title: language.t("store.uploadPlugin.failed"),
         description: message,
       })
     } finally {
@@ -86,7 +86,7 @@ export function UploadPluginDialog(props: Props) {
   return (
     <form onSubmit={handleSubmit}>
       <Modal
-        title={language.t("store.uploadPlugin.title") || "上传 Plugin"}
+        title={language.t("store.uploadPlugin.title")}
         maxWidth="520px"
         footer={
           <>
@@ -99,8 +99,8 @@ export function UploadPluginDialog(props: Props) {
               disabled={store.uploading || !store.file}
             >
               {store.uploading
-                ? `${language.t("common.uploading") || "上传中"} ${Math.round(store.progress * 100)}%`
-                : language.t("store.uploadPlugin.submit") || "上传"}
+                ? `${language.t("common.uploading")} ${Math.round(store.progress * 100)}%`
+                : language.t("store.uploadPlugin.submit")}
             </button>
           </>
         }
@@ -123,9 +123,9 @@ export function UploadPluginDialog(props: Props) {
                 <>
                   <Icon name="cloud-upload" class="mx-auto mb-2 text-text-weak" />
                   <p class="text-12-regular text-text-weak">
-                    {language.t("store.uploadPlugin.dragHint") || "拖拽文件到此处，或"}
+                    {language.t("store.uploadPlugin.dragHint")}
                     <label class="cursor-pointer text-[var(--native-primary)] hover:underline">
-                      {language.t("store.uploadPlugin.clickSelect") || "点击选择"}
+                      {language.t("store.uploadPlugin.clickSelect")}
                       <input
                         type="file"
                         accept=".zip"
@@ -138,7 +138,7 @@ export function UploadPluginDialog(props: Props) {
                     </label>
                   </p>
                   <p class="mt-1 text-[11px] text-text-weak">
-                    {language.t("store.uploadPlugin.sizeHint") || "仅支持 .zip，最大 50MB"}
+                    {language.t("store.uploadPlugin.sizeHint")}
                   </p>
                 </>
               }
