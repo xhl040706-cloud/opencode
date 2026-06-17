@@ -4,7 +4,7 @@ import { useAuth } from "@/context/auth"
 import { getLoginUrl } from "@/pages/store/lib/auth"
 import { Button } from "@/components/ui/button"
 import { sx } from "@/pages/store/lib/styles"
-import { listIdentities, unbindIdentity, startBind, type AuthIdentity } from "./lib/identity-api"
+import { listIdentities, unbindIdentity, startBind, confirmMerge, cancelMerge, type AuthIdentity } from "./lib/identity-api"
 import { cn } from "@/lib/utils"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
@@ -34,6 +34,9 @@ export default function IdentityPage() {
   const [unbindingProvider, setUnbindingProvider] = createSignal<string | null>(null)
   const [error, setError] = createSignal<string | null>(null)
   const [bindSuccess, setBindSuccess] = createSignal(false)
+  const [mergeToken, setMergeToken] = createSignal<string | null>(null)
+  const [mergeProvider, setMergeProvider] = createSignal<string | null>(null)
+  const [merging, setMerging] = createSignal(false)
 
   const fetchIdentities = async () => {
     setLoadingIdentities(true)
@@ -87,18 +90,67 @@ export default function IdentityPage() {
     }
   }
 
+  const labelKeyForProvider = (provider: string) => {
+    const meta = PROVIDER_META[provider.toLowerCase()]
+    return meta ? language.t(meta.labelKey) : provider
+  }
+
+  const handleMergeConfirm = async () => {
+    const token = mergeToken()
+    if (!token) return
+    setMerging(true)
+    try {
+      await confirmMerge(token)
+      window.history.replaceState({}, "", window.location.pathname)
+      setMergeToken(null)
+      setMergeProvider(null)
+      setBindSuccess(true)
+      setTimeout(() => setBindSuccess(false), 5000)
+      await Promise.all([fetchIdentities(), refreshUser()])
+    } catch (err: any) {
+      setError(err.message || "Failed to merge accounts")
+    } finally {
+      setMerging(false)
+    }
+  }
+
+  const handleMergeCancel = async () => {
+    const token = mergeToken()
+    if (token) {
+      try {
+        await cancelMerge(token)
+      } catch { /* ignore */ }
+    }
+    window.history.replaceState({}, "", window.location.pathname)
+    setMergeToken(null)
+    setMergeProvider(null)
+  }
+
   createEffect(() => {
     if (user()) fetchIdentities()
   })
 
   createEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get("bind") === "success") {
+    const bind = params.get("bind")
+    if (bind === "success") {
       setBindSuccess(true)
       window.history.replaceState({}, "", window.location.pathname)
       setTimeout(() => setBindSuccess(false), 5000)
       fetchIdentities()
       refreshUser()
+    } else if (bind === "conflict") {
+      const token = params.get("merge_token")
+      if (token) {
+        const payload = token.split(".")[0]
+        try {
+          const decoded = JSON.parse(atob(payload))
+          setMergeProvider(decoded.provider || "unknown")
+        } catch {
+          setMergeProvider("unknown")
+        }
+        setMergeToken(token)
+      }
     }
   })
 
@@ -141,6 +193,28 @@ export default function IdentityPage() {
               <button class="ml-2 underline" onClick={() => setError(null)}>
                 {language.t("console.identity.dismiss")}
               </button>
+            </div>
+          </Show>
+
+          <Show when={mergeToken()}>
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div class="rounded-[var(--native-radius-md)] border bg-[var(--native-panel)] p-6 shadow-xl max-w-md mx-4">
+                <h3 class="text-base font-medium mb-2">{language.t("console.identity.mergeTitle")}</h3>
+                <p class="text-[0.8125rem] text-[var(--native-muted)] mb-4">
+                  {language.t("console.identity.mergeDescription", { provider: labelKeyForProvider(mergeProvider() ?? "") })}
+                </p>
+                <div class="flex justify-end gap-2">
+                  <button type="button"
+                    class="rounded-[var(--native-radius-sm)] px-4 py-2 text-[0.8125rem] text-[var(--native-muted)] hover:bg-[var(--native-hover)] transition-colors"
+                    onClick={handleMergeCancel}
+                    disabled={merging()}>
+                    {language.t("common.cancel")}
+                  </button>
+                  <Button type="button" size="sm" onClick={handleMergeConfirm} disabled={merging()}>
+                    {merging() ? language.t("common.loading") : language.t("console.identity.mergeConfirm")}
+                  </Button>
+                </div>
+              </div>
             </div>
           </Show>
 
