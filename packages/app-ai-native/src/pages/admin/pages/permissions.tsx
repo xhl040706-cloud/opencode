@@ -28,6 +28,14 @@ type Tab = (typeof TABS)[number]
 
 const DEPT_UNAVAILABLE_CODE = "dept_sync_unavailable"
 
+// Metrics-dashboard scope permission codes. These MUST match the backend authz
+// constants (server/internal/authz/scope.go ScopeAllPermission/ScopeDeptPermission)
+// — the grant created here is consumed verbatim by ResolveUserScope. Centralizing
+// them as a preset means admins never hand-type these strings.
+const SCOPE_ALL_CODE = "kanban.scope.all"
+const SCOPE_DEPT_CODE = "kanban.scope.dept"
+type ScopePreset = "all" | "dept"
+
 // Flatten the nested department tree into depth-tagged rows for an indented picker.
 interface FlatDept {
   dept: AdminDept
@@ -138,6 +146,96 @@ export default function AdminPermissions() {
   })
 
   const flatDepts = createMemo(() => flattenDepts(grants.tree))
+
+  // ── Metrics-view preset (issue #2): open dashboard scope without raw codes ──
+  // Two actions, both backed by adminGrantApi.grant: "see all company metrics"
+  // (kanban.scope.all on a user) and "see a specific department" (kanban.scope.dept
+  // on a user, with the target department resolved server-side into the grant's
+  // dept_path that ResolveUserScope reads).
+  const [scopeForm, setScopeForm] = createStore<{
+    preset: ScopePreset
+    userQuery: string
+    userResults: SearchedUser[]
+    userSearching: boolean
+    selectedUser: SearchedUser | null
+    targetDept: AdminDept | null
+    granting: boolean
+  }>({
+    preset: "all",
+    userQuery: "",
+    userResults: [],
+    userSearching: false,
+    selectedUser: null,
+    targetDept: null,
+    granting: false,
+  })
+
+  function setScopePreset(preset: ScopePreset) {
+    setScopeForm("preset", preset)
+    if (preset === "dept") void loadGrantTree()
+  }
+
+  let scopeSearchTimer: ReturnType<typeof setTimeout>
+  function onScopeUserSearch(value: string) {
+    setScopeForm("userQuery", value)
+    clearTimeout(scopeSearchTimer)
+    const trimmed = value.trim()
+    if (!trimmed) {
+      setScopeForm("userResults", [])
+      return
+    }
+    scopeSearchTimer = setTimeout(async () => {
+      setScopeForm("userSearching", true)
+      try {
+        const res = await userApi.search(trimmed)
+        setScopeForm("userResults", res.users ?? [])
+      } catch (err) {
+        showToast({
+          variant: "error",
+          title: language.t("admin.permissions.toast.searchFailed"),
+          description: err instanceof Error ? err.message : String(err),
+        })
+      } finally {
+        setScopeForm("userSearching", false)
+      }
+    }, 300)
+  }
+
+  async function submitScopeGrant() {
+    if (!scopeForm.selectedUser) {
+      showToast({ variant: "error", title: language.t("admin.permissions.grants.scope.needUser") })
+      return
+    }
+    if (scopeForm.preset === "dept" && !scopeForm.targetDept) {
+      showToast({ variant: "error", title: language.t("admin.permissions.grants.scope.needTargetDept") })
+      return
+    }
+    const subjectId = userIdOf(scopeForm.selectedUser)
+    setScopeForm("granting", true)
+    try {
+      if (scopeForm.preset === "all") {
+        await adminGrantApi.grant({ permissionCode: SCOPE_ALL_CODE, subjectType: "user", subjectId })
+      } else {
+        await adminGrantApi.grant({
+          permissionCode: SCOPE_DEPT_CODE,
+          subjectType: "user",
+          subjectId,
+          targetDeptId: scopeForm.targetDept!.deptId,
+        })
+      }
+      showToast({ variant: "success", title: language.t("admin.permissions.grants.scope.granted") })
+      setScopeForm({ selectedUser: null, targetDept: null, userResults: [], userQuery: "" })
+      await loadGrants()
+    } catch (err) {
+      showToast({
+        variant: "error",
+        title: language.t("admin.permissions.grants.toast.grantFailed"),
+        description: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setScopeForm("granting", false)
+    }
+  }
 
   function isDeptUnavailable(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err)
@@ -268,17 +366,40 @@ export default function AdminPermissions() {
     for (const f of flatDepts()) map.set(f.dept.deptId, f.dept.deptName)
     return map
   })
+  // Match a stored dept_path back to a department name (best effort: the tree may
+  // not be loaded, in which case we fall back to the raw path).
+  const deptNameByPath = createMemo(() => {
+    const map = new Map<string, string>()
+    for (const f of flatDepts()) map.set(f.dept.deptPath, f.dept.deptName)
+    return map
+  })
   function subjectLabel(g: PermissionGrant): string {
     if (g.subjectType === "department") return deptNameById().get(g.subjectId) || g.deptPath || g.subjectId
     return g.subjectId
   }
+  // A readable description of a metrics-scope grant for the existing-grants table.
+  // Returns null for non-scope grants (which render their raw permission code).
+  function scopeDescription(g: PermissionGrant): string | null {
+    if (g.permissionCode === SCOPE_ALL_CODE) {
+      return language.t("admin.permissions.grants.scope.label.all")
+    }
+    if (g.permissionCode === SCOPE_DEPT_CODE) {
+      const deptName = g.deptPath ? deptNameByPath().get(g.deptPath) || g.deptPath : g.deptPath
+      return language.t("admin.permissions.grants.scope.label.dept", { dept: deptName })
+    }
+    return null
+  }
 
   // Load grants when the tab is first opened (keeps the initial paint cheap).
+  // Also warm the department tree so existing kanban.scope.dept grants can render
+  // their target department name (best effort: falls back to the raw path / shows
+  // the unavailable notice if dept-sync is down — never blocks the grant list).
   let grantsLoadedOnce = false
   function onGrantsTab() {
     if (grantsLoadedOnce) return
     grantsLoadedOnce = true
     void loadGrants()
+    void loadGrantTree()
   }
 
   // ── My permissions (debug view) ────────────────────────────────────────────
@@ -386,6 +507,195 @@ export default function AdminPermissions() {
       {/* ── Tab: Fine-grained grants (mentor RBAC) ── */}
       <Show when={tab() === "grants"}>
         <div class="flex flex-col gap-5">
+          {/* Metrics-view preset (issue #2): friendly entry for the kanban.scope.* codes */}
+          <div class="flex max-w-[560px] flex-col gap-4 rounded-[var(--native-radius-lg)] border border-[color:color-mix(in_oklab,var(--native-primary)_28%,transparent)] bg-[color:color-mix(in_oklab,var(--native-primary)_5%,transparent)] p-4">
+            <div class="flex flex-col gap-1">
+              <h2 class="text-[0.875rem] font-semibold text-[var(--native-foreground)]">
+                {language.t("admin.permissions.grants.scope.title")}
+              </h2>
+              <p class={sx.sub}>{language.t("admin.permissions.grants.scope.help")}</p>
+            </div>
+
+            {/* Preset selector */}
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[0.8125rem] font-medium text-[var(--native-foreground)]">
+                {language.t("admin.permissions.grants.scope.preset")}
+              </span>
+              <div
+                class="flex flex-wrap gap-1"
+                role="tablist"
+                aria-label={language.t("admin.permissions.grants.scope.preset")}
+              >
+                <For each={["all", "dept"] as const}>
+                  {(preset) => (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={scopeForm.preset === preset}
+                      class={st.tab(scopeForm.preset === preset)}
+                      onClick={() => setScopePreset(preset)}
+                    >
+                      {language.t(
+                        `admin.permissions.grants.scope.preset.${preset}` as "admin.permissions.grants.scope.preset.all",
+                      )}
+                    </button>
+                  )}
+                </For>
+              </div>
+              <p class="text-[12px] text-[var(--native-muted)]">
+                {language.t(
+                  `admin.permissions.grants.scope.preset.${scopeForm.preset}.hint` as "admin.permissions.grants.scope.preset.all.hint",
+                )}
+              </p>
+            </div>
+
+            {/* Subject: user search */}
+            <div class="flex flex-col gap-1.5">
+              <div class={sx.searchWrap}>
+                <svg
+                  class={sx.searchIcon}
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <g transform="scale(0.833333)">
+                    <path d="m21 21-4.34-4.34" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" />
+                  </g>
+                </svg>
+                <input
+                  class={sx.search}
+                  placeholder={language.t("admin.permissions.grants.searchUserPlaceholder")}
+                  value={scopeForm.userQuery}
+                  aria-label={language.t("admin.permissions.grants.searchUserPlaceholder")}
+                  onInput={(e) => onScopeUserSearch(e.currentTarget.value)}
+                />
+              </div>
+
+              <Show when={scopeForm.selectedUser}>
+                {(u) => (
+                  <div class="flex items-center justify-between gap-3 rounded-[var(--native-radius-sm)] border border-[color:color-mix(in_oklab,var(--native-primary)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--native-primary)_6%,transparent)] px-2.5 py-2">
+                    <div class="flex min-w-0 items-center gap-2.5">
+                      <AvatarDisplay
+                        avatarUrl={u().picture}
+                        username={u().name || u().preferred_username || u().email}
+                        size="1.75rem"
+                        class="shrink-0"
+                      />
+                      <div class="min-w-0">
+                        <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">
+                          {u().name || u().preferred_username}
+                        </div>
+                        <div class="truncate text-[12px] text-[var(--native-muted)]">{u().email}</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      class="shrink-0 cursor-pointer rounded-[var(--native-radius-sm)] p-1 text-[var(--native-muted)] transition-colors hover:text-[var(--native-foreground)]"
+                      aria-label={language.t("common.cancel")}
+                      onClick={() => setScopeForm("selectedUser", null)}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </Show>
+
+              <Show when={!scopeForm.selectedUser && scopeForm.userResults.length > 0}>
+                <div class="flex max-h-56 flex-col gap-1.5 overflow-y-auto">
+                  <For each={scopeForm.userResults}>
+                    {(u) => (
+                      <button
+                        type="button"
+                        class="flex cursor-pointer items-center justify-between gap-3 rounded-[var(--native-radius-sm)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] bg-transparent px-2.5 py-2 text-left transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-surface)_62%,transparent)]"
+                        onClick={() => setScopeForm({ selectedUser: u, userResults: [], userQuery: "" })}
+                      >
+                        <div class="flex min-w-0 items-center gap-2.5">
+                          <AvatarDisplay
+                            avatarUrl={u.picture}
+                            username={u.name || u.preferred_username || u.email}
+                            size="1.75rem"
+                            class="shrink-0"
+                          />
+                          <div class="min-w-0">
+                            <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">
+                              {u.name || u.preferred_username}
+                            </div>
+                            <div class="truncate text-[12px] text-[var(--native-muted)]">{u.email}</div>
+                          </div>
+                        </div>
+                        <Icon name="plus-small" size="small" class="shrink-0 text-[var(--native-muted)]" />
+                      </button>
+                    )}
+                  </For>
+                </div>
+              </Show>
+            </div>
+
+            {/* Target department (dept preset only) */}
+            <Show when={scopeForm.preset === "dept"}>
+              <div class="flex flex-col gap-1.5">
+                <span class="text-[0.8125rem] font-medium text-[var(--native-foreground)]">
+                  {language.t("admin.permissions.grants.scope.targetDepartment")}
+                </span>
+
+                <Show when={grants.treeLoading}>
+                  <div class="py-2 text-[0.8125rem] text-[var(--native-muted)]">
+                    {language.t("admin.permissions.grants.deptLoading")}
+                  </div>
+                </Show>
+
+                <Show when={grants.treeUnavailable}>
+                  <div class="rounded-[var(--native-radius-sm)] border border-[color:color-mix(in_oklab,var(--native-border)_45%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_50%,transparent)] px-3 py-2 text-[0.8125rem] text-[var(--native-muted)]">
+                    {language.t("admin.permissions.grants.deptUnavailable")}
+                  </div>
+                </Show>
+
+                <Show when={!grants.treeLoading && !grants.treeUnavailable && flatDepts().length > 0}>
+                  <div class="flex max-h-64 flex-col gap-0.5 overflow-y-auto rounded-[var(--native-radius-sm)] border border-[color:color-mix(in_oklab,var(--native-border)_40%,transparent)] p-1">
+                    <For each={flatDepts()}>
+                      {(f) => (
+                        <button
+                          type="button"
+                          class={`flex cursor-pointer items-center gap-2 rounded-[var(--native-radius-sm)] px-2 py-1.5 text-left text-[0.8125rem] transition-colors ${
+                            scopeForm.targetDept?.deptId === f.dept.deptId
+                              ? "bg-[color:color-mix(in_oklab,var(--native-primary)_12%,transparent)] text-[var(--native-foreground)]"
+                              : "text-[var(--native-foreground)] hover:bg-[color:color-mix(in_oklab,var(--native-surface)_55%,transparent)]"
+                          }`}
+                          style={{ "padding-left": `${0.5 + f.depth * 1}rem` }}
+                          aria-pressed={scopeForm.targetDept?.deptId === f.dept.deptId}
+                          onClick={() => setScopeForm("targetDept", f.dept)}
+                        >
+                          <Icon name="folder" size="small" class="shrink-0 text-[var(--native-muted)]" />
+                          <span class="truncate">{f.dept.deptName}</span>
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+            </Show>
+
+            <div>
+              <Button class="cursor-pointer" disabled={scopeForm.granting} onClick={() => void submitScopeGrant()}>
+                {language.t("admin.permissions.grants.scope.grant")}
+              </Button>
+            </div>
+          </div>
+
           <p class={sx.sub}>{language.t("admin.permissions.grants.help")}</p>
 
           {/* Grant builder */}
@@ -572,7 +882,14 @@ export default function AdminPermissions() {
                   <For each={grants.rows}>
                     {(g) => (
                       <tr>
-                        <td class="font-semibold text-[var(--native-foreground)]">{g.permissionCode}</td>
+                        <td class="font-semibold text-[var(--native-foreground)]">
+                          <div>{g.permissionCode}</div>
+                          <Show when={scopeDescription(g)}>
+                            {(desc) => (
+                              <div class="mt-0.5 text-[12px] font-normal text-[var(--native-primary)]">{desc()}</div>
+                            )}
+                          </Show>
+                        </td>
                         <td>
                           <span class="inline-flex items-center rounded-[var(--native-radius-full)] bg-[color:color-mix(in_oklab,var(--native-surface)_70%,transparent)] px-2 py-0.5 text-[11px] text-[var(--native-muted)]">
                             {language.t(`admin.permissions.grants.subjectKind.${g.subjectType}` as "admin.permissions.grants.subjectKind.user")}

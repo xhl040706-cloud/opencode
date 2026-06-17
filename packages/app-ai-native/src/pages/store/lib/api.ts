@@ -1338,7 +1338,17 @@ export const adminGrantApi = {
     return apiFetch<{ grants: PermissionGrant[] }>(`/api/admin/permission-grants${qs}`)
   },
 
-  grant: (payload: { permissionCode: string; subjectType: GrantSubjectType; subjectId: string }) =>
+  // targetDeptId is used only for the metrics-view preset kanban.scope.dept on a
+  // USER subject: the backend resolves that target department's dept_path and
+  // stores it on the grant, which ResolveUserScope reads as the user's extra
+  // visible subtree. It is ignored for department subjects (whose dept_path is
+  // their own, resolved from subjectId).
+  grant: (payload: {
+    permissionCode: string
+    subjectType: GrantSubjectType
+    subjectId: string
+    targetDeptId?: string
+  }) =>
     apiFetch<{ grant: PermissionGrant }>("/api/admin/permission-grants", {
       method: "POST",
       body: JSON.stringify(payload),
