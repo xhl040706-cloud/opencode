@@ -26,6 +26,8 @@ import type {
   SystemNotificationChannel,
   AdminAuditLog,
   AdminItem,
+  AdminEnterpriseCustomer,
+  EnterpriseMember,
 } from "./api"
 
 // ---------------------------------------------------------------------------
@@ -781,39 +783,40 @@ export function seedPermissionGrants(): PermissionGrant[] {
 // M1 · Members + organizations
 // ---------------------------------------------------------------------------
 export function seedAdminUsers(): AdminUser[] {
+  // universalId = Casdoor 锚定标识；user-007 故意留空以验证「无 universal_id 不可绑定」分支。
   return [
     {
-      subject_id: "demo-user-001", username: "demo_user", displayName: "Demo User",
+      subject_id: "demo-user-001", universalId: "uni-demo-001", username: "demo_user", displayName: "Demo User",
       email: "demo@example.com", avatarUrl: "", organization: "研发一部",
       status: "active", roles: ["platform_admin"], lastLoginAt: daysAgoIso(0), createdAt: daysAgoIso(420),
     },
     {
-      subject_id: "user-002", username: "alice.chen", displayName: "陈爱丽",
+      subject_id: "user-002", universalId: "uni-002", username: "alice.chen", displayName: "陈爱丽",
       email: "alice.chen@example.com", avatarUrl: "", organization: "研发一部",
       status: "active", roles: ["business_admin"], lastLoginAt: daysAgoIso(1), createdAt: daysAgoIso(310),
     },
     {
-      subject_id: "user-003", username: "bob.zhang", displayName: "张博文",
+      subject_id: "user-003", universalId: "uni-003", username: "bob.zhang", displayName: "张博文",
       email: "bob.zhang@example.com", avatarUrl: "", organization: "研发二部",
       status: "active", roles: [], lastLoginAt: daysAgoIso(2), createdAt: daysAgoIso(260),
     },
     {
-      subject_id: "user-004", username: "carol.li", displayName: "李卡罗",
+      subject_id: "user-004", universalId: "uni-004", username: "carol.li", displayName: "李卡罗",
       email: "carol.li@example.com", avatarUrl: "", organization: "平台架构组",
       status: "disabled", roles: [], lastLoginAt: daysAgoIso(45), createdAt: daysAgoIso(190),
     },
     {
-      subject_id: "user-005", username: "david.wang", displayName: "王大伟",
+      subject_id: "user-005", universalId: "uni-005", username: "david.wang", displayName: "王大伟",
       email: "david.wang@example.com", avatarUrl: "", organization: "研发二部",
       status: "active", roles: ["business_admin"], lastLoginAt: daysAgoIso(0), createdAt: daysAgoIso(150),
     },
     {
-      subject_id: "user-006", username: "emma.zhao", displayName: "赵艾玛",
+      subject_id: "user-006", universalId: "uni-006", username: "emma.zhao", displayName: "赵艾玛",
       email: "emma.zhao@example.com", avatarUrl: "", organization: "平台架构组",
       status: "banned", roles: [], lastLoginAt: daysAgoIso(90), createdAt: daysAgoIso(120),
     },
     {
-      subject_id: "user-007", username: "frank.sun", displayName: "孙弗兰克",
+      subject_id: "user-007", universalId: "", username: "frank.sun", displayName: "孙弗兰克",
       email: "frank.sun@example.com", avatarUrl: "", organization: "研发一部",
       status: "active", roles: [], lastLoginAt: daysAgoIso(5), createdAt: daysAgoIso(80),
     },
@@ -1041,4 +1044,56 @@ export const ADMIN_ITEM_SECURITY_GROUPS: Record<string, string[]> = {
   low: ["clean", "low"],
   medium: ["medium"],
   high: ["high", "extreme"],
+}
+
+// ---------------------------------------------------------------------------
+// M4 · Enterprise customers (大客户) — demo seed + admin-shape resolver.
+// The demo store keeps customers anchored on universal_id (matching the real
+// backend); resolveAdminEnterprise() enriches each universal_id into a member
+// row by looking it up in the seeded admin user roster. A universal_id with no
+// local user yields subjectId="" so the UI can mark it "not registered".
+// ---------------------------------------------------------------------------
+
+// 1×1 transparent PNG data URI — a valid image/png logo for demo seeds.
+const DEMO_LOGO =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+
+export type DemoEnterpriseCustomer = { id: string; name: string; logo: string; ids: string[] }
+
+export function seedEnterpriseCustomers(): DemoEnterpriseCustomer[] {
+  return [
+    { id: "ent-001", name: "招商银行", logo: DEMO_LOGO, ids: ["uni-002", "uni-003"] },
+    // Bound to uni-006 (a local user) + uni-unknown-001 (not yet a local user → unregistered).
+    { id: "ent-002", name: "工商银行", logo: DEMO_LOGO, ids: ["uni-006", "uni-unknown-001"] },
+  ]
+}
+
+// Resolve a universal_id list into the admin-shape member roster (one entry per id,
+// order-stable), enriching from the seeded admin user roster when possible.
+export function resolveEnterpriseMembers(universalIds: string[]): EnterpriseMember[] {
+  // Skip users whose universalId is empty (e.g. frank.sun) when building the lookup map, and
+  // never look up an empty-string uid below — otherwise an empty input id would collide with the
+  // empty-string key and wrongly enrich that slot. Mirrors the real backend ResolveMembersBatch,
+  // which drops empty universal_ids and leaves unresolved members with an empty subjectId.
+  const byUniversal = new Map(seedAdminUsers().filter((u) => u.universalId).map((u) => [u.universalId, u]))
+  return universalIds.map((uid) => {
+    const u = uid ? byUniversal.get(uid) : undefined
+    return {
+      universalId: uid,
+      subjectId: u?.subject_id ?? "",
+      username: u?.username ?? "",
+      displayName: u?.displayName ?? "",
+      avatarUrl: u?.avatarUrl ?? "",
+    }
+  })
+}
+
+export function toAdminEnterprise(c: DemoEnterpriseCustomer): AdminEnterpriseCustomer {
+  return {
+    id: c.id,
+    name: c.name,
+    logo: c.logo,
+    universalIds: [...c.ids],
+    members: resolveEnterpriseMembers(c.ids),
+  }
 }

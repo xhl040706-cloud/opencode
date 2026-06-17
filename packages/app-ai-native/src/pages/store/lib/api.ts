@@ -1238,10 +1238,17 @@ export const tagApi = {
   },
 }
 
-// 大客户 (enterprise customer) branding config. Each entry binds one customer's uploader account
-// ID(s) to a display name + logo, so store items whose `createdBy` matches an id get branded.
-// Readable by any signed-in user; in demo mode the endpoint is absent and the call rejects (the
-// frontend then falls back to its built-in demo roster — see lib/enterprise.ts).
+// 大客户 (enterprise customer) branding config. Each entry binds one customer's bound accounts
+// to a display name + logo, so store items whose uploader matches get branded.
+//
+// Account binding is anchored on Casdoor `universal_id` (stable identity that survives re-login /
+// subject_id churn). The backend resolves universal_id ↔ local subject_id internally:
+//   - The PUBLIC read (`enterpriseApi.list`) returns `ids` already resolved to subject_id[], which
+//     store/lib/enterprise.ts matches against `item.created_by`. Do NOT change that contract.
+//   - The ADMIN read (`adminEnterpriseApi.list`) returns the raw universal_id[] plus a `members`
+//     roster (one entry per universal_id) so the admin UI can render people-not-IDs.
+// In demo mode the public endpoint is absent and the call rejects (the frontend then falls back to
+// its built-in demo roster — see lib/enterprise.ts).
 export interface EnterpriseCustomer {
   id: string
   ids: string[]
@@ -1249,6 +1256,28 @@ export interface EnterpriseCustomer {
   logo: string
 }
 
+// One bound account in the admin view. `universalId` is the durable anchor; `subjectId` is the
+// resolved local subject_id (empty string when the universal_id is configured but its owner has not
+// yet logged in / is not a local user). username/displayName/avatarUrl are best-effort enrichment.
+export interface EnterpriseMember {
+  universalId: string
+  subjectId: string
+  username: string
+  displayName: string
+  avatarUrl: string
+}
+
+// Admin-shaped enterprise customer: carries universal_id[] + the resolved member roster.
+export interface AdminEnterpriseCustomer {
+  id: string
+  name: string
+  logo: string
+  universalIds: string[]
+  members: EnterpriseMember[]
+}
+
+// Create/update payload. `ids` is a list of Casdoor universal_id (NOT subject_id) — the backend
+// stores them and resolves to subject_id for the public read.
 export interface EnterpriseCustomerInput {
   name: string
   logo: string
@@ -1256,16 +1285,23 @@ export interface EnterpriseCustomerInput {
 }
 
 export const enterpriseApi = {
+  // Public read: `ids` are resolved subject_id[] (consumed by store/lib/enterprise.ts). Unchanged.
   list: () => apiFetch<{ customers: EnterpriseCustomer[] }>("/api/enterprise-customers"),
 
+  // Admin read: universal_id[] + member roster, platform_admin only.
+  adminList: () =>
+    apiFetch<{ customers: AdminEnterpriseCustomer[] }>("/api/admin/enterprise-customers"),
+
+  // `data.ids` = universal_id list.
   create: (data: EnterpriseCustomerInput) =>
-    apiFetch<{ customer: EnterpriseCustomer }>("/api/admin/enterprise-customers", {
+    apiFetch<{ customer: AdminEnterpriseCustomer }>("/api/admin/enterprise-customers", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
+  // `data.ids` = universal_id list.
   update: (id: string, data: EnterpriseCustomerInput) =>
-    apiFetch<{ customer: EnterpriseCustomer }>(`/api/admin/enterprise-customers/${id}`, {
+    apiFetch<{ customer: AdminEnterpriseCustomer }>(`/api/admin/enterprise-customers/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
@@ -1371,6 +1407,9 @@ export type AdminUserStatus = "active" | "disabled" | "banned"
 
 export interface AdminUser {
   subject_id: string
+  // Casdoor universal_id: the durable identity anchor used by enterprise-customer bindings.
+  // Empty string when the user has no universal_id on record.
+  universalId: string
   username: string
   displayName: string
   email: string

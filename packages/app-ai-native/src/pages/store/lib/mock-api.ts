@@ -30,12 +30,14 @@ import {
   seedSystemSettings,
   seedAuditLogs,
   seedAdminItems,
+  seedEnterpriseCustomers,
+  toAdminEnterprise,
+  type DemoEnterpriseCustomer,
   ADMIN_ITEM_SECURITY_GROUPS,
   MOCK_CATEGORIES,
   MOCK_FILTER_OPTIONS,
   MOCK_REGISTRIES,
   MOCK_REPOSITORIES,
-  MOCK_ITEMS,
   MOCK_USER,
   MOCK_PERMISSIONS,
 } from "./mock-data"
@@ -102,10 +104,15 @@ function findMockDeptPath(deptId: string): string {
   return walk(seedAdminDeptTree())
 }
 
-// In-memory enterprise customers store for demo mode. MUST start empty so the
-// store's one-shot ensureEnterpriseLoaded() sees an empty list and keeps the
-// built-in DEMO_FALLBACK branding intact on first paint.
-let enterpriseCustomers: { id: string; name: string; logo: string; ids: string[] }[] = []
+// In-memory enterprise customers store for demo mode. Customers are anchored on
+// universal_id (matching the real backend) and back ONLY the admin read + admin CRUD,
+// so the admin page + form people-picker render real-looking data in demo mode.
+//
+// The PUBLIC read (`GET /api/enterprise-customers`) deliberately returns an empty list
+// (see below) — NOT this seed — so the store's one-shot ensureEnterpriseLoaded() keeps its
+// built-in DEMO_FALLBACK branding (招行/工行/建行 with real logos + the blue 建行 control case)
+// intact on first paint. Seeding the public read would blank out that curated demo branding.
+let enterpriseCustomers: DemoEnterpriseCustomer[] = seedEnterpriseCustomers()
 
 // ── In-memory admin-console stores (M1/M2/M3/M5) ──────────────────────────
 // Seeded non-empty so each admin page renders real-looking data on first paint;
@@ -701,12 +708,24 @@ export async function mockApiFetch<T>(url: string, options?: RequestInit): Promi
   }
 
   // ── Enterprise customers (大客户) ─────────────────────────────────────────
+  // body.ids = universal_id list (anchored identity). The admin read resolves it
+  // into a member roster; the public read resolves it to subject_id[] for store
+  // branding.
+  // GET /api/admin/enterprise-customers (admin read: universalIds + members)
+  if (path.endsWith("/api/admin/enterprise-customers") && method === "GET") {
+    return { customers: enterpriseCustomers.map((e) => toAdminEnterprise(e)) } as T
+  }
   // POST /api/admin/enterprise-customers (create)
   if (path.endsWith("/api/admin/enterprise-customers") && method === "POST") {
     const body = options?.body ? JSON.parse(options.body as string) : {}
-    const c = { id: crypto.randomUUID(), name: body.name, logo: body.logo, ids: body.ids ?? [] }
+    const c: DemoEnterpriseCustomer = {
+      id: crypto.randomUUID(),
+      name: body.name,
+      logo: body.logo,
+      ids: body.ids ?? [],
+    }
     enterpriseCustomers.push(c)
-    return { customer: { ...c, ids: [...c.ids] } } as T
+    return { customer: toAdminEnterprise(c) } as T
   }
   // PUT /api/admin/enterprise-customers/:id (update)
   if (matchesSubResource(path, "/api/admin/enterprise-customers/", "") && method === "PUT") {
@@ -717,7 +736,7 @@ export async function mockApiFetch<T>(url: string, options?: RequestInit): Promi
     existing.name = body.name
     existing.logo = body.logo
     existing.ids = body.ids ?? []
-    return { customer: { ...existing, ids: [...existing.ids] } } as T
+    return { customer: toAdminEnterprise(existing) } as T
   }
   // DELETE /api/admin/enterprise-customers/:id (remove)
   if (matchesSubResource(path, "/api/admin/enterprise-customers/", "") && method === "DELETE") {
@@ -725,9 +744,13 @@ export async function mockApiFetch<T>(url: string, options?: RequestInit): Promi
     enterpriseCustomers = enterpriseCustomers.filter((e) => e.id !== id)
     return { success: true } as T
   }
-  // GET /api/enterprise-customers (public read)
+  // GET /api/enterprise-customers (public read).
+  // Intentionally returns an EMPTY list in demo mode: ensureEnterpriseLoaded() treats an empty
+  // public read as "no backend roster" and keeps the built-in DEMO_FALLBACK store branding
+  // (招行/工行/建行 + real logos + blue 建行 control case). The admin seed lives only behind the
+  // admin read above so admin-page demos still work without leaking into store branding.
   if (path.endsWith("/api/enterprise-customers") && method === "GET") {
-    return { customers: enterpriseCustomers.map((e) => ({ ...e, ids: [...e.ids] })) } as T
+    return { customers: [] } as T
   }
 
   // ── Fallback: log and return empty object ───────────────────────────────

@@ -4,7 +4,7 @@ import { For, onMount, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
 import { Button } from "@/components/ui/button"
-import { enterpriseApi, type EnterpriseCustomer } from "@/pages/store/lib/api"
+import { enterpriseApi, type AdminEnterpriseCustomer } from "@/pages/store/lib/api"
 import { refetchEnterprise } from "@/pages/store/lib/enterprise"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
 import { EnterpriseFormDialog } from "../components/enterprise-form-dialog"
@@ -13,7 +13,7 @@ import { sx } from "../lib/styles"
 export default function AdminEnterprise() {
   const language = useLanguage()
   const dialog = useDialog()
-  const [state, setState] = createStore<{ customers: EnterpriseCustomer[]; loading: boolean }>({
+  const [state, setState] = createStore<{ customers: AdminEnterpriseCustomer[]; loading: boolean }>({
     customers: [],
     loading: true,
   })
@@ -21,7 +21,7 @@ export default function AdminEnterprise() {
   async function load() {
     setState("loading", true)
     try {
-      const res = await enterpriseApi.list()
+      const res = await enterpriseApi.adminList()
       setState("customers", res.customers ?? [])
     } catch (err) {
       showToast({
@@ -45,9 +45,9 @@ export default function AdminEnterprise() {
   }
 
   const openCreate = () => dialog.show(() => <EnterpriseFormDialog mode="create" onSaved={onSaved} />)
-  const openEdit = (c: EnterpriseCustomer) =>
+  const openEdit = (c: AdminEnterpriseCustomer) =>
     dialog.show(() => <EnterpriseFormDialog mode="edit" customer={c} onSaved={onSaved} />)
-  const openDelete = (c: EnterpriseCustomer) =>
+  const openDelete = (c: AdminEnterpriseCustomer) =>
     dialog.show(() => (
       <ConfirmDialog
         title={language.t("admin.enterprise.delete.title")}
@@ -96,7 +96,9 @@ export default function AdminEnterprise() {
                     <img src={c.logo} alt={c.name} class="h-8 w-8 rounded object-contain" />
                   </td>
                   <td class="font-semibold text-[var(--native-foreground)]">{c.name}</td>
-                  <td class="text-[var(--native-muted)] [font-variant-numeric:tabular-nums]">{c.ids?.length ?? 0}</td>
+                  <td class="text-[var(--native-muted)] [font-variant-numeric:tabular-nums]">
+                    {c.universalIds?.length ?? 0}
+                  </td>
                   <td class="text-right">
                     <div class="inline-flex gap-3">
                       <button

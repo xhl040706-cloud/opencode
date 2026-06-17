@@ -227,6 +227,7 @@ export default function AdminMembers() {
     const l = member.linked
     void openDetail({
       subject_id: l.subjectId,
+      universalId: member.universalId,
       username: member.username,
       displayName: l.displayName,
       email: l.email,

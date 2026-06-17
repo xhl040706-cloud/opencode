@@ -7,7 +7,8 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
-import { enterpriseApi, type EnterpriseCustomer } from "@/pages/store/lib/api"
+import { enterpriseApi, type AdminEnterpriseCustomer, type EnterpriseMember } from "@/pages/store/lib/api"
+import { UserPicker } from "./user-picker"
 
 // 与后端 server/internal/enterprise/service.go 校验对齐。
 const MAX_NAME_BYTES = 256
@@ -15,7 +16,8 @@ const MAX_LOGO_BYTES = 512 * 1024
 
 type Props = {
   mode: "create" | "edit"
-  customer?: EnterpriseCustomer
+  // edit 模式传入 admin 形态 customer（含 members，用于回显已选成员）。
+  customer?: AdminEnterpriseCustomer
   onSaved: () => void
 }
 
@@ -26,7 +28,8 @@ export function EnterpriseFormDialog(props: Props) {
   const [store, setStore] = createStore({
     name: props.customer?.name ?? "",
     logo: props.customer?.logo ?? "",
-    ids: (props.customer?.ids ?? []).join("\n"),
+    // 绑定成员（按 universal_id 锚定）。create 模式为空；edit 模式用 customer.members 回显。
+    members: (props.customer?.members ?? []) as EnterpriseMember[],
     saving: false,
     dragOver: false,
   })
@@ -99,12 +102,6 @@ export function EnterpriseFormDialog(props: Props) {
     if (file) handleFileSelect(file)
   }
 
-  const parseIds = (raw: string): string[] =>
-    raw
-      .split(/[\n,]/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
     const name = store.name.trim()
@@ -130,7 +127,9 @@ export function EnterpriseFormDialog(props: Props) {
       return
     }
 
-    const payload = { name, logo: store.logo, ids: parseIds(store.ids) }
+    // ids = 已选成员的 universal_id 列表（去空 + 去重）。
+    const ids = [...new Set(store.members.map((m) => m.universalId).filter(Boolean))]
+    const payload = { name, logo: store.logo, ids }
     setStore("saving", true)
     try {
       if (props.mode === "edit" && props.customer) {
@@ -230,14 +229,9 @@ export function EnterpriseFormDialog(props: Props) {
             </div>
           </div>
 
-          <TextField
-            multiline
-            label={language.t("admin.enterprise.form.ids")}
-            description={language.t("admin.enterprise.form.idsHint")}
-            placeholder={language.t("admin.enterprise.form.idsPlaceholder")}
-            value={store.ids}
-            onChange={(v) => setStore("ids", v)}
-            class="max-h-24 w-full overflow-y-auto font-mono text-xs"
+          <UserPicker
+            selected={store.members}
+            onChange={(members) => setStore("members", members)}
           />
         </div>
 
