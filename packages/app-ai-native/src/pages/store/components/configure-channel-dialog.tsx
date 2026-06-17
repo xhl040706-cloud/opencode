@@ -12,9 +12,10 @@ type Props = {
   onSaved: (payload: { channelType: string; name: string; config: Record<string, string> }) => Promise<void> | void
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  wechat: "WeChat",
-  wecom: "WeCom",
+const TYPE_ICON: Record<string, string> = {
+  wechat: "smartphone",
+  wecom: "building",
+  "wecom-bot": "comment",
 }
 
 export function ConfigureChannelDialog(props: Props) {
@@ -40,7 +41,7 @@ export function ConfigureChannelDialog(props: Props) {
     if (t) setSchema(t.schema)
   })
 
-  const typeLabel = () => TYPE_LABELS[props.channelType] ?? props.channelType
+  const typeLabel = () => language.t("channels.type." + props.channelType) ?? props.channelType
 
   let pollStopped = false
   onCleanup(() => { pollStopped = true })

@@ -1,4 +1,5 @@
 import { env } from "@/lib/env"
+import { onUnauthorized } from "@/lib/session-expired"
 import type {
   CorrectionHistoryItem,
   CorrectionPayload,
@@ -385,6 +386,7 @@ async function apiFetch<T = unknown>(path: string, opts: FetchOpts = {}): Promis
   try {
     const res = await fetch(`${BASE}${path}${query(opts.params)}`, init)
     if (!res.ok) {
+      if (res.status === 401) onUnauthorized(path)
       const err = await res.json().catch(() => ({ error: res.statusText }))
       throw new Error(err.error || err.message || `Request failed: ${res.status}`)
     }

@@ -13,9 +13,10 @@ type Props = {
   setChannels?: (fn: (items: ChannelConfig[] | undefined) => ChannelConfig[] | undefined) => void
 }
 
-const TYPE_META: Record<string, { label: string; labelZh: string; icon: string }> = {
-  wechat: { label: "WeChat", labelZh: "微信", icon: "smartphone" },
-  wecom: { label: "WeCom", labelZh: "企业微信", icon: "building" },
+const TYPE_ICON: Record<string, string> = {
+  wechat: "smartphone",
+  wecom: "building",
+  "wecom-bot": "comment",
 }
 
 export function ChannelsSection(props: Props = {}) {
@@ -122,13 +123,13 @@ export function ChannelsSection(props: Props = {}) {
             <For each={types()}>
               {(t) => {
                 const cfg = () => configByType()[t.type]
-                const meta = TYPE_META[t.type] ?? { label: t.type, labelZh: t.type, icon: "comment" }
+                const icon = TYPE_ICON[t.type] ?? "comment"
                 return (
                   <div class="store-dash-card">
                     <div class="store-dash-card-head">
                       <span class="store-dash-card-name" style={{ display: "flex", "align-items": "center", gap: "0.375rem" }}>
-                        <Icon name={meta.icon as any} size="small" />
-                        {meta.label}
+                        <Icon name={icon as any} size="small" />
+                        {language.t("channels.type." + t.type)}
                       </span>
                       <Show when={cfg()}>
                         {(c) => (

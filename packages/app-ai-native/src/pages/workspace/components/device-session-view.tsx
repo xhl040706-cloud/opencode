@@ -277,7 +277,7 @@ export function DeviceSessionView(props: {
   })
 
   const autoScroll = createAutoScroll({
-    working: () => snap() || effectiveStatus()?.type === "busy",
+    working: () => true,
     overflowAnchor: "dynamic",
   })
 
@@ -290,6 +290,18 @@ export function DeviceSessionView(props: {
   let promptDock: HTMLDivElement | undefined
   let dockHeight = 0
 
+  let scrollGesture = 0
+  const scrollGestureWindowMs = 250
+  const markScrollGesture = (target?: EventTarget | null) => {
+    const root = scroller
+    if (!root) return
+    const el = target instanceof Element ? target : undefined
+    const nested = el?.closest("[data-scrollable]")
+    if (nested && nested !== root) return
+    scrollGesture = Date.now()
+  }
+  const hasScrollGesture = () => Date.now() - scrollGesture < scrollGestureWindowMs
+
   const enrichedMessages = createMemo(() => {
     const raw = effectiveMessages()
     if (!raw || raw.length === 0) return raw ?? []
@@ -297,6 +309,10 @@ export function DeviceSessionView(props: {
     const userIDs = new Set<string>()
     for (const m of raw) {
       if (m.role === "user") userIDs.add(m.id)
+    }
+    const parentIDs = new Set<string>()
+    for (const m of raw) {
+      if (m.role === "assistant" && (m as any).parentID) parentIDs.add((m as any).parentID)
     }
     let orphanID: string | undefined
     let orphanCreated = false
@@ -322,7 +338,7 @@ export function DeviceSessionView(props: {
           continue
         }
       }
-      if (m.role === "user" && !parts[m.id]?.length) continue
+      if (m.role === "user" && !parts[m.id]?.length && !parentIDs.has(m.id)) continue
       enriched.push(m)
     }
     return enriched
@@ -460,8 +476,8 @@ export function DeviceSessionView(props: {
                                         setScrollRef={setScrollRef}
                                         onScheduleScrollState={() => {}}
                                         onAutoScrollHandleScroll={autoScroll.handleScroll}
-                                        onMarkScrollGesture={() => {}}
-                                        hasScrollGesture={() => false}
+                                        onMarkScrollGesture={markScrollGesture}
+                                        hasScrollGesture={hasScrollGesture}
                                         isDesktop={true}
                                         onScrollSpyScroll={scrollSpy.onScroll}
                                         onTurnBackfillScroll={() => {}}

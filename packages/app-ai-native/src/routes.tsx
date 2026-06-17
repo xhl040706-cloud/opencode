@@ -218,3 +218,6 @@ export const routeConfig: RouteConfig[] = [
     auth: true,
   },
 ]
+
+/** Routes protected by AuthGuard — derived from routeConfig */
+export const GUARDED_ROUTES = routeConfig.filter((r) => r.auth).map((r) => r.path)

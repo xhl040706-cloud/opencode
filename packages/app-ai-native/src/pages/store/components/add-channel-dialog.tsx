@@ -29,11 +29,7 @@ export function AddChannelDialog(props: Props) {
     types().find((t) => t.type === selectedType())
 
   const typeLabel = (t: string) => {
-    const map: Record<string, string> = {
-      wechat: "WeChat",
-      wecom: "WeCom",
-    }
-    return map[t] ?? t
+    return language.t("channels.type." + t) ?? t
   }
 
   const openWechatLogin = () => {

@@ -605,6 +605,7 @@ export const dict = {
   "session.messages.jumpToLatest": "跳转到最新",
   "session.context.addToContext": "将 {{selection}} 添加到上下文",
   "session.status.processing": "处理中...",
+  "session.queue.tag": "队列中",
   "session.todo.title": "待办事项",
   "session.todo.collapse": "折叠",
   "session.todo.expand": "展开",
@@ -1257,6 +1258,9 @@ export const dict = {
   "console.identity.bound": "已绑定",
   "console.identity.bindSuccess": "身份绑定成功。",
   "console.identity.dismiss": "关闭",
+  "console.identity.mergeTitle": "检测到账号冲突",
+  "console.identity.mergeDescription": "{provider} 登录方式已被其他账号绑定，是否将两个账号合并？",
+  "console.identity.mergeConfirm": "合并账号",
   "console.identity.provider.idtrust": "IDTrust",
   "console.identity.provider.github": "GitHub",
   "console.identity.provider.phone": "手机号",
@@ -1508,6 +1512,9 @@ export const dict = {
 
   "channels.title": "消息渠道",
   "channels.description": "配置双向消息渠道，与 AI 进行对话交互",
+  "channels.type.wecom-bot": "企微 Bot",
+  "channels.type.wechat": "微信",
+  "channels.type.wecom": "企业微信",
   "channels.loading": "加载渠道中...",
   "channels.empty": "暂无可用的渠道类型。",
   "channels.notConfigured": "未配置",
@@ -1786,6 +1793,8 @@ export const dict = {
   "workspace.session.group.older": "更早",
   "workspace.content.closeAll": "关闭全部",
 
+  "workspace.createFromDevice": "创建自",
+  "workspace.createFromDevice.empty": "请先完成设备注册",
   "workspace.device.list": "设备列表",
   "workspace.device.search": "搜索设备...",
   "workspace.device.notFound": "未找到设备",
@@ -1853,6 +1862,10 @@ export const dict = {
   "workspace.sidebar.expand": "展开侧边栏",
   "workspace.sidebar.collapse": "收起侧边栏",
   "workspace.sidebar.notGitRepo": "非 Git 仓库",
+
+  "workspace.agent.restart": "重启 Agent",
+  "workspace.agent.restarting": "重启 Agent 中...",
+  "workspace.agent.upgradeRequired": "请先升级左侧对应设备",
   "workspace.content.comingSoon": "即将推出",
   "workspace.content.viewPreview": "预览",
   "workspace.content.viewSource": "源码",
@@ -2730,6 +2743,11 @@ export const dict = {
   "console.usage.filter.within30Days": "近30天",
   "console.usage.filter.custom": "自定义",
   "console.usage.table.startTime": "时间",
+  "auth.session.expired": "会话已过期",
+  "auth.session.expired.description": "您的会话已过期，请重新登录",
+  "auth.session.expired.countdown": "{{count}}秒后自动跳转...",
+  "auth.session.expired.loginNow": "立即登录",
+
   "console.usage.table.model": "模型",
   "console.usage.table.mode": "模式",
   "console.usage.table.creditsUsed": "Credits消耗",
@@ -2746,7 +2764,11 @@ export const dict = {
     | "store.home.table.toggleColumns"
     | "store.console.capabilities.backToHome"
     | "store.console.capabilities.searchPlaceholder"
-    | "store.security.riskLevel",
+    | "store.security.riskLevel"
+    | "auth.session.expired"
+    | "auth.session.expired.description"
+    | "auth.session.expired.countdown"
+    | "auth.session.expired.loginNow",
     string
   >
 >

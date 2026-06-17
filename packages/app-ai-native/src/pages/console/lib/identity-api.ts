@@ -35,3 +35,17 @@ export async function unbindIdentity(provider: string): Promise<{ requireRelogin
     method: "POST",
   })
 }
+
+export async function confirmMerge(mergeToken: string): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/api/auth/bind/confirm-merge", {
+    method: "POST",
+    body: JSON.stringify({ merge_token: mergeToken }),
+  })
+}
+
+export async function cancelMerge(mergeToken: string): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/api/auth/bind/cancel-merge", {
+    method: "POST",
+    body: JSON.stringify({ merge_token: mergeToken }),
+  })
+}
