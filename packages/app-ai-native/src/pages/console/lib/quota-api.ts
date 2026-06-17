@@ -1,4 +1,5 @@
 import { env } from "@/lib/env"
+import { onUnauthorized } from "@/lib/session-expired"
 
 const QUOTA_PREFIX = env.QUOTA_PREFIX
 const QUOTA_BASE = env.QUOTA_URL || QUOTA_PREFIX
@@ -11,6 +12,7 @@ export async function quotaApiFetch<T>(path: string, options?: RequestInit): Pro
     headers,
   })
   if (!res.ok) {
+    if (res.status === 401) onUnauthorized(path)
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error || err.message || `Request failed: ${res.status}`)
   }

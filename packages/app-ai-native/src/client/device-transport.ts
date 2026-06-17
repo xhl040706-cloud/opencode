@@ -1,3 +1,5 @@
+import { onUnauthorized } from "@/lib/session-expired"
+
 export type TransportOpts = {
   baseUrl: string
   headers?: HeadersInit
@@ -108,6 +110,7 @@ export function createDeviceTransport(opts: TransportOpts) {
     }
 
     if (!res.ok) {
+      if (res.status === 401) onUnauthorized(path)
       let payload = data
       if (payload && typeof payload === "object" && "ok" in payload && "error" in payload) {
         payload = payload.error

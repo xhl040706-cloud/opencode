@@ -1,4 +1,5 @@
 import { env } from "@/lib/env"
+import { onUnauthorized } from "@/lib/session-expired"
 import type {
   Device,
   DeviceCommandAck,
@@ -39,6 +40,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     headers,
   })
   if (!res.ok) {
+    if (res.status === 401) onUnauthorized(path)
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error || err.message || `Request failed: ${res.status}`)
   }

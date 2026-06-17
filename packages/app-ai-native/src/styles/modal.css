@@ -57,7 +57,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in oklab, var(--native-border) 50%, transparent);
+  border: none;
   border-radius: var(--native-radius-sm);
   background: color-mix(in oklab, var(--native-panel) 84%, transparent);
   color: var(--native-muted);
@@ -68,7 +68,6 @@
 
 .modal-close:hover {
   background: var(--native-primary-soft);
-  border-color: color-mix(in oklab, var(--native-primary) 18%, var(--native-border));
   color: var(--native-foreground);
   transform: translateY(-1px);
 }

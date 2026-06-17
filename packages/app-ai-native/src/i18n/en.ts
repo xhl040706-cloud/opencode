@@ -321,6 +321,9 @@ export const dict = {
   "console.identity.bound": "Bound",
   "console.identity.bindSuccess": "Identity bound successfully.",
   "console.identity.dismiss": "Dismiss",
+  "console.identity.mergeTitle": "Account conflict detected",
+  "console.identity.mergeDescription": "The {provider} login is already linked to another account. Do you want to merge these two accounts?",
+  "console.identity.mergeConfirm": "Merge accounts",
   "console.identity.provider.idtrust": "IDTrust",
   "console.identity.provider.github": "GitHub",
   "console.identity.provider.phone": "Phone",
@@ -2070,6 +2073,10 @@ export const dict = {
   "workspace.sidebar.expand": "Expand sidebar",
   "workspace.sidebar.collapse": "Collapse sidebar",
   "workspace.sidebar.notGitRepo": "Not a git repository",
+
+  "workspace.agent.restart": "Restart Agent",
+  "workspace.agent.restarting": "Restarting Agent...",
+  "workspace.agent.upgradeRequired": "Please upgrade the corresponding device on the left",
   "workspace.content.comingSoon": "Coming soon",
   "workspace.content.viewPreview": "Preview",
   "workspace.content.viewSource": "Source",
@@ -2717,6 +2724,11 @@ export const dict = {
   "kanban.action.clearAll": "Clear all",
 
   "kanban.misc.loading": "Loading...",
+
+  "auth.session.expired": "Session Expired",
+  "auth.session.expired.description": "Your session has expired. Please log in again.",
+  "auth.session.expired.countdown": "Auto redirecting in {{count}}s...",
+  "auth.session.expired.loginNow": "Log in now",
 
   "kanban.user.detail.table.commitCount": "Commit Count",
   "kanban.user.detail.table.taskCount": "Task Count",

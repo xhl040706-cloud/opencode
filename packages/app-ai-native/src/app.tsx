@@ -14,6 +14,7 @@ import { useLanguage } from "@/context/language"
 import { LanguageProvider } from "@/context/language"
 import { SettingsProvider } from "@/context/settings"
 import { AuthProvider } from "@/context/auth"
+import { SessionExpiredProvider } from "@/lib/session-expired"
 import { ItemFilterOptionsProvider } from "@/context/item-filter-options"
 import { ErrorPage } from "./pages/error"
 import { useTheme } from "@opencode-ai/ui/theme"
@@ -53,13 +54,15 @@ export function AppBaseProviders(props: ParentProps) {
               <UiI18nBridge>
                 <ErrorBoundary fallback={(error) => <ErrorPage error={error} />}>
                   <DialogProvider>
-                    <MarkedProviderWithNativeParser>
-                      <FileComponentProvider component={File}>
-                        <AuthProvider>
-                          <ItemFilterOptionsProvider>{props.children}</ItemFilterOptionsProvider>
-                        </AuthProvider>
-                      </FileComponentProvider>
-                    </MarkedProviderWithNativeParser>
+                    <SessionExpiredProvider>
+                      <MarkedProviderWithNativeParser>
+                        <FileComponentProvider component={File}>
+                          <AuthProvider>
+                            <ItemFilterOptionsProvider>{props.children}</ItemFilterOptionsProvider>
+                          </AuthProvider>
+                        </FileComponentProvider>
+                      </MarkedProviderWithNativeParser>
+                    </SessionExpiredProvider>
                   </DialogProvider>
                 </ErrorBoundary>
               </UiI18nBridge>
