@@ -41,6 +41,8 @@ function Arrow(props: { tone?: string }) {
 
 function Card(props: { icon: string; title: string; desc: string; href: string; tone?: string; full?: boolean }) {
   const navigate = useNavigate()
+  const auth = useAuth()
+  const locked = () => props.href !== "/store" && !auth.user()
   const icon = () => {
     if (!props.tone) return <img src={props.icon} alt="" class="h-[70px] w-[75px] md:h-[76px] md:w-[81px] xl:h-[70px] xl:w-[75px]" />
     return (
@@ -60,19 +62,26 @@ function Card(props: { icon: string; title: string; desc: string; href: string; 
   return (
     <button
       type="button"
-      onClick={() => navigate(props.href)}
+      onClick={() => {
+        if (locked()) {
+          window.location.href = getLoginUrl(props.href)
+          return
+        }
+        navigate(props.href)
+      }}
       class="group relative flex h-[274px] w-full flex-col items-start gap-6 rounded-2xl p-6 text-left shadow-[3px_4px_4px_0_rgba(163,193,223,0.25)] transition-transform duration-200 hover:-translate-y-1 sm:w-[335px] md:h-[300px] md:w-[365px] md:gap-7 md:rounded-[20px] md:p-7 xl:h-[274px] xl:w-[335px] xl:gap-6 xl:rounded-2xl xl:p-6"
       classList={{ "bg-[rgba(252,252,252,0.6)]": !props.tone, "bg-[rgba(252,252,252,0.5)]": props.tone === "warm", "bg-[rgba(252,252,252,0.7)]": props.tone === "cool" }}
     >
       {icon()}
       <div class="flex w-full items-start justify-between gap-4">
         <div class="flex max-w-[246px] flex-col gap-4 md:max-w-[270px] xl:max-w-[246px]">
-          <h2 class="m-0 whitespace-nowrap text-2xl font-semibold leading-[1.38] tracking-[-0.02em] text-black md:text-[26px] xl:text-2xl">
+          <h2 class="m-0 whitespace-nowrap text-2xl font-semibold leading-[1.38] tracking-[-0.02em] md:text-[26px] xl:text-2xl" style={{ color: "#111827" }}>
             {props.title}
           </h2>
           <p
-            class="m-0 text-lg font-medium leading-[1.45] tracking-[-0.02em] text-[#808387] md:text-[19px] xl:text-lg"
+            class="m-0 text-lg font-medium leading-[1.45] tracking-[-0.02em] md:text-[19px] xl:text-lg"
             classList={{ "max-w-[236px]": !props.full, "max-w-[290px]": props.full }}
+            style={{ color: "#6f747b" }}
           >
             {props.desc}
           </p>
@@ -147,10 +156,10 @@ export default function LandingHome() {
 
       <main class="relative z-10 mx-auto flex min-h-[720px] w-full max-w-[1455px] flex-col items-center px-6 pb-12 pt-[172px] md:pt-[176px] xl:pt-[234px]">
         <section class="flex w-full max-w-[1743px] flex-col items-center text-center [word-break:break-word]">
-          <h1 class="m-0 text-[40px] font-semibold leading-[1.5] tracking-[-1.6px] text-black md:text-[56px] md:tracking-[-2.24px]">
+          <h1 class="m-0 text-[40px] font-semibold leading-[1.5] tracking-[-1.6px] md:text-[56px] md:tracking-[-2.24px]" style={{ color: "#111827" }}>
             {language.t("landing.title")}
           </h1>
-          <p class="m-0 mt-[11px] text-[20px] font-normal leading-[1.5] tracking-[-0.8px] text-black/60 md:text-2xl md:tracking-[-0.96px]">
+          <p class="m-0 mt-[11px] text-[20px] font-normal leading-[1.5] tracking-[-0.8px] md:text-2xl md:tracking-[-0.96px]" style={{ color: "rgba(17, 24, 39, 0.62)" }}>
             {language.t("landing.subtitle")}
           </p>
         </section>

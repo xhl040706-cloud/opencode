@@ -35,6 +35,7 @@ const KanbanNeedList = lazy(() => import("@/pages/kanban").then((m) => ({ defaul
 const KanbanNeedDetail = lazy(() => import("@/pages/kanban").then((m) => ({ default: m.KanbanNeedDetail })))
 const WorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceLayout })))
 const WorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.WorkspaceHome })))
+const DemoWorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.DemoWorkspaceLayout })))
 const MobileWorkspaceLayout = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.MobileWorkspaceLayout })))
 const MobileWorkspaceHome = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.MobileWorkspaceHome })))
 const MobileWorkspaceDetail = lazy(() => import("@/pages/workspace").then((m) => ({ default: m.MobileWorkspaceDetail })))
@@ -120,6 +121,10 @@ export function renderRoutes(routes: RouteConfig[]) {
 
 export const routeConfig: RouteConfig[] = [
   { path: "/", component: LandingHome },
+  {
+    path: "/workspace/demo",
+    component: DemoWorkspaceLayout,
+  },
   {
     path: "/workspace",
     component: WorkspaceLayout,

@@ -88,6 +88,10 @@ const AuthContext = createContext<AuthContextValue>({
   hasCapability: () => false,
 })
 
+function demo() {
+  return env.DEMO_MODE || (import.meta.env.DEV && ["localhost", "127.0.0.1"].includes(window.location.hostname))
+}
+
 export function AuthProvider(props: ParentProps) {
   const [state, setState] = createStore<AuthState>({ user: null, permissions: null, loading: true })
 
@@ -125,7 +129,7 @@ export function AuthProvider(props: ParentProps) {
 
   onMount(async () => {
     // In demo mode, immediately set mock user without API calls
-    if (env.DEMO_MODE) {
+    if (demo()) {
       setState("user", DEMO_USER)
       setState("permissions", DEMO_PERMISSIONS)
       setState("loading", false)
@@ -140,7 +144,7 @@ export function AuthProvider(props: ParentProps) {
   })
 
   const logout = async () => {
-    if (env.DEMO_MODE) {
+    if (demo()) {
       // In demo mode, just reset to demo user
       setState("user", DEMO_USER)
       setState("permissions", DEMO_PERMISSIONS)

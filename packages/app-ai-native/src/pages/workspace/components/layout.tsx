@@ -32,6 +32,17 @@ import { ContentTabContext, createContentTabStore } from "@/context/content-tabs
 
 const WorkspaceVisibleCtx = createContext<() => boolean>()
 export const useWorkspaceVisible = () => useContext(WorkspaceVisibleCtx) ?? (() => true)
+const sample: Device = {
+  id: "preview-device",
+  deviceId: "preview-device",
+  displayName: "本地预览设备",
+  platform: "macOS",
+  version: "preview",
+  userId: "preview",
+  status: "online",
+  createdAt: new Date(0).toISOString(),
+  updatedAt: new Date(0).toISOString(),
+}
 
 const setNav = (hidden: boolean) => {
   if (typeof document === "undefined") return
@@ -110,6 +121,13 @@ export default function WorkspaceLayout(props: ParentProps) {
   const isClosed = (id: string) => closedIds().has(id)
   const markClosed = (id: string) => setClosedIds((prev) => { const next = new Set(prev); next.add(id); return next })
   const markOpen = (id: string) => setClosedIds((prev) => { const next = new Set(prev); next.delete(id); return next })
+  const addDemo = (item: Device) => {
+    setDevices((prev) => prev.some((device) => device.id === item.id) ? prev.map((device) => device.id === item.id ? item : device) : [...prev, item])
+  }
+  createEffect(() => {
+    if (!import.meta.env.DEV) return
+    if (new URLSearchParams(window.location.search).get("preview") === "device-ready") addDemo(sample)
+  })
 
   let loading = false
   const loadDevices = async () => {
@@ -137,12 +155,19 @@ export default function WorkspaceLayout(props: ParentProps) {
   }
 
   const timer = setInterval(loadDevices, 30_000)
+  const demo = (event: Event) => {
+    if (!import.meta.env.DEV) return
+    const item = event instanceof CustomEvent && event.detail ? event.detail as Device : sample
+    addDemo(item)
+  }
   document.addEventListener("visibilitychange", loadDevices)
+  window.addEventListener("workspace-demo-device", demo)
   inWorkspace = true
   onCleanup(() => {
     inWorkspace = false
     clearInterval(timer)
     document.removeEventListener("visibilitychange", loadDevices)
+    window.removeEventListener("workspace-demo-device", demo)
     for (const t of pending.values()) clearTimeout(t)
     pending.clear()
   })

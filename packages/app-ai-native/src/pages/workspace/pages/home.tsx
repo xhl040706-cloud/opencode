@@ -1,283 +1,400 @@
 import { useLanguage } from "@/context/language"
-import { usePlatform } from "@/context/platform"
 import { useNavigate } from "@solidjs/router"
 import { Icon } from "@opencode-ai/ui/icon"
-import { createMemo, createSignal, For, onCleanup, Show } from "solid-js"
+import { Button } from "@opencode-ai/ui/button"
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { SHENMA_ORIGIN } from "@/pages/store/lib/constants"
 import { useWorkspace } from "../context"
+import type { Device } from "../types"
+import { CreateWorkspaceDialogContent } from "../components/create-workspace-dialog"
+
+type State = "no-device" | "device-ready" | "workspace-ready"
+
+const installUrl = "https://docs.costrict.ai/csc/overview#%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B"
+const install = "npm install -g @costrict/csc --registry=https://registry.npmjs.org/"
+const sample: Device = {
+  id: "preview-device",
+  deviceId: "preview-device",
+  displayName: "本地预览设备",
+  platform: "macOS",
+  version: "preview",
+  userId: "preview",
+  status: "online",
+  createdAt: new Date(0).toISOString(),
+  updatedAt: new Date(0).toISOString(),
+}
+
+function Command(props: { id: string; value: string; copied: () => string | null; copy: (text: string, id: string) => void }) {
+  return (
+    <div class="flex min-w-0 items-center gap-2 rounded-[12px] border border-[color:color-mix(in_oklab,var(--native-border)_34%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_78%,var(--native-panel))] px-3 py-2 font-[var(--native-font-mono)] text-[0.8125rem] text-[var(--native-foreground)]">
+      <span class="min-w-0 flex-1 overflow-x-auto whitespace-nowrap">{props.value}</span>
+      <button
+        type="button"
+        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--native-ring)]"
+        onClick={() => props.copy(props.value, props.id)}
+        aria-label="Copy command"
+        title="Copy command"
+      >
+        <Icon name={props.copied() === props.id ? "check" : "copy"} />
+      </button>
+    </div>
+  )
+}
+
+function Stepper(props: { state: State }) {
+  const steps = [
+    {
+      key: "device",
+      title: "连接设备",
+      current: "等待连接",
+      next: "安装 CLI 并启动 Cloud 服务",
+      done: "设备已上线",
+    },
+    {
+      key: "project",
+      title: "选择项目并进入会话",
+      current: "选择项目目录",
+      next: "设备上线后选择代码目录",
+      done: "已进入会话",
+    },
+  ]
+  const index = () => props.state === "no-device" ? 0 : 1
+  const view = (i: number) => {
+    const step = steps[i]
+    const done = () => i < index()
+    const current = () => i === index()
+    return (
+      <div class="relative z-[1] flex min-w-0 items-start gap-3">
+        <span
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[14px_18px_13px_17px/17px_13px_18px_14px] border text-[0.8125rem] font-semibold shadow-[0_8px_18px_color-mix(in_oklab,var(--native-primary)_10%,transparent)]"
+          classList={{
+            "border-[var(--native-primary)] bg-[var(--native-primary)] text-[var(--native-primary-foreground)]": current(),
+            "border-[color:color-mix(in_oklab,var(--native-primary)_36%,transparent)] bg-[var(--native-primary-soft)] text-[var(--native-primary)]": done(),
+            "border-[var(--native-border)] bg-[var(--native-panel)] text-[var(--native-dim)]": !current() && !done(),
+          }}
+        >
+          <Show when={done()} fallback={i + 1}>
+            <Icon name="check" />
+          </Show>
+        </span>
+        <div class="min-w-0 pt-0.5">
+          <div
+            class="truncate text-[0.875rem] font-semibold"
+            classList={{
+              "text-[var(--native-foreground)]": current() || done(),
+              "text-[var(--native-dim)]": !current() && !done(),
+            }}
+          >
+            {step.title}
+          </div>
+          <div
+            class="mt-0.5 truncate text-[0.75rem]"
+            classList={{
+              "text-[var(--native-primary)]": current(),
+              "text-[var(--native-success-foreground)]": done(),
+              "text-[var(--native-muted)]": !current() && !done(),
+            }}
+          >
+            {done() ? step.done : current() ? step.current : step.next}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div class="grid gap-3 px-3 py-4 sm:grid-cols-[max-content_minmax(4rem,1fr)_max-content_minmax(4rem,1fr)] sm:items-start">
+      {view(0)}
+      <div class="mt-3 hidden h-2 rounded-full bg-[color:color-mix(in_oklab,var(--native-border)_42%,transparent)] sm:block" aria-hidden="true">
+        <div
+          class="h-full rounded-full bg-[linear-gradient(90deg,var(--native-primary),color-mix(in_oklab,#38d8d2_70%,var(--native-panel)))] transition-[width] duration-300"
+          classList={{
+            "w-[20%]": props.state === "no-device",
+            "w-full": props.state !== "no-device",
+          }}
+        />
+      </div>
+      {view(1)}
+      <div class="mt-3 hidden h-2 rounded-full bg-[color:color-mix(in_oklab,var(--native-border)_42%,transparent)] sm:block" aria-hidden="true">
+        <div class="h-full w-0 rounded-full bg-[linear-gradient(90deg,color-mix(in_oklab,#38d8d2_62%,var(--native-panel)),var(--native-primary))] transition-[width] duration-300" />
+      </div>
+    </div>
+  )
+}
+
+function Help(props: { copied: () => string | null; copy: (text: string, id: string) => void }) {
+  const [open, setOpen] = createSignal(false)
+  return (
+    <div class="rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_26%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))]">
+      <button
+        type="button"
+        class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-[0.875rem] font-medium text-[var(--native-foreground)]"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open()}
+      >
+        <span>连接时遇到问题？</span>
+        <Icon name={open() ? "chevron-down" : "chevron-right"} class="text-[var(--native-dim)]" />
+      </button>
+      <Show when={open()}>
+        <div class="grid gap-3 border-t border-[color:color-mix(in_oklab,var(--native-border)_22%,transparent)] px-4 py-4">
+          <a href={installUrl} target="_blank" rel="noopener noreferrer" class="inline-flex w-fit items-center gap-1.5 text-[0.8125rem] font-medium text-[var(--native-primary)] hover:underline">
+            查看完整安装文档
+            <Icon name="square-arrow-top-right" />
+          </a>
+          <div class="grid gap-2 sm:grid-cols-2">
+            <div class="grid gap-1.5">
+              <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">检查服务状态</p>
+              <Command id="help-status" value="csc cloud status" copied={props.copied} copy={props.copy} />
+            </div>
+            <div class="grid gap-1.5">
+              <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">停止 Cloud 服务</p>
+              <Command id="help-stop" value="csc cloud stop" copied={props.copied} copy={props.copy} />
+            </div>
+          </div>
+        </div>
+      </Show>
+    </div>
+  )
+}
+
+function NoDevice(props: {
+  copied: () => string | null
+  copy: (text: string, id: string) => void
+  refresh: () => void
+  login: string
+  start: string
+  env?: string
+}) {
+  return (
+    <>
+      <section class="rounded-[20px] bg-[linear-gradient(145deg,color-mix(in_oklab,var(--native-panel)_82%,transparent),color-mix(in_oklab,#f4fbff_54%,var(--native-panel))_60%,color-mix(in_oklab,#fff7fb_48%,var(--native-panel)))] p-5 shadow-[30px_18px_68px_-42px_color-mix(in_oklab,var(--native-primary)_28%,transparent),0_14px_40px_-30px_rgba(15,23,42,0.18)] backdrop-blur">
+        <div class="mb-4">
+          <p class="m-0 text-[0.8125rem] font-semibold text-[var(--native-primary)]">当前操作</p>
+          <h2 class="m-0 mt-2.5 text-[1.25rem] font-semibold tracking-[-0.03em] text-[var(--native-foreground)]">1. 安装并连接 CoStrict CLI</h2>
+          <p class="m-0 mt-2 text-[0.875rem] leading-[1.5] text-[var(--native-muted)] md:whitespace-nowrap">
+            在需要运行任务的电脑或服务器中，打开终端完成以下操作。若当前页面无反应，可尝试点击下方“检查设备状态”。
+          </p>
+        </div>
+
+        <div class="grid gap-4">
+          <div class="grid gap-2">
+            <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">安装 CoStrict CLI</h3>
+            <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">打开终端，粘贴并执行以下安装命令。</p>
+            <Command id="install" value={install} copied={props.copied} copy={props.copy} />
+          </div>
+
+          <Show when={props.env}>
+            {(cmd) => (
+              <div class="grid gap-2">
+                <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">设置访问环境</h3>
+                <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">在内部环境中先配置 CoStrict Cloud 访问地址。</p>
+                <Command id="env" value={cmd()} copied={props.copied} copy={props.copy} />
+              </div>
+            )}
+          </Show>
+
+          <div class="grid gap-2">
+            <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">登录账号</h3>
+            <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">请使用与当前网页相同的账号登录。</p>
+            <Command id="login" value={props.login} copied={props.copied} copy={props.copy} />
+          </div>
+
+          <div class="grid gap-2">
+            <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">启动 Cloud 服务</h3>
+            <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">服务启动后，设备将自动出现在左侧设备列表中。</p>
+            <Command id="start" value={props.start} copied={props.copied} copy={props.copy} />
+          </div>
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_26%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex min-w-0 items-center gap-3">
+          <span class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--native-radius-full)] bg-[var(--native-primary-soft)]">
+            <span class="absolute h-3 w-3 rounded-full bg-[var(--native-primary)] opacity-25 animate-ping" />
+            <span class="h-2.5 w-2.5 rounded-full bg-[var(--native-primary)]" />
+          </span>
+          <div>
+            <p class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">等待设备连接</p>
+            <p class="m-0 mt-0.5 text-[0.8125rem] text-[var(--native-muted)]">完成登录并启动 Cloud 服务后，页面会自动检测在线设备。</p>
+          </div>
+        </div>
+        <Button type="button" variant="secondary" size="small" onClick={props.refresh}>
+          检查设备状态
+        </Button>
+      </section>
+    </>
+  )
+}
+
+function DeviceReady(props: {
+  device: Device
+  open: (device: Device) => void
+  showGuide: () => void
+}) {
+  const rows = [
+    { label: "设备名称", value: props.device.displayName },
+    { label: "系统", value: props.device.platform || "未知" },
+    { label: "CLI", value: props.device.version || "未知" },
+    { label: "状态", value: "在线" },
+  ]
+  return (
+    <section class="rounded-[20px] bg-[linear-gradient(145deg,color-mix(in_oklab,var(--native-panel)_82%,transparent),color-mix(in_oklab,#f4fbff_54%,var(--native-panel))_60%,color-mix(in_oklab,#fff7fb_48%,var(--native-panel)))] p-5 shadow-[30px_18px_68px_-42px_color-mix(in_oklab,var(--native-primary)_28%,transparent),0_14px_40px_-30px_rgba(15,23,42,0.18)] backdrop-blur">
+      <div class="flex items-start gap-4">
+        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px_18px_13px_17px/17px_13px_18px_14px] bg-[var(--native-success-soft)] text-[var(--native-success-foreground)]">
+          <Icon name="check" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2 class="m-0 text-[1.375rem] font-semibold tracking-[-0.035em] text-[var(--native-foreground)]">设备已连接</h2>
+          <p class="m-0 mt-2 text-[0.875rem] leading-[1.65] text-[var(--native-muted)] md:whitespace-nowrap">
+            已检测到你的开发设备。现在选择一个代码项目，创建工作空间后，即刻开启 AI Coding 之旅。
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-5 rounded-[12px] border border-[color:color-mix(in_oklab,var(--native-border)_22%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_76%,transparent)] p-4">
+        <For each={rows}>
+          {(row, i) => (
+            <div class="flex items-center justify-between gap-4 py-2" classList={{ "border-t border-[color:color-mix(in_oklab,var(--native-border)_18%,transparent)]": i() > 0 }}>
+              <span class="text-[0.8125rem] text-[var(--native-muted)]">{row.label}</span>
+              <span class="min-w-0 truncate text-right text-[0.875rem] font-medium text-[var(--native-foreground)]">{row.value}</span>
+            </div>
+          )}
+        </For>
+      </div>
+
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <Button type="button" variant="primary" onClick={() => props.open(props.device)}>
+          选择项目目录
+        </Button>
+        <Button type="button" variant="secondary" onClick={props.showGuide}>
+          连接其他设备
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+function WorkspaceReady() {
+  return (
+    <section class="rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-5 shadow-[var(--native-shadow-sm)]">
+      <h2 class="m-0 text-[1.25rem] font-semibold tracking-[-0.03em] text-[var(--native-foreground)]">工作空间已准备好</h2>
+      <p class="m-0 mt-2 max-w-[62ch] text-[0.875rem] leading-[1.65] text-[var(--native-muted)]">
+        创建完成后会自动打开会话页。也可以从左侧 Workspaces 列表重新进入已有工作空间。
+      </p>
+    </section>
+  )
+}
 
 export default function WorkspaceHome() {
   const t = useLanguage().t
   const navigate = useNavigate()
-  const platform = usePlatform()
+  const dialog = useDialog()
   const work = useWorkspace()
-  const installUrl = "https://docs.costrict.ai/csc/overview#%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B"
-  const [copiedId, setCopiedId] = createSignal<string | null>(null)
-  const isShenmaEnv = typeof window !== "undefined" && window.location.origin === SHENMA_ORIGIN
-  const steps: {
-    id: string
-    tone: string
-    titleKey: string
-    descKey: string
-    kind: string
-    cmdKey?: string
-    cmdValue?: string
-    descValue?: string
-    titleValue?: string
-  }[] = [
-    {
-      id: "01",
-      tone: "var(--native-warning)",
-      titleKey: "workspace.home.step1.title",
-      descKey: "workspace.home.step1.description",
-      kind: isShenmaEnv ? "cmd" : "link",
-      cmdValue: isShenmaEnv
-        ? "npm install -g @costrict/csc --registry=http://npm.uedc.sangfor.com.cn:80"
-        : undefined,
-    },
-    {
-      id: "02",
-      tone: "var(--native-primary)",
-      titleKey: "workspace.home.step2.title",
-      descKey: "workspace.home.step2.description",
-      kind: "cmd",
-      cmdKey: "workspace.home.step2.cmd",
-    },
-    {
-      id: "03",
-      tone: "var(--native-primary)",
-      titleKey: "workspace.home.step3.title",
-      descKey: "workspace.home.step3.description",
-      kind: "cmd",
-      cmdKey: "workspace.home.step3.cmd",
-      cmdValue: isShenmaEnv
-        ? t("workspace.home.step3.shenma.cmd", { url: SHENMA_ORIGIN })
-        : undefined,
-      descValue: isShenmaEnv ? t("workspace.home.step3.shenma.description") : undefined,
-      titleValue: isShenmaEnv ? t("workspace.home.step3.shenma.title") : undefined,
-    },
-    {
-      id: "04",
-      tone: "var(--native-success)",
-      titleKey: "workspace.home.step4.title",
-      descKey: "workspace.home.step4.description",
-      kind: "cmd",
-      cmdKey: "workspace.home.step4.cmd",
-      cmdValue: isShenmaEnv ? "csc cloud login" : undefined,
-    },
-    {
-      id: "05",
-      tone: "var(--native-success)",
-      titleKey: "workspace.home.step5.title",
-      descKey: "workspace.home.step5.description",
-      kind: "cta",
-    },
-  ]
-  const acts = [
-    {
-      icon: "store" as const,
-      titleKey: "workspace.home.browseStore",
-      tone: "var(--native-primary)",
-      soft: "var(--native-primary-soft)",
-      trail: "arrow-right" as const,
-      run: () => navigate("/store"),
-    },
-    ...(isShenmaEnv
-      ? []
-      : [
-          {
-            icon: "help" as const,
-            titleKey: "workspace.home.viewDocs",
-            tone: "var(--native-muted)",
-            soft: "var(--native-surface)",
-            trail: "square-arrow-top-right" as const,
-            run: () => platform.openLink("https://docs.costrict.ai"),
-          },
-        ]),
-  ]
-  const run = createMemo(() => {
-    const ids = work.enabledWorkspaceIds()
-    return work
-      .workspaces()
-      .find((item) => ids.includes(item.id) && (item.directories?.length ?? 0) > 0)
+  const [copied, setCopied] = createSignal<string | null>(null)
+  const [guide, setGuide] = createSignal(false)
+  const preview = () => import.meta.env.DEV && new URLSearchParams(window.location.search).get("preview") === "device-ready"
+  const isShenma = typeof window !== "undefined" && window.location.origin === SHENMA_ORIGIN
+  const online = createMemo(() => preview() ? [sample] : work.devices().filter((device) => device.status === "online"))
+  const usable = createMemo(() => work.workspaces().filter((item) => item.deviceUniqueId && (item.directories?.length ?? 0) > 0))
+  const state = createMemo<State>(() => {
+    if (usable().length > 0) return "workspace-ready"
+    if (online().length > 0) return "device-ready"
+    return "no-device"
   })
-  const dir = createMemo(() => {
-    const item = run()
-    if (!item?.directories?.length) return
-    return item.directories.find((entry) => entry.isDefault) ?? item.directories[0]
+  let seen = ""
+  createEffect(() => {
+    const ids = online().map((device) => device.id).join("|")
+    if (!seen) {
+      seen = ids
+      return
+    }
+    if (ids !== seen) {
+      seen = ids
+      if (guide() && ids) setGuide(false)
+    }
   })
+  const env = createMemo(() => isShenma ? t("workspace.home.step3.shenma.cmd", { url: SHENMA_ORIGIN }) : undefined)
+  const login = createMemo(() => isShenma ? "csc cloud login" : t("workspace.home.step3.cmd"))
+  const start = createMemo(() => isShenma ? "csc cloud login" : t("workspace.home.step4.cmd"))
 
   let timer: ReturnType<typeof setTimeout> | undefined
-
   onCleanup(() => {
-    if (!timer) return
-    clearTimeout(timer)
+    if (timer) clearTimeout(timer)
   })
 
   const copy = (text: string, id: string) => {
     const task = navigator.clipboard?.writeText(text)
     if (!task) return
     void task.then(() => {
-      setCopiedId(id)
+      setCopied(id)
       if (timer) clearTimeout(timer)
-      timer = setTimeout(() => setCopiedId(null), 1600)
+      timer = setTimeout(() => setCopied(null), 1600)
     })
   }
 
+  const open = (device: Device) => {
+    dialog.show(() => (
+      <CreateWorkspaceDialogContent
+        device={device}
+        onCreate={async (dir: string, name: string) => {
+          if (preview()) return
+          await work.createWorkspace(device.id, dir, name)
+        }}
+      />
+    ))
+  }
+  const refresh = () => {
+    window.location.reload()
+  }
+
   return (
-    <div class="thin-scrollbar flex min-h-full min-w-0 flex-col gap-6 overflow-y-auto overflow-x-clip p-[clamp(1rem,2vw,2rem)]">
-      <header class="native-page-header mx-auto w-full max-w-[1080px]">
-        <h1 class="m-0 max-w-[28ch] font-[var(--native-font-display)] text-[1.875rem] leading-[1.02] font-semibold tracking-[-0.05em] text-[var(--native-foreground)]">{t("workspace.home.title")}</h1>
-        <p class="mt-3 max-w-[66ch] text-[0.9375rem] leading-[1.7] text-[var(--native-muted)]">{t("workspace.home.subtitle")}</p>
-      </header>
+    <div class="thin-scrollbar flex min-h-full min-w-0 flex-col overflow-y-auto overflow-x-clip bg-[linear-gradient(180deg,var(--native-panel)_0%,color-mix(in_oklab,var(--native-bg-subtle)_82%,var(--native-panel))_100%)] px-[clamp(1rem,2vw,2rem)] py-10">
+      <main class="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
+        <header>
+          <h1 class="m-0 font-[var(--native-font-display)] text-[2rem] font-semibold leading-[1.12] tracking-[-0.05em] text-[var(--native-foreground)] md:whitespace-nowrap">
+            连接开发设备，开始使用 CoStrict Cloud
+          </h1>
+          <p class="m-0 mt-3 text-[0.975rem] leading-[1.55] text-[var(--native-muted)] md:whitespace-nowrap">
+            通过浏览器连接你的本地电脑或私有服务器，让 AI 在真实项目和开发环境中读取代码、执行任务并反馈结果。
+          </p>
+        </header>
 
-      <div class="mx-auto flex min-h-0 min-w-0 max-w-[1080px] flex-1 flex-col gap-5 w-full">
-        <section class={`grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(18.5rem,0.9fr)] ${isShenmaEnv ? "items-start" : ""}`}>
-          <div class="rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_86%,var(--native-bg-subtle))] shadow-[var(--native-shadow-sm)] overflow-hidden">
-            <For each={steps}>
-              {(step, idx) => {
-                const vertical = isShenmaEnv && step.id !== "05"
-                return (
-                  <div
-                    class={`px-5 py-4 ${vertical ? "flex flex-col items-start gap-4" : "flex items-center gap-4"}`}
-                    classList={{ "border-t border-[color:color-mix(in_oklab,var(--native-border)_22%,transparent)]": idx() > 0 }}
-                    style={{ "--step-tone": step.tone }}
-                  >
-                    <div class={`${vertical ? "flex w-full items-center gap-4" : "flex flex-1 items-center gap-4 min-w-0"}`}>
-                      <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--native-radius-full)] bg-[color:color-mix(in_oklab,var(--step-tone)_10%,transparent)] font-[var(--native-font-mono)] text-[0.8125rem] font-semibold text-[var(--step-tone)]">
-                        {step.id}
-                      </span>
+        <Stepper state={state()} />
 
-                      <div class="flex-1 min-w-0">
-                        <h2 class="m-0 text-[0.9375rem] font-semibold tracking-[-0.02em] text-[var(--native-foreground)]">
-                          {step.titleValue ?? t(step.titleKey)}
-                        </h2>
-                        <p class="m-0 mt-0.5 text-[0.8125rem] leading-[1.5] text-[var(--native-muted)]">
-                          {step.descValue ?? t(step.descKey)}
-                        </p>
-                      </div>
-                    </div>
+        <Show when={state() === "workspace-ready"} fallback={
+          <Show
+            when={state() === "device-ready" && !guide()}
+            fallback={
+              <NoDevice
+                copied={copied}
+                copy={copy}
+                refresh={refresh}
+                login={login()}
+                start={start()}
+                env={env()}
+              />
+            }
+          >
+            <Show when={online()[0]}>
+              {(device) => <DeviceReady device={device()} open={open} showGuide={() => setGuide(true)} />}
+            </Show>
+          </Show>
+        }>
+          <WorkspaceReady />
+        </Show>
 
-                    <Show when={step.kind === "link"}>
-                      <a
-                        href={installUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-3 py-2 text-[0.8125rem] text-[var(--native-primary)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--native-primary-soft)_80%,var(--native-panel))]"
-                      >
-                        <Icon name="download" class="shrink-0" />
-                        <span>{t("workspace.home.step1.installGuide")}</span>
-                        <Icon name="square-arrow-top-right" class="shrink-0 text-[var(--native-dim)]" />
-                      </a>
-                    </Show>
+        <Help copied={copied} copy={copy} />
 
-                    <Show when={step.kind === "cmd"}>
-                      <div class={`${vertical ? "flex w-full" : "inline-flex shrink-0"} items-center gap-2 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-3 py-2 font-[var(--native-font-mono)] text-[0.8125rem] text-[var(--native-foreground)] max-w-full`}>
-                        <span class={`whitespace-pre-line break-all min-w-0 ${vertical ? "flex-1" : ""}`}>{step.cmdValue ?? t(step.cmdKey!)}</span>
-                        <button
-                          type="button"
-                          class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-all motion-reduce:transition-none hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--native-ring)]"
-                          onClick={() => copy(step.cmdValue ?? t(step.cmdKey!), step.id)}
-                          aria-label="Copy command"
-                          title="Copy command"
-                        >
-                          <Icon name={copiedId() === step.id ? "check" : "copy"} />
-                        </button>
-                      </div>
-                    </Show>
-
-                    <Show when={step.kind === "cta"}>
-                      <Show when={dir()} fallback={
-                        <span class="shrink-0 text-[0.8125rem] text-[var(--native-dim)]">
-                           <Icon name="arrow-left" />
-                        </span>
-                      }>
-                        {(entry) => (
-                          <div class="flex shrink-0 flex-col gap-0.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--step-tone)_16%,transparent)] bg-[color:color-mix(in_oklab,var(--native-success-soft)_55%,var(--native-panel))] px-3 py-1.5">
-                            <span class="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--native-success-foreground)]">
-                              {run()?.name}
-                            </span>
-                            <span class="truncate text-[0.75rem] leading-[1.4] text-[var(--native-muted)]" title={entry().path}>
-                              {entry().path}
-                            </span>
-                          </div>
-                        )}
-                      </Show>
-                    </Show>
-                  </div>
-                )
-              }}
-            </For>
-          </div>
-
-          <div class="grid gap-4">
-            <div class="rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_86%,var(--native-bg-subtle))] p-5 shadow-[var(--native-shadow-sm)]">
-              <div class="mb-4">
-                <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--native-dim)]">
-                  {t("workspace.home.quickActions")}
-                </p>
-              </div>
-
-              <div class="grid gap-3">
-                <For each={acts}>
-                  {(item) => (
-                    <button
-                      type="button"
-                      class="group flex min-h-[3rem] items-center justify-between gap-3 rounded-[3px] border border-[color:color-mix(in_oklab,var(--act-tone)_20%,transparent)] bg-[color:color-mix(in_oklab,var(--act-soft)_84%,var(--native-panel))] px-4 py-3 text-left transition-all motion-reduce:transform-none motion-reduce:transition-none hover:-translate-y-px hover:shadow-[var(--native-shadow-sm)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--native-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--native-panel)]"
-                      style={{ "--act-tone": item.tone, "--act-soft": item.soft }}
-                      onClick={item.run}
-                    >
-                      <span class="flex min-w-0 items-center gap-3 text-[0.875rem] font-medium text-[var(--native-foreground)]">
-                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] bg-[color:color-mix(in_oklab,var(--act-soft)_84%,var(--native-panel))] text-[var(--act-tone)] shadow-[var(--native-shadow-sm)]">
-                          <Icon name={item.icon} />
-                        </span>
-                        <span class="truncate">{t(item.titleKey)}</span>
-                      </span>
-                      <Icon name={item.trail} class="shrink-0 text-[var(--act-tone)] transition-transform motion-reduce:transition-none group-hover:translate-x-0.5" />
-                    </button>
-                  )}
-                </For>
-              </div>
-            </div>
-
-            <div class="relative overflow-hidden rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_24%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_72%,var(--native-panel))] p-5">
-              <div class="absolute right-[-2.25rem] top-[-2.25rem] h-24 w-24 rounded-full bg-[color:color-mix(in_oklab,var(--native-primary)_10%,transparent)] blur-2xl" />
-              <div class="relative flex flex-col gap-3">
-                <div class="flex items-center gap-3">
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--native-radius-md)] bg-[var(--native-primary-soft)] text-[var(--native-primary)]">
-                    <Icon name="warning" />
-                  </div>
-                  <p class="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--native-primary)]">
-                    {t("workspace.home.proTip")}
-                  </p>
-                </div>
-                <div class="flex items-center justify-between gap-4 pl-[3.25rem]">
-                  <p class="m-0 text-[0.875rem] leading-[1.5] text-[var(--native-primary-muted)]">
-                    {t("workspace.home.proTip.status")}
-                  </p>
-                  <div class="inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-2.5 py-1.5 font-[var(--native-font-mono)] text-[0.8125rem] text-[var(--native-foreground)]">
-                    <span>csc cloud status</span>
-                    <button type="button" class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none" onClick={() => copy("csc cloud status", "tip-status")} aria-label="Copy command" title="Copy command">
-                      <Icon name={copiedId() === "tip-status" ? "check" : "copy"} />
-                    </button>
-                  </div>
-                </div>
-                <div class="flex items-center justify-between gap-4 pl-[3.25rem]">
-                  <p class="m-0 text-[0.875rem] leading-[1.5] text-[var(--native-primary-muted)]">
-                    {t("workspace.home.proTip.stop")}
-                  </p>
-                  <div class="inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_32%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_82%,var(--native-panel))] px-2.5 py-1.5 font-[var(--native-font-mono)] text-[0.8125rem] text-[var(--native-foreground)]">
-                    <span>csc cloud stop</span>
-                    <button type="button" class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none" onClick={() => copy("csc cloud stop", "tip-stop")} aria-label="Copy command" title="Copy command">
-                      <Icon name={copiedId() === "tip-stop" ? "check" : "copy"} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
+        <button
+          type="button"
+          class="w-fit text-left text-[0.8125rem] text-[var(--native-muted)] transition-colors"
+          onClick={() => navigate("/store")}
+        >
+          <span>暂时不连接设备？</span>
+          <span class="ml-1 font-semibold text-[var(--native-primary)] hover:underline">浏览团队知识中心</span>
+        </button>
+      </main>
     </div>
   )
 }
