@@ -604,6 +604,7 @@ export const dict = {
   "session.messages.jumpToLatest": "跳转到最新",
   "session.context.addToContext": "将 {{selection}} 添加到上下文",
   "session.status.processing": "处理中...",
+  "session.queue.tag": "队列中",
   "session.todo.title": "待办事项",
   "session.todo.collapse": "折叠",
   "session.todo.expand": "展开",
@@ -1503,6 +1504,9 @@ export const dict = {
 
   "channels.title": "消息渠道",
   "channels.description": "配置双向消息渠道，与 AI 进行对话交互",
+  "channels.type.wecom-bot": "企微 Bot",
+  "channels.type.wechat": "微信",
+  "channels.type.wecom": "企业微信",
   "channels.loading": "加载渠道中...",
   "channels.empty": "暂无可用的渠道类型。",
   "channels.notConfigured": "未配置",
@@ -1741,6 +1745,8 @@ export const dict = {
   "workspace.session.group.older": "更早",
   "workspace.content.closeAll": "关闭全部",
 
+  "workspace.createFromDevice": "创建自",
+  "workspace.createFromDevice.empty": "请先完成设备注册",
   "workspace.device.list": "设备列表",
   "workspace.device.search": "搜索设备...",
   "workspace.device.notFound": "未找到设备",

@@ -576,6 +576,9 @@ export const dict = {
 
   "channels.title": "Message Channels",
   "channels.description": "Configure bidirectional messaging channels for AI conversations",
+  "channels.type.wecom-bot": "WeCom Bot",
+  "channels.type.wechat": "WeChat",
+  "channels.type.wecom": "WeCom",
   "channels.loading": "Loading channels...",
   "channels.empty": "No channel types available.",
   "channels.notConfigured": "Not configured",
@@ -1384,6 +1387,7 @@ export const dict = {
 
   "session.context.addToContext": "Add {{selection}} to context",
   "session.status.processing": "Processing...",
+  "session.queue.tag": "Queued",
   "session.todo.title": "Todos",
   "session.todo.collapse": "Collapse",
   "session.todo.expand": "Expand",
@@ -1995,6 +1999,8 @@ export const dict = {
   "workspace.session.group.older": "Older",
   "workspace.content.closeAll": "Close All",
 
+  "workspace.createFromDevice": "Create from",
+  "workspace.createFromDevice.empty": "Please register a device first",
   "workspace.device.list": "Device List",
   "workspace.device.search": "Search devices...",
   "workspace.device.notFound": "No devices found",
