@@ -543,13 +543,6 @@ export const deviceApi = {
 }
 
 export const notificationChannelApi = {
-  async list() {
-    const res = await apiFetch<{ channels: any[] }>("/api/notification-channels")
-    return {
-      channels: (res.channels ?? []),
-    }
-  },
-
   async listWecom() {
     const res = await apiFetch<{ channels: WecomChannelResponse[] }>("/api/notification-channels")
     return {
@@ -559,28 +552,12 @@ export const notificationChannelApi = {
 
   available: () => apiFetch<{ channelTypes: AvailableChannel[] }>("/api/notification-channels/available"),
 
-  async create(data: any) {
-    const res = await apiFetch<{ channel: any }>("/api/notification-channels", {
-      method: "POST",
-      body: JSON.stringify(data),
-    })
-    return { channel: res.channel }
-  },
-
   async createWecom(data: WecomChannelPayload) {
     const res = await apiFetch<{ channel: WecomChannelResponse }>("/api/notification-channels", {
       method: "POST",
       body: JSON.stringify(data),
     })
     return { channel: normalizeWecomChannel(res.channel) }
-  },
-
-  async update(channelId: string, data: any) {
-    const res = await apiFetch<{ channel: any }>(`/api/notification-channels/${channelId}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    })
-    return { channel: res.channel }
   },
 
   async updateWecom(
