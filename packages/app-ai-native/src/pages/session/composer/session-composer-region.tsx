@@ -11,6 +11,7 @@ import { SessionQuestionDock } from "@/pages/session/composer/session-question-d
 import type { SessionComposerState } from "@/pages/session/composer/session-composer-state"
 import { StatusDisplay } from "@/pages/session/composer/session-status-display"
 import { SessionTodoDock } from "@/pages/session/composer/session-todo-dock"
+import { Icon } from "@opencode-ai/ui/icon"
 
 export function SessionComposerRegion(props: {
   state: SessionComposerState
@@ -48,6 +49,8 @@ export function SessionComposerRegion(props: {
 }) {
   const prompt = usePrompt()
   const language = useLanguage()
+
+  const [queued, setQueued] = createSignal<string[]>([])
 
   const sessionKey = createMemo(() => "")
   const handoffPrompt = createMemo(() => getSessionHandoff(sessionKey())?.prompt)
@@ -220,11 +223,30 @@ export function SessionComposerRegion(props: {
 
           <div
             classList={{
-              "w-full px-2 pointer-events-auto": true,
+              "w-full px-2 pointer-events-auto relative": true,
               "md:max-w-200 md:mx-auto 2xl:max-w-[1000px]": props.centered,
             }}
             data-dock-compact=""
           >
+            <Show when={queued().length > 0}>
+              <div class="absolute left-1/2 right-2 bottom-full mb-1 z-20 flex flex-col gap-1 items-end pointer-events-auto">
+                {queued().map((msg, i) => (
+                  <div class="flex flex-col gap-1 w-fit max-w-full self-end px-3 py-2 rounded-[6px] bg-[var(--surface-base)] text-text-strong text-14-regular border border-border-weak-base">
+                    <div class="flex items-center gap-1">
+                      <span class="truncate min-w-0">{msg}</span>
+                      <button
+                        type="button"
+                        onClick={() => setQueued((prev) => prev.filter((_, idx) => idx !== i))}
+                        class="size-4 shrink-0 flex items-center justify-center text-icon-weak hover:text-icon-base"
+                      >
+                        <Icon name="close" size="small" />
+                      </button>
+                    </div>
+                    <span class="w-fit px-1.5 py-[3px] rounded-[4px] text-11-medium leading-none" style="background:#0284c7;color:#fff">{language.t("session.queue.tag")}</span>
+                  </div>
+                ))}
+              </div>
+            </Show>
             <Show when={!props.hidePrompt}>
               <Show
                 when={prompt.ready()}
@@ -247,6 +269,8 @@ export function SessionComposerRegion(props: {
                     hideAttachButton={props.hideAttachButton}
                     busySince={props.busySince}
                     hiddenSeed={props.hiddenSeed}
+                    queued={queued()}
+                    onQueueChange={(items) => setQueued(items)}
                   />
                 </div>
               </Show>

@@ -3,6 +3,7 @@ import { useParams } from "@solidjs/router"
 import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import type { Device, DeviceStatus, Workspace, WorkspaceDirectory } from "../types"
 import { DeviceList } from "./device-list"
@@ -80,6 +81,8 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
       .map((w) => w.id),
   )
 
+  const onlineDevices = createMemo(() => devices().filter((d) => d.status === "online"))
+
   const handleCreateWorkspace = (device: Device) => {
     dialog.show(() => (
       <CreateWorkspaceDialogContent
@@ -109,24 +112,61 @@ export function WorkspaceSidebar(props: { hide?: () => void } = {}) {
       </div>
 
       <div class="shrink-0 px-3 py-2.5">
-        <div class="flex h-8 w-full items-center rounded-[var(--native-radius-sm)] border border-sidebar-border bg-[color:color-mix(in_oklab,var(--native-panel)_82%,var(--native-bg-subtle))] shadow-[var(--native-shadow-sm)] transition-all duration-200 focus-within:border-sidebar-ring focus-within:ring-1 focus-within:ring-sidebar-ring">
-          <Icon name="magnifying-glass" class="size-4 text-sidebar-foreground/50 shrink-0 ml-3" />
-          <input
-            type="text"
-            placeholder={t("workspace.search.placeholder")}
-            value={workspaceSearchQuery()}
-            onInput={(e: Event) => setWorkspaceSearchQuery((e.target as HTMLInputElement).value)}
-            class="flex-1 min-w-0 h-full px-2 text-sm bg-transparent text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:outline-none"
-          />
-          <Show when={workspaceSearchQuery()}>
-            <button
-              type="button"
-              onClick={() => setWorkspaceSearchQuery("")}
-              class="flex items-center justify-center size-6 rounded-full text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer mr-1"
-            >
-              <Icon name="close" class="size-3.5" />
-            </button>
-          </Show>
+        <div class="flex items-center gap-1">
+          <div class="flex h-8 flex-1 items-center rounded-[var(--native-radius-sm)] border border-sidebar-border bg-[color:color-mix(in_oklab,var(--native-panel)_82%,var(--native-bg-subtle))] shadow-[var(--native-shadow-sm)] transition-all duration-200 focus-within:border-sidebar-ring focus-within:ring-1 focus-within:ring-sidebar-ring">
+            <Icon name="magnifying-glass" class="size-4 text-sidebar-foreground/50 shrink-0 ml-3" />
+            <input
+              type="text"
+              placeholder={t("workspace.search.placeholder")}
+              value={workspaceSearchQuery()}
+              onInput={(e: Event) => setWorkspaceSearchQuery((e.target as HTMLInputElement).value)}
+              class="flex-1 min-w-0 h-full px-2 text-sm bg-transparent text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:outline-none"
+            />
+            <Show when={workspaceSearchQuery()}>
+              <button
+                type="button"
+                onClick={() => setWorkspaceSearchQuery("")}
+                class="flex items-center justify-center size-6 rounded-full text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer mr-1"
+              >
+                <Icon name="close" class="size-3.5" />
+              </button>
+            </Show>
+          </div>
+          <DropdownMenu>
+            <DropdownMenu.Trigger
+              as={IconButton}
+              icon="plus-small"
+              variant="ghost"
+              class="size-8 shrink-0 rounded-[var(--native-radius-sm)] border border-sidebar-border cursor-pointer text-sidebar-foreground/70 hover:text-sidebar-foreground"
+              aria-label={t("workspace.createFromDevice")}
+            />
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content class="w-56 bg-sidebar shadow-md">
+                <DropdownMenu.Group>
+                  <DropdownMenu.GroupLabel>{t("workspace.createFromDevice")}</DropdownMenu.GroupLabel>
+                  <Show
+                    when={onlineDevices().length > 0}
+                    fallback={
+                      <div class="flex flex-col items-center gap-1 px-2 py-4 text-center">
+                        <Icon name="server" class="size-6 text-sidebar-foreground/30" />
+                        <span class="text-xs text-sidebar-foreground/50">{t("workspace.createFromDevice.empty")}</span>
+                      </div>
+                    }
+                  >
+                    <DropdownMenu.Separator class="bg-sidebar-border" />
+                    <For each={onlineDevices()}>
+                      {(device) => (
+                        <DropdownMenu.Item class="hover:bg-sidebar-accent" onSelect={() => handleCreateWorkspace(device)}>
+                          <Icon name="server" size="small" class="size-4 shrink-0 text-sidebar-foreground/70" />
+                          <DropdownMenu.ItemLabel class="truncate">{device.displayName}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                      )}
+                    </For>
+                  </Show>
+                </DropdownMenu.Group>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu>
         </div>
       </div>
 

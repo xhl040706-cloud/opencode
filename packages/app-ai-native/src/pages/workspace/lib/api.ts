@@ -1,5 +1,6 @@
 // Workspace API Client - 对接 server 层接口
 import { env } from "@/lib/env"
+import { onUnauthorized } from "@/lib/session-expired"
 
 const PREFIX = env.API_PREFIX
 const API_BASE = env.API_URL || PREFIX
@@ -10,6 +11,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   })
   if (!res.ok) {
+    if (res.status === 401) onUnauthorized(path)
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error || `Request failed: ${res.status}`)
   }

@@ -3,8 +3,9 @@ import { useParams, useSearchParams } from "@solidjs/router"
 import { Toast } from "@opencode-ai/ui/toast"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Icon } from "@opencode-ai/ui/icon"
-import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
+import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
+import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Tabs } from "@opencode-ai/ui/tabs"
 import { useLanguage } from "@/context/language"
@@ -889,6 +890,45 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
               </Show>
             </Show>
           </div>
+          <div class="shrink-0 flex items-center gap-1 px-3 py-1.5 border-t text-11-regular text-native-dim min-h-[32px]">
+            <Show when={dw.data.agentInfo}>
+              <span class="truncate">Powered by {dw.data.agentInfo!.name}</span>
+              <Show when={dw.data.agentInfo!.version}>
+                <span class="text-native-muted">{dw.data.agentInfo!.version}</span>
+              </Show>
+            </Show>
+            <Show when={dw.restarting().active}>
+              <span class="ml-auto text-11-regular text-text-warning animate-pulse">{(dw.restarting() as any).message}</span>
+            </Show>
+            <div class="ml-auto">
+              <DropdownMenu>
+                <DropdownMenu.Trigger
+                  as={IconButton}
+                  icon="dot-grid"
+                  variant="ghost"
+                  disabled={dw.restarting().active}
+                  class="size-5 rounded cursor-pointer text-sidebar-foreground/70 hover:text-sidebar-foreground"
+                />
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content class="min-w-36 bg-sidebar shadow-md">
+                    <Show when={!dw.restarting().active && dw.data.agentInfo?.version} fallback={
+                      <Tooltip value={dw.restarting().active ? "" : language.t("workspace.agent.upgradeRequired")} placement="left">
+                        <DropdownMenu.Item class="opacity-40 cursor-not-allowed" onSelect={() => {}}>
+                          <Icon name="reset" size="small" class="size-4 text-sidebar-foreground/70" />
+                          <DropdownMenu.ItemLabel>{language.t("workspace.agent.restart")}</DropdownMenu.ItemLabel>
+                        </DropdownMenu.Item>
+                      </Tooltip>
+                    }>
+                      <DropdownMenu.Item class="hover:bg-sidebar-accent" onSelect={() => dw.restartAgent()}>
+                        <Icon name="reset" size="small" class="size-4 text-sidebar-foreground/70" />
+                        <DropdownMenu.ItemLabel>{language.t("workspace.agent.restart")}</DropdownMenu.ItemLabel>
+                      </DropdownMenu.Item>
+                    </Show>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu>
+            </div>
+          </div>
         </Show>
       </div>
     </div>
@@ -1032,7 +1072,20 @@ export function WorkspaceContentLayout(props: { workspaceId: string; directory: 
       when={ready() && directory()}
       fallback={<div class="size-full" />}
     >
-      <div class="flex h-full w-full min-h-0">
+      <div class="flex h-full w-full min-h-0 relative">
+        <Show when={ws.restarting().active}>
+          <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[6px]">
+            <div class="flex flex-col items-center gap-3 p-6 rounded-xl bg-surface-overlay shadow-xl">
+              <svg class="size-6 text-text-warning animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="31.4 31.4" stroke-dashoffset="0" />
+              </svg>
+              <span class="text-14-medium text-text-default">{language.t("workspace.agent.restarting")}</span>
+              <Show when={(ws.restarting() as any).message}>
+                <span class="text-12-regular text-text-weak">{(ws.restarting() as any).message}</span>
+              </Show>
+            </div>
+          </div>
+        </Show>
         <div
           class="shrink-0 h-full overflow-hidden transition-[width] duration-200"
           style={{ width: dl.fileTree.opened() ? `${dl.fileTree.width()}px` : "0px" }}

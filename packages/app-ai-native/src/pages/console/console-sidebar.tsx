@@ -5,10 +5,9 @@ import { LocalIcon } from "@/components/local-icon"
 import { useLanguage } from "@/context/language"
 import { appPath } from "@/lib/router"
 import { deviceManagementService } from "./lib/device-management-service"
-import { notificationChannelService } from "./lib/notification-channel-service"
 import { ALL_CONSOLE_MENUS } from "./lib/menu-registry"
 
-type Count = "devices" | "channels"
+type Count = "devices"
 
 export default function ConsoleSidebar() {
   const location = useLocation()
@@ -16,14 +15,11 @@ export default function ConsoleSidebar() {
   const path = () => appPath(location.pathname)
 
   const [devices] = createResource(async () => deviceManagementService.list())
-  const [channels] = createResource(async () => notificationChannelService.listWecom())
 
   const total = (kind: Count) =>
-    kind === "devices"
-      ? devices()?.filter((item) => item.status === "online").length ?? 0
-      : channels()?.filter((item) => item.enabled).length ?? 0
+    devices()?.filter((item) => item.status === "online").length ?? 0
 
-  const done = (kind: Count) => (kind === "devices" ? !devices.loading : !channels.loading)
+  const done = (kind: Count) => !devices.loading
 
   const active = (href: string, exact?: boolean) => {
     const p = path()

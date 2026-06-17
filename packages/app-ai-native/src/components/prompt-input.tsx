@@ -81,6 +81,8 @@ interface PromptInputProps {
   onSubmit?: () => void
   hideAttachButton?: boolean
   busySince?: number
+  queued?: string[]
+  onQueueChange?: (items: string[]) => void
   // Optional hidden instruction seeded into the first message of a new session.
   hiddenSeed?: () => string | undefined
 }
@@ -222,6 +224,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     applyingHistory: false,
     workspaceFileSearch: null,
   })
+
+  const q = (): string[] => props.queued ?? []
+  const setQ = (items: string[]) => props.onQueueChange?.(items)
 
   const visible = useWorkspaceVisible()
   const buttonsSpring = useSpring(
@@ -1122,6 +1127,45 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     },
   })
 
+  // Wrap submit to queue messages when session is busy
+  const handleSubmitOrQueue = (e: Event) => {
+    if (working()) {
+      const text = prompt.current().map((p) => ("content" in p ? p.content : "")).join("")
+      const images = imageAttachments()
+      if (text.trim() || images.length > 0) {
+        setQ([...q(), text])
+        prompt.reset()
+        clearEditor()
+      } else {
+        abort()
+      }
+      e.preventDefault()
+      return
+    }
+    handleSubmit(e)
+  }
+
+  // Auto-flush queue when session transitions from busy -> idle
+  createEffect(
+    on(
+      () => status().type,
+      (curr, prev) => {
+        if (curr === "idle" && (prev === "busy" || prev === "retry")) {
+          const msgs = q()
+          if (msgs.length > 0) {
+            setQ([])
+            setTimeout(() => {
+              const text = msgs.join("\n\n")
+              setEditorText(text)
+              prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
+              handleSubmit(new Event("submit"))
+            }, 0)
+          }
+        }
+      },
+    ),
+  )
+
   const handleKeyDown = (event: KeyboardEvent) => {
     if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "u") {
       event.preventDefault()
@@ -1283,7 +1327,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     // Note: Shift+Enter is handled earlier, before IME check
     if (event.key === "Enter" && !event.shiftKey) {
-      handleSubmit(event)
+      handleSubmitOrQueue(event)
     }
   }
 
@@ -1312,7 +1356,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         t={(key) => language.t(key as Parameters<typeof language.t>[0])}
       />
       <DockShellForm
-        onSubmit={handleSubmit}
+        onSubmit={handleSubmitOrQueue}
         classList={{
           "group/prompt-input": true,
           "focus-within:shadow-xs-border": true,
