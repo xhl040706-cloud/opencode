@@ -11,9 +11,10 @@ type Props = {
   onToggle: (id: string, enabled: boolean) => Promise<void> | void
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  wechat: "WeChat",
-  wecom: "WeCom",
+const TYPE_ICON: Record<string, string> = {
+  wechat: "smartphone",
+  wecom: "building",
+  "wecom-bot": "comment",
 }
 
 export function ChannelCard(props: Props) {
@@ -33,7 +34,8 @@ export function ChannelCard(props: Props) {
     void props.onToggle(props.channel.id, !props.channel.enabled)
   }
 
-  const label = () => TYPE_LABELS[props.channel.channelType] ?? props.channel.channelType
+  const label = () => language.t("channels.type." + props.channel.channelType) ?? props.channel.channelType
+  const icon = () => TYPE_ICON[props.channel.channelType] ?? "comment"
 
   const enabledStyle = () =>
     props.channel.enabled
@@ -44,7 +46,7 @@ export function ChannelCard(props: Props) {
     <div class="store-dash-card">
       <div class="store-dash-card-head">
         <span class="store-dash-card-name" style={{ display: "flex", "align-items": "center", gap: "0.375rem" }}>
-          <Icon name="comment" size="small" />
+          <Icon name={icon() as any} size="small" />
           {label()} — {props.channel.name}
         </span>
         <span class="store-dash-pill" style={{ background: enabledStyle().bg, color: enabledStyle().c }}>
