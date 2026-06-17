@@ -255,7 +255,38 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
                     draft[idx] = data.info
                   }
                 } else {
-                  draft.push(data.info)
+                  // Dedup: check if an assistant message with same parentID+timestamp already exists
+                  // (streamed path SSE ID may differ from API response ID)
+                  const incomingInfo = data.info as Record<string, unknown> | undefined
+                  let dedupIdx = -1
+                  if (incomingInfo?.role === "assistant") {
+                    const created = (incomingInfo.time as Record<string, unknown> | undefined)?.created as number | undefined
+                    if (created) {
+                      const incomingPID = incomingInfo.parentID as string | undefined
+                      for (let j = 0; j < draft.length; j++) {
+                        const m = draft[j] as Record<string, unknown>
+                        if (m.role !== "assistant") continue
+                        const mCreated = ((m.time as Record<string, unknown> | undefined)?.created as number | undefined) ?? 0
+                        if (mCreated <= 0) continue
+                        if (Math.abs(mCreated - created) >= 5000) continue
+                        // Match by parentID equality, or by time proximity alone
+                        // (SSE streamed version may lack parentID entirely)
+                        if (!incomingPID || !m.parentID || incomingPID === m.parentID) {
+                          dedupIdx = j
+                          break
+                        }
+                      }
+                    }
+                  }
+                  if (dedupIdx !== -1) {
+                    // Buffer message duplicates existing SSE entry (same parentID+time).
+                    // SSE entry has parts stored under its ID; skip buffer version
+                    // to preserve parts linkage. Buffer content is typically empty
+                    // for streamed responses (content already delivered via SSE).
+                    continue
+                  } else {
+                    draft.push(data.info)
+                  }
                 }
               }
               draft.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
