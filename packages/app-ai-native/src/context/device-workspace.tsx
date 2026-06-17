@@ -32,6 +32,7 @@ type WorkspaceData = {
   vcs: VcsInfo | undefined
   provider: ProviderCapabilitiesResponse
   agentAvailable: boolean
+  agentInfo: { name: string; version?: string } | undefined
   unread: Record<string, boolean>
 }
 
@@ -99,6 +100,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     vcs: undefined,
     provider: { connected: [] } as ProviderCapabilitiesResponse,
     agentAvailable: true,
+    agentInfo: undefined,
     unread: {},
   })
 
@@ -109,12 +111,17 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
       if (Array.isArray(agents) && agents.length > 0) {
         const anyAvailable = agents.some((a: any) => a.available)
         setStore("agentAvailable", anyAvailable)
+        // Store the first available agent's info (name + optional version)
+        const first = agents.find((a: any) => a.available) ?? agents[0]
+        setStore("agentInfo", { name: first.backend ?? first.name ?? first.id, version: first.version })
         return anyAvailable
       }
       setStore("agentAvailable", true)
+      setStore("agentInfo", undefined)
       return true
     } catch {
       setStore("agentAvailable", false)
+      setStore("agentInfo", undefined)
       return false
     }
   }

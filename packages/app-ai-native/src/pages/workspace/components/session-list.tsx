@@ -118,86 +118,98 @@ export function SessionListPanel() {
   })
 
   return (
-    <Show
-      when={dw.data.status === "loading"}
-      fallback={
+    <div class="flex flex-col h-full">
+      <div class="flex-1 min-h-0 overflow-y-auto">
         <Show
-          when={sessionGroups().length > 0}
+          when={dw.data.status === "loading"}
           fallback={
-            <div class="px-3 py-2 text-12-regular text-text-weak">
-              {language.t("workspace.emptySessions")}
-            </div>
+            <Show
+              when={sessionGroups().length > 0}
+              fallback={
+                <div class="px-3 py-2 text-12-regular text-text-weak">
+                  {language.t("workspace.emptySessions")}
+                </div>
+              }
+            >
+              <div class="px-1.5 py-1">
+                <For each={sessionGroups()}>
+                  {(group) => {
+                    const collapsed = createMemo(() => !!groups()[group.key])
+                    return (
+                      <>
+                        <button
+                          class="flex items-center gap-1 w-full px-1.5 pt-1.5 pb-0.5 text-[12px] font-[600] text-native-muted tracking-wide uppercase cursor-pointer hover:text-native-foreground transition-colors"
+                          onClick={() => setGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
+                        >
+                          <Icon name={collapsed() ? "chevron-right" : "chevron-down"} size="small" class="shrink-0" />
+                          <span class="truncate">{group.label}</span>
+                        </button>
+                        <Show when={!collapsed()}>
+                          <For each={group.sessions}>
+                            {(session) => {
+                              const isActive = createMemo(() => {
+                                const current = tabStore.active()
+                                return current?.kind === "session" && current?.meta?.sessionID === session.id
+                              })
+                              return (
+                                <div
+                                  class="group/s flex items-center gap-1.5 h-9 px-1.5 text-12-regular rounded-md cursor-pointer transition-colors duration-150"
+                                  classList={{
+                                    "bg-native-primary-soft text-native-foreground": isActive(),
+                                    "text-native-muted hover:bg-native-hover hover:text-native-foreground": !isActive(),
+                                  }}
+                                  onClick={() => openSession(session)}
+                                >
+                                  <Show when={hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id)}>
+                                    <PendingInteractionIcon />
+                                  </Show>
+                                  <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && isWorking(session.id)}>
+                                    <WorkingIcon
+                                      classList={{
+                                        "border-native-primary": isActive(),
+                                        "border-native-dim": !isActive(),
+                                      }}
+                                    />
+                                  </Show>
+                                  <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && !isWorking(session.id) && !!dw.data.unread[session.id]}>
+                                    <span class="shrink-0 w-2 h-2 rounded-full bg-native-primary" />
+                                  </Show>
+                                  <span class="truncate flex-1 min-w-0">{session.title || language.t("command.session.new")}</span>
+                                  <button
+                                    class="shrink-0 size-5 flex items-center justify-center rounded opacity-0 group-hover/s:opacity-100 transition-[width,opacity] duration-150 w-0 overflow-hidden group-hover/s:w-5 hover:bg-native-active"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      deleteSession(session)
+                                    }}
+                                  >
+                                    <Icon name="trash" size="small" class="text-native-dim" />
+                                  </button>
+                                </div>
+                              )
+                            }}
+                          </For>
+                        </Show>
+                      </>
+                    )
+                  }}
+                </For>
+              </div>
+            </Show>
           }
         >
-          <div class="px-1.5 py-1">
-            <For each={sessionGroups()}>
-              {(group) => {
-                const collapsed = createMemo(() => !!groups()[group.key])
-                return (
-                  <>
-                    <button
-                      class="flex items-center gap-1 w-full px-1.5 pt-1.5 pb-0.5 text-[12px] font-[600] text-native-muted tracking-wide uppercase cursor-pointer hover:text-native-foreground transition-colors"
-                      onClick={() => setGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
-                    >
-                      <Icon name={collapsed() ? "chevron-right" : "chevron-down"} size="small" class="shrink-0" />
-                      <span class="truncate">{group.label}</span>
-                    </button>
-                    <Show when={!collapsed()}>
-                      <For each={group.sessions}>
-                        {(session) => {
-                          const isActive = createMemo(() => {
-                            const current = tabStore.active()
-                            return current?.kind === "session" && current?.meta?.sessionID === session.id
-                          })
-                          return (
-                            <div
-                              class="group/s flex items-center gap-1.5 h-9 px-1.5 text-12-regular rounded-md cursor-pointer transition-colors duration-150"
-                              classList={{
-                                "bg-native-primary-soft text-native-foreground": isActive(),
-                                "text-native-muted hover:bg-native-hover hover:text-native-foreground": !isActive(),
-                              }}
-                              onClick={() => openSession(session)}
-                            >
-                              <Show when={hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id)}>
-                                <PendingInteractionIcon />
-                              </Show>
-                              <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && isWorking(session.id)}>
-                                <WorkingIcon
-                                  classList={{
-                                    "border-native-primary": isActive(),
-                                    "border-native-dim": !isActive(),
-                                  }}
-                                />
-                              </Show>
-                              <Show when={!hasPendingInteraction(dw.data.session, dw.data.questions, dw.data.permissions, session.id) && !isWorking(session.id) && !!dw.data.unread[session.id]}>
-                                <span class="shrink-0 w-2 h-2 rounded-full bg-native-primary" />
-                              </Show>
-                              <span class="truncate flex-1 min-w-0">{session.title || language.t("command.session.new")}</span>
-                              <button
-                                class="shrink-0 size-5 flex items-center justify-center rounded opacity-0 group-hover/s:opacity-100 transition-[width,opacity] duration-150 w-0 overflow-hidden group-hover/s:w-5 hover:bg-native-active"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  deleteSession(session)
-                                }}
-                              >
-                                <Icon name="trash" size="small" class="text-native-dim" />
-                              </button>
-                            </div>
-                          )
-                        }}
-                      </For>
-                    </Show>
-                  </>
-                )
-              }}
-            </For>
+          <div class="px-3 py-2 text-12-regular text-text-weak">
+            {language.t("common.loading")}{language.t("common.loading.ellipsis")}
           </div>
         </Show>
-      }
-    >
-      <div class="px-3 py-2 text-12-regular text-text-weak">
-        {language.t("common.loading")}{language.t("common.loading.ellipsis")}
       </div>
-    </Show>
+      <div class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border-t text-11-regular text-native-dim min-h-[32px]">
+        <Show when={dw.data.agentInfo}>
+          <span>{dw.data.agentInfo!.name}</span>
+          <Show when={dw.data.agentInfo!.version}>
+            <span class="text-native-muted">{dw.data.agentInfo!.version}</span>
+          </Show>
+        </Show>
+      </div>
+    </div>
   )
 }

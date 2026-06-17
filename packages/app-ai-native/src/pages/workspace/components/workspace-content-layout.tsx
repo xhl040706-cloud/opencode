@@ -889,6 +889,14 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
               </Show>
             </Show>
           </div>
+          <div class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border-t text-11-regular text-native-dim min-h-[32px]">
+            <Show when={dw.data.agentInfo}>
+              <span>{dw.data.agentInfo!.name}</span>
+              <Show when={dw.data.agentInfo!.version}>
+                <span class="text-native-muted">{dw.data.agentInfo!.version}</span>
+              </Show>
+            </Show>
+          </div>
         </Show>
       </div>
     </div>
