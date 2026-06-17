@@ -110,6 +110,7 @@ export type DeviceClient = {
   agent: {
     list: () => Promise<unknown>
     health: () => Promise<unknown>
+    version: () => Promise<unknown>
     models: () => Promise<unknown>
     sessionModes: () => Promise<unknown>
     commands: () => Promise<unknown>
@@ -228,6 +229,7 @@ export function createDeviceClient(opts: ClientOpts): DeviceClient {
     agent: {
       list: () => http.get("/api/v1/agents"),
       health: () => http.get("/api/v1/agents/health"),
+      version: () => http.get("/api/v1/agents/version"),
       models: () => http.get("/api/v1/agents/models"),
       sessionModes: () => http.get("/api/v1/agents/session-modes"),
       commands: () => http.get("/api/v1/agents/commands"),

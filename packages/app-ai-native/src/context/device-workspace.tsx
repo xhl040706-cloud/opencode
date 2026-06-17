@@ -38,6 +38,8 @@ type WorkspaceData = {
 
 type EventPayload = { type: string; sessionID?: string; messageID?: string; properties?: any; [key: string]: unknown }
 
+export type RestartState = { active: true; phase: string; message: string } | { active: false }
+
 type DeviceWorkspaceValue = {
   data: WorkspaceData
   ready: () => boolean
@@ -73,6 +75,8 @@ type DeviceWorkspaceValue = {
     enable(): void
     disable(): void
   }
+  restartAgent: () => Promise<void>
+  restarting: () => RestartState
 }
 
 const DeviceWorkspaceContext = createContext<DeviceWorkspaceValue>()
@@ -111,9 +115,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
       if (Array.isArray(agents) && agents.length > 0) {
         const anyAvailable = agents.some((a: any) => a.available)
         setStore("agentAvailable", anyAvailable)
-        // Store the first available agent's info (name + optional version)
         const first = agents.find((a: any) => a.available) ?? agents[0]
-        setStore("agentInfo", { name: first.backend ?? first.name ?? first.id, version: first.version })
+        setStore("agentInfo", { name: first.backend ?? first.name ?? first.id })
         return anyAvailable
       }
       setStore("agentAvailable", true)
@@ -126,6 +129,21 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     }
   }
 
+  const checkAgentVersion = async () => {
+    try {
+      const res = await device.client.agent.version() as any
+      const agents = res?.agents
+      if (Array.isArray(agents) && agents.length > 0) {
+        const version = agents[0].version
+        if (version) {
+          setStore("agentInfo", (prev) => (prev ? { ...prev, version } : { name: "", version }))
+        }
+      }
+    } catch {
+      // 404 or other errors: version info unavailable, keep existing agentInfo without version
+    }
+  }
+
   const bootstrap = async () => {
     setStore("status", "loading")
     try {
@@ -134,6 +152,9 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
         setStore("status", "unavailable")
         return
       }
+
+      // Fire-and-forget: version query may be slow, don't block bootstrap
+      checkAgentVersion()
 
       const [sessionsRes, vcsRes] = await Promise.all([
         device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory }).catch(() => undefined),
@@ -425,6 +446,94 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     disable() { persistAutoAccept(false) },
   }
 
+  const [restarting, setRestarting] = createSignal<RestartState>({ active: false })
+
+  const rebootstrap = async () => {
+    // Abort old stream without touching session/status state
+    streamAbort?.abort()
+    streamAbort = undefined
+    clearDebounceTimers()
+
+    const available = await checkAgentAvailable().catch(() => false)
+    if (!available) return
+
+    // Fire-and-forget: version query may be slow, don't block rebootstrap
+    checkAgentVersion()
+
+    // Refresh session list, status, permissions, questions, vcs
+    const [sessionsRes, vcsRes] = await Promise.all([
+      device.client.conversation.list({ roots: "true", limit: 50, directory: device.directory }).catch(() => undefined),
+      device.client.runtime.vcs().catch(() => undefined),
+    ])
+
+    const [allSessionsRes, sessionStatusRes, permsRes, questionsRes] = await Promise.all([
+      device.client.conversation.list({ limit: 50 }).catch(() => undefined),
+      device.client.conversation.status().catch(() => undefined),
+      device.client.permission.list().catch(() => undefined),
+      device.client.question.list().catch(() => undefined),
+    ])
+
+    batch(() => {
+      const rootSessions = (Array.isArray(sessionsRes) ? sessionsRes : []) as Session[]
+      const allSessions = (Array.isArray(allSessionsRes) ? allSessionsRes : []) as Session[]
+      const children = allSessions.filter((s) => !!s?.id && !!s.parentID)
+      const merged = [...rootSessions, ...children].filter((s) => !!s?.id)
+      setStore("session", reconcile(merged.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)), { key: "id" }))
+      setStore("sessionStatus", reconcile((sessionStatusRes as Record<string, SessionStatus>) ?? {}))
+      setStore("sessionTotal", rootSessions.length)
+      setStore("vcs", vcsRes as VcsInfo | undefined)
+      setStore("questions", reconcile(groupBy(Array.isArray(questionsRes) ? questionsRes : [])))
+      setStore("permissions", reconcile(groupBy(Array.isArray(permsRes) ? permsRes : [])))
+      if (props.workspaceId) {
+        syncSummary(props.workspaceId, {
+          vcs: vcsRes as VcsInfo | undefined,
+          sessionStatus: (sessionStatusRes as Record<string, SessionStatus>) ?? {},
+          questions: groupBy(Array.isArray(questionsRes) ? questionsRes : []),
+          permissions: groupBy(Array.isArray(permsRes) ? permsRes : []),
+        })
+      }
+    })
+
+    startEventStream()
+  }
+
+  const restartAgent = async () => {
+    const id = crypto.randomUUID()
+    const maxTime = Date.now() + 30_000
+    setRestarting({ active: true, phase: "", message: "Sending restart command..." })
+
+    const poll = async () => {
+      if (Date.now() > maxTime) {
+        setRestarting({ active: false })
+        return
+      }
+      try {
+        const status: any = await device.client.transport.get(`/api/v1/commands/status?command_id=${id}`)
+        if (status.status === "completed" || status.status === "failed") {
+          setRestarting({ active: false })
+          // rebootstrap is now driven by the server-side SSE event
+          // agent.runtime.restarted, which covers all affected workspaces
+          return
+        }
+        setRestarting({ active: true, phase: status.phase ?? "", message: status.message ?? "" })
+        setTimeout(poll, 500)
+      } catch {
+        setTimeout(poll, 500)
+      }
+    }
+
+    try {
+      await device.client.transport.post("/api/v1/commands", {
+        command_id: id,
+        type: "restart-agent",
+        timestamp: new Date().toISOString(),
+      })
+      setTimeout(poll, 300)
+    } catch {
+      setRestarting({ active: false })
+    }
+  }
+
   // ── SSE event debounce infrastructure ──
 
   const STATUS_DEBOUNCE_MS = 150
@@ -510,27 +619,12 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
   }
 
   let streamAbort: AbortController | undefined
-  let streamRetry: ReturnType<typeof setTimeout> | undefined
   let streamDisposed = false
-  const STREAM_RETRY_MS = 1500
-  const STREAM_PROXY_RETRY_MS = 5000
 
   const PROXY_FATAL_CODES = new Set(["FILTER_ERROR"])
 
-  const scheduleStreamRestart = (isProxyError = false) => {
-    if (streamDisposed || streamRetry || streamAbort?.signal.aborted) return
-    streamRetry = setTimeout(() => {
-      streamRetry = undefined
-      void startEventStream()
-    }, isProxyError ? STREAM_PROXY_RETRY_MS : STREAM_RETRY_MS)
-  }
-
   const startEventStream = async () => {
     streamAbort?.abort()
-    if (streamRetry) {
-      clearTimeout(streamRetry)
-      streamRetry = undefined
-    }
     clearDebounceTimers()
     streamAbort = new AbortController()
     const signal = streamAbort.signal
@@ -542,7 +636,7 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
           if (proxyCode) {
             setProxyError(proxyCode)
             if (!PROXY_FATAL_CODES.has(proxyCode)) {
-              scheduleStreamRestart(true)
+              void rebootstrap()
             }
           }
         },
@@ -713,6 +807,12 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                   summaryChanged = true
                   break
                 }
+                // ── agent.runtime.restarted: server-driven, triggers rebootstrap for all workspaces ──
+                case "agent.runtime.restarted": {
+                  // Emitted after new agent is fully initialized; brief delay for stability
+                  setTimeout(rebootstrap, 500)
+                  break
+                }
               }
               if (summaryChanged && props.workspaceId) {
                 scheduleSummarySync()
@@ -721,17 +821,17 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
             })
           }
           if (!signal.aborted) {
-            scheduleStreamRestart()
+            void rebootstrap()
           }
         } catch (e) {
           if ((e as any)?.name === "AbortError") return
-          scheduleStreamRestart()
+          void rebootstrap()
         }
       }
       void readLoop()
     } catch (e) {
       if ((e as any)?.name === "AbortError") return
-      scheduleStreamRestart()
+      void rebootstrap()
     }
   }
 
@@ -739,10 +839,6 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     streamDisposed = true
     streamAbort?.abort()
     streamAbort = undefined
-    if (streamRetry) {
-      clearTimeout(streamRetry)
-      streamRetry = undefined
-    }
     clearDebounceTimers()
     if (props.workspaceId) clearSummary(props.workspaceId)
   })
@@ -790,6 +886,8 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     workspaceId: props.workspaceId,
     proxyError,
     autoAccept,
+    restartAgent,
+    restarting,
   }
 
   return <DeviceWorkspaceContext.Provider value={value}>{props.children}</DeviceWorkspaceContext.Provider>
