@@ -10,6 +10,7 @@ import { deviceFileApi } from "../lib/cloud-device-api"
 
 export type CreateWorkspaceDialogProps = {
   device: Device
+  workspaceNames?: readonly string[]
   onCreate: (directory: string, name: string) => Promise<void> | void
 }
 
@@ -23,8 +24,22 @@ export function CreateWorkspaceDialogContent(props: CreateWorkspaceDialogProps) 
   const [name, setName] = createSignal("")
   const [submitting, setSubmitting] = createSignal(false)
 
+  const uniqueName = (base: string) => {
+    const normalized = new Set((props.workspaceNames ?? []).map((item) => item.trim().toLowerCase()).filter(Boolean))
+    if (!normalized.has(base.toLowerCase())) return base
+    let index = 1
+    while (normalized.has(`${base}${index}`.toLowerCase())) index += 1
+    return `${base}${index}`
+  }
+
+  const directoryName = (value: string) => {
+    const trimmed = value.trim().replace(/[\\/]+$/, "")
+    const name = trimmed.split(/[\\/]/).filter(Boolean).pop()
+    return name || "New Project"
+  }
+
   const suggested = createMemo(() => {
-    return "New Project"
+    return uniqueName(directoryName(path()))
   })
 
   deviceFileApi.getDefaultPath(props.device.deviceId)
@@ -76,9 +91,9 @@ export function CreateWorkspaceDialogContent(props: CreateWorkspaceDialogProps) 
             <Icon name="folder" class="size-4 text-text-strong" />
           </div>
           <div class="flex flex-col gap-0.5">
-            <span class="text-14-medium text-text-strong">选择一个代码项目</span>
+            <span class="text-14-medium text-text-strong">{t("workspace.directory.projectTitle")}</span>
             <span class="text-12-regular text-text-weak">
-              选择设备中的具体项目目录，CoStrict Cloud 将基于该目录创建工作空间。
+              {t("workspace.directory.projectDescription")}
             </span>
           </div>
         </div>
@@ -98,7 +113,7 @@ export function CreateWorkspaceDialogContent(props: CreateWorkspaceDialogProps) 
         >
           {/* Path input */}
           <div class="flex flex-col gap-2">
-            <label class="text-12-medium text-text-weak">项目目录</label>
+            <label class="text-12-medium text-text-weak">{t("workspace.directory.projectPathLabel")}</label>
             <div class="flex items-center gap-2">
               <div class="flex-1 flex items-center gap-2 h-9 px-3 bg-surface-base rounded-lg border border-border-weak-base focus-within:border-border-strong-base transition-colors">
                 <Icon name="folder" class="size-4 text-text-weak shrink-0" />
@@ -127,12 +142,12 @@ export function CreateWorkspaceDialogContent(props: CreateWorkspaceDialogProps) 
               <span class="text-11-regular text-text-critical-base">{t("workspace.directory.pathRequired")}</span>
             </Show>
             <span class="text-11-regular leading-[1.5] text-text-weak">
-              建议选择包含代码仓库的具体项目目录，不要直接选择整个用户目录。只有你选择的目录会作为当前项目上下文。
+              {t("workspace.directory.projectHint")}
             </span>
           </div>
 
           <div class="flex flex-col gap-2">
-            <label class="text-12-medium text-text-weak">所在设备</label>
+            <label class="text-12-medium text-text-weak">{t("workspace.directory.deviceLabel")}</label>
             <div class="flex items-center gap-2 rounded-lg border border-border-weak-base bg-surface-base px-3 py-2 text-13-regular text-text-strong">
               <Icon name="server" class="size-4 shrink-0 text-text-weak" />
               <span class="min-w-0 truncate">{props.device.displayName}</span>
@@ -141,7 +156,7 @@ export function CreateWorkspaceDialogContent(props: CreateWorkspaceDialogProps) 
 
           {/* Name input */}
           <div class="flex flex-col gap-2">
-            <label class="text-12-medium text-text-weak">工作空间名称</label>
+            <label class="text-12-medium text-text-weak">{t("workspace.directory.nameLabel")}</label>
             <div class="flex items-center gap-2 h-9 px-3 bg-surface-base rounded-lg border border-border-weak-base focus-within:border-border-strong-base transition-colors">
               <Icon name="edit" class="size-4 text-text-weak shrink-0" />
               <input
@@ -165,7 +180,7 @@ export function CreateWorkspaceDialogContent(props: CreateWorkspaceDialogProps) 
               {t("common.cancel")}
             </Button>
             <Button type="button" variant="primary" size="normal" disabled={!valid() || submitting()} onClick={submit}>
-              {submitting() ? t("workspace.create.creating") : "创建工作空间并进入"}
+              {submitting() ? t("workspace.create.creating") : t("workspace.create.enterButton")}
             </Button>
           </div>
         </Show>

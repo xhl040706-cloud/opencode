@@ -13,19 +13,8 @@ type State = "no-device" | "device-ready" | "workspace-ready"
 
 const installUrl = "https://docs.costrict.ai/csc/overview#%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B"
 const install = "npm install -g @costrict/csc --registry=https://registry.npmjs.org/"
-const sample: Device = {
-  id: "preview-device",
-  deviceId: "preview-device",
-  displayName: "本地预览设备",
-  platform: "macOS",
-  version: "preview",
-  userId: "preview",
-  status: "online",
-  createdAt: new Date(0).toISOString(),
-  updatedAt: new Date(0).toISOString(),
-}
-
 function Command(props: { id: string; value: string; copied: () => string | null; copy: (text: string, id: string) => void }) {
+  const t = useLanguage().t
   return (
     <div class="flex min-w-0 items-center gap-2 rounded-[12px] border border-[color:color-mix(in_oklab,var(--native-border)_34%,transparent)] bg-[color:color-mix(in_oklab,var(--native-surface)_78%,var(--native-panel))] px-3 py-2 font-[var(--native-font-mono)] text-[0.8125rem] text-[var(--native-foreground)]">
       <span class="min-w-0 flex-1 overflow-x-auto whitespace-nowrap">{props.value}</span>
@@ -33,8 +22,8 @@ function Command(props: { id: string; value: string; copied: () => string | null
         type="button"
         class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--native-ring)]"
         onClick={() => props.copy(props.value, props.id)}
-        aria-label="Copy command"
-        title="Copy command"
+        aria-label={t("workspace.onboarding.copyCommand")}
+        title={t("workspace.onboarding.copyCommand")}
       >
         <Icon name={props.copied() === props.id ? "check" : "copy"} />
       </button>
@@ -43,20 +32,21 @@ function Command(props: { id: string; value: string; copied: () => string | null
 }
 
 function Stepper(props: { state: State }) {
+  const t = useLanguage().t
   const steps = [
     {
       key: "device",
-      title: "连接设备",
-      current: "等待连接",
-      next: "安装 CLI 并启动 Cloud 服务",
-      done: "设备已上线",
+      title: t("workspace.onboarding.step.device.title"),
+      current: t("workspace.onboarding.step.device.current"),
+      next: t("workspace.onboarding.step.device.next"),
+      done: t("workspace.onboarding.step.device.done"),
     },
     {
       key: "project",
-      title: "选择项目并进入会话",
-      current: "选择项目目录",
-      next: "设备上线后选择代码目录",
-      done: "已进入会话",
+      title: t("workspace.onboarding.step.project.title"),
+      current: t("workspace.onboarding.step.project.current"),
+      next: t("workspace.onboarding.step.project.next"),
+      done: t("workspace.onboarding.step.project.done"),
     },
   ]
   const index = () => props.state === "no-device" ? 0 : 1
@@ -124,6 +114,7 @@ function Stepper(props: { state: State }) {
 }
 
 function Help(props: { copied: () => string | null; copy: (text: string, id: string) => void }) {
+  const t = useLanguage().t
   const [open, setOpen] = createSignal(false)
   return (
     <div class="rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_26%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))]">
@@ -133,22 +124,22 @@ function Help(props: { copied: () => string | null; copy: (text: string, id: str
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open()}
       >
-        <span>连接时遇到问题？</span>
+        <span>{t("workspace.onboarding.help.title")}</span>
         <Icon name={open() ? "chevron-down" : "chevron-right"} class="text-[var(--native-dim)]" />
       </button>
       <Show when={open()}>
         <div class="grid gap-3 border-t border-[color:color-mix(in_oklab,var(--native-border)_22%,transparent)] px-4 py-4">
           <a href={installUrl} target="_blank" rel="noopener noreferrer" class="inline-flex w-fit items-center gap-1.5 text-[0.8125rem] font-medium text-[var(--native-primary)] hover:underline">
-            查看完整安装文档
+            {t("workspace.onboarding.help.docs")}
             <Icon name="square-arrow-top-right" />
           </a>
           <div class="grid gap-2 sm:grid-cols-2">
             <div class="grid gap-1.5">
-              <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">检查服务状态</p>
+              <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">{t("workspace.onboarding.help.status")}</p>
               <Command id="help-status" value="csc cloud status" copied={props.copied} copy={props.copy} />
             </div>
             <div class="grid gap-1.5">
-              <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">停止 Cloud 服务</p>
+              <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">{t("workspace.onboarding.help.stop")}</p>
               <Command id="help-stop" value="csc cloud stop" copied={props.copied} copy={props.copy} />
             </div>
           </div>
@@ -166,43 +157,44 @@ function NoDevice(props: {
   start: string
   env?: string
 }) {
+  const t = useLanguage().t
   return (
     <>
       <section class="rounded-[20px] bg-[linear-gradient(145deg,color-mix(in_oklab,var(--native-panel)_82%,transparent),color-mix(in_oklab,#f4fbff_54%,var(--native-panel))_60%,color-mix(in_oklab,#fff7fb_48%,var(--native-panel)))] p-5 shadow-[30px_18px_68px_-42px_color-mix(in_oklab,var(--native-primary)_28%,transparent),0_14px_40px_-30px_rgba(15,23,42,0.18)] backdrop-blur">
         <div class="mb-4">
-          <p class="m-0 text-[0.8125rem] font-semibold text-[var(--native-primary)]">当前操作</p>
-          <h2 class="m-0 mt-2.5 text-[1.25rem] font-semibold tracking-[-0.03em] text-[var(--native-foreground)]">1. 安装并连接 CoStrict CLI</h2>
-          <p class="m-0 mt-2 text-[0.875rem] leading-[1.5] text-[var(--native-muted)] md:whitespace-nowrap">
-            在需要运行任务的电脑或服务器中，打开终端完成以下操作。若当前页面无反应，可尝试点击下方“检查设备状态”。
+          <p class="m-0 text-[0.8125rem] font-semibold text-[var(--native-primary)]">{t("workspace.onboarding.currentAction")}</p>
+          <h2 class="m-0 mt-2.5 text-[1.25rem] font-semibold tracking-[-0.03em] text-[var(--native-foreground)]">{t("workspace.onboarding.noDevice.title")}</h2>
+          <p class="m-0 mt-2 text-[0.875rem] leading-[1.5] text-[var(--native-muted)]">
+            {t("workspace.onboarding.noDevice.description")}
           </p>
         </div>
 
         <div class="grid gap-4">
           <div class="grid gap-2">
-            <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">安装 CoStrict CLI</h3>
-            <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">打开终端，粘贴并执行以下安装命令。</p>
+            <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">{t("workspace.onboarding.install.title")}</h3>
+            <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">{t("workspace.onboarding.install.description")}</p>
             <Command id="install" value={install} copied={props.copied} copy={props.copy} />
           </div>
 
           <Show when={props.env}>
             {(cmd) => (
               <div class="grid gap-2">
-                <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">设置访问环境</h3>
-                <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">在内部环境中先配置 CoStrict Cloud 访问地址。</p>
+                <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">{t("workspace.onboarding.env.title")}</h3>
+                <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">{t("workspace.onboarding.env.description")}</p>
                 <Command id="env" value={cmd()} copied={props.copied} copy={props.copy} />
               </div>
             )}
           </Show>
 
           <div class="grid gap-2">
-            <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">登录账号</h3>
-            <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">请使用与当前网页相同的账号登录。</p>
+            <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">{t("workspace.onboarding.login.title")}</h3>
+            <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">{t("workspace.onboarding.login.description")}</p>
             <Command id="login" value={props.login} copied={props.copied} copy={props.copy} />
           </div>
 
           <div class="grid gap-2">
-            <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">启动 Cloud 服务</h3>
-            <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">服务启动后，设备将自动出现在左侧设备列表中。</p>
+            <h3 class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">{t("workspace.onboarding.start.title")}</h3>
+            <p class="m-0 text-[0.8125rem] text-[var(--native-muted)]">{t("workspace.onboarding.start.description")}</p>
             <Command id="start" value={props.start} copied={props.copied} copy={props.copy} />
           </div>
         </div>
@@ -215,12 +207,12 @@ function NoDevice(props: {
             <span class="h-2.5 w-2.5 rounded-full bg-[var(--native-primary)]" />
           </span>
           <div>
-            <p class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">等待设备连接</p>
-            <p class="m-0 mt-0.5 text-[0.8125rem] text-[var(--native-muted)]">完成登录并启动 Cloud 服务后，页面会自动检测在线设备。</p>
+            <p class="m-0 text-[0.9375rem] font-semibold text-[var(--native-foreground)]">{t("workspace.onboarding.waiting.title")}</p>
+            <p class="m-0 mt-0.5 text-[0.8125rem] text-[var(--native-muted)]">{t("workspace.onboarding.waiting.description")}</p>
           </div>
         </div>
         <Button type="button" variant="secondary" size="small" onClick={props.refresh}>
-          检查设备状态
+          {t("workspace.onboarding.waiting.check")}
         </Button>
       </section>
     </>
@@ -232,11 +224,12 @@ function DeviceReady(props: {
   open: (device: Device) => void
   showGuide: () => void
 }) {
+  const t = useLanguage().t
   const rows = [
-    { label: "设备名称", value: props.device.displayName },
-    { label: "系统", value: props.device.platform || "未知" },
-    { label: "CLI", value: props.device.version || "未知" },
-    { label: "状态", value: "在线" },
+    { label: t("workspace.onboarding.device.name"), value: props.device.displayName },
+    { label: t("workspace.onboarding.device.platform"), value: props.device.platform || t("workspace.onboarding.unknown") },
+    { label: t("workspace.onboarding.device.cli"), value: props.device.version || t("workspace.onboarding.unknown") },
+    { label: t("workspace.onboarding.device.status"), value: t("workspace.device.online") },
   ]
   return (
     <section class="rounded-[20px] bg-[linear-gradient(145deg,color-mix(in_oklab,var(--native-panel)_82%,transparent),color-mix(in_oklab,#f4fbff_54%,var(--native-panel))_60%,color-mix(in_oklab,#fff7fb_48%,var(--native-panel)))] p-5 shadow-[30px_18px_68px_-42px_color-mix(in_oklab,var(--native-primary)_28%,transparent),0_14px_40px_-30px_rgba(15,23,42,0.18)] backdrop-blur">
@@ -245,9 +238,9 @@ function DeviceReady(props: {
           <Icon name="check" />
         </span>
         <div class="min-w-0 flex-1">
-          <h2 class="m-0 text-[1.375rem] font-semibold tracking-[-0.035em] text-[var(--native-foreground)]">设备已连接</h2>
-          <p class="m-0 mt-2 text-[0.875rem] leading-[1.65] text-[var(--native-muted)] md:whitespace-nowrap">
-            已检测到你的开发设备。现在选择一个代码项目，创建工作空间后，即刻开启 AI Coding 之旅。
+          <h2 class="m-0 text-[1.375rem] font-semibold tracking-[-0.035em] text-[var(--native-foreground)]">{t("workspace.onboarding.deviceReady.title")}</h2>
+          <p class="m-0 mt-2 text-[0.875rem] leading-[1.65] text-[var(--native-muted)]">
+            {t("workspace.onboarding.deviceReady.description")}
           </p>
         </div>
       </div>
@@ -265,10 +258,10 @@ function DeviceReady(props: {
 
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <Button type="button" variant="primary" onClick={() => props.open(props.device)}>
-          选择项目目录
+          {t("workspace.onboarding.deviceReady.selectProject")}
         </Button>
         <Button type="button" variant="secondary" onClick={props.showGuide}>
-          连接其他设备
+          {t("workspace.onboarding.deviceReady.connectAnother")}
         </Button>
       </div>
     </section>
@@ -276,11 +269,12 @@ function DeviceReady(props: {
 }
 
 function WorkspaceReady() {
+  const t = useLanguage().t
   return (
     <section class="rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))] p-5 shadow-[var(--native-shadow-sm)]">
-      <h2 class="m-0 text-[1.25rem] font-semibold tracking-[-0.03em] text-[var(--native-foreground)]">工作空间已准备好</h2>
+      <h2 class="m-0 text-[1.25rem] font-semibold tracking-[-0.03em] text-[var(--native-foreground)]">{t("workspace.onboarding.workspaceReady.title")}</h2>
       <p class="m-0 mt-2 max-w-[62ch] text-[0.875rem] leading-[1.65] text-[var(--native-muted)]">
-        创建完成后会自动打开会话页。也可以从左侧 Workspaces 列表重新进入已有工作空间。
+        {t("workspace.onboarding.workspaceReady.description")}
       </p>
     </section>
   )
@@ -295,6 +289,17 @@ export default function WorkspaceHome() {
   const [guide, setGuide] = createSignal(false)
   const preview = () => import.meta.env.DEV && new URLSearchParams(window.location.search).get("preview") === "device-ready"
   const isShenma = typeof window !== "undefined" && window.location.origin === SHENMA_ORIGIN
+  const sample: Device = {
+    id: "preview-device",
+    deviceId: "preview-device",
+    displayName: t("workspace.onboarding.previewDevice"),
+    platform: "macOS",
+    version: "preview",
+    userId: "preview",
+    status: "online",
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+  }
   const online = createMemo(() => preview() ? [sample] : work.devices().filter((device) => device.status === "online"))
   const usable = createMemo(() => work.workspaces().filter((item) => item.deviceUniqueId && (item.directories?.length ?? 0) > 0))
   const state = createMemo<State>(() => {
@@ -337,6 +342,7 @@ export default function WorkspaceHome() {
     dialog.show(() => (
       <CreateWorkspaceDialogContent
         device={device}
+        workspaceNames={work.workspaces().map((workspace) => workspace.name)}
         onCreate={async (dir: string, name: string) => {
           if (preview()) return
           await work.createWorkspace(device.id, dir, name)
@@ -352,11 +358,11 @@ export default function WorkspaceHome() {
     <div class="thin-scrollbar flex min-h-full min-w-0 flex-col overflow-y-auto overflow-x-clip bg-[linear-gradient(180deg,var(--native-panel)_0%,color-mix(in_oklab,var(--native-bg-subtle)_82%,var(--native-panel))_100%)] px-[clamp(1rem,2vw,2rem)] py-10">
       <main class="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
         <header>
-          <h1 class="m-0 font-[var(--native-font-display)] text-[2rem] font-semibold leading-[1.12] tracking-[-0.05em] text-[var(--native-foreground)] md:whitespace-nowrap">
-            连接开发设备，开始使用 CoStrict Cloud
+          <h1 class="m-0 font-[var(--native-font-display)] text-[2rem] font-semibold leading-[1.12] tracking-[-0.05em] text-[var(--native-foreground)]">
+            {t("workspace.onboarding.title")}
           </h1>
-          <p class="m-0 mt-3 text-[0.975rem] leading-[1.55] text-[var(--native-muted)] md:whitespace-nowrap">
-            通过浏览器连接你的本地电脑或私有服务器，让 AI 在真实项目和开发环境中读取代码、执行任务并反馈结果。
+          <p class="m-0 mt-3 text-[0.975rem] leading-[1.55] text-[var(--native-muted)]">
+            {t("workspace.onboarding.subtitle")}
           </p>
         </header>
 
@@ -391,8 +397,8 @@ export default function WorkspaceHome() {
           class="w-fit text-left text-[0.8125rem] text-[var(--native-muted)] transition-colors"
           onClick={() => navigate("/store")}
         >
-          <span>暂时不连接设备？</span>
-          <span class="ml-1 font-semibold text-[var(--native-primary)] hover:underline">浏览团队知识中心</span>
+          <span>{t("workspace.onboarding.storePrefix")}</span>
+          <span class="ml-1 font-semibold text-[var(--native-primary)] hover:underline">{t("workspace.onboarding.storeLink")}</span>
         </button>
       </main>
     </div>
