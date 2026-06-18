@@ -165,7 +165,8 @@ export default function RootLayout(props: ParentProps) {
                 onClick={() => navigate("/multica")}
               />
             </Show> */}
-            <Show when={auth.canAccessMenu("kanban")}>
+            {/* 效能看板入口暂时隐藏，恢复时改回 auth.canAccessMenu("kanban") */}
+            <Show when={false && auth.canAccessMenu("kanban")}>
               <NavButton
                 label={language.t("sidebar.kanban")}
                 active={isKanban()}

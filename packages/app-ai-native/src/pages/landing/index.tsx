@@ -89,7 +89,8 @@ export default function LandingHome() {
   const auth = useAuth()
   const language = useLanguage()
   const name = () => auth.user()?.name || auth.user()?.preferred_username || auth.user()?.email || ""
-  const kanban = createMemo(() => !!auth.user() && auth.canAccessMenu("kanban"))
+  // 效能看板入口暂时隐藏，恢复时改回 auth.canAccessMenu("kanban") 判断
+  const kanban = createMemo(() => false && !!auth.user() && auth.canAccessMenu("kanban"))
 
   const move = (event: PointerEvent & { currentTarget: HTMLDivElement }) => {
     const rect = event.currentTarget.getBoundingClientRect()
