@@ -502,6 +502,8 @@ export const dict = {
   "toast.model.none.description": "请先连接提供商以总结此会话",
   "toast.file.loadFailed.title": "加载文件失败",
   "toast.file.listFailed.title": "列出文件失败",
+  "toast.multica.workspaceNotFound.title": "未找到匹配的工作空间",
+  "toast.multica.workspaceNotFound.description": "请先在 CoStrict 中将该目录添加为工作空间，然后重试。",
   "file.preview.binaryUnsupported": "暂不支持非文本类文件预览",
   "file.preview.runtimeDisabled.title": "文件内容访问已禁用",
   "file.preview.runtimeDisabled.description": "出于安全考虑，运行时文件访问已被限制。",

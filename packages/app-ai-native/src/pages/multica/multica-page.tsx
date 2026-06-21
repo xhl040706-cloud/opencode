@@ -1,5 +1,10 @@
 import { createSignal, onMount, onCleanup } from "solid-js"
+import { useNavigate } from "@solidjs/router"
+import { showToast } from "@opencode-ai/ui/toast"
 import { useAuth } from "@/context/auth"
+import { useLanguage } from "@/context/language"
+import { workspaceApi } from "@/pages/workspace/lib/api"
+import { resolveWorkspaceByWorkDir } from "./resolve-workspace-by-dir"
 
 function getMulticaUrl(): string {
   // Runtime-configurable via env; falls back to a sensible default.
@@ -8,6 +13,8 @@ function getMulticaUrl(): string {
 
 export default function MulticaPage() {
   const auth = useAuth()
+  const navigate = useNavigate()
+  const t = useLanguage().t
   const [isLoading, setIsLoading] = createSignal(true)
   const [hasError, setHasError] = createSignal(false)
 
@@ -37,15 +44,53 @@ export default function MulticaPage() {
     setHasError(true)
   }
 
+  // Open a csc session in its CoStrict workspace. multica only knows the
+  // session id and the working directory; we resolve which workspace owns that
+  // directory here, then deep-link into the session viewer.
+  const openSessionInWorkspace = async (sessionId: string, workDir: string) => {
+    if (!sessionId || !workDir) return
+    try {
+      const { workspaces } = await workspaceApi.list()
+      const workspaceId = resolveWorkspaceByWorkDir(workspaces, workDir)
+      if (!workspaceId) {
+        showToast({
+          variant: "error",
+          title: t("toast.multica.workspaceNotFound.title"),
+          description: t("toast.multica.workspaceNotFound.description"),
+        })
+        return
+      }
+      navigate(`/workspace/${workspaceId}?session=${encodeURIComponent(sessionId)}`)
+    } catch (err) {
+      console.error("[Multica_embed] failed to resolve workspace for session", err)
+      showToast({
+        variant: "error",
+        title: t("toast.multica.workspaceNotFound.title"),
+        description: t("toast.multica.workspaceNotFound.description"),
+      })
+    }
+  }
+
   // Post-message bridge: listen for navigation requests from the
   // embedded app so we can handle deep-links back to the parent.
   const handleMessage = (event: MessageEvent) => {
     if (event.origin !== new URL(url).origin) return
     if (typeof event.data !== "object" || event.data === null) return
 
-    if (event.data.type === "multica:navigate" && typeof event.data.href === "string") {
-      // Optionally handle navigation requests
-      console.log("[Multica_embed] navigate request:", event.data.href)
+    if (event.data.type === "multica:navigate") {
+      // New contract: open a csc session in its owning workspace.
+      if (
+        event.data.target === "session" &&
+        typeof event.data.sessionId === "string" &&
+        typeof event.data.workDir === "string"
+      ) {
+        void openSessionInWorkspace(event.data.sessionId, event.data.workDir)
+        return
+      }
+      // Legacy: bare href navigation requests (currently logged only).
+      if (typeof event.data.href === "string") {
+        console.log("[Multica_embed] navigate request:", event.data.href)
+      }
     }
 
     if (event.data.type === "multica:ready") {
