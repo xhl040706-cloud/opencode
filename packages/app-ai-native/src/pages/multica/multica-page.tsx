@@ -1,10 +1,13 @@
 import { createSignal, onMount, onCleanup } from "solid-js"
 import { useNavigate } from "@solidjs/router"
 import { showToast } from "@opencode-ai/ui/toast"
+import type { Session } from "@opencode-ai/sdk/v2/client"
 import { useAuth } from "@/context/auth"
 import { useLanguage } from "@/context/language"
-import { workspaceApi } from "@/pages/workspace/lib/api"
-import { pickLandingWorkspaceId } from "./resolve-workspace-by-dir"
+import { workspaceApi, deviceApi } from "@/pages/workspace/lib/api"
+import { getProxyUrl } from "@/pages/workspace/lib/url"
+import { createDeviceClient } from "@/client/device-client"
+import { openSessionById } from "./open-session-by-id"
 
 function getMulticaUrl(): string {
   // Runtime-configurable via env; falls back to a sensible default.
@@ -44,36 +47,40 @@ export default function MulticaPage() {
     setHasError(true)
   }
 
-  // Open a csc session in its CoStrict workspace. multica only knows the
-  // session id and the working directory; we resolve which workspace owns that
-  // directory here, then deep-link into the session viewer.
-  // Open a csc session by id. multica reports the session id (and, when known,
-  // the working directory). We open the session directly — the session view
-  // loads its content on demand — and only use workDir as a hint to pick which
-  // workspace to land in.
-  const openSessionInWorkspace = async (sessionId: string, workDir?: string) => {
-    if (!sessionId) return
-    try {
-      const { workspaces } = await workspaceApi.list()
-      const workspaceId = pickLandingWorkspaceId(workspaces, workDir)
-      if (!workspaceId) {
+  // Open a csc session by id. multica reports only the session id; the session
+  // lives in an isolated working dir that belongs to no workspace, so we probe
+  // the user's devices to find which one has it, then reuse or create a
+  // workspace on that device and deep-link into the session viewer.
+  const openSession = (sessionId: string) =>
+    openSessionById(sessionId, {
+      listDevices: async () => (await deviceApi.list()).devices,
+      probeSession: async (device, sid) => {
+        const client = createDeviceClient({ baseUrl: getProxyUrl(device.deviceId) })
+        const session = (await client.conversation.get(sid)) as Session | undefined
+        return session && session.id === sid ? { directory: session.directory } : null
+      },
+      listWorkspaces: async () => (await workspaceApi.list()).workspaces,
+      createWorkspace: async ({ name, deviceId, directory }) => {
+        const res = await workspaceApi.create({
+          name,
+          deviceId,
+          directories: [{ name: "default", path: directory, isDefault: true }],
+        })
+        return res.workspace.id
+      },
+      navigateToSession: (workspaceId, sid) =>
+        navigate(`/workspace/${workspaceId}?session=${encodeURIComponent(sid)}`),
+      onError: (reason) =>
         showToast({
           variant: "error",
-          title: t("toast.multica.workspaceNotFound.title"),
-          description: t("toast.multica.workspaceNotFound.description"),
-        })
-        return
-      }
-      navigate(`/workspace/${workspaceId}?session=${encodeURIComponent(sessionId)}`)
-    } catch (err) {
-      console.error("[Multica_embed] failed to open session", err)
-      showToast({
-        variant: "error",
-        title: t("toast.multica.workspaceNotFound.title"),
-        description: t("toast.multica.workspaceNotFound.description"),
-      })
-    }
-  }
+          title: t("toast.multica.openSession.title"),
+          description: t(
+            reason === "not_found"
+              ? "toast.multica.openSession.notFound"
+              : "toast.multica.openSession.failed",
+          ),
+        }),
+    })
 
   // Post-message bridge: listen for navigation requests from the
   // embedded app so we can handle deep-links back to the parent.
@@ -82,10 +89,9 @@ export default function MulticaPage() {
     if (typeof event.data !== "object" || event.data === null) return
 
     if (event.data.type === "multica:navigate") {
-      // New contract: open a csc session by id (workDir is an optional hint).
+      // New contract: open a csc session by id.
       if (event.data.target === "session" && typeof event.data.sessionId === "string") {
-        const workDir = typeof event.data.workDir === "string" ? event.data.workDir : undefined
-        void openSessionInWorkspace(event.data.sessionId, workDir)
+        void openSession(event.data.sessionId)
         return
       }
       // Legacy: bare href navigation requests (currently logged only).

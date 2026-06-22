@@ -1317,8 +1317,9 @@ export const dict = {
 
   "toast.file.loadFailed.title": "Failed to load file",
   "toast.file.listFailed.title": "Failed to list files",
-  "toast.multica.workspaceNotFound.title": "Couldn't open session",
-  "toast.multica.workspaceNotFound.description": "No workspace is available in CoStrict yet. Create one, then try again.",
+  "toast.multica.openSession.title": "Couldn't open session",
+  "toast.multica.openSession.notFound": "This session isn't on any of your online devices.",
+  "toast.multica.openSession.failed": "Failed to open the session. Please try again.",
   "file.preview.binaryUnsupported": "Preview not supported for non-text files",
   "file.preview.runtimeDisabled.title": "File content access disabled",
   "file.preview.runtimeDisabled.description": "Runtime file access has been restricted for security.",
