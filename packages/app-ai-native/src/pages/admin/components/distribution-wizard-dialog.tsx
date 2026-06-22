@@ -313,7 +313,7 @@ export function DistributionWizardDialog(props: Props) {
                           <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">
                             {user.displayName || user.name}
                           </div>
-                          <div class="truncate text-[12px] text-[var(--native-muted)]">{user.email ?? ""}</div>
+                          <div class="truncate text-[12px] text-[var(--native-muted)]">{(user as any).email ?? ""}</div>
                         </div>
                       </div>
                       <button
@@ -350,7 +350,7 @@ export function DistributionWizardDialog(props: Props) {
                           <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">
                             {user.displayName || user.name}
                           </div>
-                          <div class="truncate text-[12px] text-[var(--native-muted)]">{user.email ?? ""}</div>
+                          <div class="truncate text-[12px] text-[var(--native-muted)]">{(user as any).email ?? ""}</div>
                         </div>
                       </div>
                       <Icon name="plus-small" size="small" class="shrink-0 text-[var(--native-muted)]" />

@@ -587,7 +587,7 @@ export default function AdminPermissions() {
                         <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">
                           {u().displayName || u().name}
                         </div>
-                        <div class="truncate text-[12px] text-[var(--native-muted)]">{u().email ?? ""}</div>
+                        <div class="truncate text-[12px] text-[var(--native-muted)]">{(u() as any).email ?? ""}</div>
                       </div>
                     </div>
                     <button
@@ -625,16 +625,16 @@ export default function AdminPermissions() {
                       >
                         <div class="flex min-w-0 items-center gap-2.5">
                           <AvatarDisplay
-                            avatarUrl={u.picture}
-                            username={u.name || u.preferred_username || u.email}
+                            avatarUrl={u.avatarUrl}
+                            username={u.displayName || u.name}
                             size="1.75rem"
                             class="shrink-0"
                           />
                           <div class="min-w-0">
                             <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">
-                              {u.name || u.preferred_username}
+                              {u.displayName || u.name}
                             </div>
-                            <div class="truncate text-[12px] text-[var(--native-muted)]">{u.email}</div>
+                            <div class="truncate text-[12px] text-[var(--native-muted)]">{(u as any).email}</div>
                           </div>
                         </div>
                         <Icon name="plus-small" size="small" class="shrink-0 text-[var(--native-muted)]" />
@@ -759,10 +759,10 @@ export default function AdminPermissions() {
                   {(u) => (
                     <div class="flex items-center justify-between gap-3 rounded-[var(--native-radius-sm)] border border-[color:color-mix(in_oklab,var(--native-primary)_30%,transparent)] bg-[color:color-mix(in_oklab,var(--native-primary)_6%,transparent)] px-2.5 py-2">
                       <div class="flex min-w-0 items-center gap-2.5">
-                        <AvatarDisplay avatarUrl={u().picture} username={u().name || u().preferred_username || u().email} size="1.75rem" class="shrink-0" />
+                        <AvatarDisplay avatarUrl={u().avatarUrl} username={u().displayName || u().name} size="1.75rem" class="shrink-0" />
                         <div class="min-w-0">
-                          <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">{u().name || u().preferred_username}</div>
-                          <div class="truncate text-[12px] text-[var(--native-muted)]">{u().email ?? ""}</div>
+                          <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">{u().displayName || u().name}</div>
+                          <div class="truncate text-[12px] text-[var(--native-muted)]">{(u() as any).email ?? ""}</div>
                         </div>
                       </div>
                       <button
@@ -790,10 +790,10 @@ export default function AdminPermissions() {
                           onClick={() => setGrants({ selectedUser: u, userResults: [], userQuery: "" })}
                         >
                           <div class="flex min-w-0 items-center gap-2.5">
-                            <AvatarDisplay avatarUrl={u.picture} username={u.name || u.preferred_username || u.email} size="1.75rem" class="shrink-0" />
+                            <AvatarDisplay avatarUrl={u.avatarUrl} username={u.displayName || u.name} size="1.75rem" class="shrink-0" />
                             <div class="min-w-0">
-                              <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">{u.name || u.preferred_username}</div>
-                              <div class="truncate text-[12px] text-[var(--native-muted)]">{u.email}</div>
+                              <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">{u.displayName || u.name}</div>
+                              <div class="truncate text-[12px] text-[var(--native-muted)]">{(u as any).email}</div>
                             </div>
                           </div>
                           <Icon name="plus-small" size="small" class="shrink-0 text-[var(--native-muted)]" />
