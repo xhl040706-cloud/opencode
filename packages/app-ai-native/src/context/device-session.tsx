@@ -27,6 +27,19 @@ export type TaskState = {
   endTime?: number
 }
 
+// ── Session Channel Gatekeeper ──
+// Prevents SSE and loadMessages from racing by tracking per-session
+// streaming state. During streaming only SSE writes; after stream ends
+// a single atomic loadMessages replaces the session data.
+
+type SessionChannel =
+  | { mode: "idle" }
+  | { mode: "streaming" }
+  | { mode: "reconciling"; cached: { messages: object[]; parts: Record<string, object[]> } }
+
+const sessionChannels = new Map<string, SessionChannel>()
+const RECONCILE_DELAY = 2000
+
 type SessionSlice = {
   session: Session | undefined
   messages: Record<string, Message[]>
@@ -87,7 +100,6 @@ type DeviceSessionValue = {
   reconcileMessages: (sessionID: string) => Promise<void>
   diff: (sessionID: string) => Promise<void>
   todo: (sessionID: string) => Promise<void>
-  isUpdating: (messageID: string) => boolean
   optimistic: {
     add(input: { sessionID: string; message: Message; parts: Part[] }): void
     remove(input: { sessionID: string; messageID: string }): void
@@ -115,6 +127,8 @@ type DeviceSessionValue = {
 }
 
 const MESSAGE_PAGE_SIZE = 50
+const MESSAGE_INITIAL_LIMIT = 100
+const MESSAGE_INCREMENTAL_LIMIT = 20
 const idle: SessionStatus = { type: "idle" }
 
 // ── Shared Store Context ──
@@ -193,8 +207,27 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
   })
 
   const inflight = new Map<string, Promise<void>>()
-  const updatingMessages = new Set<string>()
-  const updatingParts = new Map<string, Set<string>>()
+  const loadingSessions = new Set<string>()
+
+  const reconcileTimer = new Map<string, ReturnType<typeof setTimeout>>()
+
+  const scheduleReconcile = (sessionID: string) => {
+    const existing = reconcileTimer.get(sessionID)
+    if (existing) clearTimeout(existing)
+    const timer = setTimeout(() => {
+      reconcileTimer.delete(sessionID)
+      loadMessages(sessionID)
+    }, RECONCILE_DELAY)
+    reconcileTimer.set(sessionID, timer)
+  }
+
+  const cancelReconcile = (sessionID: string) => {
+    const existing = reconcileTimer.get(sessionID)
+    if (existing) {
+      clearTimeout(existing)
+      reconcileTimer.delete(sessionID)
+    }
+  }
 
   const runInflight = (key: string, task: () => Promise<void>) => {
     const pending = inflight.get(key)
@@ -207,206 +240,109 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
   const BATCH_SIZE = 10
 
   const loadMessages = async (sessionID: string, limit?: number) => {
+    // Gatekeeper: skip redundant loads during active streaming.
+    // Always allow first load (store empty) so the user sees existing messages.
+    const existingMessages = store.messages[sessionID]
+    const ch = sessionChannels.get(sessionID)
+    if (ch?.mode === "streaming" && existingMessages?.length) return
+
     return runInflight(`messages:${sessionID}`, async () => {
+      loadingSessions.add(sessionID)
+      sessionChannels.set(sessionID, { mode: "reconciling", cached: { messages: [], parts: {} } })
       try {
-        const result = await device.client.conversation.messages(sessionID, { limit: limit ?? MESSAGE_PAGE_SIZE })
+        const loadLimit = limit ?? (existingMessages?.length ? MESSAGE_INCREMENTAL_LIMIT : MESSAGE_INITIAL_LIMIT)
+        const result = await device.client.conversation.messages(sessionID, { limit: loadLimit })
         if (!result) return
         const raw = Array.isArray(result) ? result : []
-        const fetched = new Map<string, { info: Message; parts?: Part[] }>()
-        const changedMessages = new Set<string>()
 
-        // Compare with existing data to detect actual changes
+        // Build lookup from API response
+        const fetched = new Map<string, { info: Message; parts?: Part[] }>()
         for (const item of raw as any[]) {
           if (!item?.info?.id) continue
-          const mid = item.info.id
-          const existingMessage = store.messages[sessionID]?.find((m) => m.id === mid)
-          const existingParts = store.parts[mid]
-
-          // Efficient comparison of message changes
-          let messageChanged = false
-          if (!existingMessage) {
-            messageChanged = true
-          } else {
-            // Compare key fields that matter for rendering
-            const newInfo = item.info
-            const m1 = existingMessage as any
-            const m2 = newInfo as any
-            messageChanged =
-              m1.content !== m2.content ||
-              m1.role !== m2.role ||
-              (m1.time?.completed ?? 0) !== (m2.time?.completed ?? 0) ||
-              m1.error !== m2.error ||
-              m1.status !== m2.status
-          }
-
-          // Compare parts changes (efficient length and content check)
-          let partsChanged = false
-          if (!existingParts) {
-            partsChanged = !!item.parts && item.parts.length > 0
-          } else if (item.parts && item.parts.length > 0) {
-            partsChanged = existingParts.length !== item.parts.length
-            if (!partsChanged) {
-              // Compare each part's key fields
-              for (let i = 0; i < item.parts.length; i++) {
-                const existingPart = existingParts[i] as any
-                const newPart = item.parts[i] as any
-                if (
-                  existingPart?.type !== newPart?.type ||
-                  existingPart?.state?.status !== newPart?.state?.status ||
-                  existingPart?.state?.output !== newPart?.state?.output
-                ) {
-                  partsChanged = true
-                  break
-                }
-              }
-            }
-          }
-
-          if (messageChanged || partsChanged) {
-            changedMessages.add(mid)
-          }
-
-          fetched.set(mid, {
+          fetched.set(item.info.id, {
             info: item.info as Message,
             parts: Array.isArray(item.parts) ? (item.parts as Part[]) : undefined,
           })
         }
 
-        // Only mark messages that actually changed as updating
-        batch(() => {
-          for (const mid of changedMessages) {
-            updatingMessages.add(mid)
-            setStore("updating", mid, true)
-          }
-        })
+        // Incremental update: preserve existing references for SolidJS <For> tracking.
+        // Only replace a message reference when its fields actually changed.
+        const currentMessages = store.messages[sessionID]
+        if (!currentMessages) {
+          const msgs = [...fetched.values()].map(d => d.info)
+          msgs.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
+          setStore("messages", sessionID, msgs)
+        } else {
+          const existing = [...currentMessages]
+          const kept = new Set(fetched.keys())
+          const next = [...existing]
+          let changed = false
 
-        batch(() => {
-          for (const [mid, data] of fetched) {
-            if (data.parts && data.parts.length > 0) {
-              const existing = store.parts[mid]
-              if (!existing || existing.length === 0) {
-                setStore("parts", mid, data.parts)
-              } else {
-                const overlap = Math.min(existing.length, data.parts.length)
-                for (let i = 0; i < overlap; i++) {
-                  const existingPart = existing[i] as any
-                  const newPart = data.parts[i] as any
-                  const existingStatus = existingPart?.state?.status
-                  const newStatus = newPart?.state?.status
-                  if (existingStatus === "running" && newStatus !== "running") {
-                    continue
-                  }
-                  if (existingStatus === "completed" && newStatus === "running") {
-                    continue
-                  }
-                  const existingOutput = existingPart?.state?.output
-                  const newOutput = newPart?.state?.output
-                  if (existingOutput && !newOutput && newStatus === "completed") {
-                    const merged = { ...newPart, state: { ...newPart.state, output: existingOutput } }
-                    setStore("parts", mid, i, merged)
-                    continue
-                  }
-                  setStore("parts", mid, i, newPart)
-                }
-                if (data.parts.length > existing.length) {
-                  for (let i = existing.length; i < data.parts.length; i++) {
-                    setStore("parts", mid, i, data.parts[i])
-                  }
-                }
-              }
+          for (let i = 0; i < next.length; i++) {
+            const data = fetched.get(next[i].id)
+            if (!data) continue
+            const cur = next[i] as any
+            const inc = data.info as any
+            if (
+              cur.content !== inc.content ||
+              cur.role !== inc.role ||
+              (cur.time?.completed ?? 0) !== (inc.time?.completed ?? 0) ||
+              cur.error !== inc.error ||
+              cur.status !== inc.status
+            ) {
+              next[i] = data.info
+              changed = true
             }
           }
-        })
 
-        const entries = [...fetched]
-        if (!store.messages[sessionID]) {
-          setStore("messages", sessionID, [])
-        }
-        for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-          const chunk = entries.slice(i, i + BATCH_SIZE)
-          batch(() => {
-            setStore("messages", sessionID, produce((draft: Message[]) => {
-              const index = new Map(draft.map((m, j) => [m.id, j]))
-              for (const [mid, data] of chunk) {
-                const idx = index.get(mid)
-                if (idx !== undefined) {
-                  const cur = draft[idx] as any
-                  const inc = data.info as any
-                  const curCompleted = cur?.time?.completed
-                  const incCompleted = inc?.time?.completed
-                  const curError = cur?.error
-                  const incError = inc?.error
-                  if (curCompleted && !incCompleted) continue
-                  if (curError && !incError) continue
+          // Append new messages
+          const existingIDs = new Set(next.map(m => m.id))
+          for (const [mid, data] of fetched) {
+            if (!existingIDs.has(mid)) {
+              // Dedup: API may return same assistant message with different ID than SSE
+              const inc = data.info
+              const dup = next.some(m =>
+                m.role === "assistant" && inc.role === "assistant" &&
+                (m as any).parentID === (inc as any).parentID &&
+                (m.content ?? "").trim() === (inc.content ?? "").trim()
+              )
+              if (dup) continue
+              next.push(data.info)
+              changed = true
+            }
+          }
 
-                  // Parts-aware: skip when current has parts but incoming doesn't (same completion state)
-                  if (curCompleted === incCompleted) {
-                    const curParts = store.parts[mid]
-                    const incParts = data.parts
-                    if (!incParts && curParts && curParts.length > 0) continue
-                  }
-                  draft[idx] = data.info
-
-                  // Preserve time.created when incoming update lacks it
-                  if (
-                    cur?.time?.created &&
-                    inc?.time && typeof inc.time === "object" && !inc.time.created
-                  ) {
-                    draft[idx] = { ...draft[idx], time: { created: cur.time.created, ...inc.time } } as Message
-                  }
-                } else {
-                  // Dedup: check if an assistant message with same parentID+timestamp already exists
-                  // (streamed path SSE ID may differ from API response ID)
-                  const incomingInfo = data.info as Record<string, unknown> | undefined
-                  let dedupIdx = -1
-                  if (incomingInfo?.role === "assistant") {
-                    const created = (incomingInfo.time as Record<string, unknown> | undefined)?.created as number | undefined
-                    if (created) {
-                      const incomingPID = incomingInfo.parentID as string | undefined
-                      for (let j = 0; j < draft.length; j++) {
-                        const m = draft[j] as Record<string, unknown>
-                        if (m.role !== "assistant") continue
-                        const mCreated = ((m.time as Record<string, unknown> | undefined)?.created as number | undefined) ?? 0
-                        if (mCreated <= 0) continue
-                        if (Math.abs(mCreated - created) >= 5000) continue
-                        // Match by parentID equality, or by time proximity alone
-                        // (SSE streamed version may lack parentID entirely)
-                        if (!incomingPID || !m.parentID || incomingPID === m.parentID) {
-                          dedupIdx = j
-                          break
-                        }
-                      }
-                    }
-                  }
-                  if (dedupIdx !== -1) {
-                    // Buffer message duplicates existing SSE entry (same parentID+time).
-                    // SSE entry has parts stored under its ID; skip buffer version
-                    // to preserve parts linkage. Buffer content is typically empty
-                    // for streamed responses (content already delivered via SSE).
-                    continue
-                  } else {
-                    draft.push(data.info)
-                  }
-                }
-              }
-              draft.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
-            }))
-          })
-          if (i + BATCH_SIZE < entries.length) {
-            await new Promise<void>(r => requestAnimationFrame(() => r()))
+          if (changed) {
+            next.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
+            setStore("messages", sessionID, next)
           }
         }
 
-        // Clear updating state only for messages that changed
-        await new Promise<void>(r => setTimeout(r, 100))
-        batch(() => {
-          for (const mid of changedMessages) {
-            updatingMessages.delete(mid)
-            setStore("updating", mid, false)
+        // Update parts
+        for (const [mid, data] of fetched) {
+          if (data.parts && data.parts.length > 0) {
+            const existing = store.parts[mid]
+            if (!existing || existing.length === 0) {
+              setStore("parts", mid, data.parts)
+            } else if (data.parts.length !== existing.length) {
+              setStore("parts", mid, data.parts)
+            }
           }
-        })
+        }
 
-      } catch {}
+        // Check if session re-entered streaming during fetch
+        const current = sessionChannels.get(sessionID)
+        if (current?.mode === "reconciling") {
+          sessionChannels.set(sessionID, { mode: "idle" })
+        }
+      } catch {
+        const current = sessionChannels.get(sessionID)
+        if (current?.mode === "reconciling") {
+          sessionChannels.set(sessionID, { mode: "idle" })
+        }
+      } finally {
+        loadingSessions.delete(sessionID)
+      }
     })
   }
 
@@ -523,6 +459,25 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
           if (!info?.id) break
           const msgSID = eventSID ?? info.sessionID
           if (!msgSID) break
+
+          // Track streaming state for gatekeeper
+          if (info.role === "assistant" && !info.time?.completed) {
+            // Assistant message without completed time → stream starting
+            const ch = sessionChannels.get(msgSID)
+            if (!ch || ch.mode === "idle") {
+              cancelReconcile(msgSID)
+              sessionChannels.set(msgSID, { mode: "streaming" })
+            }
+          } else if (info.role === "assistant" && info.time?.completed) {
+            // Assistant message with completed time → stream finished
+            const ch = sessionChannels.get(msgSID)
+            if (ch?.mode === "streaming") {
+              sessionChannels.set(msgSID, { mode: "idle" })
+              // Schedule reconciliation to pick up any deltas
+              scheduleReconcile(msgSID)
+            }
+          }
+
           if (info.role === "user" && store.errors[msgSID]) setStore("errors", msgSID, undefined as any)
           if (!store.messages[msgSID]) setStore("messages", msgSID, [])
           setStore("messages", msgSID, produce((draft: Message[]) => {
@@ -538,6 +493,8 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
               } else {
                 draft[idx] = info
               }
+            } else if (info.role === "user" || info.role === "assistant") {
+              draft.push(info)
             } else draft.push(info)
           }))
           break
@@ -767,9 +724,6 @@ export function DeviceSessionProvider(props: ParentProps<{ sessionID?: string }>
     },
     diff: store.diff,
     todo: store.todo,
-    isUpdating: (messageID: string) => {
-      return store.data.updating[messageID] ?? false
-    },
     optimistic: {
       add: store.optimisticAdd,
       remove: store.optimisticRemove,
