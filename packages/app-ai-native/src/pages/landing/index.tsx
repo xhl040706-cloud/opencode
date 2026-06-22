@@ -1,6 +1,5 @@
 import { createMemo, Show } from "solid-js"
-import { useNavigate } from "@solidjs/router"
-import { Button } from "@opencode-ai/ui/button"
+import { Button } from "@/components/ui/button"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { useAuth } from "@/context/auth"
 import { useLanguage } from "@/context/language"
@@ -9,7 +8,14 @@ import AvatarDisplay from "@/components/avatar-display"
 import { UserDropdown } from "@/components/user-menu"
 import { env } from "@/lib/env"
 
-const asset = `${(env.BASE_PATH || "").replace(/\/+$/, "")}/landing/`
+const base = (env.BASE_PATH || "").replace(/\/+$/, "")
+const asset = `${base}/landing/`
+
+function href(path: string) {
+  const root = (env.APP_URL || (typeof window === "undefined" ? "" : window.location.origin)).replace(/\/+$/, "")
+  const route = path.startsWith("/") ? path : `/${path}`
+  return `${root}${base}${route}`
+}
 
 function Logo() {
   return (
@@ -34,13 +40,15 @@ function Arrow(props: { tone?: string }) {
         "mask-image": `url('${asset}arrow.svg')`,
         "mask-repeat": "no-repeat",
         "mask-size": "100% 100%",
+        "-webkit-mask-image": `url('${asset}arrow.svg')`,
+        "-webkit-mask-repeat": "no-repeat",
+        "-webkit-mask-size": "100% 100%",
       }}
     />
   )
 }
 
 function Card(props: { icon: string; title: string; desc: string; href: string; tone?: string; full?: boolean }) {
-  const navigate = useNavigate()
   const icon = () => {
     if (!props.tone) return <img src={props.icon} alt="" class="h-[70px] w-[75px] md:h-[76px] md:w-[81px] xl:h-[70px] xl:w-[75px]" />
     return (
@@ -60,14 +68,16 @@ function Card(props: { icon: string; title: string; desc: string; href: string; 
   return (
     <button
       type="button"
-      onClick={() => navigate(props.href)}
+      onClick={() => {
+        window.location.href = props.href
+      }}
       class="group relative flex h-[274px] w-full flex-col items-start gap-6 rounded-2xl p-6 text-left shadow-[3px_4px_4px_0_rgba(163,193,223,0.25)] transition-transform duration-200 hover:-translate-y-1 sm:w-[335px] md:h-[300px] md:w-[365px] md:gap-7 md:rounded-[20px] md:p-7 xl:h-[274px] xl:w-[335px] xl:gap-6 xl:rounded-2xl xl:p-6"
       classList={{ "bg-[rgba(252,252,252,0.6)]": !props.tone, "bg-[rgba(252,252,252,0.5)]": props.tone === "warm", "bg-[rgba(252,252,252,0.7)]": props.tone === "cool" }}
     >
       {icon()}
       <div class="flex w-full items-start justify-between gap-4">
         <div class="flex max-w-[246px] flex-col gap-4 md:max-w-[270px] xl:max-w-[246px]">
-          <h2 class="m-0 whitespace-nowrap text-2xl font-semibold leading-[1.38] tracking-[-0.02em] text-black md:text-[26px] xl:text-2xl">
+          <h2 class="m-0 whitespace-nowrap text-2xl font-semibold leading-[1.38] tracking-[-0.02em] text-[#000] md:text-[26px] xl:text-2xl">
             {props.title}
           </h2>
           <p
@@ -89,37 +99,20 @@ export default function LandingHome() {
   const auth = useAuth()
   const language = useLanguage()
   const name = () => auth.user()?.name || auth.user()?.preferred_username || auth.user()?.email || ""
-  const kanban = createMemo(() => !!auth.user() && auth.canAccessMenu("kanban"))
-
-  const move = (event: PointerEvent & { currentTarget: HTMLDivElement }) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    const left = event.clientX - rect.left
-    const top = event.clientY - rect.top
-
-    event.currentTarget.style.setProperty("--bg-x", `${((left / rect.width) - 0.5) * -24}px`)
-    event.currentTarget.style.setProperty("--bg-y", `${((top / rect.height) - 0.5) * -18}px`)
-  }
+  // 效能看板入口暂时隐藏，恢复时改回 auth.canAccessMenu("kanban") 判断
+  const kanban = createMemo(() => false && !!auth.user() && auth.canAccessMenu("kanban"))
 
   return (
     <div
-      class="thin-scrollbar relative h-full overflow-x-hidden overflow-y-auto font-[var(--native-font-body)]"
-      onPointerMove={move}
-      style={{ "--bg-x": "0px", "--bg-y": "0px" }}
+      class="thin-scrollbar h-full overflow-x-hidden overflow-y-auto bg-cover bg-center bg-no-repeat font-[var(--native-font-body)]"
+      style={{ "background-image": `url('${asset}background.webp')` }}
     >
-      <div aria-hidden="true" class="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-        <div
-          class="absolute inset-[-24px] bg-cover bg-center bg-no-repeat transition-transform duration-300 ease-out"
-          style={{ "background-image": `url('${asset}background.webp')`, transform: "translate3d(var(--bg-x), var(--bg-y), 0) scale(1.04)" }}
-        />
-      </div>
-
-      <header class="relative z-10 flex w-full items-center justify-between px-6 py-5 md:px-[26px] md:py-5">
+      <header class="flex w-full items-center justify-between px-6 py-5 md:px-[26px] md:py-5">
         <Logo />
         <Show
           when={auth.user()}
           fallback={
             <Button
-              variant="primary"
               class="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_22px_-14px_rgba(89,141,240,0.9)] active:translate-y-0 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#598df0]/35 focus-visible:ring-offset-2"
               onClick={() => {
                 window.location.href = getLoginUrl()
@@ -132,7 +125,7 @@ export default function LandingHome() {
           <UserDropdown
             trigger={
               <DropdownMenu.Trigger
-                class="flex cursor-pointer items-center gap-1.5 rounded-full px-1 py-0.5 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/55 hover:shadow-[0_8px_20px_-16px_rgba(69,72,89,0.8)] active:translate-y-0 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#598df0]/35 focus-visible:ring-offset-2 outline-none"
+                class="flex cursor-pointer items-center gap-1.5 rounded-full px-1 py-0.5 transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#598df0]/35 focus-visible:ring-offset-2 outline-none"
                 aria-label={language.t("sidebar.user.menu")}
               >
                 <AvatarDisplay avatarUrl={auth.user()?.picture} username={name()} size={34} />
@@ -145,12 +138,12 @@ export default function LandingHome() {
         </Show>
       </header>
 
-      <main class="relative z-10 mx-auto flex min-h-[720px] w-full max-w-[1455px] flex-col items-center px-6 pb-12 pt-[172px] md:pt-[176px] xl:pt-[234px]">
+      <main class="mx-auto flex min-h-[720px] w-full max-w-[1455px] flex-col items-center px-6 pb-12 pt-[172px] md:pt-[176px] xl:pt-[234px]">
         <section class="flex w-full max-w-[1743px] flex-col items-center text-center [word-break:break-word]">
-          <h1 class="m-0 text-[40px] font-semibold leading-[1.5] tracking-[-1.6px] text-black md:text-[56px] md:tracking-[-2.24px]">
+          <h1 class="m-0 text-[40px] font-semibold leading-[1.5] tracking-[-1.6px] text-[#000] md:text-[56px] md:tracking-[-2.24px]">
             {language.t("landing.title")}
           </h1>
-          <p class="m-0 mt-[11px] text-[20px] font-normal leading-[1.5] tracking-[-0.8px] text-black/60 md:text-2xl md:tracking-[-0.96px]">
+          <p class="m-0 mt-[11px] text-[20px] font-normal leading-[1.5] tracking-[-0.8px] text-[rgba(0,0,0,0.6)] md:text-2xl md:tracking-[-0.96px]">
             {language.t("landing.subtitle")}
           </p>
         </section>
@@ -164,13 +157,13 @@ export default function LandingHome() {
             icon={`${asset}workspace.svg`}
             title={language.t("landing.workspace.title")}
             desc={language.t("landing.workspace.description")}
-            href="/workspace"
+            href={href("/workspace")}
           />
           <Card
             icon={`${asset}knowledge.svg`}
             title={language.t("landing.knowledge.title")}
             desc={language.t("landing.knowledge.description")}
-            href="/store"
+            href={href("/store")}
             tone="warm"
           />
           <Show when={kanban()}>
@@ -178,7 +171,7 @@ export default function LandingHome() {
               icon={`${asset}dashboard.svg`}
               title={language.t("landing.dashboard.title")}
               desc={language.t("landing.dashboard.description")}
-              href="/kanban"
+              href={href("/kanban")}
               tone="cool"
               full
             />
