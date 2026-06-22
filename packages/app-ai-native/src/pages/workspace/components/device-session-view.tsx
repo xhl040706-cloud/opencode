@@ -179,42 +179,6 @@ export function DeviceSessionView(props: {
     }
   })
 
-  let reconcileTimer: ReturnType<typeof setTimeout> | undefined
-  let wasActive = false
-
-  createEffect(() => {
-    const cid = currentSessionID()
-    if (!cid) {
-      wasActive = false
-      return
-    }
-    const active = isWorking()
-    if (wasActive && !active) {
-      if (reconcileTimer) clearTimeout(reconcileTimer)
-      const targetId = cid
-      reconcileTimer = setTimeout(() => {
-        reconcileTimer = undefined
-        if (currentSessionID() !== targetId) return
-        reconcileSessionData(targetId)
-      }, 1000)
-    }
-    wasActive = active
-  })
-
-  onCleanup(() => {
-    if (reconcileTimer) {
-      clearTimeout(reconcileTimer)
-      reconcileTimer = undefined
-    }
-  })
-
-  const reconcileSessionData = async (targetId: string) => {
-    try {
-      await chat.loadMessages(targetId)
-      requestAnimationFrame(() => resumeScroll())
-    } catch {}
-  }
-
   const effectiveParts = createMemo(() => {
     return chat.parts()
   })
@@ -427,7 +391,7 @@ export function DeviceSessionView(props: {
         string,
         Message[]
       >,
-      part: { ...parts } as Record<string, Part[]>,
+      part: parts as Record<string, Part[]>,
       partProgress: chat.partProgress(),
     }
   })
