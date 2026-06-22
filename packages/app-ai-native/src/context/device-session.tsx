@@ -304,7 +304,7 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
               const dup = next.some(m =>
                 m.role === "assistant" && inc.role === "assistant" &&
                 (m as any).parentID === (inc as any).parentID &&
-                (m.content ?? "").trim() === (inc.content ?? "").trim()
+                ((m as any).content ?? "").trim() === ((inc as any).content ?? "").trim()
               )
               if (dup) continue
               next.push(data.info)

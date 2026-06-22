@@ -548,9 +548,9 @@ export function getMockSearchedUsers(q: string): SearchedUser[] {
       return haystack.includes(query)
     })
     .map((u) => ({
-      id: u.id,
-      name: u.name,
-      avatarUrl: u.avatarUrl ?? undefined,
+      id: u.subject_id,
+      name: u.displayName || u.username,
+      avatarUrl: u.avatarUrl || undefined,
     }))
 }
 
