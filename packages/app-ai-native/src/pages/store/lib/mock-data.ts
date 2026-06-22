@@ -15,6 +15,19 @@ import type {
   DistributionResult,
   UserBasicInfo,
   SearchedUser,
+  DistributionReceipt,
+  ResourcePermission,
+  PermissionGrant,
+  AdminUser,
+  AdminUserProfile,
+  AdminOrganization,
+  AdminDept,
+  AdminDeptMember,
+  SystemNotificationChannel,
+  AdminAuditLog,
+  AdminItem,
+  AdminEnterpriseCustomer,
+  EnterpriseMember,
 } from "./api"
 
 // ---------------------------------------------------------------------------
@@ -140,12 +153,16 @@ export const MOCK_FILTER_OPTIONS: ItemFilterOptions = {
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
+// Display names mirror the admin-users seed (Chinese) so demo authorship labels
+// and role-grant search resolve consistently.
 const MOCK_USERS: Record<string, UserBasicInfo> = {
   "demo-user-001": { id: "demo-user-001", name: "Demo User", avatarUrl: "" },
-  "user-002": { id: "user-002", name: "Alice Chen", avatarUrl: "" },
-  "user-003": { id: "user-003", name: "Bob Zhang", avatarUrl: "" },
-  "user-004": { id: "user-004", name: "Carol Li", avatarUrl: "" },
-  "user-005": { id: "user-005", name: "David Wang", avatarUrl: "" },
+  "user-002": { id: "user-002", name: "陈爱丽", avatarUrl: "" },
+  "user-003": { id: "user-003", name: "张博文", avatarUrl: "" },
+  "user-004": { id: "user-004", name: "李卡罗", avatarUrl: "" },
+  "user-005": { id: "user-005", name: "王大伟", avatarUrl: "" },
+  "user-006": { id: "user-006", name: "赵艾玛", avatarUrl: "" },
+  "user-007": { id: "user-007", name: "孙弗兰克", avatarUrl: "" },
   system: { id: "system", name: "System", avatarUrl: "" },
 }
 
@@ -521,17 +538,24 @@ export function getMockUserNames(ids: string[]): Record<string, string> {
 }
 
 export function getMockSearchedUsers(q: string): SearchedUser[] {
-  const query = q.toLowerCase()
-  return Object.values(MOCK_USERS)
-    .filter((u) => u.name.toLowerCase().includes(query))
+  const query = q.trim().toLowerCase()
+  if (!query) return []
+  // Source from the richer admin-users seed so demo search mirrors the backend
+  // (which matches username / display_name / email) and resolves Chinese names.
+  return seedAdminUsers()
+    .filter((u) => {
+      const haystack = [u.displayName, u.username, u.email, u.subject_id].filter(Boolean).join(" ").toLowerCase()
+      return haystack.includes(query)
+    })
     .map((u) => ({
-      email: `${u.name.toLowerCase().replace(" ", ".")}@example.com`,
-      id: u.id,
-      name: u.name,
+      email: u.email,
+      id: u.subject_id,
+      name: u.displayName || u.username,
       owner: "demo-org",
       picture: u.avatarUrl ?? "",
-      preferred_username: u.name.toLowerCase().replace(" ", "_"),
-      sub: u.id,
+      preferred_username: u.username,
+      sub: u.subject_id,
+      subject_id: u.subject_id,
     }))
 }
 
@@ -635,5 +659,441 @@ export function getMockTags(params?: { query?: string; page?: number; pageSize?:
     page,
     pageSize,
     hasMore: start + pageSize < tags.length,
+  }
+}
+
+// ===========================================================================
+// Admin console seed data (M1 members / M2 permissions / M3 distributions /
+// M5 ops). Consumed by the in-memory stores in mock-api.ts so demo mode renders
+// real-looking data and write operations actually mutate state.
+// ===========================================================================
+
+const daysAgoIso = (d: number) => new Date(Date.now() - d * 86400000).toISOString()
+
+// ---------------------------------------------------------------------------
+// M3 · Distributions (global admin view)
+// ---------------------------------------------------------------------------
+export function seedAdminDistributions(): (DistributionResult["distribution"] & { status: string })[] {
+  const pick = (i: number) => MOCK_ITEMS[i]!
+  return [
+    {
+      id: "adist-1", itemId: pick(0).id, distributorId: "demo-user-001",
+      permissionMode: "readonly", status: "active", scopeType: "user",
+      targetId: "user-003", message: "团队代码审查规范，请大家采用",
+      createdAt: daysAgoIso(1), item: pick(0),
+    },
+    {
+      id: "adist-2", itemId: pick(1).id, distributorId: "demo-user-001",
+      permissionMode: "dismissible", status: "active", scopeType: "organization",
+      targetId: "研发一部", message: "测试用例自动生成器，提升覆盖率",
+      createdAt: daysAgoIso(3), item: pick(1),
+    },
+    {
+      id: "adist-3", itemId: pick(6).id, distributorId: "user-002",
+      permissionMode: "readonly", status: "paused", scopeType: "user",
+      targetId: "user-004", message: "PR 自动审查代理（暂停灰度中）",
+      createdAt: daysAgoIso(6), item: pick(6),
+    },
+    {
+      id: "adist-4", itemId: pick(3).id, distributorId: "demo-user-001",
+      permissionMode: "dismissible", status: "revoked", scopeType: "organization",
+      targetId: "平台架构组", message: "文档生成器（已收回，等待新版本）",
+      createdAt: daysAgoIso(12), item: pick(3),
+    },
+    {
+      id: "adist-5", itemId: pick(5).id, distributorId: "user-003",
+      permissionMode: "readonly", status: "active", scopeType: "user",
+      targetId: "user-005", message: "SQL 优化助手，慢查询必备",
+      createdAt: daysAgoIso(2), item: pick(5),
+    },
+  ]
+}
+
+// Per-distribution receipts (keyed by distribution id) for the detail drawer.
+export function seedAdminReceipts(): Record<string, DistributionReceipt[]> {
+  return {
+    "adist-1": [
+      { id: "arc-1", distributionId: "adist-1", userId: "user-003", receiptStatus: "accepted", forkedItemId: "fork-001", createdAt: daysAgoIso(1) },
+      { id: "arc-2", distributionId: "adist-1", userId: "user-004", receiptStatus: "read", createdAt: daysAgoIso(1) },
+      { id: "arc-3", distributionId: "adist-1", userId: "user-005", receiptStatus: "unread", createdAt: daysAgoIso(1) },
+    ],
+    "adist-2": [
+      { id: "arc-4", distributionId: "adist-2", userId: "user-002", receiptStatus: "accepted", createdAt: daysAgoIso(3) },
+      { id: "arc-5", distributionId: "adist-2", userId: "user-004", receiptStatus: "dismissed", createdAt: daysAgoIso(2) },
+    ],
+    "adist-3": [
+      { id: "arc-6", distributionId: "adist-3", userId: "user-004", receiptStatus: "read", createdAt: daysAgoIso(6) },
+    ],
+    "adist-5": [
+      { id: "arc-7", distributionId: "adist-5", userId: "user-005", receiptStatus: "unread", createdAt: daysAgoIso(2) },
+    ],
+  }
+}
+
+// ---------------------------------------------------------------------------
+// M2 · Resource permission matrix + per-user system roles
+// ---------------------------------------------------------------------------
+export function seedResourcePermissions(): ResourcePermission[] {
+  return [
+    { id: "rp-1", resourceCode: "repositories", resourceType: "menu", allowedRoles: [] },
+    { id: "rp-2", resourceCode: "projects", resourceType: "menu", allowedRoles: [] },
+    { id: "rp-3", resourceCode: "capabilities", resourceType: "menu", allowedRoles: ["platform_admin"] },
+    { id: "rp-4", resourceCode: "devices", resourceType: "menu", allowedRoles: [] },
+    { id: "rp-5", resourceCode: "notifications", resourceType: "menu", allowedRoles: ["platform_admin"] },
+    { id: "rp-6", resourceCode: "kanban", resourceType: "menu", allowedRoles: ["business_admin", "platform_admin"] },
+    { id: "rp-7", resourceCode: "admin", resourceType: "menu", allowedRoles: ["platform_admin"] },
+    { id: "rp-8", resourceCode: "admin.system-roles", resourceType: "api", allowedRoles: ["platform_admin"] },
+    { id: "rp-9", resourceCode: "admin.notification-channels", resourceType: "api", allowedRoles: ["platform_admin"] },
+    { id: "rp-10", resourceCode: "api.kanban.overview", resourceType: "api", allowedRoles: ["business_admin", "platform_admin"] },
+  ]
+}
+
+// Per-user system role grants, keyed by subject id.
+export function seedUserSystemRoles(): Record<string, string[]> {
+  return {
+    "demo-user-001": ["platform_admin"],
+    "user-002": ["business_admin"],
+    "user-003": [],
+    "user-004": [],
+    "user-005": ["business_admin"],
+  }
+}
+
+// Fine-grained permission grants (mentor RBAC Phase 2). Seeds the canonical
+// mentor examples so the admin "department/fine-grained grant" tab is populated
+// in demo mode:
+//   - kanban/admin  → user 邓彬 (subject_id user-009)
+//   - kanban/reader → department Costrict研发部 (dept_id 6560, the materialized
+//     dept_path lets descendants like 开发组 inherit it)
+export function seedPermissionGrants(): PermissionGrant[] {
+  const COS = "/深信服科技股份有限公司/研发体系/Costrict研发部"
+  return [
+    {
+      id: "pg-1", permissionCode: "kanban/admin", subjectType: "user",
+      subjectId: "user-009", deptPath: "", grantedBy: "demo-user-001", createdAt: daysAgoIso(2),
+    },
+    {
+      id: "pg-2", permissionCode: "kanban/reader", subjectType: "department",
+      subjectId: "6560", deptPath: COS, grantedBy: "demo-user-001", createdAt: daysAgoIso(2),
+    },
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// M1 · Members + organizations
+// ---------------------------------------------------------------------------
+export function seedAdminUsers(): AdminUser[] {
+  // universalId = Casdoor 锚定标识；user-007 故意留空以验证「无 universal_id 不可绑定」分支。
+  return [
+    {
+      subject_id: "demo-user-001", universalId: "uni-demo-001", username: "demo_user", displayName: "Demo User",
+      email: "demo@example.com", avatarUrl: "", organization: "研发一部",
+      status: "active", roles: ["platform_admin"], lastLoginAt: daysAgoIso(0), createdAt: daysAgoIso(420),
+    },
+    {
+      subject_id: "user-002", universalId: "uni-002", username: "alice.chen", displayName: "陈爱丽",
+      email: "alice.chen@example.com", avatarUrl: "", organization: "研发一部",
+      status: "active", roles: ["business_admin"], lastLoginAt: daysAgoIso(1), createdAt: daysAgoIso(310),
+    },
+    {
+      subject_id: "user-003", universalId: "uni-003", username: "bob.zhang", displayName: "张博文",
+      email: "bob.zhang@example.com", avatarUrl: "", organization: "研发二部",
+      status: "active", roles: [], lastLoginAt: daysAgoIso(2), createdAt: daysAgoIso(260),
+    },
+    {
+      subject_id: "user-004", universalId: "uni-004", username: "carol.li", displayName: "李卡罗",
+      email: "carol.li@example.com", avatarUrl: "", organization: "平台架构组",
+      status: "disabled", roles: [], lastLoginAt: daysAgoIso(45), createdAt: daysAgoIso(190),
+    },
+    {
+      subject_id: "user-005", universalId: "uni-005", username: "david.wang", displayName: "王大伟",
+      email: "david.wang@example.com", avatarUrl: "", organization: "研发二部",
+      status: "active", roles: ["business_admin"], lastLoginAt: daysAgoIso(0), createdAt: daysAgoIso(150),
+    },
+    {
+      subject_id: "user-006", universalId: "uni-006", username: "emma.zhao", displayName: "赵艾玛",
+      email: "emma.zhao@example.com", avatarUrl: "", organization: "平台架构组",
+      status: "banned", roles: [], lastLoginAt: daysAgoIso(90), createdAt: daysAgoIso(120),
+    },
+    {
+      subject_id: "user-007", universalId: "", username: "frank.sun", displayName: "孙弗兰克",
+      email: "frank.sun@example.com", avatarUrl: "", organization: "研发一部",
+      status: "active", roles: [], lastLoginAt: daysAgoIso(5), createdAt: daysAgoIso(80),
+    },
+  ]
+}
+
+const ADMIN_USER_PROFILES: Record<string, AdminUserProfile> = {
+  "demo-user-001": { createdItemCount: 8, distributedCount: 12, receivedCount: 3 },
+  "user-002": { createdItemCount: 5, distributedCount: 2, receivedCount: 6 },
+  "user-003": { createdItemCount: 3, distributedCount: 0, receivedCount: 9 },
+  "user-004": { createdItemCount: 1, distributedCount: 0, receivedCount: 2 },
+  "user-005": { createdItemCount: 4, distributedCount: 1, receivedCount: 4 },
+  "user-006": { createdItemCount: 0, distributedCount: 0, receivedCount: 1 },
+  "user-007": { createdItemCount: 2, distributedCount: 0, receivedCount: 3 },
+}
+
+export function getMockAdminUserProfile(id: string): AdminUserProfile {
+  return ADMIN_USER_PROFILES[id] ?? { createdItemCount: 0, distributedCount: 0, receivedCount: 0 }
+}
+
+export function getMockAdminOrganizations(users: AdminUser[]): AdminOrganization[] {
+  const counts = new Map<string, number>()
+  for (const u of users) {
+    if (!u.organization) continue
+    counts.set(u.organization, (counts.get(u.organization) ?? 0) + 1)
+  }
+  return [...counts.entries()].map(([organization, memberCount]) => ({ organization, memberCount }))
+}
+
+// ---------------------------------------------------------------------------
+// M1 · Department tree (dept-sync demo) — mirrors the real 深信服 org sample from
+// research/dept-sync.md so demo mode renders a believable nested tree without a
+// live dept-sync service.
+// ---------------------------------------------------------------------------
+const dept = (
+  deptId: string,
+  deptName: string,
+  deptPath: string,
+  parentDeptId: string,
+  deptLevel: number,
+  children: AdminDept[] = [],
+): AdminDept => ({
+  deptId,
+  deptName,
+  deptPath,
+  parentDeptId,
+  deptLevel,
+  childDeptCount: children.length,
+  leaderId: "",
+  orderNum: 0,
+  children: children.length ? children : undefined,
+})
+
+export function seedAdminDeptTree(): AdminDept[] {
+  const SF = "/深信服科技股份有限公司"
+  const RD = `${SF}/研发体系`
+  const ET = `${RD}/工程技术部`
+  const UEDC = `${ET}/用户体验驱动中心`
+  const AI = `${ET}/AI效能部`
+  const COS = `${RD}/Costrict研发部`
+  return [
+    dept("49", "深信服科技股份有限公司", SF, "", 1, [
+      dept("1416", "研发体系", RD, "49", 2, [
+        dept("3099", "工程技术部", ET, "1416", 3, [
+          dept("1492", "用户体验驱动中心", UEDC, "3099", 4, [
+            dept("2681", "UEDC-大安全分部", `${UEDC}/UEDC-大安全分部`, "1492", 5),
+          ]),
+          dept("5889", "AI效能部", AI, "3099", 4, [
+            dept("6652", "AI Native组", `${AI}/AI Native组`, "5889", 5),
+          ]),
+        ]),
+        dept("6560", "Costrict研发部", COS, "1416", 3, [
+          dept("6571", "开发组", `${COS}/开发组`, "6560", 4),
+          dept("6572", "客户成功组", `${COS}/客户成功组`, "6560", 4),
+        ]),
+      ]),
+    ]),
+  ]
+}
+
+// Department members keyed by dept_id. Members link back to local users (the
+// adminUsers seed) by universal id where applicable; unregistered dept-sync
+// users carry linked=null so the UI can mark them "not registered".
+const linkMember = (
+  userId: string,
+  username: string,
+  universalId: string,
+  position: string,
+  isMain: boolean,
+  local?: AdminUser,
+): AdminDeptMember => ({
+  userId,
+  username,
+  universalId,
+  isMain,
+  position,
+  registered: !!local,
+  linked: local
+    ? {
+        subjectId: local.subject_id,
+        displayName: local.displayName,
+        email: local.email,
+        avatarUrl: local.avatarUrl,
+        organization: local.organization,
+        status: local.status,
+        roles: [...local.roles],
+      }
+    : null,
+})
+
+export function getMockAdminDeptMembers(deptId: string, users: AdminUser[]): AdminDeptMember[] {
+  const byId = (id: string) => users.find((u) => u.subject_id === id)
+  switch (deptId) {
+    case "6560": // Costrict研发部
+      return [linkMember("u-wtd", "韦体东", "demo-user-001", "研发主管", true, byId("demo-user-001"))]
+    case "6571": // 开发组
+      return [
+        linkMember("u-zhj", "朱海俊", "user-002", "实习生", true, byId("user-002")),
+        linkMember("u-yhf", "杨航锋", "user-003", "开发工程师", true, byId("user-003")),
+        linkMember("u-xlm", "谢黎明", "uid-xlm", "开发工程师", true),
+        linkMember("u-yqz", "鄢桥志", "uid-yqz", "开发工程师", true),
+        linkMember("u-cx", "陈烜", "user-007", "开发工程师", true, byId("user-007")),
+      ]
+    case "6572": // 客户成功组
+      return [linkMember("u-cs1", "李成功", "user-005", "客户成功经理", true, byId("user-005"))]
+    case "6652": // AI Native组
+      return [linkMember("u-zk", "周凯", "uid-zk", "TMO", true)]
+    case "2681": // UEDC-大安全分部
+      return [linkMember("u-ux1", "赵安全", "user-004", "体验设计师", true, byId("user-004"))]
+    default:
+      return []
+  }
+}
+
+// ---------------------------------------------------------------------------
+// M5 · Ops: notification channels / settings / audit logs
+// ---------------------------------------------------------------------------
+export function seedSystemNotificationChannels(): SystemNotificationChannel[] {
+  return [
+    {
+      id: "snc-1", type: "wecom", name: "企业微信 · 全员群", workspaceId: "ws-default",
+      enabled: true, systemConfig: { webhookUrl: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=demo" },
+      createdBy: "demo-user-001", createdAt: daysAgoIso(60), updatedAt: daysAgoIso(4),
+    },
+    {
+      id: "snc-2", type: "webhook", name: "运维告警 Webhook", workspaceId: "ws-default",
+      enabled: false, systemConfig: { url: "https://hooks.example.com/admin-alerts", secret: "demo-secret" },
+      createdBy: "demo-user-001", createdAt: daysAgoIso(30), updatedAt: daysAgoIso(30),
+    },
+  ]
+}
+
+export function seedSystemSettings(): Record<string, unknown> {
+  return {
+    maintenance_mode: false,
+    announcement_enabled: true,
+  }
+}
+
+export function seedAuditLogs(): AdminAuditLog[] {
+  return [
+    { id: "al-1", actorId: "demo-user-001", action: "enterprise.create", targetType: "enterprise_customer", targetId: "ent-招商银行", payload: { name: "招商银行", ids: 3 }, createdAt: daysAgoIso(0) },
+    { id: "al-2", actorId: "demo-user-001", action: "system_role.grant", targetType: "user", targetId: "user-002", payload: { role: "business_admin" }, createdAt: daysAgoIso(1) },
+    { id: "al-3", actorId: "user-005", action: "distribution.create", targetType: "distribution", targetId: "adist-5", payload: { item: "SQL Optimizer", recipients: 1 }, createdAt: daysAgoIso(2) },
+    { id: "al-4", actorId: "demo-user-001", action: "resource_permission.update", targetType: "resource_permission", targetId: "kanban", payload: { allowedRoles: ["business_admin", "platform_admin"] }, createdAt: daysAgoIso(3) },
+    { id: "al-5", actorId: "demo-user-001", action: "setting.update", targetType: "setting", targetId: "announcement_enabled", payload: { value: true }, createdAt: daysAgoIso(4) },
+    { id: "al-6", actorId: "demo-user-001", action: "notification_channel.update", targetType: "notification_channel", targetId: "snc-1", payload: { enabled: true }, createdAt: daysAgoIso(5) },
+    { id: "al-7", actorId: "demo-user-001", action: "announcement.send", targetType: "announcement", targetId: "broadcast", payload: { scope: "all", sentCount: 128 }, createdAt: daysAgoIso(6) },
+    { id: "al-8", actorId: "user-002", action: "distribution.revoke", targetType: "distribution", targetId: "adist-4", payload: { reason: "等待新版本" }, createdAt: daysAgoIso(12) },
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// M6 · Content management: cross-registry capability items
+// ---------------------------------------------------------------------------
+export function seedAdminItems(): AdminItem[] {
+  return [
+    {
+      id: "aitem-1", name: "Code Reviewer", itemType: "skill", status: "active",
+      securityStatus: "clean", experienceScore: 4.8, createdBy: "user-002",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(1), createdAt: daysAgoIso(180),
+    },
+    {
+      id: "aitem-2", name: "SQL Optimizer", itemType: "skill", status: "active",
+      securityStatus: "low", experienceScore: 4.2, createdBy: "user-003",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(2), createdAt: daysAgoIso(150),
+    },
+    {
+      id: "aitem-3", name: "Deployment Agent", itemType: "subagent", status: "active",
+      securityStatus: "medium", experienceScore: 3.9, createdBy: "user-004",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(3), createdAt: daysAgoIso(120),
+    },
+    {
+      id: "aitem-4", name: "Shell Runner", itemType: "command", status: "active",
+      securityStatus: "high", experienceScore: 2.6, createdBy: "user-005",
+      registryId: "reg-team", repoName: "研发一部", updatedAt: daysAgoIso(4), createdAt: daysAgoIso(90),
+    },
+    {
+      id: "aitem-5", name: "Crypto Miner Helper", itemType: "plugin", status: "archived",
+      securityStatus: "extreme", experienceScore: 1.1, createdBy: "user-006",
+      registryId: "reg-team", repoName: "研发一部", updatedAt: daysAgoIso(8), createdAt: daysAgoIso(70),
+    },
+    {
+      id: "aitem-6", name: "Filesystem MCP", itemType: "mcp", status: "active",
+      securityStatus: "clean", experienceScore: 4.5, createdBy: "demo-user-001",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(5), createdAt: daysAgoIso(60),
+    },
+    {
+      id: "aitem-7", name: "Legacy Doc Writer", itemType: "skill", status: "archived",
+      securityStatus: "unscanned", experienceScore: 0, createdBy: "user-007",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(40), createdAt: daysAgoIso(220),
+    },
+    {
+      id: "aitem-8", name: "API Designer", itemType: "skill", status: "active",
+      securityStatus: "clean", experienceScore: 4.6, createdBy: "demo-user-001",
+      registryId: "reg-public", repoName: "公共商店", updatedAt: daysAgoIso(6), createdAt: daysAgoIso(45),
+    },
+  ]
+}
+
+// Coarse security-risk groups understood by the demo content list filter,
+// mirroring the backend securityStatusGroups expansion.
+export const ADMIN_ITEM_SECURITY_GROUPS: Record<string, string[]> = {
+  unknown: ["unscanned", "pending", "scanning", "error", "skipped"],
+  low: ["clean", "low"],
+  medium: ["medium"],
+  high: ["high", "extreme"],
+}
+
+// ---------------------------------------------------------------------------
+// M4 · Enterprise customers (大客户) — demo seed + admin-shape resolver.
+// The demo store keeps customers anchored on universal_id (matching the real
+// backend); resolveAdminEnterprise() enriches each universal_id into a member
+// row by looking it up in the seeded admin user roster. A universal_id with no
+// local user yields subjectId="" so the UI can mark it "not registered".
+// ---------------------------------------------------------------------------
+
+// 1×1 transparent PNG data URI — a valid image/png logo for demo seeds.
+const DEMO_LOGO =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+
+export type DemoEnterpriseCustomer = { id: string; name: string; logo: string; ids: string[] }
+
+export function seedEnterpriseCustomers(): DemoEnterpriseCustomer[] {
+  return [
+    { id: "ent-001", name: "招商银行", logo: DEMO_LOGO, ids: ["uni-002", "uni-003"] },
+    // Bound to uni-006 (a local user) + uni-unknown-001 (not yet a local user → unregistered).
+    { id: "ent-002", name: "工商银行", logo: DEMO_LOGO, ids: ["uni-006", "uni-unknown-001"] },
+  ]
+}
+
+// Resolve a universal_id list into the admin-shape member roster (one entry per id,
+// order-stable), enriching from the seeded admin user roster when possible.
+export function resolveEnterpriseMembers(universalIds: string[]): EnterpriseMember[] {
+  // Skip users whose universalId is empty (e.g. frank.sun) when building the lookup map, and
+  // never look up an empty-string uid below — otherwise an empty input id would collide with the
+  // empty-string key and wrongly enrich that slot. Mirrors the real backend ResolveMembersBatch,
+  // which drops empty universal_ids and leaves unresolved members with an empty subjectId.
+  const byUniversal = new Map(seedAdminUsers().filter((u) => u.universalId).map((u) => [u.universalId, u]))
+  return universalIds.map((uid) => {
+    const u = uid ? byUniversal.get(uid) : undefined
+    return {
+      universalId: uid,
+      subjectId: u?.subject_id ?? "",
+      username: u?.username ?? "",
+      displayName: u?.displayName ?? "",
+      avatarUrl: u?.avatarUrl ?? "",
+    }
+  })
+}
+
+export function toAdminEnterprise(c: DemoEnterpriseCustomer): AdminEnterpriseCustomer {
+  return {
+    id: c.id,
+    name: c.name,
+    logo: c.logo,
+    universalIds: [...c.ids],
+    members: resolveEnterpriseMembers(c.ids),
   }
 }

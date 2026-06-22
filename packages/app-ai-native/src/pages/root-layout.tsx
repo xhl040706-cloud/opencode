@@ -132,6 +132,11 @@ export default function RootLayout(props: ParentProps) {
     return path === "/console" || path.startsWith("/console/")
   }
 
+  const isAdmin = () => {
+    const path = appPathname()
+    return path === "/admin" || path.startsWith("/admin/")
+  }
+
   const isMultica = () => {
     const path = appPathname()
     return path === "/multica"
@@ -177,6 +182,14 @@ export default function RootLayout(props: ParentProps) {
           </nav>
           <div class="mt-auto flex flex-col gap-2">
             <UserButton />
+            <Show when={auth.canAccessMenu("admin")}>
+              <NavButton
+                label={language.t("sidebar.admin")}
+                active={isAdmin()}
+                onClick={() => navigate("/admin")}
+                node={<Icon name="shield-2" size="normal" />}
+              />
+            </Show>
             <NavButton
               icon="configuration"
               label={language.t("sidebar.console")}

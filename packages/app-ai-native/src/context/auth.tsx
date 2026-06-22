@@ -23,7 +23,7 @@ const DEMO_USER: CasdoorUser = {
 }
 
 const DEMO_PERMISSIONS: UserPermissions = {
-  menus: ["kanban", "console"],
+  menus: ["kanban", "console", "admin"],
   apis: ["*"],
   capabilities: ["*"],
 }
