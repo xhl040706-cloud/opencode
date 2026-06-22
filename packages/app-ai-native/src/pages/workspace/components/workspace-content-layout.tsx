@@ -25,7 +25,7 @@ import { useLayout } from "@/context/layout"
 import { FilePreviewTab } from "./file-preview-tab"
 import { DiffPreviewTab } from "./diff-preview-tab"
 import { workspaceKey } from "@/lib/workspace-key"
-import { shouldRestore, activeSession } from "./workspace-content-layout-sync"
+import { shouldRestore, activeSession, sessionTabsToClose } from "./workspace-content-layout-sync"
 import FileTree from "@/components/file-tree"
 import type { FileNode } from "@opencode-ai/sdk/v2"
 import type { Session } from "@opencode-ai/sdk/v2/client"
@@ -421,6 +421,7 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
   const file = useFile()
   const diff = useDiff()
   const treePolling = useTreePolling()
+  const [sidebarSearch] = useSearchParams<{ session?: string }>()
   const [active, setActive] = createSignal<SidebarSection | undefined>("sessions")
   const [diffGroups, setDiffGroups] = createSignal<Record<string, boolean>>({})
   const [groups, setGroups] = createSignal<Record<string, boolean>>({ older: true })
@@ -481,9 +482,10 @@ function ContentSidebar(props: { directory: string; autoExpandGroup?: () => { gr
     for (const sid of live) {
       tabStore.confirmSession(sid)
     }
-    const ids = tabStore.tabs()
-      .filter((tab) => tab.kind === "session" && tab.meta?.sessionID && !live.has(tab.meta.sessionID) && !tabStore.isPendingSession(tab.meta.sessionID))
-      .map((tab) => tab.id)
+    // Never prune the session the URL currently points at — a deep-linked
+    // session can live outside this workspace's directory and so won't appear
+    // in `live`; closing it would drop the session being viewed.
+    const ids = sessionTabsToClose(tabStore.tabs(), live, sidebarSearch.session, tabStore.isPendingSession)
     if (ids.length === 0) return
     ids.forEach(tabStore.close)
   })
