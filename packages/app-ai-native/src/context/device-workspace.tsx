@@ -20,6 +20,12 @@ function groupBy<T extends { id?: string; sessionID?: string }>(items: T[]): Rec
   return map
 }
 
+function arr<T>(res: unknown, key?: string): T[] {
+  if (Array.isArray(res)) return res as T[]
+  if (key && res && typeof res === "object" && Array.isArray((res as any)[key])) return (res as any)[key] as T[]
+  return []
+}
+
 type WorkspaceData = {
   status: "loading" | "ready" | "unavailable"
   agent: Agent[]
@@ -165,7 +171,10 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
         workspaceApi.get(props.workspaceId)
           .then((res) => {
             const val = (res?.workspace?.settings as Record<string, any>)?.autoAccept
-            if (val === true) setAutoAcceptSignal(true)
+            if (val === true) {
+              setAutoAcceptSignal(true)
+              respondAllPermissions()
+            }
           })
           .catch(() => {})
       }
@@ -191,15 +200,15 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
         setStore("sessionStatus", reconcile((sessionStatusRes as Record<string, SessionStatus>) ?? {}))
         setStore("sessionTotal", rootSessions.length)
         setStore("vcs", vcsRes as VcsInfo | undefined)
-        setStore("questions", reconcile(groupBy(Array.isArray(questionsRes) ? questionsRes : [])))
-        setStore("permissions", reconcile(groupBy(Array.isArray(permsRes) ? permsRes : [])))
+        setStore("questions", reconcile(groupBy(arr<QuestionRequest>(questionsRes))))
+        setStore("permissions", reconcile(groupBy(arr<PermissionRequest>(permsRes, "permissions"))))
         setStore("status", "ready")
         if (props.workspaceId) {
           syncSummary(props.workspaceId, {
             vcs: vcsRes as VcsInfo | undefined,
             sessionStatus: (sessionStatusRes as Record<string, SessionStatus>) ?? {},
-            questions: groupBy(Array.isArray(questionsRes) ? questionsRes : []),
-            permissions: groupBy(Array.isArray(permsRes) ? permsRes : []),
+            questions: groupBy(arr<QuestionRequest>(questionsRes)),
+            permissions: groupBy(arr<PermissionRequest>(permsRes, "permissions")),
           })
         }
       })
@@ -211,6 +220,9 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
           setStore("provider", reconcile(providerData, { key: "id" }))
         })
       })
+
+      // If auto-accept was already enabled before permissions were stored, respond now
+      if (autoAcceptSignal()) respondAllPermissions()
 
       void startEventStream()
     } catch {
@@ -306,6 +318,17 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     setStore("permissions", sessionID, produce((draft: PermissionRequest[]) => {
       draft.splice(idx, 1)
     }))
+  }
+
+  const respondAllPermissions = () => {
+    for (const [sid, list] of Object.entries(store.permissions)) {
+      if (!Array.isArray(list)) continue
+      for (const perm of list) {
+        device.client.permission.respond(perm.id, { decision: "once" }).catch(() => {
+          removePermission(sid, perm.id)
+        })
+      }
+    }
   }
 
   const fetchSessions = async (count = 10) => {
@@ -482,14 +505,14 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
       setStore("sessionStatus", reconcile((sessionStatusRes as Record<string, SessionStatus>) ?? {}))
       setStore("sessionTotal", rootSessions.length)
       setStore("vcs", vcsRes as VcsInfo | undefined)
-      setStore("questions", reconcile(groupBy(Array.isArray(questionsRes) ? questionsRes : [])))
-      setStore("permissions", reconcile(groupBy(Array.isArray(permsRes) ? permsRes : [])))
+      setStore("questions", reconcile(groupBy(arr<QuestionRequest>(questionsRes))))
+      setStore("permissions", reconcile(groupBy(arr<PermissionRequest>(permsRes, "permissions"))))
       if (props.workspaceId) {
         syncSummary(props.workspaceId, {
           vcs: vcsRes as VcsInfo | undefined,
           sessionStatus: (sessionStatusRes as Record<string, SessionStatus>) ?? {},
-          questions: groupBy(Array.isArray(questionsRes) ? questionsRes : []),
-          permissions: groupBy(Array.isArray(permsRes) ? permsRes : []),
+          questions: groupBy(arr<QuestionRequest>(questionsRes)),
+          permissions: groupBy(arr<PermissionRequest>(permsRes, "permissions")),
         })
       }
     })
