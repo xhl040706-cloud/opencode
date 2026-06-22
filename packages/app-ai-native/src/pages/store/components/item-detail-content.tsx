@@ -27,18 +27,30 @@ import { StoreIcon } from "../lib/store-icons"
 import { DistributeDialog } from "./distribute-dialog"
 import { BuiltinContentDialog } from "./builtin-content-dialog"
 import { McpConfigForm } from "./mcp-config-form"
+import { SubItemTree } from "./sub-item-tree"
 import { detectMcpFields, mcpRequiresPluginRuntime } from "../lib/mcp-config"
 import type { McpConfigStatus } from "../lib/api"
 import "@/styles/vscode-markdown.css"
 
-const TYPE_META: Record<
-  string,
-  { accent: string; bg: string; label: string; icon: "sparkles" | "brain" | "console" | "mcp" | "configuration" }
-> = {
+// Shared item-type presentation (tile color + icon + i18n label key). Consumed by the
+// detail header, the bundled "work tree" (sub-item-tree.tsx). Keys MUST stay in sync with
+// the item_type values the backend emits: skill/subagent/command/mcp/rule/template/plugin
+// (catalog/web/frontend type lists — see design.md §0). `icon` names are from
+// @opencode-ai/ui/icon; widen this union when adding a type.
+export type TypeMeta = {
+  accent: string
+  bg: string
+  label: string
+  icon: "sparkles" | "brain" | "console" | "mcp" | "configuration" | "shield" | "file-text"
+}
+
+export const TYPE_META: Record<string, TypeMeta> = {
   skill: { accent: "#ffa000", bg: "color-mix(in srgb, #ffa000 12%, var(--native-panel))", label: "store.sidebar.nav.skills", icon: "sparkles" },
   subagent: { accent: "#1670ff", bg: "color-mix(in srgb, #1670ff 12%, var(--native-panel))", label: "store.sidebar.nav.subagents", icon: "brain" },
   command: { accent: "#09b179", bg: "color-mix(in srgb, #09b179 12%, var(--native-panel))", label: "store.sidebar.nav.commands", icon: "console" },
   mcp: { accent: "#7338f9", bg: "color-mix(in srgb, #7338f9 12%, var(--native-panel))", label: "store.sidebar.nav.mcpServers", icon: "mcp" },
+  rule: { accent: "#dc2626", bg: "color-mix(in srgb, #dc2626 12%, var(--native-panel))", label: "store.sidebar.nav.rules", icon: "shield" },
+  template: { accent: "#0891b2", bg: "color-mix(in srgb, #0891b2 12%, var(--native-panel))", label: "store.sidebar.nav.templates", icon: "file-text" },
   plugin: { accent: "#EC4899", bg: "color-mix(in srgb, #EC4899 12%, var(--native-panel))", label: "store.sidebar.nav.plugins", icon: "configuration" },
 }
 
@@ -1186,31 +1198,8 @@ export default function ItemDetailContent(props: ItemDetailContentProps) {
                           </Show>
                         }
                       >
-                        <div class="space-y-2">
-                          <For each={subSkills()}>
-                            {(subSkill) => {
-                              const skillMeta = TYPE_META[subSkill.itemType] ?? TYPE_META.skill
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => openIncludedItem(subSkill.id)}
-                                  class="flex w-full items-center gap-3 rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/30 px-3 py-2 text-left transition-colors hover:border-[color:color-mix(in_oklab,var(--native-primary)_42%,var(--native-border))] hover:bg-bg-muted/50"
-                                  title={subSkill.name}
-                                >
-                                  <div
-                                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[0.375rem]"
-                                    style={{ "background-color": skillMeta.bg, color: skillMeta.accent }}
-                                  >
-                                    <Icon name={skillMeta.icon} size="small" />
-                                  </div>
-                                  <span class="min-w-0 flex-1 truncate text-[13px] font-semibold text-text-strong">
-                                    {subSkill.name}
-                                  </span>
-                                  <Icon name="chevron-right" size="small" />
-                                </button>
-                              )
-                            }}
-                          </For>
+                        <div class="rounded-[var(--native-radius-md)] border border-border-weak-base bg-bg-muted/20 py-1">
+                          <SubItemTree items={subSkills() ?? []} onSelect={openIncludedItem} />
                         </div>
                       </Show>
                     </div>

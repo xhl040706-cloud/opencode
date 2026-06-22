@@ -28,6 +28,7 @@ import { TagInput, normalizeTag } from "@/pages/console/components/tag-input"
 import { ConfirmDialog } from "@/pages/store/components/confirm-dialog"
 import { SkillWriterChatPanel } from "@/pages/console/skill-writer-chat-panel"
 import { deviceApi } from "@/pages/workspace/lib/api"
+import { buildTreeFromPaths, dedupeTreeNodes, type VirtualTreeNode } from "@/lib/virtual-tree"
 
 type ItemType = "skill" | "subagent" | "command" | "mcp" | "plugin"
 
@@ -36,15 +37,6 @@ type NamespaceOption = {
   label: string
   description: string
   visibility: "public" | "private" | "repo"
-}
-
-type VirtualTreeNode = {
-  id: string
-  name: string
-  kind: "directory" | "file"
-  path: string
-  iconPath?: string
-  children?: VirtualTreeNode[]
 }
 
 type FileContentMap = Record<string, string>
@@ -430,31 +422,6 @@ function treePathExists(nodes: VirtualTreeNode[], path: string): boolean {
   return false
 }
 
-function dedupeTreeNodes(nodes: VirtualTreeNode[]): VirtualTreeNode[] {
-  const seen = new Set<string>()
-
-  const sortNodes = (items: VirtualTreeNode[]) =>
-    [...items].sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === "directory" ? -1 : 1
-      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
-    })
-
-  const visit = (items: VirtualTreeNode[]): VirtualTreeNode[] => {
-    const result: VirtualTreeNode[] = []
-    for (const node of sortNodes(items)) {
-      if (seen.has(node.path)) continue
-      seen.add(node.path)
-      result.push({
-        ...node,
-        children: node.children ? visit(node.children) : node.children,
-      })
-    }
-    return result
-  }
-
-  return visit(nodes)
-}
-
 function isDirectoryPath(nodes: VirtualTreeNode[], path: string | null): boolean {
   if (path === null) return true
   for (const node of nodes) {
@@ -831,42 +798,6 @@ function preloadCommonLanguages() {
   ).then(() => undefined)
 
   return languagePreloadPromise
-}
-
-function buildTreeFromPaths(paths: string[]): VirtualTreeNode[] {
-  const root: VirtualTreeNode[] = []
-
-  for (const fullPath of paths) {
-    const parts = fullPath.split("/").filter(Boolean)
-    let currentLevel = root
-    let currentPath = ""
-
-    for (let i = 0; i < parts.length; i += 1) {
-      const part = parts[i]!
-      currentPath = currentPath ? `${currentPath}/${part}` : part
-      const isLast = i === parts.length - 1
-      let existing = currentLevel.find((node) => node.path === currentPath)
-
-      if (!existing) {
-        existing = {
-          id: currentPath,
-          name: part,
-          kind: isLast ? "file" : "directory",
-          path: currentPath,
-          iconPath: isLast ? part : undefined,
-          children: isLast ? undefined : [],
-        }
-        currentLevel.push(existing)
-      }
-
-      if (existing.kind === "directory") {
-        existing.children ??= []
-        currentLevel = existing.children
-      }
-    }
-  }
-
-  return root
 }
 
 async function readDirectoryFiles(files: FileList | File[]): Promise<ImportedDirectoryFiles> {
