@@ -48,3 +48,27 @@ function isPrefixDir(base: string, target: string): boolean {
   if (base === target) return true
   return target.startsWith(base + "/") || target.startsWith(base + "\\")
 }
+
+/**
+ * Pick the workspace to land in when opening a csc session by id.
+ *
+ * We open the session by its id regardless of which workspace owns it (the
+ * session view loads its content on demand), so this only chooses a sensible
+ * landing workspace:
+ *   1. the workspace whose directory owns `workDir`, when that resolves
+ *      (best — the session shows in its own workspace context);
+ *   2. otherwise the default workspace;
+ *   3. otherwise the first workspace.
+ *
+ * Returns undefined only when there are no workspaces at all.
+ */
+export function pickLandingWorkspaceId(
+  workspaces: Workspace[],
+  workDir?: string,
+): string | undefined {
+  if (!workspaces.length) return undefined
+  const matched = workDir ? resolveWorkspaceByWorkDir(workspaces, workDir) : undefined
+  if (matched) return matched
+  const fallback = workspaces.find((w) => w.isDefault) ?? workspaces[0]
+  return fallback.id
+}

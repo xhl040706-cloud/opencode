@@ -4,7 +4,7 @@ import { showToast } from "@opencode-ai/ui/toast"
 import { useAuth } from "@/context/auth"
 import { useLanguage } from "@/context/language"
 import { workspaceApi } from "@/pages/workspace/lib/api"
-import { resolveWorkspaceByWorkDir } from "./resolve-workspace-by-dir"
+import { pickLandingWorkspaceId } from "./resolve-workspace-by-dir"
 
 function getMulticaUrl(): string {
   // Runtime-configurable via env; falls back to a sensible default.
@@ -47,11 +47,15 @@ export default function MulticaPage() {
   // Open a csc session in its CoStrict workspace. multica only knows the
   // session id and the working directory; we resolve which workspace owns that
   // directory here, then deep-link into the session viewer.
-  const openSessionInWorkspace = async (sessionId: string, workDir: string) => {
-    if (!sessionId || !workDir) return
+  // Open a csc session by id. multica reports the session id (and, when known,
+  // the working directory). We open the session directly — the session view
+  // loads its content on demand — and only use workDir as a hint to pick which
+  // workspace to land in.
+  const openSessionInWorkspace = async (sessionId: string, workDir?: string) => {
+    if (!sessionId) return
     try {
       const { workspaces } = await workspaceApi.list()
-      const workspaceId = resolveWorkspaceByWorkDir(workspaces, workDir)
+      const workspaceId = pickLandingWorkspaceId(workspaces, workDir)
       if (!workspaceId) {
         showToast({
           variant: "error",
@@ -62,7 +66,7 @@ export default function MulticaPage() {
       }
       navigate(`/workspace/${workspaceId}?session=${encodeURIComponent(sessionId)}`)
     } catch (err) {
-      console.error("[Multica_embed] failed to resolve workspace for session", err)
+      console.error("[Multica_embed] failed to open session", err)
       showToast({
         variant: "error",
         title: t("toast.multica.workspaceNotFound.title"),
@@ -78,13 +82,10 @@ export default function MulticaPage() {
     if (typeof event.data !== "object" || event.data === null) return
 
     if (event.data.type === "multica:navigate") {
-      // New contract: open a csc session in its owning workspace.
-      if (
-        event.data.target === "session" &&
-        typeof event.data.sessionId === "string" &&
-        typeof event.data.workDir === "string"
-      ) {
-        void openSessionInWorkspace(event.data.sessionId, event.data.workDir)
+      // New contract: open a csc session by id (workDir is an optional hint).
+      if (event.data.target === "session" && typeof event.data.sessionId === "string") {
+        const workDir = typeof event.data.workDir === "string" ? event.data.workDir : undefined
+        void openSessionInWorkspace(event.data.sessionId, workDir)
         return
       }
       // Legacy: bare href navigation requests (currently logged only).

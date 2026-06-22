@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import { resolveWorkspaceByWorkDir } from "./resolve-workspace-by-dir"
+import { pickLandingWorkspaceId, resolveWorkspaceByWorkDir } from "./resolve-workspace-by-dir"
 import type { Workspace } from "@/pages/workspace/types"
 
-function ws(id: string, paths: string[]): Workspace {
+function ws(id: string, paths: string[], isDefault = false): Workspace {
   return {
     id,
     name: id,
     userId: "u",
-    isDefault: false,
+    isDefault,
     status: "active",
     directories: paths.map((path, i) => ({
       id: `${id}-d${i}`,
@@ -71,5 +71,31 @@ describe("resolveWorkspaceByWorkDir", () => {
       updatedAt: "",
     }
     expect(resolveWorkspaceByWorkDir([bare], "/home/user/proj")).toBeUndefined()
+  })
+})
+
+describe("pickLandingWorkspaceId", () => {
+  test("prefers the workspace owning workDir", () => {
+    const workspaces = [ws("def", ["/other"], true), ws("owner", ["/home/user/proj"])]
+    expect(pickLandingWorkspaceId(workspaces, "/home/user/proj/sub")).toBe("owner")
+  })
+
+  test("falls back to the default workspace when workDir does not match", () => {
+    const workspaces = [ws("a", ["/x"]), ws("def", ["/y"], true)]
+    expect(pickLandingWorkspaceId(workspaces, "/home/user/isolated/workdir")).toBe("def")
+  })
+
+  test("falls back to the default workspace when workDir is absent", () => {
+    const workspaces = [ws("a", ["/x"]), ws("def", ["/y"], true)]
+    expect(pickLandingWorkspaceId(workspaces)).toBe("def")
+  })
+
+  test("falls back to the first workspace when none is default", () => {
+    const workspaces = [ws("first", ["/x"]), ws("second", ["/y"])]
+    expect(pickLandingWorkspaceId(workspaces, "/no/match")).toBe("first")
+  })
+
+  test("returns undefined when there are no workspaces", () => {
+    expect(pickLandingWorkspaceId([], "/home/user/proj")).toBeUndefined()
   })
 })
