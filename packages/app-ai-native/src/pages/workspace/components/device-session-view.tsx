@@ -271,28 +271,42 @@ export function DeviceSessionView(props: {
     const raw = effectiveMessages()
     if (!raw || raw.length === 0) return raw ?? []
     const parts = effectiveParts()
+    const seen = new Set<string>()
+    const userKeys = new Set<string>()
+    const deduped = raw.filter((m) => {
+      if (seen.has(m.id)) return false
+      seen.add(m.id)
+      if (m.role === "user") {
+        const key = `${m.time?.created ?? 0}|${(m as any).agent ?? ""}`
+        if (userKeys.has(key)) return false
+        userKeys.add(key)
+      }
+      return true
+    })
     const userIDs = new Set<string>()
-    for (const m of raw) {
+    for (const m of deduped) {
       if (m.role === "user") userIDs.add(m.id)
     }
     const parentIDs = new Set<string>()
-    for (const m of raw) {
+    for (const m of deduped) {
       if (m.role === "assistant" && (m as any).parentID) parentIDs.add((m as any).parentID)
     }
     let orphanID: string | undefined
     let orphanCreated = false
-    const orphan = {
-      id: "",
-      sessionID: currentSessionID() ?? "",
-      role: "user",
-      time: { created: 0 },
-    } as any
     const enriched: any[] = []
-    for (const m of raw) {
+    for (const m of deduped) {
       if (m.role === "assistant" && m.parentID && !userIDs.has(m.parentID)) {
+        if (!orphanCreated || m.parentID !== orphanID) {
+          orphanCreated = false
+        }
         if (!orphanCreated) {
-          orphan.id = m.parentID
-          orphan.time = { created: m.time?.created ?? 0 }
+          const orphan = {
+            id: m.parentID,
+            sessionID: currentSessionID() ?? "",
+            role: "user",
+            synthetic: true,
+            time: { created: m.time?.created ?? 0 },
+          }
           orphanID = m.parentID
           enriched.push(orphan)
           userIDs.add(m.parentID)

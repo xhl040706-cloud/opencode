@@ -268,6 +268,7 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
         // Incremental update: preserve existing references for SolidJS <For> tracking.
         // Only replace a message reference when its fields actually changed.
         const currentMessages = store.messages[sessionID]
+        const dupIDs = new Set<string>()
         if (!currentMessages) {
           const msgs = [...fetched.values()].map(d => d.info)
           msgs.sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0))
@@ -299,14 +300,32 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
           const existingIDs = new Set(next.map(m => m.id))
           for (const [mid, data] of fetched) {
             if (!existingIDs.has(mid)) {
-              // Dedup: API may return same assistant message with different ID than SSE
-              const inc = data.info
-              const dup = next.some(m =>
-                m.role === "assistant" && inc.role === "assistant" &&
-                (m as any).parentID === (inc as any).parentID &&
-                ((m as any).content ?? "").trim() === ((inc as any).content ?? "").trim()
-              )
-              if (dup) continue
+              const inc = data.info as any
+              if (inc.role === "assistant") {
+                const dup = next.find(m =>
+                  m.role === "assistant" &&
+                  (m as any).parentID != null &&
+                  (m as any).parentID === inc.parentID
+                )
+                if (dup) {
+                  dupIDs.add(mid)
+                  continue
+                }
+              } else if (inc.role === "user") {
+                const dup = next.find(m => {
+                  if (m.role !== "user") return false
+                  const ex = m as any
+                  if (ex.time?.created && inc.time?.created && ex.time.created === inc.time.created) return true
+                  if (ex.content && inc.content && JSON.stringify(ex.content) === JSON.stringify(inc.content)) return true
+                  return false
+                })
+                if (dup) {
+                  const di = next.indexOf(dup)
+                  next[di] = data.info
+                  changed = true
+                  continue
+                }
+              }
               next.push(data.info)
               changed = true
             }
@@ -321,6 +340,7 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
         // Update parts
         for (const [mid, data] of fetched) {
           if (data.parts && data.parts.length > 0) {
+            if (dupIDs.has(mid)) continue
             const existing = store.parts[mid]
             if (!existing || existing.length === 0) {
               setStore("parts", mid, data.parts)
@@ -493,9 +513,27 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
               } else {
                 draft[idx] = info
               }
-            } else if (info.role === "user" || info.role === "assistant") {
-              draft.push(info)
-            } else draft.push(info)
+            } else {
+              const inc = info as any
+              const dup =
+                inc.role === "assistant" && inc.parentID
+                  ? draft.find(m => m.role === "assistant" && (m as any).parentID === inc.parentID)
+                  : inc.role === "user"
+                    ? draft.find(m => {
+                        if (m.role !== "user") return false
+                        const ex = m as any
+                        if (ex.time?.created && inc.time?.created && ex.time.created === inc.time.created) return true
+                        if (ex.content && inc.content && JSON.stringify(ex.content) === JSON.stringify(inc.content)) return true
+                        return false
+                      })
+                    : undefined
+              if (dup) {
+                const di = draft.indexOf(dup)
+                draft[di] = info
+              } else {
+                draft.push(info)
+              }
+            }
           }))
           break
         }
