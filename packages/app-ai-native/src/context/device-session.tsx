@@ -239,6 +239,15 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
 
   const BATCH_SIZE = 10
 
+  const partsFingerprint = (parts: Part[] | undefined): string => {
+    if (!parts || parts.length === 0) return ""
+    return parts
+      .filter(p => (p as any).type === "text")
+      .map(p => ((p as any).text ?? "").trim())
+      .filter(t => t.length > 0)
+      .join("\n")
+  }
+
   const loadMessages = async (sessionID: string, limit?: number) => {
     // Gatekeeper: skip redundant loads during active streaming.
     // Always allow first load (store empty) so the user sees existing messages.
@@ -301,42 +310,27 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
           for (const [mid, data] of fetched) {
             if (!existingIDs.has(mid)) {
               const inc = data.info as any
-              if (inc.role === "assistant") {
-                const dup = next.find(m =>
-                  m.role === "assistant" &&
-                  (m as any).parentID != null &&
-                  (m as any).parentID === inc.parentID
-                )
-                if (dup) {
-                  dupIDs.add(mid)
-                  continue
+              const incFP = partsFingerprint(data.parts)
+              const matchByContent = (m: Message): boolean => {
+                const ex = m as any
+                if (ex.role !== inc.role) return false
+                if (ex.role === "assistant" && inc.role === "assistant") {
+                  if (ex.parentID && inc.parentID && ex.parentID !== inc.parentID) return false
                 }
-              } else if (inc.role === "user") {
-                const dup = next.find(m => {
-                  if (m.role !== "user") return false
-                  const ex = m as any
-                  if (!ex.content) return true
-                  if (ex.time?.created && inc.time?.created && ex.time.created === inc.time.created) return true
-                  if (ex.content && inc.content && JSON.stringify(ex.content) === JSON.stringify(inc.content)) return true
-                  return false
-                })
-                if (dup) {
-                  const di = next.indexOf(dup)
-                  next[di] = data.info
-                  changed = true
-                  continue
+                if (incFP) {
+                  const exFP = partsFingerprint(store.parts[m.id])
+                  if (exFP && exFP === incFP) return true
                 }
+                return false
+              }
+              const dup = next.find(matchByContent)
+              if (dup) {
+                dupIDs.add(mid)
+                continue
               }
               next.push(data.info)
               changed = true
             }
-          }
-
-          const pruned = next.filter(m => kept.has(m.id) || (m as any).content || m.role !== "user")
-          if (pruned.length !== next.length) {
-            next.length = 0
-            next.push(...pruned)
-            changed = true
           }
 
           if (changed) {
@@ -522,26 +516,7 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
                 draft[idx] = info
               }
             } else {
-              const inc = info as any
-              const dup =
-                inc.role === "assistant" && inc.parentID
-                  ? draft.find(m => m.role === "assistant" && (m as any).parentID === inc.parentID)
-                  : inc.role === "user"
-                    ? draft.find(m => {
-                        if (m.role !== "user") return false
-                        const ex = m as any
-                        if (!ex.content) return true
-                        if (ex.time?.created && inc.time?.created && ex.time.created === inc.time.created) return true
-                        if (ex.content && inc.content && JSON.stringify(ex.content) === JSON.stringify(inc.content)) return true
-                        return false
-                      })
-                    : undefined
-              if (dup) {
-                const di = draft.indexOf(dup)
-                draft[di] = info
-              } else {
-                draft.push(info)
-              }
+              draft.push(info)
             }
           }))
           break
