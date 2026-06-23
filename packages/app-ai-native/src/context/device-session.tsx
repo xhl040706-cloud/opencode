@@ -315,6 +315,7 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
                 const dup = next.find(m => {
                   if (m.role !== "user") return false
                   const ex = m as any
+                  if (!ex.content) return true
                   if (ex.time?.created && inc.time?.created && ex.time.created === inc.time.created) return true
                   if (ex.content && inc.content && JSON.stringify(ex.content) === JSON.stringify(inc.content)) return true
                   return false
@@ -329,6 +330,13 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
               next.push(data.info)
               changed = true
             }
+          }
+
+          const pruned = next.filter(m => kept.has(m.id) || (m as any).content || m.role !== "user")
+          if (pruned.length !== next.length) {
+            next.length = 0
+            next.push(...pruned)
+            changed = true
           }
 
           if (changed) {
@@ -484,7 +492,7 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
           if (info.role === "assistant" && !info.time?.completed) {
             // Assistant message without completed time → stream starting
             const ch = sessionChannels.get(msgSID)
-            if (!ch || ch.mode === "idle") {
+            if (!ch || ch.mode === "idle" || ch.mode === "reconciling") {
               cancelReconcile(msgSID)
               sessionChannels.set(msgSID, { mode: "streaming" })
             }
@@ -522,6 +530,7 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
                     ? draft.find(m => {
                         if (m.role !== "user") return false
                         const ex = m as any
+                        if (!ex.content) return true
                         if (ex.time?.created && inc.time?.created && ex.time.created === inc.time.created) return true
                         if (ex.content && inc.content && JSON.stringify(ex.content) === JSON.stringify(inc.content)) return true
                         return false

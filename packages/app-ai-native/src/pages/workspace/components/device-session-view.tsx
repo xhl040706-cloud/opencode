@@ -272,15 +272,9 @@ export function DeviceSessionView(props: {
     if (!raw || raw.length === 0) return raw ?? []
     const parts = effectiveParts()
     const seen = new Set<string>()
-    const userKeys = new Set<string>()
     const deduped = raw.filter((m) => {
       if (seen.has(m.id)) return false
       seen.add(m.id)
-      if (m.role === "user") {
-        const key = `${m.time?.created ?? 0}|${(m as any).agent ?? ""}`
-        if (userKeys.has(key)) return false
-        userKeys.add(key)
-      }
       return true
     })
     const userIDs = new Set<string>()
