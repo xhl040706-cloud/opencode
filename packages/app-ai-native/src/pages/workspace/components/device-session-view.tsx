@@ -311,7 +311,6 @@ export function DeviceSessionView(props: {
           continue
         }
       }
-      if (m.role === "user" && !parts[m.id]?.length && !parentIDs.has(m.id)) continue
       enriched.push(m)
     }
     return enriched
