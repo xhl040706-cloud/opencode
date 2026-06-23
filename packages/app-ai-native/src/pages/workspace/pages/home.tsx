@@ -20,7 +20,7 @@ function Command(props: { id: string; value: string; copied: () => string | null
       <span class="min-w-0 flex-1 overflow-x-auto whitespace-nowrap">{props.value}</span>
       <button
         type="button"
-        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--native-ring)]"
+        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--native-radius-sm)] text-[var(--native-dim)] transition-colors hover:bg-[var(--native-primary-soft)] hover:text-[var(--native-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--native-ring)] cursor-pointer"
         onClick={() => props.copy(props.value, props.id)}
         aria-label={t("workspace.onboarding.copyCommand")}
         title={t("workspace.onboarding.copyCommand")}
@@ -31,7 +31,7 @@ function Command(props: { id: string; value: string; copied: () => string | null
   )
 }
 
-function Stepper(props: { state: State }) {
+function Stepper(props: { state: State; select: () => void }) {
   const t = useLanguage().t
   const steps = [
     {
@@ -49,7 +49,7 @@ function Stepper(props: { state: State }) {
       done: t("workspace.onboarding.step.project.done"),
     },
   ]
-  const index = () => props.state === "no-device" ? 0 : 1
+  const index = () => props.state === "no-device" ? 0 : props.state === "device-ready" ? 1 : 2
   const view = (i: number) => {
     const step = steps[i]
     const done = () => i < index()
@@ -78,16 +78,29 @@ function Stepper(props: { state: State }) {
           >
             {step.title}
           </div>
-          <div
-            class="mt-0.5 truncate text-[0.75rem]"
-            classList={{
-              "text-[var(--native-primary)]": current(),
-              "text-[var(--native-success-foreground)]": done(),
-              "text-[var(--native-muted)]": !current() && !done(),
-            }}
+          <Show
+            when={step.key === "project" && current()}
+            fallback={
+              <div
+                class="mt-0.5 truncate text-[0.75rem]"
+                classList={{
+                  "text-[var(--native-primary)]": current(),
+                  "text-[var(--native-success-foreground)]": done(),
+                  "text-[var(--native-muted)]": !current() && !done(),
+                }}
+              >
+                {done() ? step.done : current() ? step.current : step.next}
+              </div>
+            }
           >
-            {done() ? step.done : current() ? step.current : step.next}
-          </div>
+            <button
+              type="button"
+              class="mt-0.5 truncate text-[0.75rem] text-[var(--native-primary)] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--native-ring)] cursor-pointer"
+              onClick={props.select}
+            >
+              {step.current}
+            </button>
+          </Show>
         </div>
       </div>
     )
@@ -107,7 +120,13 @@ function Stepper(props: { state: State }) {
       </div>
       {view(1)}
       <div class="mt-3 hidden h-2 rounded-full bg-[color:color-mix(in_oklab,var(--native-border)_42%,transparent)] sm:block" aria-hidden="true">
-        <div class="h-full w-0 rounded-full bg-[linear-gradient(90deg,color-mix(in_oklab,#38d8d2_62%,var(--native-panel)),var(--native-primary))] transition-[width] duration-300" />
+        <div
+          class="h-full rounded-full bg-[linear-gradient(90deg,color-mix(in_oklab,#38d8d2_62%,var(--native-panel)),var(--native-primary))] transition-[width] duration-300"
+          classList={{
+            "w-0": props.state !== "workspace-ready",
+            "w-full": props.state === "workspace-ready",
+          }}
+        />
       </div>
     </div>
   )
@@ -120,7 +139,7 @@ function Help(props: { copied: () => string | null; copy: (text: string, id: str
     <div class="rounded-[3px] border border-[color:color-mix(in_oklab,var(--native-border)_26%,transparent)] bg-[color:color-mix(in_oklab,var(--native-panel)_88%,var(--native-bg-subtle))]">
       <button
         type="button"
-        class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-[0.875rem] font-medium text-[var(--native-foreground)]"
+        class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-[0.875rem] font-medium text-[var(--native-foreground)] cursor-pointer"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open()}
       >
@@ -129,7 +148,7 @@ function Help(props: { copied: () => string | null; copy: (text: string, id: str
       </button>
       <Show when={open()}>
         <div class="grid gap-3 border-t border-[color:color-mix(in_oklab,var(--native-border)_22%,transparent)] px-4 py-4">
-          <a href={installUrl} target="_blank" rel="noopener noreferrer" class="inline-flex w-fit items-center gap-1.5 text-[0.8125rem] font-medium text-[var(--native-primary)] hover:underline">
+          <a href={installUrl} target="_blank" rel="noopener noreferrer" class="inline-flex w-fit items-center gap-1.5 text-[0.8125rem] font-medium text-[var(--native-primary)] hover:underline cursor-pointer">
             {t("workspace.onboarding.help.docs")}
             <Icon name="square-arrow-top-right" />
           </a>
@@ -287,7 +306,11 @@ export default function WorkspaceHome() {
   const work = useWorkspace()
   const [copied, setCopied] = createSignal<string | null>(null)
   const [guide, setGuide] = createSignal(false)
-  const preview = () => import.meta.env.DEV && new URLSearchParams(window.location.search).get("preview") === "device-ready"
+  const preview = createMemo<State | undefined>(() => {
+    if (!import.meta.env.DEV) return
+    const value = new URLSearchParams(window.location.search).get("preview")
+    if (value === "no-device" || value === "device-ready" || value === "workspace-ready") return value
+  })
   const isShenma = typeof window !== "undefined" && window.location.origin === SHENMA_ORIGIN
   const sample: Device = {
     id: "preview-device",
@@ -300,9 +323,11 @@ export default function WorkspaceHome() {
     createdAt: new Date(0).toISOString(),
     updatedAt: new Date(0).toISOString(),
   }
-  const online = createMemo(() => preview() ? [sample] : work.devices().filter((device) => device.status === "online"))
+  const online = createMemo(() => preview() === "device-ready" ? [sample] : work.devices().filter((device) => device.status === "online"))
   const usable = createMemo(() => work.workspaces().filter((item) => item.deviceUniqueId && (item.directories?.length ?? 0) > 0))
   const state = createMemo<State>(() => {
+    const value = preview()
+    if (value) return value
     if (usable().length > 0) return "workspace-ready"
     if (online().length > 0) return "device-ready"
     return "no-device"
@@ -351,7 +376,11 @@ export default function WorkspaceHome() {
     ))
   }
   const refresh = () => {
-    window.location.reload()
+    work.refreshDevices()
+  }
+  const select = () => {
+    const device = online()[0]
+    if (device) open(device)
   }
 
   return (
@@ -366,7 +395,7 @@ export default function WorkspaceHome() {
           </p>
         </header>
 
-        <Stepper state={state()} />
+        <Stepper state={state()} select={select} />
 
         <Show when={state() === "workspace-ready"} fallback={
           <Show
@@ -398,7 +427,7 @@ export default function WorkspaceHome() {
           onClick={() => navigate("/store")}
         >
           <span>{t("workspace.onboarding.storePrefix")}</span>
-          <span class="ml-1 font-semibold text-[var(--native-primary)] hover:underline">{t("workspace.onboarding.storeLink")}</span>
+          <span class="ml-1 font-semibold text-[var(--native-primary)] hover:underline cursor-pointer">{t("workspace.onboarding.storeLink")}</span>
         </button>
       </main>
     </div>
