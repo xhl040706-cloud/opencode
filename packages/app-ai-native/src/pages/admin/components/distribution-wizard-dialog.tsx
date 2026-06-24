@@ -160,7 +160,7 @@ export function DistributionWizardDialog(props: Props) {
       store.scopeType === "user"
         ? store.selectedUsers.map((u) => ({
             scopeType: "user" as const,
-            targetId: String(u.subject_id || u.sub || u.id),
+            targetId: u.id,
           }))
         : store.selectedOrgs.map((org) => ({ scopeType: "organization" as const, targetId: org }))
 
@@ -304,16 +304,16 @@ export function DistributionWizardDialog(props: Props) {
                     <div class="flex items-center justify-between gap-3 rounded-[var(--native-radius-sm)] border border-[color:color-mix(in_oklab,var(--native-primary)_18%,transparent)] bg-[color:color-mix(in_oklab,var(--native-primary)_6%,transparent)] px-2.5 py-1.5">
                       <div class="flex min-w-0 items-center gap-2">
                         <AvatarDisplay
-                          avatarUrl={user.picture}
-                          username={user.name || user.preferred_username || user.email}
+                          avatarUrl={user.avatarUrl}
+                          username={user.displayName || user.name}
                           size="1.5rem"
                           class="shrink-0"
                         />
                         <div class="min-w-0">
                           <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">
-                            {user.name || user.preferred_username}
+                            {user.displayName || user.name}
                           </div>
-                          <div class="truncate text-[12px] text-[var(--native-muted)]">{user.email}</div>
+                          <div class="truncate text-[12px] text-[var(--native-muted)]">{(user as any).email ?? ""}</div>
                         </div>
                       </div>
                       <button
@@ -341,16 +341,16 @@ export function DistributionWizardDialog(props: Props) {
                     <button type="button" class={resultRow} onClick={() => toggleUser(user)}>
                       <div class="flex min-w-0 items-center gap-2">
                         <AvatarDisplay
-                          avatarUrl={user.picture}
-                          username={user.name || user.preferred_username || user.email}
+                          avatarUrl={user.avatarUrl}
+                          username={user.displayName || user.name}
                           size="1.5rem"
                           class="shrink-0"
                         />
                         <div class="min-w-0">
                           <div class="truncate text-[0.8125rem] text-[var(--native-foreground)]">
-                            {user.name || user.preferred_username}
+                            {user.displayName || user.name}
                           </div>
-                          <div class="truncate text-[12px] text-[var(--native-muted)]">{user.email}</div>
+                          <div class="truncate text-[12px] text-[var(--native-muted)]">{(user as any).email ?? ""}</div>
                         </div>
                       </div>
                       <Icon name="plus-small" size="small" class="shrink-0 text-[var(--native-muted)]" />
