@@ -38,7 +38,6 @@ type SessionChannel =
   | { mode: "reconciling"; cached: { messages: object[]; parts: Record<string, object[]> } }
 
 const sessionChannels = new Map<string, SessionChannel>()
-const RECONCILE_DELAY = 2000
 
 type SessionSlice = {
   session: Session | undefined
@@ -208,26 +207,6 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
 
   const inflight = new Map<string, Promise<void>>()
   const loadingSessions = new Set<string>()
-
-  const reconcileTimer = new Map<string, ReturnType<typeof setTimeout>>()
-
-  const scheduleReconcile = (sessionID: string) => {
-    const existing = reconcileTimer.get(sessionID)
-    if (existing) clearTimeout(existing)
-    const timer = setTimeout(() => {
-      reconcileTimer.delete(sessionID)
-      loadMessages(sessionID)
-    }, RECONCILE_DELAY)
-    reconcileTimer.set(sessionID, timer)
-  }
-
-  const cancelReconcile = (sessionID: string) => {
-    const existing = reconcileTimer.get(sessionID)
-    if (existing) {
-      clearTimeout(existing)
-      reconcileTimer.delete(sessionID)
-    }
-  }
 
   const runInflight = (key: string, task: () => Promise<void>) => {
     const pending = inflight.get(key)
@@ -482,21 +461,15 @@ export function DeviceSessionStoreProvider(props: ParentProps) {
           const msgSID = eventSID ?? info.sessionID
           if (!msgSID) break
 
-          // Track streaming state for gatekeeper
           if (info.role === "assistant" && !info.time?.completed) {
-            // Assistant message without completed time → stream starting
             const ch = sessionChannels.get(msgSID)
             if (!ch || ch.mode === "idle" || ch.mode === "reconciling") {
-              cancelReconcile(msgSID)
               sessionChannels.set(msgSID, { mode: "streaming" })
             }
           } else if (info.role === "assistant" && info.time?.completed) {
-            // Assistant message with completed time → stream finished
             const ch = sessionChannels.get(msgSID)
             if (ch?.mode === "streaming") {
               sessionChannels.set(msgSID, { mode: "idle" })
-              // Schedule reconciliation to pick up any deltas
-              scheduleReconcile(msgSID)
             }
           }
 
