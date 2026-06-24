@@ -324,9 +324,16 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
     for (const [sid, list] of Object.entries(store.permissions)) {
       if (!Array.isArray(list)) continue
       for (const perm of list) {
-        device.client.permission.respond(perm.id, { decision: "once" }).catch(() => {
-          removePermission(sid, perm.id)
-        })
+        device.client.permission
+          .respond(perm.id, { decision: "once" })
+          .then(() => {
+            removePermission(sid, perm.id)
+            scheduleSummarySync()
+          })
+          .catch(() => {
+            removePermission(sid, perm.id)
+            scheduleSummarySync()
+          })
       }
     }
   }
@@ -809,9 +816,18 @@ export function DeviceWorkspaceProvider(props: ParentProps<{ workspaceId?: strin
                     const added = addPermission(p)
                     if (added) summaryChanged = true
                     if (added && autoAcceptSignal()) {
-                      device.client.permission.respond(p.id, { decision: "once" }).catch(() => {
-                        removePermission(p.sessionID ?? "", p.id)
-                      })
+                      const sid = p.sessionID ?? ""
+                      const pid = p.id
+                      device.client.permission
+                        .respond(pid, { decision: "once" })
+                        .then(() => {
+                          removePermission(sid, pid)
+                          scheduleSummarySync()
+                        })
+                        .catch(() => {
+                          removePermission(sid, pid)
+                          scheduleSummarySync()
+                        })
                     }
                   }
                   break
