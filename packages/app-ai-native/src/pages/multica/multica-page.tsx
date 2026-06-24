@@ -11,7 +11,7 @@ import { openSessionById } from "./open-session-by-id"
 
 function getMulticaUrl(): string {
   // Runtime-configurable via env; falls back to a sensible default.
-  return import.meta.env.VITE_MULTICA_WEB_URL || "https://zgsmtest.cn:30443/multica-web"
+  return import.meta.env.VITE_MULTICA_WEB_URL || "https://zgsmtest.cn:30443/workflow-web"
 }
 
 export default function MulticaPage() {
