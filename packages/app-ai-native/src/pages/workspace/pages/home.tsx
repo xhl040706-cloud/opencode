@@ -252,7 +252,7 @@ function DeviceReady(props: {
     { label: t("workspace.onboarding.device.status"), value: t("workspace.device.online") },
   ]
   return (
-    <section class="rounded-[20px] bg-[linear-gradient(145deg,color-mix(in_oklab,var(--native-panel)_82%,transparent),color-mix(in_oklab,#f4fbff_54%,var(--native-panel))_60%,color-mix(in_oklab,#fff7fb_48%,var(--native-panel)))] p-5 shadow-[30px_18px_68px_-42px_color-mix(in_oklab,var(--native-primary)_28%,transparent),0_14px_40px_-30px_rgba(15,23,42,0.18)] backdrop-blur">
+    <section class="rounded-[20px] bg-[linear-gradient(145deg,color-mix(in_oklab,var(--native-panel)_82%,transparent),color-mix(in_oklab,var(--native-surface)_54%,var(--native-panel))_60%,color-mix(in_oklab,var(--native-bg-subtle)_48%,var(--native-panel)))] p-5 shadow-[30px_18px_68px_-42px_color-mix(in_oklab,var(--native-primary)_28%,transparent),0_14px_40px_-30px_color-mix(in_oklab,var(--native-foreground)_18%,transparent)] backdrop-blur">
       <div class="flex items-start gap-4">
         <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px_18px_13px_17px/17px_13px_18px_14px] bg-[var(--native-success-soft)] text-[var(--native-success-foreground)]">
           <Icon name="check" />
